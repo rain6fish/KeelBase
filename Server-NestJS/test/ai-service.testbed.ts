@@ -73,7 +73,11 @@ export function mockTool(over: Partial<AiTool> = {}): AiTool {
  * 绑定测试必须用它而非写死版本目录——否则契约升版（v1→v2 加 impact、v2→v3 加 revokeClass）后
  * 断言会盯着旧版假绿/假红。
  */
-export function wiredSchema(objectId: string): { $id: string; properties: Record<string, unknown> } {
+export function wiredSchema(objectId: string): {
+  $id: string;
+  properties: Record<string, unknown>;
+  definitions?: Record<string, unknown>;
+} {
   const registry = JSON.parse(readFileSync(resolve(SPECS_ROOT, 'wire-schema-registry-v2.json'), 'utf8')) as {
     schemasDir: string;
     objects: Array<{ id: string; version: string; schema: string }>;
@@ -88,8 +92,13 @@ export function wiredSchema(objectId: string): { $id: string; properties: Record
     const parsed = JSON.parse(readFileSync(path, 'utf8')) as {
       $id?: string;
       properties?: Record<string, unknown>;
+      definitions?: Record<string, unknown>;
     };
-    return { $id: parsed.$id ?? entry.schema, properties: parsed.properties ?? {} };
+    return {
+      $id: parsed.$id ?? entry.schema,
+      properties: parsed.properties ?? {},
+      definitions: parsed.definitions,
+    };
   }
   throw new Error(`未找到 ${objectId} 的 schema（registry $id=${entry.schema}，目录 ${entry.version}）`);
 }

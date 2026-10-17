@@ -321,11 +321,26 @@ beforeEach(installAiServiceTestbed);
       ).toBe(true);
       // ② 绑定：run 聚合确认请求键集 ⊆ confirmation-request **当前契约**（版本随 registry，
       // 升版自动跟随：v1→v2 加 impact、v2→v3 加 revokeClass 都在此生效）
-      const cr = wiredSchema('confirmation-request').properties as Record<string, unknown> & {
+      const crSchema = wiredSchema('confirmation-request');
+      const cr = crSchema.properties as Record<string, unknown> & {
         run: { properties: { items: { items: { properties: Record<string, unknown> } } } };
       };
       expect(Object.keys(req).filter((k) => !(k in cr))).toEqual([]);
       expect(Object.keys(req.run.items[0]).filter((k) => !(k in cr.run.properties.items.items.properties))).toEqual([]);
+      // CONF-4：契约把 `summary` 声明为对象（PresentationText），两处一致 —— 此前只比键集，
+      // 声明是 string、实现发对象也不会红。这条绑定在 v3 上会直接红（v3 无 definitions）。
+      const summaryProp = (cr as Record<string, any>).summary;
+      const summaryDef =
+        summaryProp?.$ref === '#/definitions/presentationText'
+          ? (crSchema.definitions?.presentationText as Record<string, any>)
+          : summaryProp;
+      expect(summaryDef.type).toBe('object');
+      expect(summaryDef.required).toEqual(expect.arrayContaining(['key', 'fallback']));
+      expect(summaryDef.additionalProperties).toBe(false);
+      expect((cr.run.properties.items.items.properties as Record<string, any>).summary.$ref).toBe(
+        '#/definitions/presentationText',
+      );
+      expect(Object.keys(req.run.items[0].summary).filter((k) => !(k in summaryDef.properties))).toEqual([]);
       // §22.17 ④ 影响预览 v1.1：撤销口径逐条随载荷（create_event / create_todo 均为确认写 → local_compensate）
       expect((req?.run?.items ?? []).map((i: any) => i.revokeClass)).toEqual([
         'local_compensate',

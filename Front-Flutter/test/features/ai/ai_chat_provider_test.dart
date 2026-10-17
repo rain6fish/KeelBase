@@ -113,7 +113,11 @@ void main() {
             'confirmation': {
               'token': 'tok-1',
               'toolName': 'create_event',
-              'summary': '创建事件：评审（明天 9:00）',
+              'summary': {
+                'key': 'ai.present.write.createEvent',
+                'fallback': 'Create event: 评审 (明天 9:00 – 明天 10:00)',
+                'params': {'title': '评审', 'startTime': '明天 9:00', 'endTime': '明天 10:00'},
+              },
               'arguments': {'title': '评审'},
             },
           },
@@ -126,7 +130,7 @@ void main() {
 
       expect(provider.currentConfirmation, isNotNull);
       expect(provider.currentConfirmation!.token, 'tok-1');
-      expect(provider.currentConfirmation!.summary!.fallback, contains('创建事件'));
+      expect(provider.currentConfirmation!.summary!.fallback, contains('Create event'));
       expect(provider.messages.last.pendingConfirmation, isNotNull);
 
       when(() => api.post('/ai/confirmations/tok-1', data: {'decision': 'approve'}))
@@ -150,7 +154,11 @@ void main() {
             'confirmation': {
               'token': 'tok-2',
               'toolName': 'create_todo',
-              'summary': '创建待办：买牛奶',
+              'summary': {
+                'key': 'ai.present.write.createTodo',
+                'fallback': 'Create todo: 买牛奶',
+                'params': {'title': '买牛奶'},
+              },
               'arguments': {'title': '买牛奶'},
             },
           },
@@ -182,15 +190,22 @@ void main() {
             'confirmation': {
               'token': 'run-1',
               'toolName': 'run',
-              'summary': '',
               'arguments': <String, dynamic>{},
               'mode': 'run',
               'run': {
                 'runId': 'run-1',
                 'riskLevel': 'R4',
                 'items': [
-                  {'toolName': 'create_event', 'summary': '创建事件：A', 'riskLevel': 'R3'},
-                  {'toolName': 'create_todo', 'summary': '创建待办：B', 'riskLevel': 'R3'},
+                  {
+                    'toolName': 'create_event',
+                    'summary': {'key': 'ai.present.write.createEvent', 'fallback': 'Create event: A', 'params': {'title': 'A'}},
+                    'riskLevel': 'R3',
+                  },
+                  {
+                    'toolName': 'create_todo',
+                    'summary': {'key': 'ai.present.write.createTodo', 'fallback': 'Create todo: B', 'params': {'title': 'B'}},
+                    'riskLevel': 'R3',
+                  },
                 ],
               },
             },
@@ -205,7 +220,7 @@ void main() {
       final conf = provider.currentConfirmation!;
       expect(conf.isRun, isTrue);
       expect(conf.runItems, hasLength(2));
-      expect(conf.runItems.first.summary!.fallback, '创建事件：A');
+      expect(conf.runItems.first.summary!.fallback, 'Create event: A');
       expect(conf.runRisk, 'R4'); // spec §2.2/§2.5：批级最高风险随卡下发
 
       gate.complete();
@@ -223,7 +238,6 @@ void main() {
             'confirmation': {
               'token': 'run-2',
               'toolName': 'run',
-              'summary': '',
               'arguments': <String, dynamic>{},
               'mode': 'run',
               'run': {'runId': 'run-2', 'riskLevel': 'R3', 'items': <dynamic>[]},
@@ -309,7 +323,7 @@ void main() {
       when(() => sse.postStream('/ai/chat/stream', body: any(named: 'body')))
           .thenAnswer((_) => Stream.fromIterable([
                 {'type': 'tool_start', 'data': {'type': 'tool_start', 'toolStart': {'name': 'create_event', 'summary': '创建事件：评审'}}},
-                {'type': 'confirmation_request', 'data': {'type': 'confirmation_request', 'confirmation': {'token': 'tok-1', 'toolName': 'create_event', 'summary': '创建事件：评审', 'arguments': {}}}},
+                {'type': 'confirmation_request', 'data': {'type': 'confirmation_request', 'confirmation': {'token': 'tok-1', 'toolName': 'create_event', 'summary': {'key': 'ai.present.write.createEvent', 'fallback': 'Create event: 评审', 'params': {'title': '评审'}}, 'arguments': {}}}},
                 {'type': 'confirmation_decision', 'data': {'type': 'confirmation_decision', 'confirmationDecision': {'toolName': 'create_event', 'approved': false}}},
                 {'type': 'tool_end', 'data': {'type': 'tool_end', 'toolEnd': {'name': 'create_event', 'success': false, 'summary': '操作已取消'}}},
                 {'type': 'text', 'data': {'type': 'text', 'content': '好的，不创建了'}},

@@ -85,7 +85,11 @@ void main() {
           'confirmation': {
             'token': 'tok-1',
             'toolName': 'create_event',
-            'summary': '创建事件：评审（明天 9:00）',
+            'summary': {
+              'key': 'ai.present.write.createEvent',
+              'fallback': 'Create event: 评审 (明天 9:00 – 明天 10:00)',
+              'params': {'title': '评审', 'startTime': '明天 9:00', 'endTime': '明天 10:00'},
+            },
             'arguments': {'title': '评审'},
           },
         },
@@ -101,7 +105,7 @@ void main() {
 
     // 确认卡渲染
     expect(find.text('确认操作'), findsOneWidget);
-    expect(find.text('创建事件：评审（明天 9:00）'), findsOneWidget);
+    expect(find.text('创建事件：评审（明天 9:00 至 明天 10:00）'), findsOneWidget);
 
     // 点确认 → 调用后端
     await tester.tap(find.text('确认'));
