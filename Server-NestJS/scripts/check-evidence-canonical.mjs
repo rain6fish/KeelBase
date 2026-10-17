@@ -65,7 +65,13 @@ function directKeys(body, file) {
     if (direct) { keys.push(direct[1]); continue; }
     if (/^\s*\.\.\./.test(line)) {
       // `...(cond ? { key: value } : {})` — the conditional spread's key still occupies a slot.
+      // `/4` writes `coverage` as `...(isV4 ? { coverage: ev.coverage } : {})` rather than
+      // `...(ev.coverage ? …)`, so a pattern that only knows the latter misses it and the derived key
+      // order comes up short. Take the key out of the conditional object too.
+      //
       // `...(cond ? { key: value } : {})` —— 条件 spread 的键同样占一个位置。
+      // `/4` 把 `coverage` 写成 `...(isV4 ? { coverage: ev.coverage } : {})`，而不是 `...(ev.coverage ? …)`；
+      // 只认得后者的写法会漏掉它，推导出的键序便短一截。故这里也从条件对象里取一次键。
       const conditional = line.match(/\{\s*([A-Za-z_$][\w$]*)\s*:/);
       if (conditional) { keys.push(conditional[1]); continue; }
       throw new Error(`${file} 有一处 spread 推导不出键名：${line.trim()}`);
