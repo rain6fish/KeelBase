@@ -274,6 +274,22 @@ All endpoints are prefixed with `/api/v1` and inherit the global JwtAuthGuard.
 > the ARC-5 case: re-point the tool after issuance → the execution is refused). Storing an audience on the run row
 > would give it no reader and would write an assumption into the data that does not hold — that one group has one
 > destination.
+>
+> **CONF-3 — the row also pins what the user _saw_**: the summary is a deterministic function of tool name + args
+> and both clients render the raw args too, so recomputing from a stored row after a renderer/translation change
+> would show *today's* rendering rather than the one that was approved. The row therefore records `render_hash`
+> (SHA-256 over the canonical payload emitted at issue time: tool name + presentation text + arguments) and
+> `render_version` (the renderer generation that produced it). The rendered text itself is **not** stored. A later
+> reader recomputes from `toolName` + `args` under the current renderer
+> (`ToolPresentationService.verifyStoredRender`): equality reproduces the history; inequality is visible drift.
+> Rows written before the columns existed answer "unknown" (`null`), never a guess. Both are chain-external
+> annotation columns, so no wire schema version changes.
+> **CONF-3 —— 行还要钉住用户当时「看到」的是什么**：摘要是（工具名，参数）的确定性函数，且两个客户端还渲染
+> 原始参数；于是在渲染/翻译变更后从存下的行重算，得到的是**今天**的渲染，而不是当时被批准的那份。故行上记录
+> `render_hash`（签发时实际下发载荷的 SHA-256：工具名 + 呈现文案 + 参数）与 `render_version`（产生它的渲染
+> 代次）。渲染文本本身**不**存。后来人用 `toolName` + `args` 在当前渲染器下重算
+> （`ToolPresentationService.verifyStoredRender`）：相等即复现历史，不等即漂移可见。本列出现之前的行答
+> 「不可考」（`null`），绝不猜。两列均为链外注解列，故 wire schema 版本不变。
 
 ### 5.2 请求/响应示例 / 5.2 Request/Response Examples
 

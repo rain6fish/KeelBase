@@ -1205,12 +1205,15 @@ export class AiService {
             } else if (await this.toolGate.requiresApproval(tc.name)) {
               // R4 双人审批：高影响动作需第二人（approver）审批——创建持久化审批请求，不阻塞 operator 对话
               // §internal.15(4)：审批档由策略档位（mode=approval）或声明风险级 R4 决定——管理员可在策略中心把 R3 工具升档为审批
+              // CONF-3：文案只生成一次——同一份既下发给客户端，也参与行上的渲染哈希。
+              const approvalSummary = this.presentation.writeSummaryOrGeneric(tc.name, parsed);
               const approval = await this.r4Approval.createR4ApprovalRequest(
                 userId,
                 tc.name,
                 parsed,
                 conversationId,
                 this.toolGate.destinationOf(tc.name),
+                approvalSummary,
               );
               const approvalImpact = this.presentation.writeImpact([tc.name]);
               const approvalRevokeClass = this.presentation.revokeClass(tc.name);
@@ -1219,7 +1222,7 @@ export class AiService {
                 confirmation: {
                   token: approval.token,
                   toolName: tc.name,
-                  summary: this.presentation.writeSummaryOrGeneric(tc.name, parsed),
+                  summary: approvalSummary,
                   arguments: parsed,
                   mode: 'approval',
                   ...(approvalImpact ? { impact: approvalImpact } : {}),
@@ -1265,6 +1268,8 @@ export class AiService {
               } else {
                 const ttlSeconds = await this._confirmationTtlSeconds();
                 confirmationAudience = this.toolGate.destinationOf(tc.name);
+                // CONF-3：文案只生成一次——同一份既随 confirmation_request 下发，也参与行上的渲染哈希。
+                const singleSummary = this.presentation.writeSummaryOrGeneric(tc.name, parsed);
                 const { token, decision } = await this.confirmationStore.create(
                   userId,
                   tc.name,
@@ -1272,6 +1277,7 @@ export class AiService {
                   ttlSeconds * 1000,
                   conversationId,
                   confirmationAudience,
+                  singleSummary,
                 );
                 confirmationToken = token;
                 const singleImpact = this.presentation.writeImpact([tc.name]);
@@ -1281,7 +1287,7 @@ export class AiService {
                   confirmation: {
                     token,
                     toolName: tc.name,
-                    summary: this.presentation.writeSummaryOrGeneric(tc.name, parsed),
+                    summary: singleSummary,
                     arguments: parsed,
                     // §22.17 ④ 影响预览：确认前告知将动到几个动作、哪类对象
                     ...(singleImpact ? { impact: singleImpact } : {}),

@@ -25,6 +25,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
 import { randomUUID } from 'crypto';
 import { AiConfirmationRequest } from '../approvals/ai-confirmation-request.entity';
+import {
+  buildConfirmationRenderProof,
+  buildRunRenderProof,
+  ConfirmationRenderProof,
+} from './confirmation-render';
 import { SettingsService, SETTING_KEYS } from '../../settings/settings.service';
 import { MetricsService } from '../../metrics/metrics.service';
 
@@ -164,6 +169,11 @@ export class ConfirmationStore {
    * @param ttlMs 覆盖默认 TTL（HS-6：经 Settings 可配，如 confirmation_ttl_seconds）
    * @param audience 该 artifact 被批准**写往哪个目的地**（AUTHZ-1，单源解析见 `tools/tool-destination.ts`）。
    *   执行点拿它与当时的目的地比对，跨目标复用即拒。
+   * @param summary the presentation text **actually emitted** with this confirmation (CONF-3). When
+   *   given, the row records a hash of that exact rendering; callers that omit it (older tests,
+   *   trimmed assemblies) get `null` — the rendering generation is then unknown rather than guessed.
+   *   `summary` = 本次确认**实际下发**的呈现文案（CONF-3）。给了就把那份渲染的哈希记进行；不给则留
+   *   `null` —— 渲染代次不可考，不猜。
    */
   async create(
     userId: string,
@@ -172,16 +182,30 @@ export class ConfirmationStore {
     ttlMs?: number,
     conversationId?: string,
     audience?: string,
+    summary?: PresentationText,
   ): Promise<{ token: string; decision: Promise<ConfirmationResolveResult> }> {
     const token = randomUUID();
     let resolveFn!: (result: ConfirmationResolveResult) => void;
     const decision = new Promise<ConfirmationResolveResult>((resolve) => {
       resolveFn = resolve;
     });
+    // CONF-3：哈希取自**同一份**下发文案，而不是事后另拼一份。
+    const renderProof = summary ? buildConfirmationRenderProof(toolName, args, summary) : undefined;
     // REV-7：窗口在**建行时**落定（用当时的离线 TTL），不再由读时按当前配置推算——否则改配置会把
     // 账上每一行的窗口追溯性地挪走。
     const expiresAt = new Date(Date.now() + (await this.offlineTtlMs()));
-    await this._persist({ token, toolName, args: JSON.stringify(args), operatorId: userId, riskLevel: 'R3', kind: 'single', conversationId, audience, expiresAt });
+    await this._persist({
+      token,
+      toolName,
+      args: JSON.stringify(args),
+      operatorId: userId,
+      riskLevel: 'R3',
+      kind: 'single',
+      conversationId,
+      audience,
+      expiresAt,
+      renderProof,
+    });
     const timer = this._setupTimer(token, ttlMs);
     this.pending.set(token, { token, userId, toolName, args, kind: 'single', resolve: resolveFn, timer });
     return { token, decision };
@@ -204,6 +228,8 @@ export class ConfirmationStore {
     const decision = new Promise<ConfirmationResolveResult>((resolve) => {
       resolveFn = resolve;
     });
+    // CONF-3：run 卡的渲染就是批内逐条 summary；哈希取自即将快照进 run_items 的**同一批**。
+    const renderProof = buildRunRenderProof(items);
     // REV-7：同 `create` —— 窗口在建行时落定
     const expiresAt = new Date(Date.now() + (await this.offlineTtlMs()));
     await this._persist({
@@ -216,6 +242,7 @@ export class ConfirmationStore {
       runItems: JSON.stringify(items),
       conversationId,
       expiresAt,
+      renderProof,
     });
     const timer = this._setupTimer(token, ttlMs);
     this.pending.set(token, { token, userId, toolName: 'run', args: {}, kind: 'run', resolve: resolveFn, timer });
@@ -235,6 +262,8 @@ export class ConfirmationStore {
     audience?: string;
     /** REV-7：建行时落定的窗口终点（缺席 → null = 未记录，只有本列之前的历史行才该缺席） */
     expiresAt?: Date;
+    /** CONF-3：签发时渲染的哈希 + 代次（缺席 = 调用方未提供下发文案，历史口径，留 null 不猜） */
+    renderProof?: ConfirmationRenderProof;
   }): Promise<void> {
     // CONF-1 可观测性：**问了几次**在这里记 —— `create` / `createRun` 的唯一共用出口。
     // 记在落库**之前**：落库失败不阻断内存确认流（见方法头），而那次询问**确实已经发生**了。
@@ -256,6 +285,9 @@ export class ConfirmationStore {
           ...(row.audience !== undefined ? { audience: row.audience } : {}),
           // REV-7：授权窗口（建行时落定；链外注解列）。缺席即 null —— 只有历史行会缺席。
           expiresAt: row.expiresAt ?? null,
+          // CONF-3：签发时的渲染凭据（链外注解列）。缺席即 null —— 只有历史行/未提供文案的调用会缺席。
+          renderHash: row.renderProof?.renderHash ?? null,
+          renderVersion: row.renderProof?.renderVersion ?? null,
         }),
       )
       .catch((err) => {

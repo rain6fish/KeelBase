@@ -9,6 +9,7 @@ import {
   offlineWindowCutoff,
   isWithinOfflineWindow,
 } from './confirmation.store';
+import { CONFIRMATION_RENDER_VERSION } from './confirmation-render';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -69,6 +70,40 @@ describe('ConfirmationStore', () => {
     await store.create('1', 'create_event', { title: 'T' });
 
     expect(repo.create.mock.calls[0][0]).not.toHaveProperty('audience');
+  });
+
+  it('CONF-3: create 把**下发的那份**呈现文案的渲染哈希与代次记进行', async () => {
+    const summary = {
+      key: 'ai.present.write.createEvent',
+      fallback: 'Create event: 评审 (10:00 – 11:00)',
+      params: { title: '评审', startTime: '10:00', endTime: '11:00' },
+    };
+    await store.create('1', 'create_event', { title: '评审' }, 1000, 'conv-1', 'legacy-erp', summary);
+
+    const row = repo.create.mock.calls[0][0] as Record<string, unknown>;
+    expect(row.renderVersion).toBe(CONFIRMATION_RENDER_VERSION);
+    expect(row.renderHash).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('CONF-3: 未提供下发文案的调用不猜——渲染凭据缺席而非伪造', async () => {
+    await store.create('1', 'create_event', { title: 'T' });
+
+    expect(repo.create.mock.calls[0][0]).toMatchObject({ renderHash: null, renderVersion: null });
+  });
+
+  it('CONF-3: createRun 用批内逐条摘要生成 run 的渲染哈希', async () => {
+    await store.createRun(
+      '1',
+      [
+        { toolName: 'create_event', args: { title: 'A' }, summary: { key: 'k', fallback: 'A' }, riskLevel: 'R3' },
+        { toolName: 'create_todo', args: { title: 'B' }, summary: { key: 'k', fallback: 'B' }, riskLevel: 'R3' },
+      ],
+      'R3',
+    );
+
+    const row = repo.create.mock.calls[0][0] as Record<string, unknown>;
+    expect(row.renderVersion).toBe(CONFIRMATION_RENDER_VERSION);
+    expect(row.renderHash).toMatch(/^[0-9a-f]{64}$/);
   });
 
   it('CONF-1 可观测性：每次「询问」各记一次、按工具名分；run 只算一次（tool="run"）', async () => {

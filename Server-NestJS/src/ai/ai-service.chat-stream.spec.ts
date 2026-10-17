@@ -7,7 +7,7 @@ import { StreamChunk } from './interfaces/llm-provider.interface';
 import { AuthorizationDeniedError } from './interfaces/tool.interface';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { aiService, confirmationStore, installAiServiceTestbed, mockAuditService, mockConversationService, mockProvider, mockProviderFactory, mockTool, mockToolGate, mockToolRegistry, toolExecution, wiredSchema } from '../../test/ai-service.testbed';
+import { aiService, confirmationStore, installAiServiceTestbed, mockAuditService, mockConversationService, mockProvider, mockProviderFactory, mockTool, mockToolGate, mockToolRegistry, presentation, toolExecution, wiredSchema } from '../../test/ai-service.testbed';
 
 beforeEach(installAiServiceTestbed);
 
@@ -624,6 +624,68 @@ beforeEach(installAiServiceTestbed);
       const chunks = [];
       for await (const c of stream) chunks.push(c);
       expect(chunks[chunks.length - 1].type).toBe('done');
+    });
+
+    it('CONF-3: the summary emitted in confirmation_request is the one hashed onto the row', async () => {
+      async function* mockStreamWithWriteTool() {
+        yield {
+          type: 'tool_call' as const,
+          toolCall: {
+            index: 0,
+            id: 'call_1',
+            name: 'create_event',
+            arguments: '{"title":"评审","startTime":"S","endTime":"E"}',
+          },
+        };
+      }
+      async function* mockStreamAfterDecline() {
+        yield { type: 'text' as const, content: '好的' };
+        yield { type: 'done' as const };
+      }
+      mockProvider.stream
+        .mockReturnValueOnce(mockStreamWithWriteTool())
+        .mockReturnValueOnce(mockStreamAfterDecline());
+      mockToolRegistry.requiresConfirmation.mockReturnValue(true);
+      mockToolRegistry.riskLevel.mockReturnValue('R3');
+      mockToolRegistry.getTool.mockReturnValue(mockTool({ requiresConfirmation: true }));
+
+      const persisted: any[] = [];
+      const repo = (confirmationStore as unknown as { reqRepo: { save: jest.Mock } }).reqRepo;
+      repo.save.mockImplementation(async (row: any) => {
+        persisted.push(row);
+        return { id: persisted.length };
+      });
+
+      const stream = aiService.chatStream('1', { message: 'create an event' });
+      const it = stream[Symbol.asyncIterator]();
+      await it.next(); // tool_start
+      const confirmationChunk = await it.next();
+      expect(confirmationChunk.value.type).toBe('confirmation_request');
+      const confirmation = confirmationChunk.value.confirmation!;
+
+      confirmationStore.resolve(confirmation.token, '1', 'decline');
+      for await (const _ of stream) {
+        // drain
+      }
+
+      const args = { title: '评审', startTime: 'S', endTime: 'E' };
+      expect(persisted).toHaveLength(1);
+      expect(persisted[0]).toMatchObject({
+        toolName: 'create_event',
+        args: JSON.stringify(args),
+      });
+      // 行上记的哈希可以由**同一份下发文案**复现 —— 证明入行的是屏幕上那份，而不是别的。
+      expect(confirmation.summary).toEqual(presentation.writeSummaryOrGeneric('create_event', args));
+      expect(
+        presentation.verifyStoredRender({
+          toolName: persisted[0].toolName,
+          args: persisted[0].args,
+          kind: 'single',
+          runItems: null,
+          renderHash: persisted[0].renderHash,
+          renderVersion: persisted[0].renderVersion,
+        }),
+      ).toMatchObject({ matched: true });
     });
 
     it('should NOT execute a write tool when user declines', async () => {

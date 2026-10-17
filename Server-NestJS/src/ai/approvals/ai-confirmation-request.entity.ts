@@ -165,6 +165,38 @@ export class AiConfirmationRequest {
   })
   expiresAt?: Date | null;
 
+  /**
+   * CONF-3: the **rendering** this row was issued with, not just the arguments.
+   *
+   * The summary is a deterministic function of tool name + args, and both clients also render the raw
+   * args. Recomputing it later therefore produces *today's* rendering — a changed mapping or a changed
+   * translation silently rewrites what the approver appears to have seen. `renderHash` is a SHA-256
+   * over the canonical payload emitted at issue time (tool name + presentation text + arguments);
+   * `renderVersion` names the renderer generation that produced it. Together with `args` they answer
+   * "what was on screen then" without storing the rendered text, and a recomputation under the
+   * current renderer that no longer matches is visible evidence of drift.
+   *
+   * Chain-external annotation columns, like `audience` / `expiresAt`: this table is in no hash chain,
+   * so existing chains and rows are untouched. `null` for rows written before the columns existed —
+   * their rendering generation is **unknown**, and recomputing would assert something we cannot know.
+   *
+   * CONF-3：本行签发时的**渲染**，而不只是参数。
+   *
+   * 摘要本就是（工具名，参数）的确定性函数，且两个客户端还渲染原始参数。于是事后重算得到的是**今天**
+   * 的渲染 —— 改一处映射或一条翻译，就会静默改写「批准人似乎看到过什么」。`renderHash` 是签发时实际
+   * 下发载荷（工具名 + 呈现文案 + 参数）规范形式的 SHA-256；`renderVersion` 点名产生它的渲染代次。
+   * 与 `args` 合起来即可回答「当时屏幕上是什么」，而无需存渲染文本；用今天的渲染重算对不上，就是漂移
+   * 的可见证据。
+   *
+   * 链外注解列，与 `audience` / `expiresAt` 同类：本表不在任何哈希链里，故既有链与既有行不受影响。
+   * 本列出现之前写下的行为 `null` —— 其渲染代次**不可考**，重算等于断言一件我们不知道的事。
+   */
+  @Column({ type: 'varchar', length: 64, nullable: true, name: 'render_hash' })
+  renderHash?: string | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true, name: 'render_version' })
+  renderVersion?: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 }
