@@ -71,7 +71,7 @@
       "replay": [
         {
           "call": { "read": "evidence-package" },
-          "expect": { "format": "keelbase-audit-evidence/3" }
+          "expect": { "format": "keelbase-audit-evidence/4" }
         }
       ]
     },
