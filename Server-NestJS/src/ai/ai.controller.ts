@@ -837,9 +837,21 @@ export class AiController {
     @Param('token') token: string,
     @Body() dto: ConfirmDecisionDto,
     @CurrentUser() user: JwtPayload,
+    @Headers('accept-language') acceptLanguage?: string,
   ) {
     const res = await this.myConfirmationService.decide(token, String(user.sub), dto.decision);
-    if (!res.ok) throw new NotFoundException('确认请求不存在、已决策或不可离线裁决');
+    if (!res.ok) {
+      // Same shape as the in-conversation 404: why it cannot be decided + how to recover.
+      // 与对话内确认 404 同形：说明为何不可裁决 + 恢复动作。
+      const lang = pickLanguageFromHeader(acceptLanguage);
+      throw new NotFoundException({
+        message:
+          lang === 'zh'
+            ? '确认请求不存在、已决策或不可离线裁决'
+            : 'Confirmation request not found, already decided, or not decidable offline',
+        explanation: buildDenialExplanation('confirmation_invalid', undefined, lang),
+      });
+    }
     return res;
   }
 

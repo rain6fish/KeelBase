@@ -371,6 +371,31 @@ describe('AiController', () => {
     });
   });
 
+  describe('POST /ai/my/confirmations/:token/decide（离线裁决）', () => {
+    it('不可裁决（不存在/已决策/超时）→ 404 带 explanation（为何 + 怎么恢复）', async () => {
+      (controller as unknown as {
+        myConfirmationService: { decide: jest.Mock };
+      }).myConfirmationService.decide.mockResolvedValue({ ok: false });
+
+      const err = await controller
+        .decideMyConfirmation('tok-1', { decision: 'approve' }, mockUser as any, 'zh-CN')
+        .catch((e: unknown) => e);
+
+      expect(err).toBeInstanceOf(NotFoundException);
+      const resp = (err as NotFoundException).getResponse() as {
+        message: string;
+        explanation: Record<string, unknown>;
+      };
+      expect(resp.message).toContain('不可离线裁决');
+      expect(resp.explanation).toMatchObject({
+        deniedBy: 'confirmation',
+        reasonKey: 'ai.deny.confirmation_invalid.reason',
+        nextStepKey: 'ai.deny.confirmation_invalid.nextStep',
+      });
+      expect(resp.explanation.nextStep).toContain('重新发起');
+    });
+  });
+
   describe('POST /ai/confirmations/:token', () => {
     it('确认成功 → 返回 ok 与 trustTool', async () => {
       mockConfirmResolve.mockReturnValue(true);
