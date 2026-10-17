@@ -13,6 +13,24 @@ import { createHash } from 'crypto';
 import type { DeclaredSideEffect } from './effect-composition';
 import type { WriteToolContext } from './tool-effects.types';
 
+/**
+ * Revoke ownership predicate: **only the side effect's owner** may use the user-facing revoke path.
+ *
+ * There is exactly one implementation of this rule. `revokeOwned` gates the real path with it, and the
+ * trust showcase's revoke scenario replays it. The showcase is a replay of the criterion, not a second
+ * rule: if it copied the comparison, a later change here would leave the demo silently asserting the old
+ * rule — a demo that lies about the product. Both sites import this function.
+ *
+ * 撤销属主判据：**只有副作用属主本人**可走用户侧撤销。
+ *
+ * 这条规则只有这一份实现：`revokeOwned` 用它把守真实路径，信任沙盘的撤销场景用它做判据重放。
+ * 沙盘是重放**判据**，不是第二套规则 —— 若各抄一份比较式，这里以后一改，演示页就会继续断言旧规则，
+ * 成为「说假话的演示」。两侧都 import 这一个函数。
+ */
+export function isEffectOwner(effect: { userId: string }, userId: string): boolean {
+  return effect.userId === userId;
+}
+
 /** 唯一约束冲突判定（postgres 23505 / sqlite SQLITE_CONSTRAINT / UNIQUE constraint message）——仅此类错误才可按幂等 skip（KB-4 FP-4） */
 export function isUniqueViolation(err: unknown): boolean {
   const code = (err as { code?: string }).code ?? '';

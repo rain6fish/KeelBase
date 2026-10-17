@@ -9,6 +9,7 @@ import { DeleteCustomerTool } from '../tools/delete-customer.tool';
 import { CreateFollowupTaskTool } from '../tools/create-followup-task.tool';
 import { detectInjection, sanitizeExternalContent } from '../security/injection-guard';
 import { resolveRevokeClass } from '../interfaces/tool.interface';
+import { isEffectOwner } from '../tool-effects/effect-shared';
 
 export type ShowcaseOutcome =
   | 'refused'
@@ -345,16 +346,23 @@ export class SecurityShowcaseService {
   }
 
   /**
+   * Scenario 6: revoke — the owner revokes an AI side effect they created (soft delete, restorable).
+   *
+   * Every criterion comes from its real single source; nothing is narrated for the client:
+   * - ownership = the shared `isEffectOwner` predicate in `effect-shared.ts`, the same function
+   *   `revokeOwned` uses: a non-owner (bob) never reaches this side effect, only the owner (alice) does;
+   * - revoke class = `resolveRevokeClass` (KB-6 single source): a confirmation write tool derives
+   *   `local_compensate` (local soft delete);
+   * - result semantics = the target is soft-deleted and restorable via the RG-3 trash; the AI trace and
+   *   the audit record are retained.
+   *
    * 场景 6：撤销——本人撤销自己 AI 创建的副作用（软删，可经回收站恢复）。
    *
    * 判据全部取真实单源，不做前端叙事：
-   * - 属主规则 = `effect-revoke.ts` 的 `revokeOwned`（`effect.userId !== userId → null`）：
+   * - 属主规则 = `effect-shared.ts` 的 `isEffectOwner`（与 `revokeOwned` 用的是同一个函数）：
    *   非属主（bob）拿不到这张副作用，属主（alice）才进入撤销；
    * - 撤销档位 = `resolveRevokeClass`（KB-6 单源）：确认写工具 → `local_compensate`（本地软删）；
    * - 结果语义 = 目标软删、可经 RG-3 回收站恢复，AI 轨迹与审计保留。
-   *
-   * Revoke: only the owner may revoke their own AI side effect (soft delete, restorable).
-   * The ownership rule is the one in `revokeOwned`; the revoke class comes from `resolveRevokeClass`.
    */
   private runRevoke(): ShowcaseResult {
     const tool = this.toolRegistry.getTool('create_followup_task');
@@ -366,12 +374,16 @@ export class SecurityShowcaseService {
       );
     }
 
-    // 与 `revokeOwned` 同一判据：副作用属主 === 请求者才放行（演示数据：alice 是属主，bob 不是）
-    const effectUserId: number = 1;
-    const ownerId: number = 1;
-    const otherUserId: number = 999999;
-    const ownerMatch = effectUserId === ownerId;
-    const crossUserDenied = effectUserId !== otherUserId;
+    // The ownership predicate is the shared `isEffectOwner` imported from `effect-shared.ts` — the same
+    // function `revokeOwned` uses. Demo data: alice owns the effect, bob does not.
+    //
+    // 属主判据单源：用 `effect-shared.ts` 的 `isEffectOwner`（即 `revokeOwned` 用的同一个函数），
+    // 不在这里手抄比较式。演示数据：alice 是属主，bob 不是。
+    const effect = { userId: '1' };
+    const ownerId = '1';
+    const otherUserId = '999999';
+    const ownerMatch = isEffectOwner(effect, ownerId);
+    const crossUserDenied = !isEffectOwner(effect, otherUserId);
     if (!ownerMatch || !crossUserDenied) {
       throw new Error('Security showcase drift: revoke ownership predicate no longer isolates the owner');
     }

@@ -12,6 +12,7 @@ jest.mock('../security/injection-guard', () => {
 });
 
 import { detectInjection } from '../security/injection-guard';
+import * as effectShared from '../tool-effects/effect-shared';
 
 describe('SecurityShowcaseService (A2 对抗性证明产品化)', () => {
   let service: SecurityShowcaseService;
@@ -132,6 +133,26 @@ describe('SecurityShowcaseService (A2 对抗性证明产品化)', () => {
     expect(r.trace[1].evidence).toMatchObject({ ownerMatch: true, crossUserDenied: true });
     expect(r.trace[2].evidence).toMatchObject({ tool: 'create_followup_task', revokeClass: 'local_compensate' });
     expect(r.trace[3].evidence).toMatchObject({ revoked: true, restorable: true });
+  });
+
+  it('canary：撤销属主判据漂移（沙盘不再问共享谓词）→ fail-loud', () => {
+    // The showcase must replay the *shared* predicate. Flipping it must change the scenario's answer;
+    // a hand-copied inline comparison would ignore the flip and this test would go red.
+    //
+    // 沙盘必须重放**共享**谓词：翻转它就必须改变场景结论；若改回手抄比较式，翻转不起作用，
+    // 本测试转红。
+    const spy = jest.spyOn(effectShared, 'isEffectOwner');
+    try {
+      const r = service.runScenario('revoke');
+      expect(spy).toHaveBeenCalledWith({ userId: '1' }, '1');
+      expect(spy).toHaveBeenCalledWith({ userId: '1' }, '999999');
+      expect(r.trace[1].evidence).toMatchObject({ ownerMatch: true, crossUserDenied: true });
+
+      spy.mockReturnValue(false);
+      expect(() => service.runScenario('revoke')).toThrow(/drift/);
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it('canary：撤销档位漂移（确认写不再派生 local_compensate）→ fail-loud', () => {

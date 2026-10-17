@@ -8,7 +8,7 @@ import { EffectComparabilityStore } from './effect-comparability.store';
 import { EffectDisputeStore } from './effect-dispute.store';
 import { OperationAuditService } from '../../operation-audit/operation-audit.service';
 import type { ExternalRevoker } from '../proxy/proxy-revoker.service';
-import { targetKey } from './effect-shared';
+import { isEffectOwner, targetKey } from './effect-shared';
 import type { SideEffectRevoker, DerivedReferenceCount } from './side-effect-revoker';
 import type { RevokeClass } from '../interfaces/tool.interface';
 import type {
@@ -363,12 +363,22 @@ export class EffectRevoke {
   }
 
   /**
+   * P0-15 user-side revoke: only the owner may revoke their own AI side effect.
+   * Not the owner / not found → null (the controller turns that into 404); the target is soft-deleted
+   * and can be restored through the RG-3 trash.
+   *
+   * Ownership is checked with the shared `isEffectOwner` predicate rather than an inline comparison:
+   * the trust showcase replays this same rule and must follow it when it changes.
+   *
    * P0-15 用户侧撤销：仅本人可撤销自己的 AI 副作用。
    * 非本人/不存在 → null（controller 转 404）；目标软删可经 RG-3 回收站恢复。
+   *
+   * 所有权判据走共享的 `isEffectOwner`，不在这里手写比较式：信任沙盘重放的是同一条规则，
+   * 规则变更时必须一起跟随。
    */
   async revokeOwned(effectId: number, userId: string): Promise<RevokeResult | null> {
     const effect = await this.effectsRepo.findOne({ where: { id: effectId } });
-    if (!effect || effect.userId !== userId) return null;
+    if (!effect || !isEffectOwner(effect, userId)) return null;
     return this.concludeSingle(effect);
   }
 
