@@ -125,8 +125,10 @@ Criterion: the instrument prints `═══ S4+S5 全链路验收：PASS ══�
 `requiresConfirmation=true` + `requireVerifiedEmail` and its unit test asserts the gate; the read tool
 has no gate; the module is wired into `ai.module`); `check:all` is **all green** (its denominator grows
 with the repo — 21 gates at this recipe's last read; judge by all-pass, not the number).
-The instrument prints its own jest line — that count is **its own selection**, so it need not equal §4's number;
-green is the criterion here, and a smaller count is not a missing test.
+The instrument **regenerates the module with `--force` before it runs anything** — that is why it needs a
+clean tree, and why it puts the touched paths back on exit. So the jest line it prints covers **the
+generator's own output**, not the delivery tree's hand-written layer: it need not equal §4's number, and a
+smaller count is not a missing test.
 
 **⚠ Ordering.** `verify-consulting-to-build.sh` **refuses a dirty tree** (it writes files). So the
 module and its hand-written layer must already be **committed** when you run it. In a brand-new
@@ -435,8 +437,9 @@ npm run check:all
 
 判据：仪器打印 `═══ S4+S5 全链路验收：PASS ═══`（23 个文件；写工具带 `requiresConfirmation=true` +
 `requireVerifiedEmail` 且其单测断言了该门控；读工具无门控；模块已接线 `ai.module`）；`check:all` **全绿**（它的分母随仓库增长 —— 本 recipe 上次核时 21 道；判**全过**，不判数）。
-该仪器会打印**它自己那次** jest 的用例数 —— 那是**它自己的选取范围**，**不必**等于 §4 那个数；这一步的判据是**绿**，
-数更小不等于少了测试。
+该仪器**在跑任何东西之前，先用 `--force` 把模块重新生成一遍** —— 这正是它要求干净工作树、并在退出时把本轮碰过的路径
+放回的原因。故它打印的那行用例数覆盖的是**生成器这一轮的产出**，**不是**交付树里那层手写代码：它**不必**等于 §4 那个数；
+这一步的判据是**绿**，数更小不等于少了测试。
 
 **⚠ 次序。** `verify-consulting-to-build.sh` **拒绝脏工作树**（它会写文件）。故跑它时，模块与其手写层必须**已经提交**。
 全新交付里先提交第 1–5 步 —— 先把 `user.name` / `user.email` 配好，并且**只本地提交**：这个检出的 `origin`

@@ -132,7 +132,12 @@ log "③ 编译 + 生成模块单测"
   cat /tmp/_c2b_jest.log; fail "生成模块单测未过"; }
 grep -qE "Tests:.*[1-9][0-9]* passed" /tmp/_c2b_jest.log || { cat /tmp/_c2b_jest.log; fail "生成模块单测未跑出用例"; }
 JEST_LINE="$(grep -E 'Tests:' /tmp/_c2b_jest.log | tail -1 | tr -s ' ')"
-printf '   %s\n' "$JEST_LINE"
+# This count covers the generator's output for this run only: step 2 regenerated with `--force`, so a
+# delivery's hand-written layer (its business rules and their tests) is not in it — it need not equal
+# `npm test -- <module>` in the delivery tree.
+# 这个数只覆盖**生成器这一轮的产出**：第 ② 步刚用 `--force` 重生成过，交付时手写的那一层（业务规则及其
+# 测试）已被覆盖、不在其中 —— 故它**不必**等于交付树里 `npm test -- <模块>` 的数。
+printf '   生成基线单测（不含交付树手写层）：%s\n' "$JEST_LINE"
 
 # ── 4. 迁移一致性（roadmap S4：migration:generate 无漂移）──────────────────────
 # 语义：生成模块自带实体；迁移**可能已在仓里**（followup_plans 就是这条链自己的产物，其迁移已检进仓）⇒
