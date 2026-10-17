@@ -112,11 +112,11 @@ export const TOOL_METADATA: Readonly<Record<string, ToolMetadata>> = {
   // `check-audit-vocabulary.mjs` 走那个反方向。
   // 无 `event`：生成模块的写要不要命名一个业务事件是另一个问题，不在此决定 —— 本次只补标签。
   query_asset_loans: { label: 'Query asset loans' },
-  create_asset_loan: { label: 'Create asset loan' },
+  create_asset_loan: { label: 'Create asset loan', event: 'AssetLoanCreated' },
   query_point_records: { label: 'Query point records' },
-  create_point_record: { label: 'Create point record' },
+  create_point_record: { label: 'Create point record', event: 'PointRecordCreated' },
   query_points_ledgers: { label: 'Query points ledgers' },
-  create_points_ledger: { label: 'Create points ledger' },
+  create_points_ledger: { label: 'Create points ledger', event: 'PointsLedgerCreated' },
   // 外部（B 路径代理）：名字来自目标系统，本仓不注册
   update_customer_status: { label: 'Update customer status', event: 'CustomerStatusUpdated', external: true },
 };

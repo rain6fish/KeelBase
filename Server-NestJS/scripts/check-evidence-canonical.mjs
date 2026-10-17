@@ -31,10 +31,24 @@ const specPath = resolve(ROOT, 'src/ai/audit/audit-evidence.service.spec.ts');
 const bad = (msg) => { console.error(`  ✗ ${msg}`); };
 const ok = (msg) => { console.log(`  ✓ ${msg}`); };
 
-/** audit.service getEvidenceRoot：v3 canonical 对象字面量 + 条件尾段（summary/replay）推导有效键序 */
+/**
+ * Export side (`audit-evidence.service.ts`): derive the effective key order from the canonical object
+ * literal plus its conditional tail (`summary` / `replay`).
+ *
+ * The marker is `// /4 canonical`. When the evidence package moved to `/4` that comment was renamed —
+ * and `coverage` entered the canonical at the same time — but this gate was not updated, so it looked
+ * for the old marker, found nothing and failed loudly. The marker is a shared contract between files,
+ * not a throwaway string: whoever changes the canonical has to look here.
+ *
+ * 导出侧（`audit-evidence.service.ts`）：canonical 对象字面量 + 条件尾段（`summary` / `replay`）推导有效键序。
+ *
+ * 标记是 `// /4 canonical`。证据包改到 `/4` 那次把这段注释改了名（`coverage` 也是那时进 canonical 的），
+ * 而本闸没跟着改 —— 于是它按旧标记找不到段落、fail-loud 报错。标记是**文件之间共用的契约**，不是随手写的
+ * 字符串：改 canonical 的人必须同时看这里。
+ */
 function keysFromAudit(src) {
-  const marker = src.indexOf('// v3 canonical');
-  if (marker < 0) throw new Error('audit.service.ts 未找到 v3 canonical 注释');
+  const marker = src.indexOf('// /4 canonical');
+  if (marker < 0) throw new Error('audit-evidence.service.ts 未找到 /4 canonical 注释');
   const seg = src.slice(marker);
   const open = seg.indexOf('canonicalObj: Record<string, unknown> = {');
   if (open < 0) throw new Error('audit.service.ts 未找到 canonicalObj 字面量');
@@ -65,7 +79,15 @@ function keysFromVerifier(src) {
     const direct = line.match(/^\s*([A-Za-z_$][\w$]*)\s*:/);
     if (direct) { keys.push(direct[1]); continue; }
     const spread = line.match(/\.\.\.\(ev\.(\w+)\s*\?/);
-    if (spread) keys.push(spread[1]);
+    if (spread) { keys.push(spread[1]); continue; }
+    // `/4` writes `coverage` as a conditional object spread (`...(isV4 ? { coverage: ev.coverage } : {})`)
+    // instead of `...(ev.coverage ? …)`, so the pattern above misses it; take the key out of the
+    // conditional object too.
+    //
+    // `/4` 把 `coverage` 写成**条件对象 spread**（`...(isV4 ? { coverage: ev.coverage } : {})`），而不是
+    // `...(ev.coverage ? …)`，故上面那一式匹配不到；这里再从条件对象里取一次那个键。
+    const conditional = line.match(/\.\.\.\(\w+ \? \{ (\w+):/);
+    if (conditional) keys.push(conditional[1]);
   }
   return keys;
 }
@@ -110,9 +132,9 @@ const pass = ref.length > 0
   && sites.every(([, k]) => k.length === ref.length && k.every((x, i) => x === ref[i]));
 
 if (pass) {
-  ok(`证据根 v3 canonical 键序三处一致（${ref.join(' → ')}）`);
+  ok(`证据根 /4 canonical 键序三处一致（${ref.join(' → ')}）`);
 } else {
-  bad('证据根 v3 canonical 键序发散：三处（导出 / 离线验证 / 签名自证）未同键同序');
+  bad('证据根 /4 canonical 键序发散：三处（导出 / 离线验证 / 签名自证）未同键同序');
   for (const [label, k] of sites) console.error(`  ${label}: [${k.join(', ')}]`);
   console.error('  修复：三处 canonical 保持同键同序（走 C1 语义变更清单）；或导出后先离线验证再发布。');
   process.exit(1);
