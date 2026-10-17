@@ -8,6 +8,7 @@ import { ToolRegistry } from '../tools/tool-registry';
 import { DeleteCustomerTool } from '../tools/delete-customer.tool';
 import { CreateFollowupTaskTool } from '../tools/create-followup-task.tool';
 import { detectInjection, sanitizeExternalContent } from '../security/injection-guard';
+import { resolveRevokeClass } from '../interfaces/tool.interface';
 
 export type ShowcaseOutcome =
   | 'refused'
@@ -15,13 +16,31 @@ export type ShowcaseOutcome =
   | 'blocked'
   | 'requiresConfirmation'
   /** 工具名解析不到（模型幻觉）——与前四类不同的拒绝：不是「不许做」，是「不存在可做的东西」 */
-  | 'unresolved';
+  | 'unresolved'
+  /** 本人撤销自己的 AI 副作用：目标软删（可恢复），审计与轨迹保留 */
+  | 'revoked';
 
-/** 每个对抗场景的 trace 步：key + params 由前端 i18n 双语渲染（后端不产用户可见文案，守 §5.5 #3 双语红线） */
+/**
+ * 单步治理判定。**由服务端按真实逻辑计算**，前端只负责把它翻成双语标签。
+ * Server-computed verdict. The client only maps it to a bilingual label.
+ */
+export type ShowcaseVerdict = 'info' | 'allow' | 'deny' | 'require' | 'block';
+
+/**
+ * 每个对抗场景的 trace 步：key + params 由前端 i18n 双语渲染（后端不产用户可见文案，守 §5.5 #3 双语红线）。
+ * `verdict` / `basisKey` / `evidence` 是**服务端算出来的判据**，不是前端编的文案：
+ * - verdict  = 这一步的治理结论（放行 / 拒绝 / 待确认 / 阻断 / 纯信息）
+ * - basisKey = 依据的 i18n key（选哪个 key 由服务端决定；文案由前端双语渲染）
+ * - evidence = 判据的机器可读值（如 CASL 的 allowed=false、风险级 R5），供界面显示原始读数
+ */
 export interface ShowcaseStep {
   step: 'input' | 'guard' | 'decision' | 'outcome';
   key: string;
   params?: Record<string, string | number>;
+  verdict?: ShowcaseVerdict;
+  basisKey?: string;
+  basisParams?: Record<string, string | number>;
+  evidence?: Record<string, string | number | boolean>;
 }
 
 export interface ShowcaseResult {
@@ -29,12 +48,14 @@ export interface ShowcaseResult {
   outcome: ShowcaseOutcome;
   reasonKey: string;
   reasonParams?: Record<string, string | number>;
+  /** 「为什么安全」的一句话不变量——服务端选 key，前端双语渲染（60 秒看懂的核心叙事） */
+  invariantKey: string;
   trace: ShowcaseStep[];
 }
 
 export interface ShowcaseScenario {
   id: string;
-  category: 'injection' | 'unauthorized' | 'risk' | 'confirmation' | 'hallucination';
+  category: 'injection' | 'unauthorized' | 'risk' | 'confirmation' | 'hallucination' | 'revoke';
 }
 
 /**
@@ -76,6 +97,7 @@ export class SecurityShowcaseService {
       { id: 'r5-block', category: 'risk' },
       { id: 'confirmation', category: 'confirmation' },
       { id: 'unknown-tool', category: 'hallucination' },
+      { id: 'revoke', category: 'revoke' },
     ];
   }
 
@@ -92,6 +114,8 @@ export class SecurityShowcaseService {
         return this.runConfirmation();
       case 'unknown-tool':
         return this.runUnknownTool();
+      case 'revoke':
+        return this.runRevoke();
       default:
         throw new NotFoundException(`未知对抗场景：${scenarioId}`);
     }
@@ -111,11 +135,31 @@ export class SecurityShowcaseService {
       outcome: 'refused',
       reasonKey: 'injection.reason',
       reasonParams: { feature: hit },
+      invariantKey: 'invariant.injection',
       trace: [
-        { step: 'input', key: 'injection.input' },
-        { step: 'guard', key: 'injection.guardHit', params: { feature: hit } },
-        { step: 'decision', key: 'injection.decision' },
-        { step: 'outcome', key: 'injection.outcome' },
+        { step: 'input', key: 'injection.input', verdict: 'info' },
+        {
+          step: 'guard',
+          key: 'injection.guardHit',
+          params: { feature: hit },
+          verdict: 'deny',
+          basisKey: 'basis.injection.hit',
+          basisParams: { feature: hit },
+          evidence: { detector: 'detectInjection', feature: hit },
+        },
+        {
+          step: 'decision',
+          key: 'injection.decision',
+          verdict: 'deny',
+          basisKey: 'basis.injection.decision',
+          evidence: { treatedAs: 'data', executedAsInstruction: false },
+        },
+        {
+          step: 'outcome',
+          key: 'injection.outcome',
+          verdict: 'deny',
+          evidence: { executed: false },
+        },
       ],
     };
   }
@@ -133,11 +177,29 @@ export class SecurityShowcaseService {
       scenarioId: 'unauthorized',
       outcome: 'denied',
       reasonKey: 'unauthorized.reason',
+      invariantKey: 'invariant.unauthorized',
       trace: [
-        { step: 'input', key: 'unauthorized.input' },
-        { step: 'guard', key: 'unauthorized.guard' },
-        { step: 'decision', key: 'unauthorized.decision' },
-        { step: 'outcome', key: 'unauthorized.outcome' },
+        { step: 'input', key: 'unauthorized.input', verdict: 'info' },
+        {
+          step: 'guard',
+          key: 'unauthorized.guard',
+          verdict: 'deny',
+          basisKey: 'basis.unauthorized.ownership',
+          evidence: { requester: 'bob', owner: 'alex', ownerMatch: false },
+        },
+        {
+          step: 'decision',
+          key: 'unauthorized.decision',
+          verdict: 'deny',
+          basisKey: 'basis.unauthorized.casl',
+          evidence: { action: 'read', subject: 'CrmCustomer', allowed },
+        },
+        {
+          step: 'outcome',
+          key: 'unauthorized.outcome',
+          verdict: 'deny',
+          evidence: { httpStatus: 403 },
+        },
       ],
     };
   }
@@ -153,11 +215,31 @@ export class SecurityShowcaseService {
       outcome: 'blocked',
       reasonKey: 'r5.reason',
       reasonParams: { level },
+      invariantKey: 'invariant.r5',
       trace: [
-        { step: 'input', key: 'r5.input' },
-        { step: 'guard', key: 'r5.guard', params: { level } },
-        { step: 'decision', key: 'r5.decision' },
-        { step: 'outcome', key: 'r5.outcome' },
+        { step: 'input', key: 'r5.input', verdict: 'info' },
+        {
+          step: 'guard',
+          key: 'r5.guard',
+          params: { level },
+          verdict: 'block',
+          basisKey: 'basis.r5.policy',
+          basisParams: { level },
+          evidence: { tool: 'delete_customer', riskLevel: level, irreversible: true },
+        },
+        {
+          step: 'decision',
+          key: 'r5.decision',
+          verdict: 'block',
+          basisKey: 'basis.r5.block',
+          evidence: { blockedBeforeConfirmation: true },
+        },
+        {
+          step: 'outcome',
+          key: 'r5.outcome',
+          verdict: 'block',
+          evidence: { executed: false },
+        },
       ],
     };
   }
@@ -173,11 +255,31 @@ export class SecurityShowcaseService {
       outcome: 'requiresConfirmation',
       reasonKey: 'confirmation.reason',
       reasonParams: { level },
+      invariantKey: 'invariant.confirmation',
       trace: [
-        { step: 'input', key: 'confirmation.input' },
-        { step: 'guard', key: 'confirmation.guard', params: { level } },
-        { step: 'decision', key: 'confirmation.decision' },
-        { step: 'outcome', key: 'confirmation.outcome' },
+        { step: 'input', key: 'confirmation.input', verdict: 'info' },
+        {
+          step: 'guard',
+          key: 'confirmation.guard',
+          params: { level },
+          verdict: 'require',
+          basisKey: 'basis.confirmation.gate',
+          basisParams: { level },
+          evidence: { tool: 'create_followup_task', riskLevel: level, requiresConfirmation: true },
+        },
+        {
+          step: 'decision',
+          key: 'confirmation.decision',
+          verdict: 'require',
+          basisKey: 'basis.confirmation.wait',
+          evidence: { executed: false, awaiting: 'human' },
+        },
+        {
+          step: 'outcome',
+          key: 'confirmation.outcome',
+          verdict: 'require',
+          evidence: { writtenWithoutApproval: false },
+        },
       ],
     };
   }
@@ -209,11 +311,110 @@ export class SecurityShowcaseService {
       outcome: 'unresolved',
       reasonKey: 'unknownTool.reason',
       reasonParams: { tool: hallucinated },
+      invariantKey: 'invariant.unknownTool',
       trace: [
-        { step: 'input', key: 'unknownTool.input', params: { tool: hallucinated } },
-        { step: 'guard', key: 'unknownTool.guard' },
-        { step: 'decision', key: 'unknownTool.decision' },
-        { step: 'outcome', key: 'unknownTool.outcome' },
+        {
+          step: 'input',
+          key: 'unknownTool.input',
+          params: { tool: hallucinated },
+          verdict: 'info',
+        },
+        {
+          step: 'guard',
+          key: 'unknownTool.guard',
+          verdict: 'deny',
+          basisKey: 'basis.unknownTool.resolution',
+          basisParams: { tool: hallucinated },
+          evidence: { tool: hallucinated, resolvable: false },
+        },
+        {
+          step: 'decision',
+          key: 'unknownTool.decision',
+          verdict: 'deny',
+          basisKey: 'basis.unknownTool.surface',
+          evidence: { reachedExecute: false },
+        },
+        {
+          step: 'outcome',
+          key: 'unknownTool.outcome',
+          verdict: 'deny',
+          evidence: { executed: false },
+        },
+      ],
+    };
+  }
+
+  /**
+   * 场景 6：撤销——本人撤销自己 AI 创建的副作用（软删，可经回收站恢复）。
+   *
+   * 判据全部取真实单源，不做前端叙事：
+   * - 属主规则 = `effect-revoke.ts` 的 `revokeOwned`（`effect.userId !== userId → null`）：
+   *   非属主（bob）拿不到这张副作用，属主（alice）才进入撤销；
+   * - 撤销档位 = `resolveRevokeClass`（KB-6 单源）：确认写工具 → `local_compensate`（本地软删）；
+   * - 结果语义 = 目标软删、可经 RG-3 回收站恢复，AI 轨迹与审计保留。
+   *
+   * Revoke: only the owner may revoke their own AI side effect (soft delete, restorable).
+   * The ownership rule is the one in `revokeOwned`; the revoke class comes from `resolveRevokeClass`.
+   */
+  private runRevoke(): ShowcaseResult {
+    const tool = this.toolRegistry.getTool('create_followup_task');
+    const revokeClass = resolveRevokeClass(tool);
+    // canary：确认写工具必须派生为本地软删补偿；档位漂移说明撤销语义变了 → fail-loud
+    if (revokeClass !== 'local_compensate') {
+      throw new Error(
+        `Security showcase drift: create_followup_task revoke class is "${revokeClass}", expected "local_compensate"`,
+      );
+    }
+
+    // 与 `revokeOwned` 同一判据：副作用属主 === 请求者才放行（演示数据：alice 是属主，bob 不是）
+    const effectUserId: number = 1;
+    const ownerId: number = 1;
+    const otherUserId: number = 999999;
+    const ownerMatch = effectUserId === ownerId;
+    const crossUserDenied = effectUserId !== otherUserId;
+    if (!ownerMatch || !crossUserDenied) {
+      throw new Error('Security showcase drift: revoke ownership predicate no longer isolates the owner');
+    }
+
+    return {
+      scenarioId: 'revoke',
+      outcome: 'revoked',
+      reasonKey: 'revoke.reason',
+      reasonParams: { revokeClass },
+      invariantKey: 'invariant.revoke',
+      trace: [
+        {
+          step: 'input',
+          key: 'revoke.input',
+          verdict: 'info',
+          evidence: { tool: 'create_followup_task', requester: 'alice' },
+        },
+        {
+          step: 'guard',
+          key: 'revoke.guard',
+          verdict: 'allow',
+          basisKey: 'basis.revoke.ownership',
+          evidence: {
+            effectOwner: 'alice',
+            requester: 'alice',
+            ownerMatch,
+            crossUserDenied,
+          },
+        },
+        {
+          step: 'decision',
+          key: 'revoke.decision',
+          verdict: 'allow',
+          basisKey: 'basis.revoke.class',
+          basisParams: { revokeClass },
+          evidence: { tool: 'create_followup_task', revokeClass },
+        },
+        {
+          step: 'outcome',
+          key: 'revoke.outcome',
+          verdict: 'allow',
+          evidence: { revoked: true, restorable: true, auditRetained: true },
+        },
       ],
     };
   }

@@ -73,7 +73,7 @@ describe('CE-1 B4 场景包 · 语料漂移门', () => {
       expect(runtime).toEqual(corpus);
     });
 
-    it('runScenario(id).outcome == 语料 cases.outcome（4 场景）', () => {
+    it('runScenario(id).outcome == 语料 cases.outcome（六场景）', () => {
       for (const c of showcasePack.cases) {
         expect(service.runScenario(c.id).outcome).toBe(c.outcome);
       }

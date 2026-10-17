@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createI18n } from 'vue-i18n'
 import zh from '@/i18n/zh'
@@ -40,9 +40,47 @@ function leafKeys(obj: Record<string, unknown>, prefix = ''): string[] {
   )
 }
 
-describe('SecurityShowcaseView（A2 对抗性证明产品化）', () => {
+const injectionResult = {
+  scenarioId: 'injection',
+  outcome: 'refused',
+  reasonKey: 'injection.reason',
+  reasonParams: { feature: 'prompt_injection' },
+  invariantKey: 'invariant.injection',
+  trace: [
+    { step: 'input', key: 'injection.input', verdict: 'info' },
+    {
+      step: 'guard',
+      key: 'injection.guardHit',
+      params: { feature: 'prompt_injection' },
+      verdict: 'deny',
+      basisKey: 'basis.injection.hit',
+      basisParams: { feature: 'prompt_injection' },
+      evidence: { detector: 'detectInjection', feature: 'prompt_injection' },
+    },
+    {
+      step: 'decision',
+      key: 'injection.decision',
+      verdict: 'deny',
+      basisKey: 'basis.injection.decision',
+      evidence: { treatedAs: 'data', executedAsInstruction: false },
+    },
+    {
+      step: 'outcome',
+      key: 'injection.outcome',
+      verdict: 'deny',
+      evidence: { executed: false },
+    },
+  ],
+}
+
+describe('SecurityShowcaseView（A2 对抗性证明产品化 · 交互重放）', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    document.body.querySelectorAll('.el-message').forEach((n) => n.remove())
   })
 
   /**
@@ -57,9 +95,21 @@ describe('SecurityShowcaseView（A2 对抗性证明产品化）', () => {
     try {
       for (const [locale, messages] of Object.entries({ zh, en })) {
         const i18n = createI18n({ legacy: false, locale, messages: { [locale]: messages } })
-        for (const section of ['scenarioCategory', 'scenarioTitle', 'scenarioDesc', 'scenarioPrompt', 'outcome', 'step', 'scReason', 'scStep']) {
+        for (const section of [
+          'scenarioCategory',
+          'scenarioTitle',
+          'scenarioDesc',
+          'scenarioPrompt',
+          'outcome',
+          'step',
+          'scReason',
+          'scStep',
+          'invariant',
+          'basis',
+          'verdict',
+        ]) {
           for (const key of leafKeys((messages as Record<string, unknown>)[section] as Record<string, unknown>)) {
-            i18n.global.t(`${section}.${key}`, { tool: 'x', level: 'x', feature: 'x' })
+            i18n.global.t(`${section}.${key}`, { tool: 'x', level: 'x', feature: 'x', revokeClass: 'x' })
           }
         }
       }
@@ -79,39 +129,30 @@ describe('SecurityShowcaseView（A2 对抗性证明产品化）', () => {
     )
   })
 
-  it('渲染 5 个对抗场景卡片', async () => {
+  it('渲染 6 个对抗场景卡片（含撤销）', async () => {
     scenariosMock.mockResolvedValue([
       { id: 'injection', category: 'injection' },
       { id: 'unauthorized', category: 'unauthorized' },
       { id: 'r5-block', category: 'risk' },
       { id: 'confirmation', category: 'confirmation' },
       { id: 'unknown-tool', category: 'hallucination' },
+      { id: 'revoke', category: 'revoke' },
     ])
     const wrapper = mountView()
     await flushPromises()
 
-    expect(wrapper.findAll('.scenario-card').length).toBe(5)
+    expect(wrapper.findAll('.scenario-card').length).toBe(6)
     expect(wrapper.text()).toContain('提示注入拒绝')
     expect(wrapper.text()).toContain('跨用户越权拒绝')
-    // 新场景：标题取自 i18n（键缺了会渲染成 key 本身，故这条同时钉住双语键存在）
     expect(wrapper.text()).toContain('不存在的工具拒绝')
-    expect(wrapper.text()).toContain('模型幻觉')
+    // 新场景：标题取自 i18n（键缺了会渲染成 key 本身，故这条同时钉住双语键存在）
+    expect(wrapper.text()).toContain('AI 副作用撤销（本人作用域）')
+    expect(wrapper.text()).toContain('撤销')
   })
 
-  it('运行演示 → 显示结果徽章 + 本地化 reason + 决策轨迹（4 步）', async () => {
+  it('运行后先显示第 1 步；「直接看全部」展示 4 步 + 服务端判定/依据/读数 + 为什么安全', async () => {
     scenariosMock.mockResolvedValue([{ id: 'injection', category: 'injection' }])
-    runMock.mockResolvedValue({
-      scenarioId: 'injection',
-      outcome: 'refused',
-      reasonKey: 'injection.reason',
-      reasonParams: { feature: 'prompt_injection' },
-      trace: [
-        { step: 'input', key: 'injection.input' },
-        { step: 'guard', key: 'injection.guardHit', params: { feature: 'prompt_injection' } },
-        { step: 'decision', key: 'injection.decision' },
-        { step: 'outcome', key: 'injection.outcome' },
-      ],
-    })
+    runMock.mockResolvedValue(injectionResult)
 
     const wrapper = mountView()
     await flushPromises()
@@ -119,10 +160,52 @@ describe('SecurityShowcaseView（A2 对抗性证明产品化）', () => {
     await flushPromises()
 
     expect(runMock).toHaveBeenCalledWith('injection')
-    expect(wrapper.text()).toContain('已拒绝')
-    // reason/detail 走前端 i18n（后端不产用户可见文案），不再渲染后端原始字符串
-    expect(wrapper.text()).toContain('HS-8 注入防线命中注入特征')
+    // 交互重放：结果一到只揭示第一步，其余按时间线逐步展开
+    expect(wrapper.findAll('.el-timeline-item').length).toBe(1)
+    expect(wrapper.text()).toContain('1 / 4 步')
+
+    await wrapper.find('.replay-show-all').trigger('click')
+    await flushPromises()
+
     expect(wrapper.findAll('.el-timeline-item').length).toBe(4)
+    expect(wrapper.text()).toContain('已拒绝')
+    // verdict / basis / evidence 都是服务端返回的字段，前端只做双语渲染
+    expect(wrapper.text()).toContain('治理判定')
+    expect(wrapper.text()).toContain('依据')
+    expect(wrapper.text()).toContain('detectInjection 命中')
+    expect(wrapper.text()).toContain('feature=prompt_injection')
+    expect(wrapper.text()).toContain('服务端读数')
+    // 结果级叙事：为什么安全 + 依据
+    expect(wrapper.text()).toContain('为什么这是安全的')
+    expect(wrapper.text()).toContain('外部内容永远只是数据')
+    expect(wrapper.text()).toContain('HS-8 注入防线命中注入特征')
+  })
+
+  it('自动重放：每 800ms 揭示一步；暂停后不再前进，继续后恢复', async () => {
+    vi.useFakeTimers()
+    scenariosMock.mockResolvedValue([{ id: 'injection', category: 'injection' }])
+    runMock.mockResolvedValue(injectionResult)
+
+    const wrapper = mountView()
+    await vi.advanceTimersByTimeAsync(0) // 让 onMounted 的 scenarios() 微任务落地
+    await wrapper.find('button').trigger('click')
+    await vi.advanceTimersByTimeAsync(0) // 让 run() 微任务落地并启动重放
+
+    expect(wrapper.findAll('.el-timeline-item').length).toBe(1)
+
+    await vi.advanceTimersByTimeAsync(800)
+    expect(wrapper.findAll('.el-timeline-item').length).toBe(2)
+
+    // 暂停：计时器被清掉，时间再走也不前进
+    await wrapper.find('.replay-toggle').trigger('click')
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(wrapper.findAll('.el-timeline-item').length).toBe(2)
+
+    // 继续：恢复自动播放，走完剩下两步
+    await wrapper.find('.replay-toggle').trigger('click')
+    await vi.advanceTimersByTimeAsync(1600)
+    expect(wrapper.findAll('.el-timeline-item').length).toBe(4)
+    expect(wrapper.text()).toContain('为什么这是安全的')
   })
 
   it('运行失败（防线漂移 fail-loud）→ 弹出错误提示而非无反馈', async () => {
@@ -137,7 +220,6 @@ describe('SecurityShowcaseView（A2 对抗性证明产品化）', () => {
     expect(runMock).toHaveBeenCalledWith('injection')
     // ElMessage 渲染到 body（teleport），断言全局可见的错误提示
     expect(document.body.textContent).toContain('Security showcase drift')
-    document.body.querySelectorAll('.el-message').forEach((n) => n.remove())
   })
 
   it('场景清单加载失败 → 不误显空态', async () => {

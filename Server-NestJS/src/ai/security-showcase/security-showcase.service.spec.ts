@@ -27,22 +27,29 @@ describe('SecurityShowcaseService (A2 对抗性证明产品化)', () => {
     service = module.get(SecurityShowcaseService);
   });
 
-  it('listScenarios 返回 5 个对抗场景（id + 分类）', () => {
+  it('listScenarios 返回 6 个对抗场景（id + 分类，含撤销）', () => {
     expect(service.listScenarios()).toEqual([
       { id: 'injection', category: 'injection' },
       { id: 'unauthorized', category: 'unauthorized' },
       { id: 'r5-block', category: 'risk' },
       { id: 'confirmation', category: 'confirmation' },
       { id: 'unknown-tool', category: 'hallucination' },
+      { id: 'revoke', category: 'revoke' },
     ]);
   });
 
-  it('injection：命中 → refused + reasonKey + 4 步决策轨迹', () => {
+  it('injection：命中 → refused + reasonKey + 4 步决策轨迹（每步带服务端判定）', () => {
     const r = service.runScenario('injection');
     expect(r.outcome).toBe('refused');
     expect(r.reasonKey).toBe('injection.reason');
     expect(r.reasonParams?.feature).toBe('prompt_injection');
+    expect(r.invariantKey).toBe('invariant.injection');
     expect(r.trace.map((t) => t.step)).toEqual(['input', 'guard', 'decision', 'outcome']);
+    // 判据来自服务端：guard 步的 verdict/basis/evidence 由真实 detectInjection 结果派生
+    expect(r.trace[1].verdict).toBe('deny');
+    expect(r.trace[1].basisKey).toBe('basis.injection.hit');
+    expect(r.trace[1].evidence).toMatchObject({ feature: 'prompt_injection' });
+    expect(r.trace[3].evidence).toMatchObject({ executed: false });
   });
 
   it('canary：注入样本未被 HS-8 命中 → fail-loud（防线漂移立即变红，而非假绿）', () => {
@@ -50,10 +57,14 @@ describe('SecurityShowcaseService (A2 对抗性证明产品化)', () => {
     expect(() => service.runScenario('injection')).toThrow(/drift/);
   });
 
-  it('unauthorized：bob 越权读 alex 客户 → denied', () => {
+  it('unauthorized：bob 越权读 alex 客户 → denied（evidence 取真实 CASL 结果）', () => {
     const r = service.runScenario('unauthorized');
     expect(r.outcome).toBe('denied');
     expect(r.reasonKey).toBe('unauthorized.reason');
+    expect(r.invariantKey).toBe('invariant.unauthorized');
+    expect(r.trace[1].verdict).toBe('deny');
+    expect(r.trace[1].evidence).toMatchObject({ ownerMatch: false });
+    expect(r.trace[2].evidence).toMatchObject({ allowed: false, subject: 'CrmCustomer' });
   });
 
   it('canary：CASL 放行跨属主读 → fail-loud', async () => {
@@ -75,6 +86,9 @@ describe('SecurityShowcaseService (A2 对抗性证明产品化)', () => {
     expect(r.outcome).toBe('blocked');
     expect(r.reasonKey).toBe('r5.reason');
     expect(r.reasonParams?.level).toBe('R5');
+    expect(r.invariantKey).toBe('invariant.r5');
+    expect(r.trace[1].verdict).toBe('block');
+    expect(r.trace[1].evidence).toMatchObject({ riskLevel: 'R5', irreversible: true });
   });
 
   it('confirmation：创建跟进任务（写操作 R3）→ requiresConfirmation + level=R3', () => {
@@ -82,6 +96,9 @@ describe('SecurityShowcaseService (A2 对抗性证明产品化)', () => {
     expect(r.outcome).toBe('requiresConfirmation');
     expect(r.reasonKey).toBe('confirmation.reason');
     expect(r.reasonParams?.level).toBe('R3');
+    expect(r.invariantKey).toBe('invariant.confirmation');
+    expect(r.trace[1].verdict).toBe('require');
+    expect(r.trace[1].evidence).toMatchObject({ riskLevel: 'R3', requiresConfirmation: true });
   });
 
   it('unknown-tool：模型幻觉出的工具名 → unresolved + reasonParams.tool', () => {
@@ -99,6 +116,33 @@ describe('SecurityShowcaseService (A2 对抗性证明产品化)', () => {
     drift.toolRegistry = { getTool: () => ({ name: 'anything' }) };
     try {
       expect(() => service.runScenario('unknown-tool')).toThrow(/drift/);
+    } finally {
+      drift.toolRegistry = original;
+    }
+  });
+
+  it('revoke：本人撤销自己的 AI 副作用 → revoked（档位取真实 resolveRevokeClass）', () => {
+    const r = service.runScenario('revoke');
+    expect(r.outcome).toBe('revoked');
+    expect(r.reasonKey).toBe('revoke.reason');
+    expect(r.reasonParams?.revokeClass).toBe('local_compensate');
+    expect(r.invariantKey).toBe('invariant.revoke');
+    expect(r.trace.map((t) => t.step)).toEqual(['input', 'guard', 'decision', 'outcome']);
+    expect(r.trace[1].verdict).toBe('allow');
+    expect(r.trace[1].evidence).toMatchObject({ ownerMatch: true, crossUserDenied: true });
+    expect(r.trace[2].evidence).toMatchObject({ tool: 'create_followup_task', revokeClass: 'local_compensate' });
+    expect(r.trace[3].evidence).toMatchObject({ revoked: true, restorable: true });
+  });
+
+  it('canary：撤销档位漂移（确认写不再派生 local_compensate）→ fail-loud', () => {
+    const drift = service as unknown as {
+      toolRegistry: { getTool: (n: string) => unknown };
+    };
+    const original = drift.toolRegistry;
+    // 一个「不需要确认」的工具替身 → resolveRevokeClass 返回 none，正是档位漂移的形状
+    drift.toolRegistry = { getTool: () => ({ name: 'create_followup_task', requiresConfirmation: false }) };
+    try {
+      expect(() => service.runScenario('revoke')).toThrow(/drift/);
     } finally {
       drift.toolRegistry = original;
     }
