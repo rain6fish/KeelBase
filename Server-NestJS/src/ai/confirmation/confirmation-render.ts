@@ -36,6 +36,7 @@
  * 故只抬渲染代次就足以让旧行的凭据在新渲染器下对不上 —— 这正是**期望的可见结果**，不是误报。
  */
 import { createHash } from 'node:crypto';
+import { sortKeys } from '../../common/canonical-json';
 import { PresentationText } from '../interfaces/tool.interface';
 
 /**
@@ -65,25 +66,10 @@ export interface RenderedRunItem {
   summary: PresentationText;
 }
 
-/**
- * Recursively sort object keys and drop `undefined`, so the same logical payload always serialises
- * to the same string regardless of construction order.
- */
-function canonicalize(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(canonicalize);
-  if (value && typeof value === 'object') {
-    const source = value as Record<string, unknown>;
-    const sorted: Record<string, unknown> = {};
-    for (const key of Object.keys(source).sort()) {
-      if (source[key] !== undefined) sorted[key] = canonicalize(source[key]);
-    }
-    return sorted;
-  }
-  return value;
-}
-
 function sha256(payload: unknown): string {
-  return createHash('sha256').update(JSON.stringify(canonicalize(payload))).digest('hex');
+  // Recursive stable form, single-sourced in `common/canonical-json.ts` (Q-2).
+  // 递归稳定形态，实现单源在 `common/canonical-json.ts`（Q-2）。
+  return createHash('sha256').update(JSON.stringify(sortKeys(payload))).digest('hex');
 }
 
 function summaryPayload(summary: PresentationText): PresentationText {

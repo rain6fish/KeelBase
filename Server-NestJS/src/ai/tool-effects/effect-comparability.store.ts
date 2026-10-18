@@ -2,6 +2,7 @@
 
 import { Logger } from '@nestjs/common';
 import { In, Repository } from 'typeorm';
+import { sortKeys } from '../../common/canonical-json';
 import { AiToolSideEffect } from './ai-tool-side-effect.entity';
 import { EffectComparability } from './effect-comparability.entity';
 import { SideEffectSnapshotCaptor, type CaptureResult } from './side-effect-snapshot-captor';
@@ -47,18 +48,24 @@ export class EffectComparabilityStore {
    */
   private static readonly DRIFT_IGNORED_KEYS = new Set(['createdAt', 'updatedAt']);
 
-  /** 快照 JSON → 可比对的内容视图（键序归一 + 剔记账列）；解析不了返回 null（不猜）。 */
+  /**
+   * 快照 JSON → 可比对的内容视图（键序归一 + 剔记账列）；解析不了返回 null（不猜）。
+   *
+   * 键序归一用与幂等键同一口径的递归排序（`common/canonical-json.ts`，Q-2）：此前这里只排顶层，
+   * 嵌套对象键序不同会被误报成内容漂移 —— 那是误报而非漏报，但同样是噪音来源。
+   *
+   * Snapshot JSON → the comparable content view (normalised key order + bookkeeping columns removed);
+   * `null` when it cannot be parsed. Key-order normalisation is recursive and shares the single source
+   * in `common/canonical-json.ts` (Q-2); it used to sort only the top level, so a nested object with a
+   * different key order was reported as a content drift.
+   */
   private _contentOnly(snapshotJson: string | null | undefined): Record<string, unknown> | null {
     if (!snapshotJson) return null;
     try {
       const parsed = JSON.parse(snapshotJson) as unknown;
       if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
-      const out: Record<string, unknown> = {};
-      for (const k of Object.keys(parsed as Record<string, unknown>).sort()) {
-        if (EffectComparabilityStore.DRIFT_IGNORED_KEYS.has(k)) continue;
-        out[k] = (parsed as Record<string, unknown>)[k];
-      }
-      return out;
+      for (const k of EffectComparabilityStore.DRIFT_IGNORED_KEYS) delete (parsed as Record<string, unknown>)[k];
+      return sortKeys(parsed) as Record<string, unknown>;
     } catch {
       return null;
     }
