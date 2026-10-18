@@ -20,6 +20,13 @@
           {{ t('refresh') }}
         </el-button>
       </div>
+      <div class="d-flex align-center flex-wrap ga-3 mt-3">
+        <el-radio-group v-model="viewMode" size="small">
+          <el-radio-button value="timeline">{{ t('aiTraceViewTimeline') }}</el-radio-button>
+          <el-radio-button value="graph">{{ t('aiTraceViewGraph') }}</el-radio-button>
+        </el-radio-group>
+        <span class="text-caption text-medium-emphasis">{{ t('aiTraceGraphHint') }}</span>
+      </div>
     </el-card>
 
     <div v-if="loading" class="text-medium-emphasis pa-4">{{ t('aiTraceLoading') }}</div>
@@ -33,7 +40,8 @@
       <div v-else-if="traceError" class="text-error pa-4">{{ traceError }}</div>
       <div v-else-if="steps.length === 0" class="text-medium-emphasis pa-4">{{ t('aiTraceEmpty') }}</div>
 
-      <el-timeline v-else>
+      <template v-else>
+        <el-timeline v-if="viewMode === 'timeline'">
         <el-timeline-item
           v-for="s in steps"
           :key="s.id"
@@ -139,7 +147,119 @@
             </div>
           </el-card>
         </el-timeline-item>
-      </el-timeline>
+        </el-timeline>
+
+        <template v-else>
+          <TraceFlowGraph
+            :steps="steps"
+            :selected-id="selectedStep ? selectedStep.id : null"
+            :effect-statuses="effectStatuses"
+            @select="selectedStep = $event"
+            @revoke="onRevokeEffect"
+          />
+
+          <el-card v-if="selectedStep" shadow="never" class="mt-4 trace-step-detail" data-testid="trace-step-detail">
+            <template #header>
+              <div class="d-flex justify-space-between align-center">
+                <span class="text-body-2 font-weight-medium">{{ t('traceNodeDetail') }}</span>
+                <span class="text-caption text-medium-emphasis">{{ formatTime(selectedStep.time) }}</span>
+              </div>
+            </template>
+            <div class="d-flex flex-column ga-2">
+              <div class="detail-row">
+                <span class="text-caption text-medium-emphasis">{{ t('traceNodeType') }}</span>
+                <span class="text-body-2">{{ stepLabel(selectedStep) }}</span>
+              </div>
+              <div v-if="selectedStep.toolName" class="detail-row">
+                <span class="text-caption text-medium-emphasis">{{ t('traceNodeTool') }}</span>
+                <span class="text-body-2">{{ toolLabel(tm('feature'), selectedStep.toolName) }}</span>
+              </div>
+              <div v-if="selectedStep.businessEvent" class="detail-row">
+                <span class="text-caption text-medium-emphasis">{{ t('traceNodeBusinessEvent') }}</span>
+                <span class="text-body-2">{{ selectedStep.businessEvent }}</span>
+              </div>
+              <div v-if="selectedStep.agentId" class="detail-row">
+                <span class="text-caption text-medium-emphasis">{{ t('traceNodeAgent') }}</span>
+                <span class="text-body-2">{{ selectedStep.agentId }}</span>
+              </div>
+              <div v-if="selectedStep.callerAgentId" class="detail-row">
+                <span class="text-caption text-medium-emphasis">{{ t('traceNodeCaller') }}</span>
+                <span class="text-body-2">{{ selectedStep.callerAgentId }}</span>
+              </div>
+              <div v-if="selectedStep.tokens !== undefined" class="detail-row">
+                <span class="text-caption text-medium-emphasis">{{ t('traceNodeTokens') }}</span>
+                <span class="text-body-2">{{ selectedStep.tokens }}</span>
+              </div>
+              <div v-if="selectedStep.type === 'tool_call'" class="detail-row">
+                <span class="text-caption text-medium-emphasis">{{ t('traceNodeResult') }}</span>
+                <span class="text-body-2">{{ selectedStep.success === false ? t('stepFailed') : t('stepSuccess') }}</span>
+              </div>
+              <div v-if="selectedStep.type === 'confirmation'" class="detail-row">
+                <span class="text-caption text-medium-emphasis">{{ t('traceNodeOutcome') }}</span>
+                <span class="text-body-2">{{ confirmLabel(selectedStep) }}</span>
+              </div>
+              <div v-if="selectedStep.args" class="d-flex flex-column ga-1">
+                <span class="text-caption text-medium-emphasis">{{ t('traceNodeArgs') }}</span>
+                <pre class="text-caption detail-pre">{{ selectedStep.args }}</pre>
+              </div>
+              <div v-if="selectedStep.content" class="d-flex flex-column ga-1">
+                <span class="text-caption text-medium-emphasis">{{ t('traceNodeContent') }}</span>
+                <div class="text-body-2">{{ selectedStep.content }}</div>
+              </div>
+              <div v-if="selectedStep.detail" class="d-flex flex-column ga-1">
+                <span class="text-caption text-medium-emphasis">{{ t('traceNodeDetailText') }}</span>
+                <div class="text-body-2">{{ selectedStep.detail }}</div>
+              </div>
+              <div v-if="selectedStep.errorMessage" class="text-body-2 text-error">{{ errorLabel(selectedStep.errorMessage, t) }}</div>
+              <div v-if="selectedStep.checks && selectedStep.checks.length" class="pa-2 checks-box">
+                <div class="text-caption font-weight-medium text-medium-emphasis mb-1">{{ t('traceDeniedTitle') }}</div>
+                <div v-for="c in selectedStep.checks" :key="c.name" class="d-flex align-center ga-1 text-body-2">
+                  <AppIcon :icon="c.ok ? 'mdi-check-circle' : 'mdi-close-circle'" :color="c.ok ? 'var(--el-color-success)' : 'var(--el-color-danger)'" size="16" />
+                  <span :class="c.ok ? '' : 'text-error'">{{ c.note || c.name }}</span>
+                </div>
+              </div>
+              <div v-if="evidenceOf(selectedStep)" class="pa-2 checks-box">
+                <div class="text-caption font-weight-medium text-medium-emphasis mb-1">{{ t('decisionEvidence') }}</div>
+                <div v-for="e in evidenceOf(selectedStep)!.evidence" :key="e" class="text-caption">· {{ e }}</div>
+                <div v-if="evidenceOf(selectedStep)!.policy" class="text-caption text-medium-emphasis mt-1">
+                  {{ t('decisionPolicy') }}: {{ evidenceOf(selectedStep)!.policy }}
+                </div>
+              </div>
+              <template v-if="selectedStep.type === 'effect' && selectedStep.effect">
+                <div class="detail-row">
+                  <span class="text-caption text-medium-emphasis">{{ t('sideEffects') }}</span>
+                  <span class="text-body-2">{{ selectedStep.effect.resultType }} #{{ selectedStep.effect.resultId }}</span>
+                </div>
+                <div v-if="selectedStep.effect.targetTitle" class="text-body-2 text-medium-emphasis">
+                  {{ selectedStep.effect.targetTitle }}
+                </div>
+                <div v-if="selectedStep.effect.before || selectedStep.effect.after">
+                  <div class="text-caption text-medium-emphasis mb-1">{{ t('fieldChange') }}</div>
+                  <FieldDiff :before="selectedStep.effect.before" :after="selectedStep.effect.after" />
+                </div>
+                <div v-if="effectStatusLabel(selectedStep.effect.effectId)" class="detail-row">
+                  <span class="text-caption text-medium-emphasis">{{ t('traceEffectStatus') }}</span>
+                  <span class="text-body-2">{{ effectStatusLabel(selectedStep.effect.effectId) }}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="text-caption text-medium-emphasis">{{ t('traceNodeRevocable') }}</span>
+                  <span class="text-body-2">{{ selectedStep.effect.revocable ? t('traceNodeYes') : t('traceNodeNo') }}</span>
+                </div>
+                <el-button
+                  v-if="selectedStep.effect.revocable"
+                  size="small"
+                  plain
+                  type="warning"
+                  :loading="revokingId === selectedStep.effect.effectId"
+                  @click="onRevokeEffect(selectedStep.effect)"
+                >
+                  {{ t('revokeEffect') }}
+                </el-button>
+              </template>
+            </div>
+          </el-card>
+        </template>
+      </template>
     </template>
   </div>
 </template>
@@ -152,10 +272,12 @@ import PageHeader from '@/components/PageHeader.vue'
 import AppIcon from '@/components/AppIcon.vue'
 import StatusChip from '@/components/StatusChip.vue'
 import FieldDiff from '@/components/FieldDiff.vue'
+import TraceFlowGraph from '@/components/TraceFlowGraph.vue'
 import { useSnackbarStore } from '@/stores/snackbar'
 import { aiTraceApi } from '@/api/aiTrace'
 import { formatTime } from '@/utils/format'
 import { traceSource, traceSourceKey, traceSourceTagType } from '@/utils/traceSource'
+import { traceStepLabelKey } from '@/utils/traceGraph'
 import { toolLabel, toolArgsSummary, errorLabel } from '@/utils/businessLabel'
 import type { ConversationSummary, TraceEffect, TraceStep, DecisionEvidence } from '@/types/workbench'
 
@@ -177,6 +299,13 @@ const snackbar = useSnackbarStore()
 const conversations = ref<ConversationSummary[]>([])
 const selectedId = ref<string | null>(null)
 const steps = ref<TraceStep[]>([])
+/** Timeline (existing list) or graph (nodes + edges from the server trace). */
+const viewMode = ref<'timeline' | 'graph'>('timeline')
+/** Node selected in the graph view; its readings are rendered from the server step only. */
+const selectedStep = ref<TraceStep | null>(null)
+/** `effectId → server status` (executed/revoked/revoking_external/revoke_failed), joined from
+ *  GET /ai/my/tool-effects. Absent entries are simply not labelled — never guessed. */
+const effectStatuses = ref<Record<number, string>>({})
 const loading = ref(false)
 const traceLoading = ref(false)
 const loadError = ref('')
@@ -220,6 +349,8 @@ async function loadConversations() {
 
 function onSelect() {
   steps.value = []
+  selectedStep.value = null
+  effectStatuses.value = {}
   traceError.value = ''
   if (selectedId.value) void loadTrace(selectedId.value)
 }
@@ -228,8 +359,25 @@ async function loadTrace(id: string) {
   traceLoading.value = true
   traceError.value = ''
   try {
-    const res = await aiTraceApi.trace(id)
+    // The trace carries the steps; the user-scoped effect list carries the current revoke state.
+    // The trace endpoint is the authority for nodes/edges — the second call only labels effect
+    // nodes with a server status, and a failure there degrades to "no label", never to a guess.
+    const [res, effectsRes] = await Promise.all([
+      aiTraceApi.trace(id),
+      aiTraceApi.myEffects(1, 100).catch(() => null),
+    ])
     steps.value = res.steps
+
+    const statuses: Record<number, string> = {}
+    for (const eff of effectsRes?.items ?? []) {
+      if (eff.conversationId === id) statuses[eff.id] = eff.status
+    }
+    effectStatuses.value = statuses
+
+    // Keep the graph selection pointed at a step the server still returns (fresh readings).
+    selectedStep.value = selectedStep.value
+      ? res.steps.find((s) => s.id === selectedStep.value!.id) ?? null
+      : null
   } catch (err) {
     traceError.value = err instanceof Error ? err.message : t('loadFailed')
   } finally {
@@ -252,14 +400,25 @@ async function onRevokeEffect(effect: TraceEffect) {
 }
 
 function stepLabel(s: TraceStep): string {
-  switch (s.type) {
-    case 'input': return t('stepInput')
-    case 'assistant': return t('stepAssistant')
-    case 'tool_call': return t('stepToolCall')
-    case 'confirmation': return t('stepConfirmation')
-    case 'effect': return t('stepEffect')
-    default: return t('stepNotice')
-  }
+  return t(traceStepLabelKey(s.type))
+}
+
+/** Confirmation outcome label — mirrors the server's `outcome` value (no local state derived). */
+function confirmLabel(s: TraceStep): string {
+  if (s.outcome === 'approve') return t('stepApproved')
+  if (s.outcome === 'decline') return t('stepDeclined')
+  if (s.outcome === 'pending_approval') return t('stepPendingApproval')
+  return t('stepTimedOut')
+}
+
+/** Effect status label — only when the server listed that effect; absent stays unlabelled. */
+function effectStatusLabel(effectId: number): string {
+  const status = effectStatuses.value[effectId]
+  if (!status) return ''
+  if (status === 'revoked') return t('lifecycleRevoked')
+  if (status === 'revoking_external') return t('statusRevokingExternal')
+  if (status === 'revoke_failed') return t('statusRevokeFailed')
+  return t('lifecycleExecuted')
 }
 
 /** D1 Human-Agent-System Accountability：来源分类复用 utils/traceSource */
@@ -293,3 +452,21 @@ onMounted(async () => {
   }
 })
 </script>
+
+<style scoped>
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.detail-pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.checks-box {
+  background: var(--el-fill-color-light);
+  border-radius: 4px;
+}
+</style>
