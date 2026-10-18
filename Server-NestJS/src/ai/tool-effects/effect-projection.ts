@@ -11,6 +11,7 @@ import { EffectDisputeStore } from './effect-dispute.store';
 import type { RevokeClass } from '../interfaces/tool.interface';
 import type { HostHelpers } from './tool-effects.types';
 import { revokeAge, revokeWindow } from './revoke-staleness';
+import { REVOKE_STATUS } from './revoke-status';
 import { paginated } from '../../common/dto/paginated';
 
 /**
@@ -63,7 +64,7 @@ export class EffectProjection {
     // 不把「查不到年龄」悄悄算成「陈旧」。
     const thresholdMinutes = this.host.staleThresholdMinutes();
     if (options.stale === true) {
-      where.revokeStatus = 'compensating';
+      where.revokeStatus = REVOKE_STATUS.COMPENSATING;
       where.revokeRequestedAt = LessThan(new Date(Date.now() - thresholdMinutes * 60_000));
     }
 
@@ -340,8 +341,10 @@ export class EffectProjection {
     effect: AiToolSideEffect,
     targetSoftDeleted: boolean,
   ): 'restored' | 'not_restored' | 'unknown' {
-    if (effect.revokeStatus === 'compensating') return 'unknown';
-    return effect.revokeStatus === 'revoked' && !targetSoftDeleted ? 'restored' : 'not_restored';
+    if (effect.revokeStatus === REVOKE_STATUS.COMPENSATING) return 'unknown';
+    return effect.revokeStatus === REVOKE_STATUS.REVOKED && !targetSoftDeleted
+      ? 'restored'
+      : 'not_restored';
   }
 
   /**
@@ -391,9 +394,9 @@ export class EffectProjection {
   normalizeStatus(effect: AiToolSideEffect, targetSoftDeleted: boolean): string {
     if (targetSoftDeleted) return 'revoked';
     switch (effect.revokeStatus) {
-      case 'compensating':
+      case REVOKE_STATUS.COMPENSATING:
         return 'revoking_external';
-      case 'revoke_failed':
+      case REVOKE_STATUS.REVOKE_FAILED:
         return 'revoke_failed';
       default:
         return 'executed';

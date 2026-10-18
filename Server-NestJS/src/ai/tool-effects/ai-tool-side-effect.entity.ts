@@ -7,6 +7,7 @@ import {
   CreateDateColumn,
   Index,
 } from 'typeorm';
+import type { RevokeStatus } from './revoke-status';
 
 /**
  * HS-3 AI 写操作副作用记录：每次 AI 写工具（create_event/create_todo）成功执行后落一条。
@@ -92,7 +93,7 @@ export class AiToolSideEffect {
    * 不入哈希链 payload（可变运维态）。
    */
   @Column({ type: 'varchar', length: 32, nullable: true, name: 'revoke_status' })
-  revokeStatus?: string | null;
+  revokeStatus?: RevokeStatus | null;
 
   /**
    * docs/cascade-compensation.spec.md：级联补偿组 = 该次工具调用的**幂等基键**

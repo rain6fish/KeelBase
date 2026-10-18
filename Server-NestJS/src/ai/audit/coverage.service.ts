@@ -6,6 +6,7 @@ import { Between, IsNull, Not, Repository, type FindOptionsWhere } from 'typeorm
 import { createHash } from 'node:crypto';
 import { AiAuditLog } from './ai-audit-log.entity';
 import { AiToolSideEffect } from '../tool-effects/ai-tool-side-effect.entity';
+import { REVOKE_STATUS } from '../tool-effects/revoke-status';
 import { GovernancePolicyService } from '../governance-bridge/governance-policy.service';
 import { COVERAGE_GAPS, CoverageFacts, applicableGaps, deriveVerdict } from './coverage-gaps';
 
@@ -172,7 +173,7 @@ export class CoverageService {
         this.effects.count({
           where: { ...effectWhere, revokeDispute: Not(IsNull()), revokeAcknowledgedAt: IsNull() },
         }),
-        this.effects.count({ where: { ...effectWhere, revokeStatus: 'compensating' } }),
+        this.effects.count({ where: { ...effectWhere, revokeStatus: REVOKE_STATUS.COMPENSATING } }),
       ]);
 
     const facts: CoverageFacts = {
