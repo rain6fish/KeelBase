@@ -868,7 +868,11 @@ test('AI 工具模板：query 读 + create 写需确认', () => {
   assert.equal(files.length, 4);
   const query = files.find((f) => f.path.includes('query-') && !f.path.endsWith('.spec.ts')).content;
   assert.match(query, /name = 'query_suppliers'/);
-  assert.match(query, /findAll\(Number\(userId\)\)/);
+  // The declared filter and the call must agree: `name` is a string column, so the tool declares
+  // `keyword` and forwards it to the list endpoint's `q`.
+  // 声明的过滤与调用必须一致：`name` 是字符串列，故工具声明 `keyword` 并把它转交给列表端点的 `q`。
+  assert.match(query, /findAll\(userId: number, q\?: string\)/);
+  assert.match(query, /findAll\(Number\(userId\), keyword\)/);
   const create = files.find((f) => f.path.includes('create-') && !f.path.endsWith('.spec.ts')).content;
   assert.match(create, /name = 'create_supplier'/);
   assert.match(create, /requiresConfirmation = true/);
@@ -878,7 +882,7 @@ test('AI 工具模板：query 读 + create 写需确认', () => {
   // AI 工具 spec：query/create 各带单测（写工具断言 requiresConfirmation）
   const querySpec = files.find((f) => f.path.endsWith('query-suppliers.tool.spec.ts')).content;
   assert.match(querySpec, /describe\('QuerySuppliersTool'/);
-  assert.match(querySpec, /toHaveBeenCalledWith\(7\)/);
+  assert.match(querySpec, /toHaveBeenCalledWith\(7, undefined\)/);
   const createSpec = files.find((f) => f.path.endsWith('create-suppliers.tool.spec.ts')).content;
   assert.match(createSpec, /describe\('CreateSupplierTool'/);
   assert.match(createSpec, /requiresConfirmation/);

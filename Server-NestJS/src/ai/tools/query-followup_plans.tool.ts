@@ -15,9 +15,11 @@ interface FollowupPlansServiceLike {
 export class QueryFollowupPlansTool implements AiTool {
   readonly name = 'query_followup_plans';
   readonly description = '查询跟进计划列表（本人数据）。用户问"有哪些跟进计划"时使用。';
-  readonly parameters: ToolParameter[] = [
-    { name: 'keyword', type: 'string', description: '关键字（可选）', required: false },
-  ];
+  // Its list endpoint takes no filter (the hand-extended service reads no `q`), so the tool declares
+  // none: a parameter the model could pass and the tool would silently drop is worse than no parameter.
+  // 该模块的列表端点没有过滤（手工扩展的 service 不读 `q`），故工具不声明任何参数：一个模型可以传、
+  // 而工具会静默丢弃的参数，比没有参数更糟。
+  readonly parameters: ToolParameter[] = [];
 
   constructor(private readonly followup_plansService: FollowupPlansServiceLike) {}
 
@@ -27,17 +29,7 @@ export class QueryFollowupPlansTool implements AiTool {
       function: {
         name: this.name,
         description: this.description,
-        parameters: {
-                type: 'object',
-                properties: {
-              title: { type: 'string', description: 'title' },
-              customerId: { type: 'number', description: 'customerId' },
-              priority: { type: 'string', description: 'priority' },
-              reason: { type: 'string', description: 'reason' },
-              dueDate: { type: 'string', description: 'dueDate' },
-              status: { type: 'string', description: 'status' },
-                },
-              },
+        parameters: { type: 'object', properties: {} },
       },
     };
   }

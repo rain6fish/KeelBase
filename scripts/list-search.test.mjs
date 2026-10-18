@@ -22,6 +22,7 @@ import assert from 'node:assert/strict';
 
 import { buildContext, normalizeSpecFields, searchableFieldNames } from './generator/validate.mjs';
 import { controllerSpecTemplate, controllerTemplate, serviceTemplate } from './generator/templates-backend.mjs';
+import { aiFiles } from './generator/templates-ai.mjs';
 
 const TITLE = { name: 'title', type: 'string' };
 const NOTE = { name: 'note', type: 'text' };
@@ -87,6 +88,24 @@ test('控制器：把 q 交给 service，并按需 import Query', () => {
   assert.match(ctrl, /@Query\('q'\) q\?: string/);
   assert.match(ctrl, /findAll\(user\.sub, q\)/);
   assert.match(ctrl, /import \{[^}]*Query[^}]*\} from '@nestjs\/common';/);
+});
+
+test('生成的 AI 查询工具：声明的过滤与执行一致（可搜列判定同一个函数）', () => {
+  const tool = aiFiles(ctxWith([TITLE, NOTE, RATING]))[0].content;
+  // Both faces come from the same value; either one drifting is the defect.
+  // 两个面来自同一个值；任一面漂移就是那个缺陷。
+  assert.match(tool, /readonly parameters: ToolParameter\[\] = \[\n    \{ name: 'keyword'/);
+  assert.match(tool, /properties: \{\n            keyword: \{ type: 'string'/);
+  assert.match(tool, /findAll\(userId: number, q\?: string\)/);
+  assert.match(tool, /findAll\(Number\(userId\), keyword\)/);
+});
+
+test('生成的 AI 查询工具：没有可搜列就不声明过滤（不诱使模型传一个不会生效的参数）', () => {
+  const tool = aiFiles(ctxWith([RATING, STATUS]))[0].content;
+  assert.match(tool, /readonly parameters: ToolParameter\[\] = \[\];/);
+  assert.match(tool, /parameters: \{ type: 'object', properties: \{\} \}/);
+  assert.match(tool, /findAll\(Number\(userId\)\)/);
+  assert.ok(!tool.includes('keyword'));
 });
 
 test('生成物自带的 controller spec 跟着改 —— 否则它自己会红', () => {
