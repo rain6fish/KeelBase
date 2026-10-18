@@ -11,6 +11,7 @@ import type { ExternalRevoker } from '../proxy/proxy-revoker.service';
 import { isEffectOwner, targetKey } from './effect-shared';
 import type { SideEffectRevoker, DerivedReferenceCount } from './side-effect-revoker';
 import type { RevokeClass } from '../interfaces/tool.interface';
+import { REVOKE_STATUS } from './revoke-status';
 import type {
   HostHelpers,
   CrossGroupClaim,
@@ -248,7 +249,7 @@ export class EffectRevoke {
     const byTarget = new Map<string, CrossGroupClaim>();
     for (const r of rows) {
       if (!r.compensationGroup || r.compensationGroup === groupId) continue;
-      if (r.revokeStatus === 'revoked') continue; // 已补偿完的组不再主张
+      if (r.revokeStatus === REVOKE_STATUS.REVOKED) continue; // 已补偿完的组不再主张
       const key = targetKey(r);
       const found = byTarget.get(key);
       if (found) {
@@ -301,8 +302,8 @@ export class EffectRevoke {
   async skipReason(
     effect: AiToolSideEffect,
   ): Promise<'already_revoked' | 'compensating' | null> {
-    if (effect.revokeStatus === 'compensating') return 'compensating';
-    if (effect.revokeStatus === 'revoked') {
+    if (effect.revokeStatus === REVOKE_STATUS.COMPENSATING) return 'compensating';
+    if (effect.revokeStatus === REVOKE_STATUS.REVOKED) {
       const localSoftDelete =
         this.classOf(effect) === 'local_compensate' &&
         (this.revoker?.canHandle(effect.resultType) ?? false);
@@ -418,7 +419,7 @@ export class EffectRevoke {
     const res = await this.effectsRepo.update(
       {
         id: effectId,
-        revokeStatus: 'compensating',
+        revokeStatus: REVOKE_STATUS.COMPENSATING,
         revokeRequestedAt: LessThan(cutoff),
         revokeClaimedBy: IsNull(),
       },
@@ -765,7 +766,11 @@ export class EffectRevoke {
         // 别人认领的行一概不碰。
         for (const m of locals) {
           if (claimed.has(m.id)) {
-            await this.host.patchRevoke(m, { revokeStatus: 'revoke_failed' }, { attempts: 2 });
+            await this.host.patchRevoke(
+              m,
+              { revokeStatus: REVOKE_STATUS.REVOKE_FAILED },
+              { attempts: 2 },
+            );
           }
         }
         for (const m of locals) {
@@ -793,7 +798,7 @@ export class EffectRevoke {
       for (const m of locals) {
         const recorded = await this.host.patchRevoke(
           m,
-          { revokeStatus: 'revoked' },
+          { revokeStatus: REVOKE_STATUS.REVOKED },
           { attempts: 2 },
         );
         const driftNote = this.withDriftNote(undefined, driftByEffect.get(m.id) ?? null);
@@ -807,7 +812,7 @@ export class EffectRevoke {
           // `compensating` is neither revoked nor failed: the fact landed, the record did not.
           // `compensating` 既不是已撤销也不是失败：事实落地了，记录没有。
           ...(recorded ? {} : { skipped: true, reason: 'compensating', external: false }),
-          revokeStatus: recorded ? 'revoked' : 'compensating',
+          revokeStatus: recorded ? REVOKE_STATUS.REVOKED : REVOKE_STATUS.COMPENSATING,
           compensationGroup: groupId,
           // REV-9：漂移事实随该成员逐条可见（组级汇总不吞它）——没有漂移时不加该字段，保持原形状
           ...(message ? { message } : {}),
@@ -962,7 +967,7 @@ export class EffectRevoke {
     const failed = results.filter((r) => !r.revoked && !r.skipped).length;
     const alreadyRevoked = results.filter((r) => r.reason === 'already_revoked').length;
     const compensating = results.some(
-      (r) => r.reason === 'compensating' || r.revokeStatus === 'compensating',
+      (r) => r.reason === 'compensating' || r.revokeStatus === REVOKE_STATUS.COMPENSATING,
     );
     const revoked = results.filter((r) => r.revoked).length;
     const allOk = failed === 0 && revoked + alreadyRevoked === results.length;
@@ -990,7 +995,12 @@ export class EffectRevoke {
         effectId: requested.id,
         compensationGroup: groupId,
         cascade: { groupId, total: members.length, revoked, skipped, failed },
-        revokeStatus: failed > 0 ? 'revoke_failed' : compensating ? 'compensating' : 'revoked',
+        revokeStatus:
+          failed > 0
+            ? REVOKE_STATUS.REVOKE_FAILED
+            : compensating
+              ? REVOKE_STATUS.COMPENSATING
+              : REVOKE_STATUS.REVOKED,
         // 逐成员 message 会被这条摘要遮住，故「不参与补偿的成员」与漂移清单都在此**并进摘要**
         // （组级读数的可见面就是它）。
         message: notes.length > 0 ? `${summary}；${notes.join('；')}` : summary,
@@ -1042,11 +1052,12 @@ export class EffectRevoke {
           //（事实层说它又活了）。走到这里之前 `skipReason` 已排除「revoked 且目标仍软删」；CAS 仍然
           // 串行化并发撤销：第一个写者把行改成 `compensating`，第二个就命中 0 行。
           revokeStatus: Raw(
-            (alias) => `(${alias} IS NULL OR ${alias} = 'revoke_failed' OR ${alias} = 'revoked')`,
+            (alias) =>
+              `(${alias} IS NULL OR ${alias} = '${REVOKE_STATUS.REVOKE_FAILED}' OR ${alias} = '${REVOKE_STATUS.REVOKED}')`,
           ),
         },
         {
-          revokeStatus: 'compensating',
+          revokeStatus: REVOKE_STATUS.COMPENSATING,
           revokeRequestedAt: new Date(),
           // The previous request's acknowledgement does not speak for this one.
           revokeAcknowledgedAt: null,
@@ -1093,21 +1104,21 @@ export class EffectRevoke {
         //（`revoke_failed`），或仍在进行中（`compensating`）。
         const now = await this.effectsRepo.findOne({ where: { id: effect.id } });
         const status = (now?.revokeStatus as RevokeResult['revokeStatus']) ?? undefined;
-        if (claim === 'not_claimed' && status === 'revoked') {
+        if (claim === 'not_claimed' && status === REVOKE_STATUS.REVOKED) {
           return {
             revoked: true,
             effectId: effect.id,
             skipped: true,
             reason: 'already_revoked',
-            revokeStatus: 'revoked',
+            revokeStatus: REVOKE_STATUS.REVOKED,
             message: '该副作用已由另一写者完成撤销（幂等成功）——本次未重复触发',
           };
         }
-        if (claim === 'not_claimed' && status === 'revoke_failed') {
+        if (claim === 'not_claimed' && status === REVOKE_STATUS.REVOKE_FAILED) {
           return {
             revoked: false,
             effectId: effect.id,
-            revokeStatus: 'revoke_failed',
+            revokeStatus: REVOKE_STATUS.REVOKE_FAILED,
             message: '该副作用的撤销处于失败态（另一写者刚写入）——请重试',
           };
         }
@@ -1131,14 +1142,18 @@ export class EffectRevoke {
         // cannot land, the row keeps the intent, which reads as unknown rather than "not revoked".
         // 事实层没有改动。落一个可读的失败态（尽力而为）；连它都写不进去时该行保留意图，
         // 读作「未知」而不是「未撤销」。
-        await this.host.patchRevoke(effect, { revokeStatus: 'revoke_failed' }, { attempts: 2 });
+        await this.host.patchRevoke(
+          effect,
+          { revokeStatus: REVOKE_STATUS.REVOKE_FAILED },
+          { attempts: 2 },
+        );
         throw err;
       }
       this.logger.log(`[AiToolEffects] revoked ${effect.resultType} #${effect.resultId} (effect ${effect.id})`);
       if (!r.revoked) {
         const recorded = await this.host.patchRevoke(
           effect,
-          { revokeStatus: 'revoke_failed' },
+          { revokeStatus: REVOKE_STATUS.REVOKE_FAILED },
           { attempts: 2 },
         );
         return {
@@ -1147,7 +1162,7 @@ export class EffectRevoke {
           message: recorded
             ? this.withDriftNote(r.message, drift)
             : `${this.withDriftNote(r.message, drift) ?? ''}；且失败态未能落库——状态未知，需人工核对`,
-          revokeStatus: recorded ? 'revoke_failed' : 'compensating',
+          revokeStatus: recorded ? REVOKE_STATUS.REVOKE_FAILED : REVOKE_STATUS.COMPENSATING,
         };
       }
       // The fact layer changed. Record the terminal state; if that cannot land, the intent stays
@@ -1158,7 +1173,7 @@ export class EffectRevoke {
       // 事实落地了，记录没有。`compensating` 是已冻结的「结果未知」读数，不是「未撤销」。
       const recorded = await this.host.patchRevoke(
         effect,
-        { revokeStatus: 'revoked' },
+        { revokeStatus: REVOKE_STATUS.REVOKED },
         { attempts: 2 },
       );
       // REV-14：软删落地后才落这份读数——判定没成立时不记（同「本地回滚不留回写」的口径）。
@@ -1189,7 +1204,7 @@ export class EffectRevoke {
         message: recorded
           ? this.withDriftNote(r.message, drift)
           : '本地软删已执行，但撤销终态未能落库——状态未知，需人工核对',
-        revokeStatus: recorded ? 'revoked' : 'compensating',
+        revokeStatus: recorded ? REVOKE_STATUS.REVOKED : REVOKE_STATUS.COMPENSATING,
         ...(downstreamReferences ? { downstreamReferences } : {}),
       };
     }
@@ -1216,10 +1231,12 @@ export class EffectRevoke {
       const claim = await this.effectsRepo.update(
         {
           id: effect.id,
-          revokeStatus: Raw((alias) => `(${alias} IS NULL OR ${alias} = 'revoke_failed')`),
+          revokeStatus: Raw(
+            (alias) => `(${alias} IS NULL OR ${alias} = '${REVOKE_STATUS.REVOKE_FAILED}')`,
+          ),
         },
         {
-          revokeStatus: 'compensating',
+          revokeStatus: REVOKE_STATUS.COMPENSATING,
           revokeRequestedAt: new Date(),
           // 上一次请求的确认不代表这一次 —— 重试（revoke_failed 可重试）必须把旧确认清掉，
           // 否则新意图会被旧确认冒充成「已到达」。
@@ -1250,7 +1267,7 @@ export class EffectRevoke {
       const acknowledged = await this.host.patchRevoke(
         effect,
         {
-          revokeStatus: r.ok ? 'compensating' : 'revoke_failed',
+          revokeStatus: r.ok ? REVOKE_STATUS.COMPENSATING : REVOKE_STATUS.REVOKE_FAILED,
           revokeAcknowledgedAt: new Date(),
         },
         { attempts: 2 },
@@ -1262,7 +1279,7 @@ export class EffectRevoke {
           effectId: effect.id,
           external: true,
           compensated: false,
-          revokeStatus: acknowledged ? 'revoke_failed' : 'compensating',
+          revokeStatus: acknowledged ? REVOKE_STATUS.REVOKE_FAILED : REVOKE_STATUS.COMPENSATING,
           message: acknowledged
             ? r.message
             : `${r.message}；但失败态未能落库——状态未知，需人工核对`,
@@ -1280,7 +1297,7 @@ export class EffectRevoke {
         compensated: true,
         skipped: true,
         reason: 'compensating',
-        revokeStatus: 'compensating',
+        revokeStatus: REVOKE_STATUS.COMPENSATING,
         message: acknowledged
           ? `Java 端已请求补偿（${r.message}）；结果以目标系统为准`
           : `Java 端已请求补偿（${r.message}）；但确认时刻未能落库——抵达凭据未知`,

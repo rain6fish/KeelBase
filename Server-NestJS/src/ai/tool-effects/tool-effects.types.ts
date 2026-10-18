@@ -17,6 +17,7 @@ import type { CaptureUnavailableReason } from './side-effect-snapshot-captor';
 import type { CapturedWrite } from '../../common/write-capture/write-capture';
 import type { DerivedReferenceCount } from './side-effect-revoker';
 import type { RevokeClass } from '../interfaces/tool.interface';
+import type { RevokeStatus } from './revoke-status';
 
 export interface WriteToolContext {
   userId: string;
@@ -76,7 +77,7 @@ export type RevokeBatchItem = {
   revoked: boolean;
   skipped?: boolean;
   reason?: 'already_revoked' | 'compensating' | 'revoke_class_none';
-  revokeStatus?: 'revoked' | 'compensating' | 'revoke_failed' | null;
+  revokeStatus?: RevokeStatus | null;
   external?: boolean;
   message?: string;
   error?: string;
@@ -138,7 +139,7 @@ export type RevokeResult = {
   compensated?: boolean;
   message?: string;
   /** KB-6：撤销后回写的运维态（revoked=本地软删 / compensating=已请求外部补偿·结果未知 / revoke_failed=补偿失败） */
-  revokeStatus?: 'revoked' | 'compensating' | 'revoke_failed';
+  revokeStatus?: RevokeStatus;
   /** 单条撤销的幂等跳过标记（已撤销 / 已请求补偿 → 不重复触发） */
   skipped?: boolean;
   reason?: string;
