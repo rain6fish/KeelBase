@@ -3,6 +3,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHmac } from 'crypto';
+import { canonicalJSON } from '../canonical-json';
 
 export interface ChainRow {
   id: number;
@@ -59,26 +60,19 @@ export class AuditChainService {
 
   /** 计算当前记录 hash：HMAC(secret, prevHash|canonicalPayload)。payload 键已排序、undefined 剔除。用 current key 签名。 */
   computeHash(prevHash: string | null, payload: Record<string, unknown>): string {
-    const canonical = this._canonical(payload);
+    const canonical = canonicalJSON(payload);
     return createHmac('sha256', this.keys[0]).update(`${prevHash ?? 'genesis'}|${canonical}`).digest('hex');
   }
 
   /** 任一候选 key 与给定 prevHash 算出的 hash 是否等于 stored（轮换兼容：旧记录用 previous/legacy key 也可验证）。 */
   private _matches(stored: string | null | undefined, prevHash: string | null, payload: Record<string, unknown>): boolean {
     if (!stored) return false;
-    const canonical = this._canonical(payload);
+    const canonical = canonicalJSON(payload);
     for (const key of this.keys) {
       const expected = createHmac('sha256', key).update(`${prevHash ?? 'genesis'}|${canonical}`).digest('hex');
       if (expected === stored) return true;
     }
     return false;
-  }
-
-  private _canonical(payload: Record<string, unknown>): string {
-    const sorted = Object.keys(payload)
-      .filter((k) => payload[k] !== undefined)
-      .sort();
-    return JSON.stringify(payload, sorted);
   }
 
   /** 沿 id 升序校验整条链。rows 需含 id/prevHash/hash；payloadFor 重建每条的业务字段。 */
