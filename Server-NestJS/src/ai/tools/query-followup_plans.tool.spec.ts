@@ -51,4 +51,15 @@ describe('QueryFollowupPlansTool', () => {
     expect(result.success).toBe(false);
     expect(result.error).toBe('db down');
   });
+
+  it('should declare no filter and ignore one if passed', async () => {
+    const def = tool.toToolDefinition();
+    expect(def.function.parameters).toEqual({ type: 'object', properties: {} });
+    expect(tool.parameters).toEqual([]);
+
+    mockService.findAll.mockResolvedValue([{ id: 1, title: 'sample' }]);
+    await tool.execute({ keyword: 'anything' }, '7');
+
+    expect(mockService.findAll).toHaveBeenCalledWith(7);
+  });
 });
