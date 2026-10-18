@@ -9,7 +9,7 @@
 import { AiTool, ToolDefinition, ToolParameter, ToolResult } from '../interfaces/tool.interface';
 
 interface ReportsServiceLike {
-  findAll(userId: number): Promise<any[]>;
+  findAll(userId: number, q?: string): Promise<any[]>;
 }
 
 export class QueryReportsTool implements AiTool {
@@ -28,21 +28,19 @@ export class QueryReportsTool implements AiTool {
         name: this.name,
         description: this.description,
         parameters: {
-                type: 'object',
-                properties: {
-              title: { type: 'string', description: '标题' },
-              summary: { type: 'string', description: '摘要' },
-              status: { type: 'string', description: '状态' },
-              amount: { type: 'number', description: '金额' },
-                },
-              },
+          type: 'object',
+          properties: {
+            keyword: { type: 'string', description: '关键字（可选）' },
+          },
+        },
       },
     };
   }
 
   async execute(args: Record<string, unknown>, userId: string): Promise<ToolResult> {
     try {
-      const items = await this.reportsService.findAll(Number(userId));
+      const keyword = typeof args.keyword === 'string' ? args.keyword : undefined;
+      const items = await this.reportsService.findAll(Number(userId), keyword);
       const data = items.map((item) => {
         const o: Record<string, unknown> = { id: item.id };
         o.title = item.title;
