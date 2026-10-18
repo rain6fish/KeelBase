@@ -48,6 +48,8 @@
  * 哪个事实、以及为什么它压得住排在它下面的那些。
  */
 
+import { REVOKE_STATUS, type RevokeStatus } from '../tool-effects/revoke-status';
+
 /** The single value the viewer shows. See the header for why it is not the roadmap's five. */
 export type ExplanationState =
   | 'awaiting_confirmation'
@@ -89,7 +91,7 @@ export interface ExplanationStateInput {
   /** `ai_confirmation_requests.status` for the confirmation this action went through, if any. */
   confirmationStatus?: string | null;
   /** `ai_tool_side_effects.revoke_status`, if the action produced an effect. */
-  revokeStatus?: string | null;
+  revokeStatus?: RevokeStatus | null;
   /** REV-2's window on a `compensating` effect: whether the target has been heard from. */
   revokeWindow?: string | null;
 }
@@ -113,9 +115,9 @@ export function explainState(input: ExplanationStateInput): ExplanationState {
   if (input.confirmationStatus && AWAITING_STATUSES.has(input.confirmationStatus)) {
     return 'awaiting_confirmation';
   }
-  if (input.revokeStatus === 'revoke_failed') return 'compensation_failed';
-  if (input.revokeStatus === 'revoked') return 'compensation_succeeded';
-  if (input.revokeStatus === 'compensating') {
+  if (input.revokeStatus === REVOKE_STATUS.REVOKE_FAILED) return 'compensation_failed';
+  if (input.revokeStatus === REVOKE_STATUS.REVOKED) return 'compensation_succeeded';
+  if (input.revokeStatus === REVOKE_STATUS.COMPENSATING) {
     return input.revokeWindow && UNKNOWN_WINDOWS.has(input.revokeWindow)
       ? 'result_unknown'
       : 'compensating';

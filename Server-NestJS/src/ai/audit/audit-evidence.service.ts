@@ -24,6 +24,7 @@ import { AiConfirmationRequest } from '../approvals/ai-confirmation-request.enti
 // P0-20：单事件解释面。`revokeWindow` 复用 tool-effects 的那一份，不再自己推一遍。
 // P0-20: the single-event explanation. `revokeWindow` is reused from tool-effects rather than re-derived here.
 import { revokeWindow } from '../tool-effects/revoke-staleness';
+import { REVOKE_STATUS, type RevokeStatus } from '../tool-effects/revoke-status';
 import { ExplanationState, explainState } from './audit-explanation-state';
 import { AuditChainService, ChainVerification } from '../../common/audit-chain/audit-chain.service';
 import { CacheService } from '../../common/cache/cache.service';
@@ -658,7 +659,7 @@ export class AuditEvidenceService {
         packageHasExternalAnchor: false,
         packageHasEffectWithoutSnapshot: effectProj.before == null || effectProj.after == null,
         packageHasOpenDispute: Boolean(effect.revokeDispute && !effect.revokeAcknowledgedAt),
-        packageHasStalledRevoke: effect.revokeStatus === 'compensating',
+        packageHasStalledRevoke: effect.revokeStatus === REVOKE_STATUS.COMPENSATING,
         // True only when the packaged action *is* a chat row: that is when "content by reference"
         // applies to this package. Not a guess about whether a conversation exists.
         // 仅当被打包的那条动作**就是** chat 行时为真：那才是「正文靠引用」适用于本包的时候。不是对
@@ -759,7 +760,7 @@ export class AuditEvidenceService {
       resultType: string;
       resultId: number;
       revokeClass: string | null;
-      revokeStatus: string | null;
+      revokeStatus: RevokeStatus | null;
       revokeWindow: string | null;
       before: string | null;
       after: string | null;

@@ -11,6 +11,8 @@
  * **不得**据此把状态改写成成功或失败（否则就是把猜测伪装成事实，正是本切片要消除的东西）。
  */
 
+import { REVOKE_STATUS, type RevokeStatus } from './revoke-status';
+
 /** 陈旧阈值（分钟）。可由 `REVOKE_STALE_MINUTES` 覆盖。 */
 export const DEFAULT_REVOKE_STALE_MINUTES = 60;
 
@@ -32,12 +34,14 @@ export interface RevokeAge {
  * - `ageMinutes` 下限取 0：时钟回拨或写入与服务端存在偏移时，不给出负数年龄。
  */
 export function revokeAge(
-  revokeStatus: string | null | undefined,
+  revokeStatus: RevokeStatus | null | undefined,
   revokeRequestedAt: Date | string | null | undefined,
   now: Date,
   thresholdMinutes: number = DEFAULT_REVOKE_STALE_MINUTES,
 ): RevokeAge {
-  if (revokeStatus !== 'compensating') return { pending: false, ageMinutes: null, stale: false };
+  if (revokeStatus !== REVOKE_STATUS.COMPENSATING) {
+    return { pending: false, ageMinutes: null, stale: false };
+  }
 
   const requestedAt = revokeRequestedAt ? new Date(revokeRequestedAt) : null;
   if (!requestedAt || Number.isNaN(requestedAt.getTime())) {
@@ -68,10 +72,10 @@ export type RevokeWindow = 'unacknowledged' | 'awaiting_target';
  * 只回答「有没有到达的凭据」，**不得**据此把状态改写成成功或失败。
  */
 export function revokeWindow(
-  revokeStatus: string | null | undefined,
+  revokeStatus: RevokeStatus | null | undefined,
   revokeAcknowledgedAt: Date | string | null | undefined,
 ): RevokeWindow | null {
-  if (revokeStatus !== 'compensating') return null;
+  if (revokeStatus !== REVOKE_STATUS.COMPENSATING) return null;
   // 确认时刻非法/缺失 → 视作**无到达凭据**（不把坏输入读成「确实到达了」——那正是过度声称）。
   const ack = revokeAcknowledgedAt ? new Date(revokeAcknowledgedAt) : null;
   return ack && !Number.isNaN(ack.getTime()) ? 'awaiting_target' : 'unacknowledged';
