@@ -2,6 +2,7 @@
 
 import { defineStore } from 'pinia'
 import { followup_plansService } from '../services/followup_plans-service'
+import { translate } from '../i18n/translate'
 import type { FollowupPlanItem, CreateFollowupPlanRequest } from '../types/followup_plans'
 
 /** 跟进计划状态（Taro Vue3，pinia）：列表 + 增/删，乐观更新。 */
@@ -18,7 +19,7 @@ export const useFollowupPlansStore = defineStore('followup_plans', {
       try {
         this.items = await followup_plansService.getFollowupPlans()
       } catch (err: any) {
-        this.error = err.message || 'Failed to load 跟进计划'
+        this.error = err.message || translate('followup_plans.loadFailed')
       } finally {
         this.isLoading = false
       }
@@ -36,7 +37,7 @@ export const useFollowupPlansStore = defineStore('followup_plans', {
         await followup_plansService.remove(id)
       } catch (err: any) {
         this.items = prev
-        throw new Error(err.message || 'Failed to delete followup_plan')
+        throw new Error(err.message || translate('followup_plans.deleteFailed'))
       }
     },
   },

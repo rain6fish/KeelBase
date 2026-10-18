@@ -155,6 +155,26 @@ export const en: I18nDictionary = {
   'explore.events': 'Events',
   'explore.todos': 'Todos',
   'explore.settings': 'Settings',
+  'explore.assetLoans': 'Asset Loans',
+  'explore.pointsLedgers': 'Points Ledgers',
+  'explore.pointRecords': 'Point Records',
+  'explore.posts': 'Posts',
+  'explore.notes': 'Notes',
+  'explore.books': 'Books',
+  'explore.reports': 'Reports',
+  'explore.followupPlans': 'Follow-up Plans',
+
+  // ── Follow-up plans / 跟进计划 ──
+  'followup_plans.title': 'Follow-up Plans',
+  'followup_plans.count': '{total} items',
+  'followup_plans.placeholder': 'Add a follow-up plan…',
+  'followup_plans.add': 'Add',
+  'followup_plans.empty': 'No follow-up plans yet',
+  'followup_plans.inputRequired': 'Please enter a follow-up plan',
+  'followup_plans.createFailed': 'Failed to create',
+  'followup_plans.deleteTitle': 'Delete Follow-up Plan',
+  'followup_plans.deleteFailed': 'Failed to delete',
+  'followup_plans.loadFailed': 'Failed to load follow-up plans',
 
   // ── aiHistory ──
   'aiHistory.title': 'Conversation History',
