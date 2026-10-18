@@ -8,9 +8,9 @@
 
 **四层独立审核 → 整合结果 → 落地改进**：
 
-1. **阿里 code review（OpenCodeReview / `ocr` CLI，v1.9.4）**：对本次发布 diff 审查——
-   - `ocr review --from <prev-release> --to <release-branch>`（对发布区间 diff）
-   - 或 `ocr scan`（全文件审查出报告）
+1. **阿里 code review（OpenCodeReview / `ocr` CLI，v1.9.4）**：**默认只审本次发布区间的 diff**——
+   - **默认**：`ocr review --from <prev-release> --to <release-branch>`（只审发布区间的 diff）
+   - **全量**：`ocr scan`（全文件审查）**须单独说明**（谁要 · 为什么 · 预计成本）—— 2026-10-18 实测：一次全量扫 5 个仓 = **4438 次请求 / 42.54 元一小时**，而大多数文件自上次发版以来没动过（`P1-15`）
    - 或 Claude Code 会话内 `/open-code-review:delegate-review`（OCR 选文件/规则 + 宿主审查，免 key）
 2. **Claude Code 自带 code review**：对同一 diff 跑 Claude 的多维代码审查（正确性 / 安全 / 性能 / 简化 / 测试覆盖）。
 3. **code-review skill（mattpocock，2026-08-28 安装）**：对同一区间跑双轴评审——Standards（是否符合仓库编码规范）与 Spec（是否符合源 issue/spec 要求），两轴并行子代理，结果并排报告。触发方式：`/code-review <commit|branch|tag|merge-base>`。
