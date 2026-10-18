@@ -155,6 +155,26 @@ export const zh: I18nDictionary = {
   'explore.events': '事件',
   'explore.todos': '待办',
   'explore.settings': '设置',
+  'explore.assetLoans': '资产借用',
+  'explore.pointsLedgers': '积分台账',
+  'explore.pointRecords': '积分流水',
+  'explore.posts': '帖子',
+  'explore.notes': '笔记',
+  'explore.books': '图书',
+  'explore.reports': '报告',
+  'explore.followupPlans': '跟进计划',
+
+  // ── Follow-up plans / 跟进计划 ──
+  'followup_plans.title': '跟进计划',
+  'followup_plans.count': '{total} 条',
+  'followup_plans.placeholder': '新增跟进计划…',
+  'followup_plans.add': '添加',
+  'followup_plans.empty': '暂无跟进计划',
+  'followup_plans.inputRequired': '请输入跟进计划内容',
+  'followup_plans.createFailed': '创建失败',
+  'followup_plans.deleteTitle': '删除跟进计划',
+  'followup_plans.deleteFailed': '删除失败',
+  'followup_plans.loadFailed': '跟进计划加载失败',
 
   // ── aiHistory ──
   'aiHistory.title': '对话历史',
