@@ -6,15 +6,21 @@ import { createI18n } from 'vue-i18n'
 import zh from '@/i18n/zh'
 import en from '@/i18n/en'
 
-const { conversationsMock, traceMock, revokeMock, useRouteMock } = vi.hoisted(() => ({
+const { conversationsMock, traceMock, revokeMock, myEffectsMock, useRouteMock } = vi.hoisted(() => ({
   conversationsMock: vi.fn(),
   traceMock: vi.fn(),
   revokeMock: vi.fn(),
+  myEffectsMock: vi.fn(),
   useRouteMock: vi.fn(),
 }))
 
 vi.mock('@/api/aiTrace', () => ({
-  aiTraceApi: { conversations: conversationsMock, trace: traceMock, revokeEffect: revokeMock },
+  aiTraceApi: {
+    conversations: conversationsMock,
+    trace: traceMock,
+    revokeEffect: revokeMock,
+    myEffects: myEffectsMock,
+  },
 }))
 vi.mock('@/stores/snackbar', () => ({
   useSnackbarStore: () => ({ success: vi.fn(), error: vi.fn() }),
@@ -72,6 +78,7 @@ function mountView() {
 beforeEach(() => {
   vi.clearAllMocks()
   useRouteMock.mockReturnValue({ query: {} })
+  myEffectsMock.mockResolvedValue({ total: 0, page: 1, limit: 100, items: [] })
 })
 
 describe('AiTraceView', () => {
@@ -132,5 +139,75 @@ describe('AiTraceView', () => {
 
     // trace 失败 → traceError 显示 err.message
     expect(wrapper.text()).toContain('boom')
+  })
+
+  it('切到决策轨迹图 → 节点/边来自服务端步骤；点节点显示该步读数', async () => {
+    conversationsMock.mockResolvedValue([conv])
+    traceMock.mockResolvedValue({ conversation: conv, steps })
+    myEffectsMock.mockResolvedValue({
+      total: 1,
+      page: 1,
+      limit: 100,
+      items: [
+        {
+          id: 1,
+          toolName: 'create_followup_task',
+          conversationId: 'conv-1',
+          resultType: 'crm_task',
+          resultId: 42,
+          createdAt: '2026-08-25T10:00:03Z',
+          targetExists: true,
+          targetSoftDeleted: true,
+          status: 'revoked',
+        },
+      ],
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const select = wrapper.findComponent({ name: 'ElSelect' })
+    await select.vm.$emit('update:modelValue', 'conv-1')
+    await flushPromises()
+
+    const group = wrapper.findComponent({ name: 'ElRadioGroup' })
+    await group.vm.$emit('update:modelValue', 'graph')
+    await flushPromises()
+
+    expect(wrapper.findAll('.trace-node')).toHaveLength(4)
+    expect(wrapper.findAll('.graph-edge')).toHaveLength(3)
+    // 撤销状态由服务端副作用清单标注（trace 本身不带 status）
+    expect(myEffectsMock).toHaveBeenCalledWith(1, 100)
+    expect(wrapper.find('.trace-node[data-step-id="effect-3"]').text()).toContain('已撤销')
+
+    await wrapper.find('.trace-node[data-step-id="tool-1"]').trigger('click')
+    await flushPromises()
+
+    const detail = wrapper.find('[data-testid="trace-step-detail"]')
+    expect(detail.exists()).toBe(true)
+    expect(detail.text()).toContain('该步读数')
+    expect(detail.text()).toContain('research-agent')
+  })
+
+  it('图上可撤副作用 → 点撤销调用服务端撤销接口', async () => {
+    conversationsMock.mockResolvedValue([conv])
+    traceMock.mockResolvedValue({ conversation: conv, steps })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const select = wrapper.findComponent({ name: 'ElSelect' })
+    await select.vm.$emit('update:modelValue', 'conv-1')
+    await flushPromises()
+
+    const group = wrapper.findComponent({ name: 'ElRadioGroup' })
+    await group.vm.$emit('update:modelValue', 'graph')
+    await flushPromises()
+
+    revokeMock.mockResolvedValue({ revoked: true, effectId: 1 })
+    await wrapper.find('.trace-node[data-step-id="effect-3"] .node-revoke').trigger('click')
+    await flushPromises()
+
+    expect(revokeMock).toHaveBeenCalledWith(1)
   })
 })
