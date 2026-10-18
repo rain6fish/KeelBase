@@ -10,6 +10,7 @@
  * predicate deciding which database errors may be treated as an idempotent skip.
  */
 import { createHash } from 'crypto';
+import { sortKeys } from '../../common/canonical-json';
 import type { DeclaredSideEffect } from './effect-composition';
 import type { WriteToolContext } from './tool-effects.types';
 
@@ -69,18 +70,15 @@ export function declarationDiff(
   return { onlyDeclared, onlyStored };
 }
 
-/** 递归按 key 排序对象，保证同一 args 稳定序列化 —— 幂等键、args 摘要与代理身份共用同一口径 */
-export function sortKeys(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(sortKeys);
-  if (value && typeof value === 'object') {
-    const obj: Record<string, unknown> = {};
-    for (const k of Object.keys(value as Record<string, unknown>).sort()) {
-      obj[k] = sortKeys((value as Record<string, unknown>)[k]);
-    }
-    return obj;
-  }
-  return value;
-}
+/**
+ * Recursive stable serialisation for the idempotency key, args digest and agent identity. The
+ * implementation is single-sourced in `common/canonical-json.ts` (Q-2) and re-exported here so
+ * existing importers keep working.
+ *
+ * 幂等键、args 摘要与代理身份共用的递归稳定序列化。实现单源在 `common/canonical-json.ts`（Q-2），
+ * 此处再导出，既有使用方无需改动。
+ */
+export { sortKeys };
 
 /** 参数 hash（幂等键与追溯共用同一摘要口径）—— 登记与 claims 两簇共用，故与其余助手同处。 */
 export function argsHash(ctx: WriteToolContext): string {

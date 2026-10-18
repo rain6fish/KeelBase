@@ -17,10 +17,12 @@ import {
   pageShell, heading, kvTable, dataTable, pair, escapeHtml,
   verdictBanner, honestLimits, missing, headComment,
 } from './evidence-report-html.mjs';
+import { evidencePackageCanonical } from './evidence-package-canonical.mjs';
 
 /**
  * 期间包验证（判定与渲染分离）：结构 + 包内 hashChain + 可选 --key 全量重算与签名验证。
- * 与 verify-evidence.mjs /1|/2 路径同语义（不 import 其源码——该文件无导出且带 process.exit）。
+ * 与 verify-evidence.mjs /1|/2 路径同语义；包签名 canonical 二者共用
+ * `evidence-package-canonical.mjs`（Q-2 起单源，此前两处各写一份相同的对象字面量）。
  * 返回 { ok, mode, chainValid, brokenAt?, recomputed, signatureState, structural, embeddedValid }
  *
  * `chainHash` 由调用方传入（协议算法单源在契约仓，本件刻意不 import 仓外任何东西——见文件头「零新依赖」）。
@@ -58,15 +60,9 @@ export function verifyPeriodPackage(pkg, keys = [], chainHash) {
     chainValid = structural && mismatchAt < 0;
 
     if (pkg.signature) {
-      // 与导出实现/cli 验签同构：**注意此 canonical 用普通 JSON.stringify 的键序**（非 canonicalJSON）
-      const canonical = JSON.stringify({
-        summary: pkg.report?.summary,
-        hashChain: pkg.report?.hashChain,
-        effectDiffs: pkg.report?.effectDiffs,
-        ...(pkg.format === 'keelbase-audit-evidence/2' ? { compliance: pkg.compliance } : {}),
-        chain: pkg.chain,
-        exportedAt: pkg.exportedAt,
-      });
+      // 与导出实现/cli 验签同构：**固定键序、普通 JSON.stringify**（非 canonicalJSON），单源见
+      // `evidence-package-canonical.mjs`。
+      const canonical = evidencePackageCanonical(pkg);
       const sigOk = keys.some((k) => createHmac('sha256', k).update(canonical).digest('hex') === pkg.signature);
       signatureState = sigOk ? 'verified' : 'mismatch';
     }

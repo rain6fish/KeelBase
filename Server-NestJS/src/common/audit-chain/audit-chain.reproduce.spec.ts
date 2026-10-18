@@ -14,6 +14,7 @@
 import { ConfigService } from '@nestjs/config';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { canonicalJSON } from '../canonical-json';
 import { AuditChainService } from './audit-chain.service';
 
 interface CorpusFile {
@@ -50,7 +51,7 @@ describe('AuditChainService · CE-1 语料复现（specs/protocol 向量 = 现�
 
   it(`canonical：生产 canonical 与金样本逐例一致（${canonical.cases.length} 例，含 nested/unicode 边界）`, () => {
     for (const c of canonical.cases) {
-      expect((currentSvc as any)._canonical(c.input)).toBe(c.canonicalBytes);
+      expect(canonicalJSON(c.input)).toBe(c.canonicalBytes);
     }
   });
 

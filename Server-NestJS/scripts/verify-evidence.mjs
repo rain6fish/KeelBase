@@ -40,6 +40,8 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { renderHtml } from './lib/evidence-report-html.mjs';
 import { parseArgs, keysFromFlags, langFromFlags } from './lib/cli-args.mjs';
+import { canonicalJSON } from './lib/canonical-json.mjs';
+import { evidencePackageCanonical } from './lib/evidence-package-canonical.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -57,12 +59,6 @@ const anchorOpt = typeof flags.anchor === 'string' && flags.anchor ? flags.ancho
 if (!fileArg) {
   console.error('用法：node scripts/verify-evidence.mjs <evidence.json> [--key <AUDIT_HMAC_KEY[,PREVIOUS...]>] [--sm2-pubkey <hex|pem>] [--anchor <anchor.json>] [--format=json|html] [--lang zh|en] [--out <file>]');
   process.exit(1);
-}
-
-/** canonicalJSON：顶层键排序 + undefined 剔除 + null 保留（协议 §2.3）。 */
-function canonicalJSON(payload) {
-  const keys = Object.keys(payload).filter((k) => payload[k] !== undefined).sort();
-  return JSON.stringify(payload, keys);
 }
 
 /** 链 hash：HMAC(key, `${prevHash ?? 'genesis'}|${canonical}`)（协议 §2.2）。 */
@@ -382,14 +378,7 @@ if (!isV3) {
 
   // 3. 证据包签名验证（§11 形态分派）。**移出 --key 分支**：SM2 是第三方持公钥独立验签，
   //    与「应用内共享密钥」无关——只给 --sm2-pubkey 而不给 --key 时也必须能验。
-  const pkgCanonical = JSON.stringify({
-    summary: ev.report?.summary,
-    hashChain: ev.report?.hashChain,
-    effectDiffs: ev.report?.effectDiffs,
-    ...(ev.format === 'keelbase-audit-evidence/2' ? { compliance: ev.compliance } : {}),
-    chain: ev.chain,
-    exportedAt: ev.exportedAt,
-  });
+  const pkgCanonical = evidencePackageCanonical(ev);
   if (checkSignatureBlock(ev.signature, pkgCanonical, '证据包')) sigFailed = true;
   chainValid = structural && (keys.length === 0 || recomputed === rows.length) && (!rows.length || rows[0].prevHash == null);
 }

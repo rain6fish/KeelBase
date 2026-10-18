@@ -22,6 +22,18 @@
  * moved — the anchor was the prose, not the source. Rewording commentary must not red this gate;
  * changing the literal must.
  *
+ * It also covers the `/1` / `/2` **package** signature canonical (summary/hashChain/effectDiffs/
+ * compliance/chain/exportedAt): the export-side literal and the scripts-side single source
+ * (`scripts/lib/evidence-package-canonical.mjs`, shared by the offline verifier and the period report)
+ * must stay in the same key order. This copy was previously ungated.
+ *
+ * 锚 = 代码构造，不是带版本号的散文注释：/4 那次把注释从 `// v3 canonical` 改写成 `// /4 canonical`，
+ * 键序本身没动，本闸却红了 —— 因为锚在注释上。改注释不该能把它弄红，改字面量才该。
+ *
+ * 本闸同时看 `/1` / `/2` **整包**签名 canonical（summary/hashChain/effectDiffs/compliance/chain/
+ * exportedAt）：导出侧字面量与脚本侧单源（`scripts/lib/evidence-package-canonical.mjs`，由离线验证与
+ * 期间报告共用）必须同键同序。这一份此前没有门禁。
+ *
  * 证据根整包 canonical 手写序防漂移闸（1.0.8 review-deferred 收敛）：
  *
  * `keelbase-audit-evidence/4` 的整包签名 = HMAC(key, canonical) 覆盖
@@ -52,6 +64,7 @@ const ROOT = resolve(__dirname, '..');
 const auditPath = resolve(ROOT, 'src/ai/audit/audit-evidence.service.ts');
 const verifierPath = resolve(ROOT, 'scripts/verify-evidence.mjs');
 const specPath = resolve(ROOT, 'src/ai/audit/audit-evidence.service.spec.ts');
+const packageCanonicalPath = resolve(ROOT, 'scripts/lib/evidence-package-canonical.mjs');
 
 const bad = (msg) => { console.error(`  ✗ ${msg}`); };
 const ok = (msg) => { console.log(`  ✓ ${msg}`); };
@@ -113,6 +126,28 @@ function keysFromVerifier(src) {
   return directKeys(src.slice(open + anchor.length, end), 'verify-evidence.mjs');
 }
 
+/** `/1` / `/2` package canonical: the export-side literal (compliance is unconditional here). */
+/** `/1` / `/2` 整包 canonical：导出侧字面量（此处 compliance 无条件包含）。 */
+function keysFromAuditPackage(src) {
+  const anchor = 'const canonical = JSON.stringify({';
+  const open = src.indexOf(anchor);
+  if (open < 0) throw new Error('audit-evidence.service.ts 未找到 /2 整包 canonical 字面量');
+  const end = src.indexOf('});', open);
+  if (end < 0) throw new Error('audit-evidence.service.ts 的 /2 整包 canonical 字面量没有闭合');
+  return directKeys(src.slice(open + anchor.length, end), 'audit-evidence.service.ts（/2 整包）');
+}
+
+/** `/1` / `/2` package canonical: the scripts-side single source shared by verifier + period report. */
+/** `/1` / `/2` 整包 canonical：脚本侧单源，离线验证与期间报告共用。 */
+function keysFromPackageCanonical(src) {
+  const anchor = 'return JSON.stringify({';
+  const open = src.indexOf(anchor);
+  if (open < 0) throw new Error('evidence-package-canonical.mjs 未找到整包 canonical 字面量');
+  const end = src.indexOf('});', open);
+  if (end < 0) throw new Error('evidence-package-canonical.mjs 的整包 canonical 字面量没有闭合');
+  return directKeys(src.slice(open + anchor.length, end), 'evidence-package-canonical.mjs');
+}
+
 /** Signature self-check: the canonical literal rebuilt in the spec. */
 /** 签名自证：spec 里重建的 canonical 字面量。 */
 function keysFromSpec(src) {
@@ -127,10 +162,14 @@ function keysFromSpec(src) {
 let auditKeys;
 let verifierKeys;
 let specKeys;
+let auditPackageKeys;
+let packageCanonicalKeys;
 try {
   auditKeys = keysFromAudit(readFileSync(auditPath, 'utf8'));
   verifierKeys = keysFromVerifier(readFileSync(verifierPath, 'utf8'));
   specKeys = keysFromSpec(readFileSync(specPath, 'utf8'));
+  auditPackageKeys = keysFromAuditPackage(readFileSync(auditPath, 'utf8'));
+  packageCanonicalKeys = keysFromPackageCanonical(readFileSync(packageCanonicalPath, 'utf8'));
 } catch (err) {
   bad(`无法解析 canonical 键序（fail-loud）：${err.message}`);
   process.exit(1);
@@ -173,12 +212,15 @@ const pass = ref.length > 0
   && !outOfOrder
   && sites.every(([, k]) => sameOrder(k, ref));
 
+let failed = false;
+
 if (pass) {
   if (!driftIsDetected(ref)) {
     bad('自我判据失效：比较函数识别不出一次键序交换，本闸的绿灯不可信');
-    process.exit(1);
+    failed = true;
+  } else {
+    ok(`证据根 /4 canonical 键序三处一致（${ref.join(' → ')}）`);
   }
-  ok(`证据根 /4 canonical 键序三处一致（${ref.join(' → ')}）`);
 } else {
   if (missing.length > 0) bad(`必填 canonical 段缺失：${missing.join(', ')}（/4 的 coverage 必须进签名）`);
   if (outOfOrder) bad(`必填 canonical 段顺序不对：应为 ${REQUIRED.join(' → ')}`);
@@ -187,5 +229,25 @@ if (pass) {
     for (const [label, k] of sites) console.error(`  ${label}: [${k.join(', ')}]`);
   }
   console.error('  修复：三处 canonical 保持同键同序（走 C1 语义变更清单）；或导出后先离线验证再发布。');
-  process.exit(1);
+  failed = true;
 }
+
+// `/1` / `/2` package canonical: export-side literal vs the scripts-side single source. The verifier
+// and the period report both import the latter, so this pair is the whole surface.
+// `/1` / `/2` 整包 canonical：导出侧字面量 vs 脚本侧单源。离线验证与期间报告都 import 后者，故这一对
+// 就是全部接缝。
+if (auditPackageKeys.length > 0 && sameOrder(packageCanonicalKeys, auditPackageKeys)) {
+  if (!driftIsDetected(auditPackageKeys)) {
+    bad('自我判据失效：/2 整包键序比较识别不出一次交换，绿灯不可信');
+    failed = true;
+  } else {
+    ok(`证据包 /1|/2 canonical 键序两处一致（${auditPackageKeys.join(' → ')}）`);
+  }
+} else {
+  bad('证据包 /1|/2 canonical 键序发散：导出侧与 scripts/lib/evidence-package-canonical.mjs 未同键同序');
+  console.error(`  导出侧: [${auditPackageKeys.join(', ')}]`);
+  console.error(`  脚本侧: [${packageCanonicalKeys.join(', ')}]`);
+  failed = true;
+}
+
+if (failed) process.exit(1);
