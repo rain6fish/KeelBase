@@ -37,7 +37,7 @@ import { aiFiles } from './generator/templates-ai.mjs';
 import { wireBackend, wireFrontend, wireAdmin, wireTaro, wireAiModule, summarize } from './generator/wire.mjs';
 import { extractSpec } from './generator/llm.mjs';
 import { parseOpenApiSpec } from './generator/import-openapi.mjs';
-import { parseOpenApiProxy } from './generator/import-openapi-proxy.mjs';
+import { parseOpenApiProxy, summarizeRiskPreview } from './generator/import-openapi-proxy.mjs';
 import { parseSqlDdl } from './generator/import-schema.mjs';
 import { parseYaml } from './generator/yaml.mjs';
 import { readManifest, writeManifest, writeModuleProvenance } from './generator/manifest.mjs';
@@ -79,7 +79,7 @@ LLM（--desc / 交互中文输入）需要配置环境变量：
   --import-schema <file>    从 SQL CREATE TABLE 提取表 → Protocol
   --schema <name>      OpenAPI 中选定的 schema 名（默认第一个）
   --list-schemas       列出 OpenAPI 中可用 schema（配合 --import-openapi）
-  --list-tools         列出 OpenAPI 将生成的 proxy 工具（配合 --import-openapi-proxy，不生成）
+  --list-tools         预览 OpenAPI 将生成的 proxy 工具与接入风险分级（读写 · R 级 · 自动/确认/人工审批/阻断 · 依据；不生成）
   --table <name>       SQL 中选定的表名（默认第一张）
   --out <file>         配合 --import-* 只写 Protocol JSON（供 --spec 复用）
   --brand <name>       替换应用品牌名（写 app_constants.dart）
@@ -250,12 +250,25 @@ async function main() {
     const proxy = parseOpenApiProxy(spec, { baseUrl: args['base-url'], audience: args.audience });
     if (proxy.error) fail(proxy.error);
 
-    // --list-tools：预览将生成的 proxy 工具清单（不生成/不写，供 Java 团队选路/评审）
+    // --list-tools: pre-import risk preview (no generation / no write), for route selection and review.
+    // --list-tools：接入前风险预览（不生成/不写），供选路与评审。
     if (args['list-tools']) {
-      console.log(`可用 proxy 工具（${proxy.tools.length}）：`);
-      for (const t of proxy.tools) {
-        console.log(`  ${t.name.padEnd(28)} ${t.method} ${t.path}（${t.riskLevel}${t.revokePath ? `，撤销 ${t.revokePath}` : ''}）`);
+      const preview = summarizeRiskPreview(proxy);
+      const gateLabels = { auto: '自动', confirm: '确认', approval: '人工审批', blocked: '阻断' };
+      const basisLabels = { 'default-read': '默认读', 'default-write': '默认写', override: 'x-keelbase-risk-level 覆盖' };
+      const accessLabels = { read: '读', write: '写' };
+      console.log(`接入风险预览（${preview.total} 个工具：读 ${preview.read} / 写 ${preview.write}）：`);
+      for (const row of preview.rows) {
+        const extra = proxy.tools.find((t) => t.name === row.name)?.revokePath;
+        console.log(
+          `  ${row.name.padEnd(28)} ${row.method} ${row.path}  ${accessLabels[row.access]} · ${row.riskLevel} · ${gateLabels[row.gateTier]} · ${basisLabels[row.basis]}${extra ? `（撤销 ${extra}）` : ''}`,
+        );
       }
+      console.log(
+        `汇总：自动 ${preview.byGateTier.auto} · 确认 ${preview.byGateTier.confirm} · 人工审批 ${preview.byGateTier.approval} · 阻断 ${preview.byGateTier.blocked}`,
+      );
+      if (preview.writeTools.length) console.log(`写工具（${preview.writeTools.length}）：${preview.writeTools.join('、')}`);
+      console.log(`${C.dim}注：档位为导入前基线（按风险级）；导入后治理策略 mode 可覆盖 R0–R4，R5 恒阻断。${C.reset}`);
       if (proxy.skipped?.length) {
         console.log(`${C.cyan}  跳过：${proxy.skipped.map((s) => `${s.tool}.${s.name}（${s.reason}）`).join('；')}${C.reset}`);
       }
