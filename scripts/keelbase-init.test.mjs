@@ -39,7 +39,7 @@ import {
 } from './generator/wire.mjs';
 import { buildSpecPrompt, parseSpecResponse, extractSpec, llmConfig } from './generator/llm.mjs';
 import { parseOpenApiSpec } from './generator/import-openapi.mjs';
-import { parseOpenApiProxy } from './generator/import-openapi-proxy.mjs';
+import { parseOpenApiProxy, gateTierOf, summarizeRiskPreview } from './generator/import-openapi-proxy.mjs';
 import { parseSqlDdl } from './generator/import-schema.mjs';
 import { parseYaml } from './generator/yaml.mjs';
 import {
@@ -1560,6 +1560,59 @@ test('parseOpenApiProxy：无 paths / 空工具 → error', () => {
   assert.match(parseOpenApiProxy(null, {}).error, /无效的 OpenAPI/);
 });
 
+test('gateTierOf：风险级 → 门控档位（R0–R2 自动 / R3 确认 / R4 人工审批 / R5 阻断）', () => {
+  assert.deepEqual(
+    ['R0', 'R1', 'R2', 'R3', 'R4', 'R5'].map(gateTierOf),
+    ['auto', 'auto', 'auto', 'confirm', 'approval', 'blocked'],
+  );
+});
+
+test('summarizeRiskPreview：逐工具档位/依据 + 汇总（读=自动，写=确认，覆盖 R5=阻断，覆盖 R4=审批）', () => {
+  const r = parseOpenApiProxy({
+    paths: {
+      '/customers': {
+        get: { operationId: 'listCustomers' },
+        post: { operationId: 'createCustomer' },
+      },
+      '/customers/{id}': {
+        delete: {
+          operationId: 'deleteCustomer',
+          'x-keelbase-risk-level': 'R5',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
+        },
+      },
+      '/exports': {
+        post: { operationId: 'runExport', 'x-keelbase-risk-level': 'R4' },
+      },
+    },
+  }, {});
+  assert.equal(r.error, undefined);
+  const p = summarizeRiskPreview(r);
+  assert.deepEqual(
+    p.rows.map((x) => `${x.name}:${x.access}:${x.riskLevel}:${x.gateTier}:${x.basis}`),
+    [
+      'list_customers:read:R1:auto:default-read',
+      'create_customer:write:R3:confirm:default-write',
+      'delete_customer:write:R5:blocked:override',
+      'run_export:write:R4:approval:override',
+    ],
+  );
+  assert.deepEqual(p.byGateTier, { auto: 1, confirm: 1, approval: 1, blocked: 1 });
+  assert.equal(p.total, 4);
+  assert.equal(p.read, 1);
+  assert.equal(p.write, 3);
+  assert.deepEqual(p.writeTools, ['create_customer', 'delete_customer', 'run_export']);
+  // Evidence lives beside the config; the generated proxy tool shape must not grow a `riskBasis` field.
+  // 依据放在配置旁边；生成的 proxy 工具形状不得多出 `riskBasis` 字段。
+  assert.deepEqual(r.riskBases, {
+    list_customers: 'default-read',
+    create_customer: 'default-write',
+    delete_customer: 'override',
+    run_export: 'override',
+  });
+  assert.ok(!('riskBasis' in r.tools[0]));
+});
+
 // ── P0-12 输入通道：SQL DDL → Protocol ────────────────────────────────────────
 test('parseSqlDdl：类型映射（text/int/bool/date/enum）+ 保留列/约束行跳过', () => {
   const sql = `CREATE TABLE IF NOT EXISTS customers (
@@ -1774,9 +1827,11 @@ paths:
     p.on('close', (code) => (code === 0 ? resolve(o + e) : reject(new Error(`exit ${code}: ${o}${e}`))));
   });
 
-  assert.match(out, /可用 proxy 工具（2）/);
-  assert.match(out, /list_contracts/);
-  assert.match(out, /create_contract/);
+  assert.match(out, /接入风险预览（2 个工具：读 1 \/ 写 1）/);
+  assert.match(out, /list_contracts\s+GET \/contracts\s+读 · R1 · 自动 · 默认读/);
+  assert.match(out, /create_contract\s+POST \/contracts\s+写 · R3 · 确认 · 默认写/);
+  assert.match(out, /汇总：自动 1 · 确认 1 · 人工审批 0 · 阻断 0/);
+  assert.match(out, /写工具（1）：create_contract/);
   // 不写任何文件（纯预览）
   await assert.rejects(access(`${root}/proxy.json`));
 });

@@ -159,6 +159,12 @@ function operationToTool(method, path, pathItem, operation, spec) {
 
   // Java 端补偿端点约定（AI Bridge §4）：撤销时调用（带委托身份），如 DELETE /contracts/{id}
   const revokePath = operation['x-keelbase-revoke-path'];
+  // Single grading point: explicit extension override, else write defaults to R3, read to R1.
+  // `riskBasis` records which rule produced the level so the pre-import preview can show its evidence.
+  // 分级唯一入口：扩展字段显式覆盖，否则写默认 R3、读默认 R1。
+  // `riskBasis` 记录该级别出自哪条规则，供接入前预览展示依据。
+  const explicitRisk = operation['x-keelbase-risk-level'];
+  const isWrite = WRITE_METHODS.includes(method);
 
   return {
     name: nameBase,
@@ -167,15 +173,75 @@ function operationToTool(method, path, pathItem, operation, spec) {
     path: rewrittenPath,
     parameters,
     queryParams,
-    riskLevel: operation['x-keelbase-risk-level'] ?? (WRITE_METHODS.includes(method) ? 'R3' : 'R1'),
+    riskLevel: explicitRisk ?? (isWrite ? 'R3' : 'R1'),
+    riskBasis: explicitRisk ? 'override' : isWrite ? 'default-write' : 'default-read',
     revokePath: revokePath ?? undefined,
     skipped,
   };
 }
 
 /**
+ * Translate a risk level into the gate tier an imported tool will carry before policy overrides.
+ * This is presentation only: the level itself still comes from `operationToTool`, the single grading point.
+ * Mirrors the runtime rule in `effectiveGateMode` (governance-policy.service.ts) with no policy row present:
+ * R5 → blocked, R4 → approval, R3 → confirm, R0–R2 → auto.
+ * Governance policy `mode` / legacy `requiresConfirmation` can re-tier R0–R4 after import; R5 cannot be relaxed.
+ *
+ * 把风险级翻译成导入后、策略覆盖前该工具携带的门控档位。这里只做展示翻译：级别本身仍来自
+ * `operationToTool` 这个唯一分级入口。映射与运行时 `effectiveGateMode`（无策略行时）一致：
+ * R5 → 阻断、R4 → 人工审批、R3 → 确认、R0–R2 → 自动。
+ * 导入后治理策略 `mode` / legacy `requiresConfirmation` 可重定 R0–R4 的档位；R5 不可放宽。
+ */
+export function gateTierOf(riskLevel) {
+  switch (riskLevel) {
+    case 'R5':
+      return 'blocked';
+    case 'R4':
+      return 'approval';
+    case 'R3':
+      return 'confirm';
+    default:
+      return 'auto';
+  }
+}
+
+/**
+ * Build the pre-import risk preview from an `parseOpenApiProxy` result.
+ * Rows carry name / access / risk level / gate tier / basis; the summary counts tiers and write tools.
+ * It does not re-grade: every field is derived from the parsed tool plus its `riskBasis`.
+ *
+ * 从 `parseOpenApiProxy` 结果构建接入前风险预览。
+ * 每行带工具名 / 读写 / 风险级 / 门控档位 / 依据；汇总给出各档位数量与写工具清单。
+ * 不重新分级：所有字段都由已解析工具及其 `riskBasis` 推出。
+ */
+export function summarizeRiskPreview(proxy) {
+  const rows = (proxy?.tools ?? []).map((tool) => ({
+    name: tool.name,
+    method: tool.method,
+    path: tool.path,
+    access: WRITE_METHODS.includes(tool.method) ? 'write' : 'read',
+    riskLevel: tool.riskLevel,
+    gateTier: gateTierOf(tool.riskLevel),
+    basis: proxy?.riskBases?.[tool.name] ?? 'default-read',
+  }));
+  const byGateTier = { auto: 0, confirm: 0, approval: 0, blocked: 0 };
+  for (const row of rows) byGateTier[row.gateTier] += 1;
+  return {
+    rows,
+    total: rows.length,
+    read: rows.filter((r) => r.access === 'read').length,
+    write: rows.filter((r) => r.access === 'write').length,
+    byGateTier,
+    writeTools: rows.filter((r) => r.access === 'write').map((r) => r.name),
+  };
+}
+
+/**
+ * OpenAPI spec → ai_proxy_tools config (baseUrl/audience injected by the caller).
+ * Returns { baseUrl, audience, tools, riskBases, skipped, available }; invalid spec / no paths → { error }.
+ *
  * OpenAPI spec → ai_proxy_tools 配置（baseUrl/audience 由调用方注入）。
- * 返回 { baseUrl, audience, tools, skipped, available }；spec 无效/无 paths 时 { error }。
+ * 返回 { baseUrl, audience, tools, riskBases, skipped, available }；spec 无效/无 paths 时 { error }。
  */
 export function parseOpenApiProxy(spec, opts = {}) {
   if (!spec || typeof spec !== 'object') return { error: '无效的 OpenAPI JSON' };
@@ -186,6 +252,7 @@ export function parseOpenApiProxy(spec, opts = {}) {
 
   const tools = [];
   const skipped = [];
+  const riskBases = {};
   const seenNames = new Set();
   for (const [path, pathItem] of Object.entries(paths)) {
     if (!pathItem || typeof pathItem !== 'object') continue;
@@ -206,6 +273,10 @@ export function parseOpenApiProxy(spec, opts = {}) {
         tool.name = name;
       }
       seenNames.add(name);
+      // Keep the evidence beside the config, not inside it: the generated proxy JSON keeps its published shape.
+      // 把依据放在配置旁边而不是配置里：生成的 proxy JSON 保持既有对外形状。
+      riskBases[name] = tool.riskBasis;
+      delete tool.riskBasis;
       tools.push(tool);
     }
   }
@@ -215,6 +286,7 @@ export function parseOpenApiProxy(spec, opts = {}) {
     baseUrl: opts.baseUrl ?? '',
     audience: opts.audience ?? '',
     tools,
+    riskBases,
     skipped,
     available: tools.map((t) => t.name),
   };
