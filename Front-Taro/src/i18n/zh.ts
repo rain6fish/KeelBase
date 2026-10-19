@@ -4,6 +4,18 @@ import type { I18nDictionary } from './types'
 
 /** 中文词典（默认）。key 命名空间：common.* 通用 / <page>.* 页面 / <store|service>.* 状态与提示 */
 export const zh: I18nDictionary = {
+  // ── 库存出入库（EASY-2 生成）──
+  'inventory_movements.title': '库存出入库',
+  'inventory_movements.count': '{total} 条',
+  'inventory_movements.placeholder': '新增库存出入库…',
+  'inventory_movements.add': '添加',
+  'inventory_movements.empty': '暂无库存出入库',
+  'inventory_movements.inputRequired': '请输入库存出入库内容',
+  'inventory_movements.createFailed': '创建失败',
+  'inventory_movements.deleteTitle': '删除库存出入库',
+  'inventory_movements.deleteFailed': '删除失败',
+  'inventory_movements.loadFailed': '加载库存出入库失败',
+
   // ── 资产借用（EASY-2 生成）──
   'asset_loans.title': '资产借用',
   'asset_loans.count': '{total} 条',

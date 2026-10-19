@@ -35,6 +35,7 @@ export const PAGE_ROUTES: Record<string, { route: string; description: string }>
   profile: { route: '/profile', description: '个人资料' },
   settings: { route: '/settings', description: '设置' },
   todos: { route: '/todos', description: '待办清单' },
+  inventory_movements: { route: '/inventory_movements', description: '库存出入库' },
   asset_loans: { route: '/asset_loans', description: '资产借用' },
   points_ledgers: { route: '/points_ledgers', description: '积分台账' },
   point_records: { route: '/point_records', description: '积分流水' },

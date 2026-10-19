@@ -279,6 +279,24 @@ class AppLocalizations {
   String get todoEmpty => _t('No todos yet', '暂无待办');
   String get deleteTodoConfirm => _t('Delete this todo?', '删除该待办？');
 
+  // --- 库存出入库 · 字段占位符 / field placeholders ---
+  String get inventory_movementsFieldDocumentNo => _t('documentNo', '单据号');
+  String get inventory_movementsFieldSku => _t('sku', '商品编码');
+  String get inventory_movementsFieldItemName => _t('itemName', '商品名称');
+  String get inventory_movementsFieldDirection => _t('direction', '出入库方向');
+  String get inventory_movementsFieldQuantity => _t('quantity', '数量');
+  String get inventory_movementsFieldUnit => _t('unit', '单位');
+  String get inventory_movementsFieldPartner => _t('partner', '往来单位');
+  String get inventory_movementsFieldOccurredAt => _t('occurredAt', '业务日期');
+  String get inventory_movementsFieldNote => _t('note', '备注');
+
+
+  // --- 库存出入库（EASY-2 生成） ---
+  String get inventory_movementsTitle => _t('InventoryMovement', '库存出入库');
+  String get inventory_movementsAddTitle => _t('New InventoryMovement', '新增库存出入库');
+  String get inventory_movementsEmpty => _t('No InventoryMovement yet', '暂无库存出入库');
+  String get inventory_movementsDeleteConfirm => _t('Delete this inventorymovement?', '删除该库存出入库？');
+
   // --- 资产借用 · 字段占位符 / field placeholders ---
   String get asset_loansFieldAssetName => _t('assetName', '设备名称');
   String get asset_loansFieldAssetTag => _t('assetTag', '资产编号');
@@ -900,6 +918,8 @@ class AppLocalizations {
     // 于是工具卡上只显示裸名字。
     'ai.tool.queryAssetLoans': ['Query asset loans', '查询资产借用'],
     'ai.tool.createAssetLoan': ['Create asset loan', '创建资产借用'],
+    'ai.tool.queryInventoryMovements': ['Query inventory movements', '查询库存出入库'],
+    'ai.tool.createInventoryMovement': ['Create inventory movement', '登记库存出入库'],
     'ai.tool.queryPointRecords': ['Query point records', '查询积分记录'],
     'ai.tool.createPointRecord': ['Create point record', '创建积分记录'],
     'ai.tool.queryPointsLedgers': ['Query points ledgers', '查询积分台账'],

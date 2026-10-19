@@ -1,0 +1,75 @@
+{
+  "feature": "inventory-movements",
+  "goal": "让仓管用一句话登记商品出入库，并能随时查回某件商品的进出记录",
+  "actors": ["warehouse_keeper"],
+  "objects": [
+    {
+      "name": "inventory_movement",
+      "label": "库存出入库",
+      "module": "inventory_movements",
+      "searchable": true,
+      "fields": [
+        { "name": "documentNo", "type": "string", "label": "单据号", "required": true },
+        { "name": "sku", "type": "string", "label": "商品编码", "required": true },
+        { "name": "itemName", "type": "string", "label": "商品名称", "required": true },
+        { "name": "direction", "type": "enum", "enum": ["in", "out"], "label": "出入库方向", "required": true },
+        { "name": "quantity", "type": "int", "label": "数量", "required": true },
+        { "name": "unit", "type": "string", "label": "单位", "required": false },
+        { "name": "partner", "type": "string", "label": "往来单位", "required": false },
+        { "name": "occurredAt", "type": "date", "label": "业务日期" },
+        { "name": "note", "type": "text", "label": "备注" }
+      ]
+    }
+  ],
+  "aiCapabilities": [
+    { "object": "inventory_movement", "kind": "read", "intent": "查询我的出入库记录" },
+    {
+      "object": "inventory_movement",
+      "kind": "write",
+      "riskLevel": "R3",
+      "requiresConfirmation": true,
+      "intent": "登记一笔库存出入库"
+    }
+  ],
+  "decisions": [
+    {
+      "question": "一次「进销存」要建几个模块？",
+      "choice": "本轮只映射「库存出入库」一个模块",
+      "reason": "薄协议一次只映射一个业务对象（映射器会把其余对象列进 unmapped）。商品档案、供应商、客户各自已有或可另拆独立 Business Spec；先把仓管每天真正在记的那条流水做成可跑模块。"
+    },
+    {
+      "question": "库存余额表要不要一起建？",
+      "choice": "不建；余额由出入库流水按 sku 汇总",
+      "reason": "余额是派生值，单开一张表就要处理并发扣减与对账；本轮先保住「每一笔进出都留痕」这条主线，余额查询留给后续手写聚合或报表。"
+    },
+    {
+      "question": "一笔出入库归谁所有？",
+      "choice": "登记它的仓管本人",
+      "reason": "与基座本人所有权模型一致；多仓/多人的全局台账属于非本人视角，薄协议不表达，进 outOfScope。"
+    },
+    {
+      "question": "出入库方向为什么用 enum 而不是两个模块？",
+      "choice": "同一个对象上用 direction=in/out 区分",
+      "reason": "入库与出库字段完全一致，拆两个模块会复制一套 CRUD 与治理；方向是这一条流水的属性，不是另一种对象。"
+    }
+  ],
+  "rules": [
+    "数量必须为正整数（quantity > 0）",
+    "出库数量不得超过该 sku 的当前库存余额",
+    "同一单据号（documentNo）不得重复登记"
+  ],
+  "acceptance": [
+    "仓管一句话可问出某件商品最近的进出记录",
+    "登记一笔出入库需人工确认，确认后可在列表看到",
+    "同一单据号重复登记被拒（Rule 3）",
+    "登记错了可撤销（软删，可经回收站恢复）"
+  ],
+  "outOfScope": [
+    "库存余额表 / 自动扣减与并发对账",
+    "商品档案、供应商与客户主数据的增删改（已有模块或另拆 spec）",
+    "单价、金额与成本核算",
+    "批次、效期与多仓调拨",
+    "审核流（登记即可见，不做多级审批）"
+  ],
+  "evidenceRef": ".keelbase/interview/inventory-movements.md"
+}

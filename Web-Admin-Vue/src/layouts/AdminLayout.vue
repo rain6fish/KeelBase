@@ -227,6 +227,7 @@ const consoleNavGroups = computed(() => [
       { name: 'notifications', to: '/notifications', icon: 'mdi-bullhorn-outline', label: t('navNotifications') },
       { name: 'trash', to: '/trash', icon: 'mdi-delete-outline', label: t('navTrash') },
       { name: 'data-import', to: '/data-import', icon: 'mdi-upload-multiple', label: t('navDataImport') },
+      { name: 'inventory_movements', to: '/inventory_movements', icon: 'mdi-database-outline', label: t('navInventoryMovements') },
       { name: 'asset_loans', to: '/asset_loans', icon: 'mdi-database-outline', label: t('navAssetLoans') },
       { name: 'points_ledgers', to: '/points_ledgers', icon: 'mdi-database-outline', label: t('navPointsLedgers') },
       { name: 'point_records', to: '/point_records', icon: 'mdi-database-outline', label: t('navPointRecords') },

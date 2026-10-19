@@ -9,6 +9,7 @@
     "books",
     "contracts",
     "followup_plans",
+    "inventory_movements",
     "notes",
     "point_records",
     "points_ledgers",
@@ -38,6 +39,17 @@
       "fields": [
         "title",
         "reason"
+      ]
+    },
+    {
+      "module": "inventory_movements",
+      "fields": [
+        "documentNo",
+        "sku",
+        "itemName",
+        "unit",
+        "partner",
+        "note"
       ]
     }
   ]

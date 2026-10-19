@@ -18,6 +18,8 @@ import { EventsModule } from '../events/events.module';
 import { UsersModule } from '../users/users.module';
 import { TodosModule } from '../todos/todos.module';
 import { TodosService } from '../todos/todos.service';
+import { InventoryMovementsModule } from '../inventory_movements/inventory_movements.module';
+import { InventoryMovementsService } from '../inventory_movements/inventory_movements.service';
 import { AssetLoansModule } from '../asset_loans/asset_loans.module';
 import { AssetLoansService } from '../asset_loans/asset_loans.service';
 import { PointsLedgersModule } from '../points_ledgers/points_ledgers.module';
@@ -95,6 +97,8 @@ import { NavigatePageTool } from './tools/navigate-page.tool';
 import { AdminNavigatePageTool } from './tools/navigate-admin-page.tool';
 import { CreateEventTool } from './tools/create-event.tool';
 import { CreateTodoTool } from './tools/create-todo.tool';
+import { QueryInventoryMovementsTool } from './tools/query-inventory_movements.tool';
+import { CreateInventoryMovementTool } from './tools/create-inventory_movements.tool';
 import { QueryAssetLoansTool } from './tools/query-asset_loans.tool';
 import { CreateAssetLoanTool } from './tools/create-asset_loans.tool';
 import { QueryPointsLedgersTool } from './tools/query-points_ledgers.tool';
@@ -206,6 +210,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     EventsModule,
     UsersModule,
     TodosModule,
+    InventoryMovementsModule,
     AssetLoansModule,
     PointsLedgersModule,
     PointRecordsModule,
@@ -291,6 +296,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         knowledgeService: KnowledgeService,
         abilityFactory: CaslAbilityFactory,
         todosService: TodosService,
+        inventory_movementsService: InventoryMovementsService,
         asset_loansService: AssetLoansService,
         points_ledgersService: PointsLedgersService,
         point_recordsService: PointRecordsService,
@@ -416,6 +422,9 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         toolRegistry.register(new CreateModuleApplyTool());
         toolRegistry.register(new CreateEventTool(eventsService));
         toolRegistry.register(new CreateTodoTool(todosService));
+        // 库存出入库（EASY-2 自动生成 AI 工具）
+        toolRegistry.register(new QueryInventoryMovementsTool(inventory_movementsService));
+        toolRegistry.register(new CreateInventoryMovementTool(inventory_movementsService));
         // 资产借用（EASY-2 自动生成 AI 工具）
         toolRegistry.register(new QueryAssetLoansTool(asset_loansService));
         toolRegistry.register(new CreateAssetLoanTool(asset_loansService));
@@ -555,7 +564,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
           contentSafety,
         );
       },
-      inject: [ConfigService, EventsService, UsersService, OrgService, OrgDirectoryService, ConversationService, AuditService, AiDailyUsageService, ToolGateService, ToolExecutionService, R4ApprovalService, ToolPresentationService, ToolExposureService, KnowledgeService, CaslAbilityFactory, TodosService, AssetLoansService, PointsLedgersService, PointRecordsService, PostsService, TagsService, SuppliersService, NotesService, BooksService, ReportsService, FollowupPlansService, ContractsService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, AiToolEffectsService, GovernancePolicyService, CrmService, CrmAnalyticsService, PmService, ApprovalService, DelegationTokenService, ContentSafetyService, ToolRegistry, AuthorizationExplainerService],
+      inject: [ConfigService, EventsService, UsersService, OrgService, OrgDirectoryService, ConversationService, AuditService, AiDailyUsageService, ToolGateService, ToolExecutionService, R4ApprovalService, ToolPresentationService, ToolExposureService, KnowledgeService, CaslAbilityFactory, TodosService, InventoryMovementsService, AssetLoansService, PointsLedgersService, PointRecordsService, PostsService, TagsService, SuppliersService, NotesService, BooksService, ReportsService, FollowupPlansService, ContractsService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, AiToolEffectsService, GovernancePolicyService, CrmService, CrmAnalyticsService, PmService, ApprovalService, DelegationTokenService, ContentSafetyService, ToolRegistry, AuthorizationExplainerService],
     },
   ],
   exports: [ConversationService, AiAuditModule, AiService, KnowledgeIngestionService, AuthzExplainModule, ConfirmationStore, BehaviorBaselineService, AuditStatsService, AuditQueryService, AuditEvidenceService, AiDailyUsageService, ToolGateService, ToolExecutionService, R4ApprovalService, ToolPresentationService, ToolExposureService],

@@ -4,6 +4,18 @@ import type { I18nDictionary } from './types'
 
 /** 英文词典。key 与 zh.ts 一致；缺失时回退到 zh 或 key 本身。 */
 export const en: I18nDictionary = {
+  // ── 库存出入库（EASY-2 生成）──
+  'inventory_movements.title': 'InventoryMovements',
+  'inventory_movements.count': '{total} items',
+  'inventory_movements.placeholder': 'Add inventory movement…',
+  'inventory_movements.add': 'Add',
+  'inventory_movements.empty': 'No inventory movements yet',
+  'inventory_movements.inputRequired': 'Please enter a inventory movement name',
+  'inventory_movements.createFailed': 'Failed to create',
+  'inventory_movements.deleteTitle': 'Delete InventoryMovement',
+  'inventory_movements.deleteFailed': 'Failed to delete',
+  'inventory_movements.loadFailed': 'Failed to load inventory movements',
+
   // ── 资产借用（EASY-2 生成）──
   'asset_loans.title': 'AssetLoans',
   'asset_loans.count': '{total} items',

@@ -1,0 +1,71 @@
+{
+  "module": "inventory_movements",
+  "plural": "inventory_movements",
+  "label": "库存出入库",
+  "searchable": true,
+  "fields": [
+    {
+      "name": "documentNo",
+      "type": "string",
+      "required": true,
+      "label": "单据号"
+    },
+    {
+      "name": "sku",
+      "type": "string",
+      "required": true,
+      "label": "商品编码"
+    },
+    {
+      "name": "itemName",
+      "type": "string",
+      "required": true,
+      "label": "商品名称"
+    },
+    {
+      "name": "direction",
+      "type": "enum",
+      "enum": [
+        "in",
+        "out"
+      ],
+      "required": true,
+      "label": "出入库方向"
+    },
+    {
+      "name": "quantity",
+      "type": "int",
+      "required": true,
+      "label": "数量"
+    },
+    {
+      "name": "unit",
+      "type": "string",
+      "required": false,
+      "label": "单位"
+    },
+    {
+      "name": "partner",
+      "type": "string",
+      "required": false,
+      "label": "往来单位"
+    },
+    {
+      "name": "occurredAt",
+      "type": "date",
+      "label": "业务日期"
+    },
+    {
+      "name": "note",
+      "type": "text",
+      "label": "备注"
+    }
+  ],
+  "aiTools": {
+    "query": true,
+    "create": {
+      "riskLevel": "R3",
+      "requiresConfirmation": true
+    }
+  }
+}

@@ -113,6 +113,8 @@ export const TOOL_METADATA: Readonly<Record<string, ToolMetadata>> = {
   // 无 `event`：生成模块的写要不要命名一个业务事件是另一个问题，不在此决定 —— 本次只补标签。
   query_asset_loans: { label: 'Query asset loans' },
   create_asset_loan: { label: 'Create asset loan', event: 'AssetLoanCreated' },
+  query_inventory_movements: { label: 'Query inventory movements' },
+  create_inventory_movement: { label: 'Create inventory movement', event: 'InventoryMovementCreated' },
   query_point_records: { label: 'Query point records' },
   create_point_record: { label: 'Create point record', event: 'PointRecordCreated' },
   query_points_ledgers: { label: 'Query points ledgers' },

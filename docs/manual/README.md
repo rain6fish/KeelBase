@@ -29,6 +29,7 @@ Bilingual (EN/ZH) manuals for KeelBase. 中英双语手册。
 | [Existing System AIization / 存量系统 AI 化](aiization-demo.md) | Developers / Sales | 旧 Schema → Protocol → 模块 → AI 工具 → 治理 / legacy system to AI app (P0-12) |
 | [Security Showcase / 安全验证展示](security-showcase.md) | Reviewers / 评审·验证者 | 可自行运行的安全证明路径——越权拒绝 / 工具治理 / 人工批准 / 审计哈希链 / Agent 基准 / self-service security verification tour (P1-1) |
 | [Delivery Recipe / 交付 recipe](delivery-recipe.md) | Delivery engineers / 交付工程师 | 一个企业模块从头到尾：业务规格 → 生成 → 治理验收 → 部署，逐行可照抄、判据可观测 / one enterprise module end to end, line by line (P0-21) |
+| [Vertical Template — Inventory / 垂直行业模板：进销存](vertical-template-inventory.md) | Delivery engineers / 交付工程师 | 进销存模板：库存出入库 Business Spec → 模块 → 迁移 → 治理默认值 → 读/写验收，逐行可照抄 / purchase-sales-stock vertical template, line by line |
 
 Also see / 另见：
 - [README.md](../../README.md) — project overview / 项目概览
