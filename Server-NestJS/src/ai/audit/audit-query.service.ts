@@ -8,11 +8,17 @@
  *
  * **行为与拆分前逐字一致**——搬迁不改逻辑（阶段 3 纪律：行为不变，测试作护栏）。
  */
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AiAuditLog } from './ai-audit-log.entity';
 import { aiActionLabel } from './ai-feature-map';
+import { OrgService } from '../../org/org.service';
+import {
+  auditScopeSql,
+  resolveAuditReaderScope,
+  type AuditReaderContext,
+} from './audit-reader-scope';
 
 export interface AiAuditLogWithUser {
   id: number;
@@ -59,23 +65,45 @@ export interface AiAuditLogWithUser {
   evidence?: string | null;
 }
 
+/** Re-exported so callers have one import site for the reader context. */
+export type { AuditReaderContext };
+
+interface AuditRowQueryOptions {
+  userId?: string;
+  limit?: number;
+  offset?: number;
+  since?: Date;
+  until?: Date;
+  feedback?: string;
+  orgId?: number;
+  agentId?: string;
+  isError?: 'true' | 'false';
+  denied?: 'true';
+}
+
 @Injectable()
 export class AuditQueryService {
   constructor(
     @InjectRepository(AiAuditLog) private readonly logRepo: Repository<AiAuditLog>,
+    // Optional like the other scope helpers, so unit tests (and deployments without the org module)
+    // degrade to the reader's own rows rather than failing construction.
+    // 与其余范围助手一样是可选的，故单测（以及没接组织模块的部署）会退回读者的本人行，而不是构造失败。
+    @Optional() private readonly orgService?: OrgService,
   ) {}
 
   async getUserLogs(
     userId: string,
-    options: { limit?: number; offset?: number; since?: Date } = {},
+    options: { limit?: number; offset?: number; since?: Date; until?: Date } = {},
+    reader?: AuditReaderContext,
   ): Promise<AiAuditLogWithUser[]> {
-    return this._queryLogs({ userId, ...options });
+    return this._queryLogs({ userId, ...options }, reader);
   }
 
   async getLogs(
-    options: { limit?: number; offset?: number; since?: Date; feedback?: string; orgId?: number; agentId?: string; isError?: 'true' | 'false'; denied?: 'true' } = {},
+    options: AuditRowQueryOptions = {},
+    reader?: AuditReaderContext,
   ): Promise<AiAuditLogWithUser[]> {
-    return this._queryLogs(options);
+    return this._queryLogs(options, reader);
   }
 
   /**
@@ -103,7 +131,8 @@ export class AuditQueryService {
 
   /** 查询审计日志并左联用户表带出 username（原则 3：审计显示用户名）。userId 存的是数字字符串，需 CAST。ORG-5 支持按组织维度过滤。 */
   private async _queryLogs(
-    options: { userId?: string; limit?: number; offset?: number; since?: Date; feedback?: string; orgId?: number; agentId?: string; isError?: 'true' | 'false'; denied?: 'true' } = {},
+    options: AuditRowQueryOptions = {},
+    reader?: AuditReaderContext,
   ): Promise<AiAuditLogWithUser[]> {
     const qb = this.logRepo
       .createQueryBuilder('log')
@@ -113,7 +142,12 @@ export class AuditQueryService {
       .take(options.limit ?? 50)
       .skip(options.offset ?? 0);
     if (options.userId) qb.where('log.userId = :userId', { userId: options.userId });
+    // Period: the window is closed on both ends. `until` used to be honoured only by the coverage
+    // statement; the log list ignored it, so a caller asking for a period got an open-ended read.
+    // 期间：窗口两端闭合。`until` 以前只有覆盖声明在用，日志列表忽略它 —— 于是要求一段期间的调用者
+    // 实际拿到的是无界读取。
     if (options.since) qb.andWhere('log.createdAt >= :since', { since: options.since });
+    if (options.until) qb.andWhere('log.createdAt <= :until', { until: options.until });
     if (options.feedback) qb.andWhere('log.feedback = :feedback', { feedback: options.feedback });
     if (options.agentId) qb.andWhere('log.agent_id = :agentId', { agentId: options.agentId });
     if (options.isError) qb.andWhere('log.is_error = :isError', { isError: options.isError === 'true' });
@@ -128,6 +162,11 @@ export class AuditQueryService {
         { orgId: options.orgId },
       );
     }
+    // Row scope for the audit reader: an ADDITIONAL constraint, never a replacement for the filters
+    // above. An org in the request therefore cannot widen the account's org.
+    // 审计读者的行范围：**追加**约束，绝不替换上面的过滤。故请求里的组织无法把账号的组织放大。
+    const scope = auditScopeSql(await resolveAuditReaderScope(reader, this.orgService));
+    if (scope) qb.andWhere(scope.sql, scope.params);
 
     const rows = await qb.getRawMany();
     return rows.map((r) => {

@@ -48,6 +48,8 @@ import {
 // 就是这次改动本身，故没有东西来顶替。
 import { buildPayload } from './payload';
 import { auditVerifyCacheKey } from './cache-keys';
+import { resolveAuditReaderScope, type AuditReaderContext } from './audit-reader-scope';
+import { OrgService } from '../../org/org.service';
 import { AuditByDayBucket, byDayAggregation } from './by-day';
 import { Sm2SignatureBlock, buildSm2Block, sm2ConfigFromEnv } from '../../common/crypto/sm2';
 
@@ -241,6 +243,16 @@ export class AuditEvidenceService {
     @Optional()
     @InjectDataSource()
     private readonly dataSource?: DataSource,
+    /**
+     * AW-2: the by-id read surfaces are rows too. An audit reader must not be able to reach another
+     * organisation's row by guessing its id, so the scope resolved for the list also gates these two.
+     * Optional like the scope helper itself: an absent org service falls back to `own` rows, never to
+     * "all rows".
+     *
+     * `AW-2`：按 id 的读面同样是「行」。审计读者不能靠猜 id 读到别的组织的行，故列表解析出的范围
+     * 也守这两处。与范围助手本身一样是可选的：组织服务缺席时退回「本人行」，绝不是「全部行」。
+     */
+    @Optional() private readonly orgService?: OrgService,
   ) {}
 
   /** HS-11：沿 id 升序校验审计哈希链完整性。返回含逐行链明细（切片，供 E-2 哈希链可视化）。60s 缓存（消除 action-report 二次全表扫描）。 */
@@ -737,7 +749,7 @@ export class AuditEvidenceService {
    * 不含 error 日志；token 计费近似（prompt 单价低于 completion，此处给出原始量）。
    */
   /** §internal.16 A-4 审计解释器：单行审计 + 同对话上下文 → 业务摘要 + 证据统计（demo 可用，无 LLM 依赖） */
-  async getInterpretation(id: number): Promise<{
+  async getInterpretation(id: number, reader?: AuditReaderContext): Promise<{
     row: AiAuditLog;
     summary: AuditInterpretation;
     conversation: Array<{
@@ -779,8 +791,7 @@ export class AuditEvidenceService {
       expiresAt: Date | null;
     } | null;
   }> {
-    const row = await this.logRepo.findOne({ where: { id } });
-    if (!row) throw new NotFoundException('审计记录不存在');
+    const row = await this._findRowInReaderScope(id, reader);
     const where = row.conversationId ? { conversationId: row.conversationId } : {};
     const convRows = await this.logRepo.find({
       where,
@@ -876,7 +887,7 @@ export class AuditEvidenceService {
   }
 
   /** §internal.16 A-5 跨系统身份链：审计行 → Human→Intent→Agent→Tool→Action + 授权依据（拒绝 checks / 放行 explain）+ 同会话工具序列 */
-  async getChain(id: number): Promise<{
+  async getChain(id: number, reader?: AuditReaderContext): Promise<{
     row: { id: number; userId: string; username?: string | null; action: string; createdAt: Date };
     human: { userId: string; username: string | null };
     intent: string | null;
@@ -887,8 +898,7 @@ export class AuditEvidenceService {
     authorization: { denied: Array<{ name: string; ok: boolean; note?: string }> | null; allowed: Record<string, unknown> | null };
     chain: Array<{ id: number; action: string; toolName: string | null; businessEvent?: string | null; agentId?: string | null; createdAt: Date }>;
   }> {
-    const row = await this.logRepo.findOne({ where: { id } });
-    if (!row) throw new NotFoundException('审计记录不存在');
+    const row = await this._findRowInReaderScope(id, reader);
     const convRows = row.conversationId
       ? await this.logRepo.find({ where: { conversationId: row.conversationId }, order: { createdAt: 'ASC' }, take: 50 })
       : [];
@@ -905,6 +915,40 @@ export class AuditEvidenceService {
         createdAt: r.createdAt,
       })),
     };
+  }
+
+  /**
+   * Fetch a row only if it is inside the caller's audit scope. Out of scope is reported as **404**,
+   * the same answer as "no such row": the gate already passed, and telling a reader that another
+   * organisation's row exists is itself a disclosure.
+   *
+   * The scope is the same one the list uses (`resolveAuditReaderScope`), so the by-id and list paths
+   * cannot disagree. A missing org service resolves to `own`, never to "see all".
+   *
+   * 只在调用者的审计范围内取行。范围外报 **404**，与「没有这一行」同一个答案：闸已经过了，而告诉
+   * 读者「另一个组织有这一行」本身就是一次披露。
+   *
+   * 范围就是列表用的那一个（`resolveAuditReaderScope`），故按 id 与列表两条路径不会各说各的。
+   * 组织服务缺席时解析为本人行，绝不是「看全部」。
+   */
+  private async _findRowInReaderScope(id: number, reader?: AuditReaderContext): Promise<AiAuditLog> {
+    const row = await this.logRepo.findOne({ where: { id } });
+    if (!row) throw new NotFoundException('审计记录不存在');
+    const scope = await resolveAuditReaderScope(reader, this.orgService);
+    if (!scope) return row;
+    if (scope.kind === 'own') {
+      if (row.userId === String(scope.userId)) return row;
+      throw new NotFoundException('审计记录不存在');
+    }
+    // Non-numeric actor ids (system / bridge rows) belong to no account, hence to no organisation.
+    // 非数字的行动者 id（系统 / 桥接行）不属于任何账号，因而也不属于任何组织。
+    const rowUserId = Number(row.userId);
+    const member =
+      this.orgService && Number.isFinite(rowUserId)
+        ? await this.orgService.getUserOrgContext(rowUserId)
+        : null;
+    if (member?.orgId === scope.orgId) return row;
+    throw new NotFoundException('审计记录不存在');
   }
 
   /** §internal.16 A-6 合规：从行构建身份链（Human→Agent→Tool→Action + 授权依据）；agentCache 供批量复用去重 */

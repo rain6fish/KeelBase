@@ -7,6 +7,7 @@
  * 而这些断言就是那条护栏；搬的时候顺手改断言，等于先把护栏拆了再拆房子。
  */
 import { AuditQueryService } from './audit-query.service';
+import { UserRole } from '../../common/entities/user.entity';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -204,6 +205,111 @@ describe('AuditQueryService（从 AuditService 拆出的查询域）', () => {
       expect(qb.andWhere).toHaveBeenCalledWith('log.agent_id = :agentId', { agentId: 'sales-agent' });
       expect(rows[0].agentId).toBe('sales-agent');
       expect(rows[0].actionLabel).toBeDefined();
+    });
+  });
+
+  /**
+   * AW-2 的「组织 / 期间范围」。这里钉的是**查询被施加了什么约束**；真实的行级读数是
+   * `test/audit-reader-scope.e2e-spec.ts`（真 DI + 真库），因为「越界看不到」不是替身能证明的事。
+   *
+   * What the query is constrained by is pinned here; the actual row-level reading is the e2e suite,
+   * because a double cannot prove "a row outside the scope is not visible".
+   */
+  describe('AW-2 审计读者的组织 / 期间范围', () => {
+    function mockQb() {
+      const qb = {
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        addSelect: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        getRawMany: jest.fn().mockResolvedValue([]),
+      };
+      repo.createQueryBuilder.mockReturnValue(qb);
+      return qb;
+    }
+
+    it('审计读者属于某组织 → 追加本人所属组织的成员子查询', async () => {
+      const qb = mockQb();
+      const org = { getUserOrgContext: jest.fn().mockResolvedValue({ orgId: 7, deptId: null }) };
+      const scoped = new AuditQueryService(repo as never, org as never);
+
+      await scoped.getLogs({}, { userId: 5, role: UserRole.AUDITOR });
+
+      expect(org.getUserOrgContext).toHaveBeenCalledWith(5);
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        'CAST(log.userId AS INTEGER) IN (SELECT user_id FROM org_members WHERE org_id = :readerOrgId)',
+        { readerOrgId: 7 },
+      );
+    });
+
+    it('审计读者不属于任何组织 → 退回本人行（只收紧，不放宽）', async () => {
+      const qb = mockQb();
+      const org = { getUserOrgContext: jest.fn().mockResolvedValue(null) };
+      const scoped = new AuditQueryService(repo as never, org as never);
+
+      await scoped.getLogs({}, { userId: 5, role: UserRole.AUDITOR });
+
+      expect(qb.andWhere).toHaveBeenCalledWith('log.userId = :readerUserId', { readerUserId: '5' });
+    });
+
+    it('组织查询失败同样退回本人行，而不是不加约束', async () => {
+      const qb = mockQb();
+      const org = { getUserOrgContext: jest.fn().mockRejectedValue(new Error('db down')) };
+      const scoped = new AuditQueryService(repo as never, org as never);
+
+      await scoped.getLogs({}, { userId: 5, role: UserRole.AUDITOR });
+
+      expect(qb.andWhere).toHaveBeenCalledWith('log.userId = :readerUserId', { readerUserId: '5' });
+    });
+
+    it('请求里的 orgId 与账号范围是 AND：审计读者无法用参数放宽账号组织', async () => {
+      const qb = mockQb();
+      const org = { getUserOrgContext: jest.fn().mockResolvedValue({ orgId: 7, deptId: null }) };
+      const scoped = new AuditQueryService(repo as never, org as never);
+
+      await scoped.getLogs({ orgId: 99 }, { userId: 5, role: UserRole.AUDITOR });
+
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        'CAST(log.userId AS INTEGER) IN (SELECT user_id FROM org_members WHERE org_id = :orgId)',
+        { orgId: 99 },
+      );
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        'CAST(log.userId AS INTEGER) IN (SELECT user_id FROM org_members WHERE org_id = :readerOrgId)',
+        { readerOrgId: 7 },
+      );
+    });
+
+    it('管理员不加行范围约束（行为不变）', async () => {
+      const qb = mockQb();
+      const org = { getUserOrgContext: jest.fn() };
+      const scoped = new AuditQueryService(repo as never, org as never);
+
+      await scoped.getLogs({}, { userId: 1, role: UserRole.ADMIN });
+
+      expect(org.getUserOrgContext).not.toHaveBeenCalled();
+      expect(qb.andWhere).not.toHaveBeenCalledWith(
+        expect.stringContaining('org_members WHERE org_id = :readerOrgId'),
+        expect.anything(),
+      );
+      expect(qb.andWhere).not.toHaveBeenCalledWith('log.userId = :readerUserId', expect.anything());
+    });
+
+    it('期间两端闭合：since 与 until 都进查询', async () => {
+      const qb = mockQb();
+
+      await service.getLogs({
+        since: new Date('2026-08-01T00:00:00Z'),
+        until: new Date('2026-08-31T23:59:59Z'),
+      });
+
+      expect(qb.andWhere).toHaveBeenCalledWith('log.createdAt >= :since', {
+        since: new Date('2026-08-01T00:00:00Z'),
+      });
+      expect(qb.andWhere).toHaveBeenCalledWith('log.createdAt <= :until', {
+        until: new Date('2026-08-31T23:59:59Z'),
+      });
     });
   });
 });
