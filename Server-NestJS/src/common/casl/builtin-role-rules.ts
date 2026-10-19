@@ -86,6 +86,14 @@ export const BUILTIN_ROLE_RULES: RoleRuleSeed[] = [
   // 是治理记录的**读者**，不是应用的**用户**。每条规则都只授予 `read`；任何一条日后都不许长出写动作，
   // 否则它就不再是审计读者。
   { roleCode: UserRole.AUDITOR, subject: 'AuditLog', actions: ['read'], ownerField: null },
+  // Operations audit (`GET /audit/operations/logs|verify|stats`): business writes, including the ones
+  // no AI took part in. Same subject name as the Java runtime's `GovernanceReadSubjects.OPERATION_AUDIT`
+  // (JV-63), so an audit reader reads the same face on both sides. All three endpoints are reads —
+  // verification recomputes the chain and stats aggregates it — and none of them is widened further.
+  // 操作审计（`GET /audit/operations/logs|verify|stats`）：业务写，包括**没有 AI 参与**的那些。subject
+  // 名与 Java 运行时的 `GovernanceReadSubjects.OPERATION_AUDIT`（JV-63）相同，使审计读者在两侧读到**同一面**。
+  // 三个端点都是读 —— 校验重算哈希链、统计做聚合 —— 都不再向外放宽。
+  { roleCode: UserRole.AUDITOR, subject: 'OperationAudit', actions: ['read'], ownerField: null },
   // Governance policy and its revision history (`GET /ai/governance/policy[/history[/:revision]]`).
   // Reading the rule set is audit work; changing it (`PUT`, `apply-preset`) stays admin-only.
   // 治理策略及其版本历史（`GET /ai/governance/policy[/history[/:revision]]`）。读规则集是审计工作；
