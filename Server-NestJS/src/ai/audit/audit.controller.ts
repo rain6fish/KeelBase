@@ -54,7 +54,7 @@ export class AuditController {
 
   @Get('logs')
   @CheckPolicies((ability) => ability.can('read', 'AuditLog'))
-  @ApiOperation({ summary: 'AI 审计日志（管理员）' })
+  @ApiOperation({ summary: 'AI 审计日志（管理员 / 审计读者）' })
   @ApiQuery({ name: 'userId', required: false, description: '按用户过滤' })
   @ApiQuery({ name: 'agentId', required: false, description: '按 Agent 过滤（Agent Registry → 审计联动）' })
   @ApiQuery({ name: 'orgId', required: false, description: '按组织过滤（ORG-5 组织维度审计）' })
@@ -128,7 +128,7 @@ export class AuditController {
   @ApiOperation({
     summary:
       '§internal.16 A-4 + P0-20 单事件解释面：一行审计 → 业务摘要 + 证据统计 + 它引起的副作用 + ' +
-      '业务那一腿（操作审计）+ 谁批准 + 一个状态（失败/待确认/补偿中/补偿成功/结果未知/…）（管理员）',
+      '业务那一腿（操作审计）+ 谁批准 + 一个状态（失败/待确认/补偿中/补偿成功/结果未知/…）（管理员 / 审计读者）',
   })
   async interpretation(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: JwtPayload) {
     const result = await this.auditEvidence.getInterpretation(id, {
@@ -142,21 +142,21 @@ export class AuditController {
 
   @Get('logs/:id/chain')
   @CheckPolicies((ability) => ability.can('read', 'AuditLog'))
-  @ApiOperation({ summary: '§internal.16 A-5 跨系统身份链：Human→Agent→Tool→Action + 授权依据（管理员）' })
+  @ApiOperation({ summary: '§internal.16 A-5 跨系统身份链：Human→Agent→Tool→Action + 授权依据（管理员 / 审计读者）' })
   chain(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: JwtPayload) {
     return this.auditEvidence.getChain(id, { userId: user.sub, role: user.role });
   }
 
   @Get('verify')
   @CheckPolicies((ability) => ability.can('read', 'AuditLog'))
-  @ApiOperation({ summary: 'HS-11 审计哈希链完整性校验（管理员）' })
+  @ApiOperation({ summary: 'HS-11 审计哈希链完整性校验（管理员 / 审计读者）' })
   verify() {
     return this.auditEvidence.verifyChain();
   }
 
   @Get('stats')
   @CheckPolicies((ability) => ability.can('read', 'AuditLog'))
-  @ApiOperation({ summary: '全局 AI 用量统计（管理员）' })
+  @ApiOperation({ summary: '全局 AI 用量统计（管理员 / 审计读者）' })
   @ApiQuery({ name: 'since', required: false, description: '起始时间（ISO 8601）' })
   getStats(@Query('since') since?: string, @CurrentUser() user?: JwtPayload) {
     const sinceDate = since ? new Date(since) : undefined;
@@ -167,7 +167,7 @@ export class AuditController {
 
   @Get('cost')
   @CheckPolicies((ability) => ability.can('read', 'AuditLog'))
-  @ApiOperation({ summary: 'AI 成本看板：按用户×模型×意图聚合 tokens（管理员）' })
+  @ApiOperation({ summary: 'AI 成本看板：按用户×模型×意图聚合 tokens（管理员 / 审计读者）' })
   @ApiQuery({ name: 'since', required: false, description: '起始时间（ISO 8601）' })
   getCost(@Query('since') since?: string, @CurrentUser() user?: JwtPayload) {
     const sinceDate = since ? new Date(since) : undefined;
