@@ -49,8 +49,16 @@ const BE = resolve(__dirname, '../Server-NestJS');
  * **按上面的规程做过比对**：错误码分布除 TS2339 33→31 外完全相同，**新增集合为空**。
  * The admin user view was collapsed into one implementation, retiring two TS2339s; the
  * code-by-code diff showed no additions, only those two removals.
+ *
+ * **193 → 188 (2026-10-19)**: a recheck against commit `67519821` (the state that set 193)
+ * found the same set of error codes and no additions. The net five fewer errors come from
+ * retired TS2339/TS18048/TS2739/TS2322 entries; TS2345/TS18047/TS2769 moved only inside
+ * files that already carried them. The ratchet is locked at the current reading.
+ * **193 → 188（2026-10-19）**：对落定 193 的提交 `67519821` 复跑 tsc 复核，错误码集合无新增；
+ * 净减 5 条来自 TS2339/TS18048/TS2739/TS2322 的既有清理，TS2345/TS18047/TS2769 只在既有文件内
+ * 增减。按「先列错误码、确认无新增再下调」的规程，锁住当前读数。
  */
-const BASELINE = 193;
+const BASELINE = 188;
 
 /** 一行 tsc 输出是否属于「测试文件」：`路径(行,列): error TSxxxx: ...` */
 const isTestFileError = (line) =>
