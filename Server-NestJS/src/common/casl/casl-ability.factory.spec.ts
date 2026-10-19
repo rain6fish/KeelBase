@@ -180,7 +180,13 @@ describe('CaslAbilityFactory', () => {
     // AW-2 第二半逐面放宽的读面。增删一个面必须同时改这里与种子清单 —— 两边不一致就有一侧是假的。
     // The read surfaces widened in AW-2's second half. Adding or removing one must touch this list and
     // the seed list together — if the two disagree, one of them is lying.
-    const READ_SURFACES = ['AuditLog', 'GovernancePolicy', 'ToolInventory', 'ApprovalQueue'] as const;
+    const READ_SURFACES = [
+      'AuditLog',
+      'OperationAudit',
+      'GovernancePolicy',
+      'ToolInventory',
+      'ApprovalQueue',
+    ] as const;
     let ability: ReturnType<CaslAbilityFactory['createForUser']>;
 
     beforeEach(() => {
