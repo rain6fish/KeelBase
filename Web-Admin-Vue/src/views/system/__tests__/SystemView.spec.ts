@@ -24,13 +24,14 @@ vi.mock('@/api/provenance', () => ({
 }))
 
 import ElementPlus from 'element-plus'
+import { createPinia } from 'pinia'
 import SystemView from '../SystemView.vue'
 
 function mountView() {
   const i18n = createI18n({ legacy: false, locale: 'zh', messages: { zh, en } })
   return mount(SystemView, {
     global: {
-      plugins: [i18n, ElementPlus],
+      plugins: [i18n, ElementPlus, createPinia()],
       stubs: { PageHeader: true },
     },
   })

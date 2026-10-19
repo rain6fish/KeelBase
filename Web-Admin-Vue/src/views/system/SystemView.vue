@@ -3,6 +3,14 @@
   <div>
     <PageHeader :title="t('sysTitle')" />
 
+    <!-- §22.15 (4) 首启向导重入入口：跳过或完成之后仍可从这里重走三步 -->
+    <!-- §22.15 (4) re-entry to the first-run wizard after skipping or finishing it. -->
+    <el-card shadow="never" class="mb-4" data-test="trust-setup-entry">
+      <template #header>{{ t('trustSetupTitle') }}</template>
+      <div class="text-body-2 text-medium-emphasis mb-2">{{ t('trustSetupReopenHint') }}</div>
+      <el-button type="primary" plain @click="trustSetup.open()">{{ t('trustSetupReopen') }}</el-button>
+    </el-card>
+
     <el-row :gutter="16">
       <el-col :xs="24" :md="12">
         <el-card shadow="never">
@@ -77,9 +85,11 @@ import PageHeader from '@/components/PageHeader.vue'
 import { adminApi } from '@/api/admin'
 import { provenanceApi, type AppProvenance } from '@/api/provenance'
 import { formatUptime } from '@/utils/format'
+import { useTrustSetupStore } from '@/stores/trustSetup'
 import type { AppVersionInfo, MonitorSummary } from '@/types/admin'
 
 const { t } = useI18n()
+const trustSetup = useTrustSetupStore()
 const version = ref<AppVersionInfo | null>(null)
 const monitor = ref<MonitorSummary | null>(null)
 const provenance = ref<AppProvenance | null>(null)
