@@ -21,6 +21,9 @@ export const STORAGE_KEYS = {
   // P2 体验收尾：Trust 之旅首屏引导可收起；旅程完成度轻埋点（本机计数）
   TRUST_JOURNEY_HIDDEN: 'trust_journey_hidden',
   TRUST_JOURNEY_STATS: 'trust_journey_stats',
+  // §22.15 (4) first-run trust setup: this browser has seen (completed or skipped) the wizard.
+  // §22.15 (4) 首启信任配置向导：本浏览器已看过（完成或跳过）向导。
+  TRUST_SETUP_DONE: 'keelbase_trust_setup_done',
 } as const
 
 export const DEFAULT_PAGE_SIZE = 20
