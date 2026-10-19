@@ -54,6 +54,9 @@
     "check:family-block": "node scripts/check-family-block.mjs",
     "check:app-wiring": "node scripts/check-app-wiring.mjs",
     "check:evidence-canonical": "node Server-NestJS/scripts/check-evidence-canonical.mjs",
+    "check:navigation-parity": "node scripts/check-navigation-parity.mjs",
+    "check:protocol-vectors": "node Server-NestJS/scripts/generate-protocol-vectors.mjs --check",
+    "check:keelbase-init": "node scripts/keelbase-init.mjs inspect && node scripts/keelbase-init.mjs doctor",
     "check:gates-wired": "node scripts/check-gates-wired.mjs",
     "check:all": "node scripts/check-all.mjs"
   },
