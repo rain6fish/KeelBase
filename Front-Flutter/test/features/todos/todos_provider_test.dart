@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:front_app/features/todos/data/models/todo_model.dart';
@@ -88,6 +90,29 @@ void main() {
       expect(ok, isFalse);
       expect(provider.todos[0].completed, isFalse);
       expect(provider.error, isNotNull);
+    });
+
+    test('失败回滚按 id 定位：列表已变动时不得覆盖别的待办', () async {
+      const second = TodoModel(id: 2, title: 'B');
+      const third = TodoModel(id: 3, title: 'C');
+      when(() => repository.getTodos()).thenAnswer((_) async => [todo, second, third]);
+      await provider.load();
+
+      final gate = Completer<TodoModel>();
+      when(() => repository.toggleComplete(2, true))
+          .thenAnswer((_) => gate.future);
+      when(() => repository.delete(1)).thenAnswer((_) async {});
+
+      // toggle(2) 在下标 1 上乐观翻转；随后删除下标 0 的待办，列表整体前移。
+      final toggling = provider.toggle(2);
+      await provider.remove(1);
+      gate.completeError(Exception('network'));
+      final ok = await toggling;
+
+      expect(ok, isFalse);
+      expect(provider.todos.map((t) => t.id), [2, 3]);
+      expect(provider.todos[0].completed, isFalse);
+      expect(provider.todos[1].id, 3);
     });
   });
 

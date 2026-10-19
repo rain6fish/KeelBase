@@ -86,8 +86,11 @@ class TodosProvider extends ChangeNotifier {
       await _persist();
       return true;
     } catch (e) {
-      // 失败回滚
-      _todos = [..._todos]..[idx] = original;
+      // Roll back by id: the list may have shifted while the request was in
+      // flight, so the captured index can belong to another todo now.
+      //
+      // 按 id 回滚：请求在途期间列表可能已变动，先前记下的下标可能已指向别的待办。
+      _todos = _todos.map((t) => t.id == id ? original : t).toList();
       _error = e.toString();
       notifyListeners();
       return false;

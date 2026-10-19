@@ -11,17 +11,26 @@ export const useEventsStore = defineStore('events', {
     events: [] as EventItem[],
     isLoading: false,
     error: null as string | null,
+    // A month switch starts a newer load; the earlier response must not
+    // overwrite the newly selected range.
+    //
+    // 切换月份会发起更新的加载；更早的响应不得覆盖新选中的范围。
+    loadGeneration: 0,
   }),
   actions: {
     async loadEvents(start: string, end: string) {
+      const generation = ++this.loadGeneration
       this.isLoading = true
       this.error = null
       try {
-        this.events = await eventsService.getEventsForRange(start, end)
+        const events = await eventsService.getEventsForRange(start, end)
+        if (generation !== this.loadGeneration) return
+        this.events = events
       } catch (err: any) {
+        if (generation !== this.loadGeneration) return
         this.error = err.message || translate('events.loadFailed')
       } finally {
-        this.isLoading = false
+        if (generation === this.loadGeneration) this.isLoading = false
       }
     },
 

@@ -8,6 +8,20 @@ import 'package:front_app/features/ai/presentation/providers/ai_chat_provider.da
 import 'package:front_app/features/ai/data/models/tool_step_model.dart';
 import '../../helpers.dart';
 
+Map<String, dynamic> _conversationJson(String id, String content) => {
+      'code': 200,
+      'message': 'ok',
+      'timestamp': '2026-08-05T00:00:00Z',
+      'data': {
+        'id': id,
+        'provider': 'qwen',
+        'model': 'qwen-max',
+        'messages': [
+          {'role': 'user', 'content': content, 'timestamp': '2026-08-05T00:00:00Z'},
+        ],
+      },
+    };
+
 void main() {
   late MockApiClient api;
   late MockSseClient sse;
@@ -401,6 +415,47 @@ void main() {
       expect(provider.provider, 'qwen');
       expect(provider.messages.length, 1);
       expect(provider.messages[0].content, '你好');
+    });
+
+    test('后发起的加载胜出：先到的旧响应不得覆盖新会话', () async {
+      final slowA = Completer<Map<String, dynamic>>();
+      final fastB = Completer<Map<String, dynamic>>();
+      when(() => api.get('/ai/conversations/conv-a'))
+          .thenAnswer((_) => slowA.future);
+      when(() => api.get('/ai/conversations/conv-b'))
+          .thenAnswer((_) => fastB.future);
+
+      final loadA = provider.loadConversation('conv-a');
+      final loadB = provider.loadConversation('conv-b');
+
+      fastB.complete(_conversationJson('conv-b', 'B'));
+      await loadB;
+      slowA.complete(_conversationJson('conv-a', 'A'));
+      await loadA;
+
+      expect(provider.currentConversationId, 'conv-b');
+      expect(provider.messages.map((m) => m.content), ['B']);
+    });
+
+    test('过期加载失败不得覆盖新会话的成功状态', () async {
+      final slowA = Completer<Map<String, dynamic>>();
+      final fastB = Completer<Map<String, dynamic>>();
+      when(() => api.get('/ai/conversations/conv-a'))
+          .thenAnswer((_) => slowA.future);
+      when(() => api.get('/ai/conversations/conv-b'))
+          .thenAnswer((_) => fastB.future);
+
+      final loadA = provider.loadConversation('conv-a');
+      final loadB = provider.loadConversation('conv-b');
+
+      fastB.complete(_conversationJson('conv-b', 'B'));
+      await loadB;
+      slowA.completeError(Exception('network'));
+      await loadA;
+
+      expect(provider.error, isNull);
+      expect(provider.currentConversationId, 'conv-b');
+      expect(provider.messages.map((m) => m.content), ['B']);
     });
   });
 

@@ -824,7 +824,11 @@ class AiChatProvider extends ChangeNotifier {
 
   /// 加载历史对话的完整消息，填充聊天界面（用于从历史列表切换）
   Future<void> loadConversation(String id) async {
-    _streamGeneration++; // 取消进行中的 SSE/WS 流
+    // Bump the generation to cancel an in-flight stream and to make any earlier
+    // conversation load stale.
+    //
+    // 递增代际：取消进行中的流，并把更早的会话加载标记为过期响应。
+    final generation = ++_streamGeneration;
     _cancelWsStream();
     _currentConfirmation = null;
     _isConfirming = false;
@@ -836,6 +840,10 @@ class AiChatProvider extends ChangeNotifier {
     _fellBackToNonStreaming = false;
     try {
       final json = await _apiClient.get('/ai/conversations/$id');
+      // A newer load or a clear has taken over; drop this stale response.
+      //
+      // 已有更新的加载或清空接管，丢弃这份过期响应。
+      if (generation != _streamGeneration) return;
       final response = ApiResponse.fromJson(json, (data) => data as Map<String, dynamic>);
       if (!response.isSuccess) {
         throw NetworkException(response.message);
@@ -863,6 +871,10 @@ class AiChatProvider extends ChangeNotifier {
       }
       _safeNotify();
     } catch (e) {
+      // A stale failure must not overwrite the newer conversation's state.
+      //
+      // 过期的失败不得覆盖新会话的状态。
+      if (generation != _streamGeneration) return;
       _error = e.toString();
       _safeNotify();
     }
