@@ -4,12 +4,17 @@
 
   Non-technical users pick an action and an entity; they never type a tool name or its arguments.
   The parent owns the actual work: risk analysis calls the deterministic read endpoint, and task
-  creation goes through the AI stream so the existing confirmation card still gates the write.
+  creation calls the same CRM endpoint the customer page uses — a direct REST write with its own
+  review step. It does **not** go through the AI stream, so the AI confirmation card does not gate
+  it (a reasoned trade-off: the demo provider does not carry tool_calls across turns, so an AI write
+  here would land on the wrong customer).
 
   Copilot 面板的引导式快捷入口。
 
   非技术用户只选动作与对象，不需要输入工具名或参数。真正的动作由父组件执行：风险分析调用既有的
-  确定性只读端点；建任务走 AI 流式链路，因此仍由既有确认卡把关写操作。
+  确定性只读端点；建任务调用与客户详情页**同一个** CRM 端点 —— 一次**直接的 REST 写**，由本组件
+  自己的复核步骤把关。它**不**经过 AI 流式链路，因此**不**由 AI 确认卡把关（这是一处有理由的取舍：
+  演示 Provider 跨轮不保留 tool_calls，走 AI 写会落到错误的客户上）。
 -->
 <template>
   <div class="copilot-quick-start" data-testid="copilot-quick-start">
