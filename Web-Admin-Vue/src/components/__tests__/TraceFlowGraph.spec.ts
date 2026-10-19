@@ -7,7 +7,7 @@ import ElementPlus from 'element-plus'
 import zh from '@/i18n/zh'
 import en from '@/i18n/en'
 import TraceFlowGraph from '../TraceFlowGraph.vue'
-import type { TraceStep } from '@/types/workbench'
+import type { TraceEffect, TraceStep } from '@/types/workbench'
 
 function step(id: string, type: TraceStep['type'], overrides: Partial<TraceStep> = {}): TraceStep {
   return { id, type, time: '2026-10-18T00:00:00Z', ...overrides }
@@ -23,16 +23,21 @@ const steps: TraceStep[] = [
   }),
 ]
 
-function mountGraph(
-  input: TraceStep[] = steps,
-  selectedId: string | null = null,
-  effectStatuses: Record<number, string> = {},
-) {
+function mountGraph(input: TraceStep[] = steps, selectedId: string | null = null) {
   const i18n = createI18n({ legacy: false, locale: 'zh', messages: { zh, en } })
   return mount(TraceFlowGraph, {
     global: { plugins: [i18n, ElementPlus], stubs: { AppIcon: true } },
-    props: { steps: input, selectedId, effectStatuses },
+    props: { steps: input, selectedId },
   })
+}
+
+/** The base effect without a server status — the "unknown" shape an older server would send. */
+function withEffectStatus(status: string): TraceStep[] {
+  return steps.map((s) =>
+    s.id === 'effect-3' && s.effect
+      ? { ...s, effect: { ...s.effect, status: status as TraceEffect['status'] } }
+      : s,
+  )
 }
 
 describe('TraceFlowGraph（Agent 决策轨迹图）', () => {
@@ -82,14 +87,45 @@ describe('TraceFlowGraph（Agent 决策轨迹图）', () => {
     expect((events![0][0] as { effectId: number }).effectId).toBe(1)
   })
 
-  it('副作用状态只按服务端给出标注；缺状态不猜（守卫；拿掉即红）', () => {
-    const withStatus = mountGraph(steps, null, { 1: 'revoked' })
-    expect(withStatus.find('.trace-node[data-step-id="effect-3"]').text()).toContain('已撤销')
+  it('副作用状态只按 trace 里的 status 标注；缺状态 / 认不出的值不猜（守卫；拿掉即红）', () => {
+    const labelOf = (status: string) =>
+      mountGraph(withEffectStatus(status)).find('.trace-node[data-step-id="effect-3"]').text()
 
+    expect(labelOf('executed')).toContain('已执行')
+    expect(labelOf('revoked')).toContain('已撤销')
+    expect(labelOf('revoking_external')).toContain('外部撤销中')
+    expect(labelOf('revoke_failed')).toContain('撤销失败')
+
+    // Absent = unknown: no label at all, and certainly not "executed".
     const withoutStatus = mountGraph(steps)
     const text = withoutStatus.find('.trace-node[data-step-id="effect-3"]').text()
     expect(text).not.toContain('已撤销')
     expect(text).not.toContain('已执行')
+
+    // A value this reader does not recognize is still unknown — not silently "executed".
+    const unrecognized = labelOf('future_status')
+    expect(unrecognized).not.toContain('已执行')
+    expect(unrecognized).not.toContain('已撤销')
+  })
+
+  it('超过 100 条副作用时仍逐节点标注（旧实现只补清单首页：请求 100，服务端上限 50）', () => {
+    const many: TraceStep[] = Array.from({ length: 101 }, (_, i) =>
+      step(`effect-${i + 1}`, 'effect', {
+        toolName: 'create_followup_task',
+        effect: {
+          effectId: i + 1,
+          resultType: 'crm_task',
+          resultId: 1000 + i,
+          revocable: false,
+          status: 'revoked',
+        },
+      }),
+    )
+
+    const wrapper = mountGraph(many)
+    const nodes = wrapper.findAll('.trace-node[data-step-type="effect"]')
+    expect(nodes).toHaveLength(101)
+    expect(nodes.every((n) => n.text().includes('已撤销'))).toBe(true)
   })
 
   it('服务端不可撤 → 不显示撤销按钮', () => {

@@ -188,8 +188,9 @@ describe('DecisionTraceService', () => {
         targetExists: true,
         targetSoftDeleted: false,
         targetTitle: 'meeting',
-        // listForConversation 恒下发服务端单一权威的 revocable（decision-trace 不再自算档位）
+        // listForConversation 恒下发服务端单一权威的 revocable + status（decision-trace 不再自算）
         revocable: true,
+        status: 'executed',
       },
     ]);
 
@@ -199,8 +200,79 @@ describe('DecisionTraceService', () => {
       id: 'effect-9',
       type: 'effect',
       toolName: 'create_event',
-      effect: { effectId: 9, resultType: 'event', resultId: 7, targetTitle: 'meeting', revocable: true },
+      effect: {
+        effectId: 9,
+        resultType: 'event',
+        resultId: 7,
+        targetTitle: 'meeting',
+        revocable: true,
+        status: 'executed',
+      },
     });
+  });
+
+  // The trace must not own a second status rule. These inputs are deliberately inconsistent with
+  // each other: the projection says `revoked`, while the target flag and `revocable` still read as
+  // live. Re-deriving status here would flip it back to `executed`; passthrough keeps the reading.
+  //
+  // 轨迹不得拥有第二套状态规则。这里的输入彼此刻意不一致：投影说 `revoked`，而目标软删标志与
+  // `revocable` 仍读作存活。在这里重算会把状态翻回 `executed`；原样透传才能保住读数。
+  it('effect 步骤：status 原样透传，不由 trace 用 targetSoftDeleted / revocable 重算', async () => {
+    convService.getConversation.mockResolvedValue(makeConv());
+    effectsService.listForConversation.mockResolvedValue([
+      {
+        id: 20,
+        toolName: 'create_event',
+        conversationId: 'conv-1',
+        resultType: 'event',
+        resultId: 8,
+        argsHash: 'abc',
+        createdAt: '2026-08-18T01:03:00.000Z',
+        targetExists: true,
+        targetSoftDeleted: false,
+        targetTitle: 'x',
+        revocable: true,
+        status: 'revoked',
+      },
+    ]);
+
+    const { steps } = await service.getConversationTrace('conv-1', '42', ability);
+    expect(steps[0].effect).toMatchObject({ status: 'revoked', revocable: true });
+  });
+
+  // This is the reason the field exists: the front end used to join a separate newest-first list
+  // (requested with limit=100; the endpoint itself caps the page at 50), so an older effect had no
+  // label. The trace has no such cap — every effect for the conversation carries its own status,
+  // including the oldest one.
+  //
+  // 这正是该字段存在的理由：前端原先去 join 一份「按时间倒序」的清单（请求 limit=100，而端点
+  // 自身把每页压到 50），更旧的副作用因此没有标注。trace 没有这个上限 —— 会话里的每一条副作用
+  //（包括最旧的一条）都带自己的状态。
+  it('effect 步骤：101 条副作用全部带 status（不依赖 my/tool-effects 的分页）', async () => {
+    convService.getConversation.mockResolvedValue(makeConv());
+    effectsService.listForConversation.mockResolvedValue(
+      Array.from({ length: 101 }, (_, i) => ({
+        id: i + 1,
+        toolName: 'create_event',
+        conversationId: 'conv-1',
+        resultType: 'event',
+        resultId: 1000 + i,
+        argsHash: 'abc',
+        createdAt: new Date(Date.UTC(2026, 7, 18, 1, 0, i)).toISOString(),
+        targetExists: true,
+        targetSoftDeleted: i === 0,
+        targetTitle: `t${i}`,
+        revocable: i !== 0,
+        status: i === 0 ? 'revoked' : 'executed',
+      })),
+    );
+
+    const { steps } = await service.getConversationTrace('conv-1', '42', ability);
+    const effectSteps = steps.filter((s) => s.type === 'effect');
+    expect(effectSteps).toHaveLength(101);
+    expect(effectSteps.every((s) => typeof s.effect?.status === 'string')).toBe(true);
+    // Oldest row (id 1) would fall outside a newest-first 100-row page; it still carries `revoked`.
+    expect(effectSteps[0].effect).toMatchObject({ effectId: 1, status: 'revoked' });
   });
 
   it('E-1：effect 步骤透出 before/after 快照', async () => {

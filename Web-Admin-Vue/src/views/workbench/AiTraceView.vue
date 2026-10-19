@@ -153,7 +153,6 @@
           <TraceFlowGraph
             :steps="steps"
             :selected-id="selectedStep ? selectedStep.id : null"
-            :effect-statuses="effectStatuses"
             @select="selectedStep = $event"
             @revoke="onRevokeEffect"
           />
@@ -237,9 +236,9 @@
                   <div class="text-caption text-medium-emphasis mb-1">{{ t('fieldChange') }}</div>
                   <FieldDiff :before="selectedStep.effect.before" :after="selectedStep.effect.after" />
                 </div>
-                <div v-if="effectStatusLabel(selectedStep.effect.effectId)" class="detail-row">
+                <div v-if="effectStatusLabel(selectedStep.effect.status)" class="detail-row">
                   <span class="text-caption text-medium-emphasis">{{ t('traceEffectStatus') }}</span>
-                  <span class="text-body-2">{{ effectStatusLabel(selectedStep.effect.effectId) }}</span>
+                  <span class="text-body-2">{{ effectStatusLabel(selectedStep.effect.status) }}</span>
                 </div>
                 <div class="detail-row">
                   <span class="text-caption text-medium-emphasis">{{ t('traceNodeRevocable') }}</span>
@@ -303,9 +302,6 @@ const steps = ref<TraceStep[]>([])
 const viewMode = ref<'timeline' | 'graph'>('timeline')
 /** Node selected in the graph view; its readings are rendered from the server step only. */
 const selectedStep = ref<TraceStep | null>(null)
-/** `effectId → server status` (executed/revoked/revoking_external/revoke_failed), joined from
- *  GET /ai/my/tool-effects. Absent entries are simply not labelled — never guessed. */
-const effectStatuses = ref<Record<number, string>>({})
 const loading = ref(false)
 const traceLoading = ref(false)
 const loadError = ref('')
@@ -350,7 +346,6 @@ async function loadConversations() {
 function onSelect() {
   steps.value = []
   selectedStep.value = null
-  effectStatuses.value = {}
   traceError.value = ''
   if (selectedId.value) void loadTrace(selectedId.value)
 }
@@ -359,20 +354,14 @@ async function loadTrace(id: string) {
   traceLoading.value = true
   traceError.value = ''
   try {
-    // The trace carries the steps; the user-scoped effect list carries the current revoke state.
-    // The trace endpoint is the authority for nodes/edges — the second call only labels effect
-    // nodes with a server status, and a failure there degrades to "no label", never to a guess.
-    const [res, effectsRes] = await Promise.all([
-      aiTraceApi.trace(id),
-      aiTraceApi.myEffects(1, 100).catch(() => null),
-    ])
+    // The trace is the single source for nodes, edges and each effect's lifecycle status. There is
+    // no second list call: an effect beyond any page cap is still labelled, and an absent `status`
+    // stays unknown rather than being guessed.
+    //
+    // trace 是节点、边与每个副作用生命周期的单一来源。不再打第二个清单接口：超出任何分页上限的
+    // 副作用照样有标注；`status` 缺席时保持「不知道」，不做猜测。
+    const res = await aiTraceApi.trace(id)
     steps.value = res.steps
-
-    const statuses: Record<number, string> = {}
-    for (const eff of effectsRes?.items ?? []) {
-      if (eff.conversationId === id) statuses[eff.id] = eff.status
-    }
-    effectStatuses.value = statuses
 
     // Keep the graph selection pointed at a step the server still returns (fresh readings).
     selectedStep.value = selectedStep.value
@@ -411,14 +400,20 @@ function confirmLabel(s: TraceStep): string {
   return t('stepTimedOut')
 }
 
-/** Effect status label — only when the server listed that effect; absent stays unlabelled. */
-function effectStatusLabel(effectId: number): string {
-  const status = effectStatuses.value[effectId]
+/**
+ * Effect status label — the trace's own reading, never a local inference. An absent or unrecognized
+ * value stays unlabelled: unknown must not be rendered as "executed".
+ *
+ * 副作用状态标签 —— 只用 trace 自己的读数，不做本地推断。缺席或认不出的值一律不标注：
+ * 「不知道」不能被渲染成「已执行」。
+ */
+function effectStatusLabel(status?: string): string {
   if (!status) return ''
   if (status === 'revoked') return t('lifecycleRevoked')
   if (status === 'revoking_external') return t('statusRevokingExternal')
   if (status === 'revoke_failed') return t('statusRevokeFailed')
-  return t('lifecycleExecuted')
+  if (status === 'executed') return t('lifecycleExecuted')
+  return ''
 }
 
 /** D1 Human-Agent-System Accountability：来源分类复用 utils/traceSource */

@@ -53,6 +53,9 @@ export interface CreateTodoInput {
   dueDate?: string
 }
 
+/** Server-normalized lifecycle status of an effect. An absent value (older server) means unknown. */
+export type TraceEffectStatus = 'executed' | 'revoked' | 'revoking_external' | 'revoke_failed'
+
 // P0-14 Agent Decision Trace：本人 AI 对话执行轨迹
 export interface TraceEffect {
   effectId: number
@@ -60,6 +63,15 @@ export interface TraceEffect {
   resultId: number
   targetTitle?: string | null
   revocable: boolean
+  /**
+   * The server's own lifecycle reading (`EffectProjection.normalizeStatus`, passed through by the
+   * trace). Absent means *unknown* — an older server that did not send it — and must never be read
+   * as "not revoked".
+   *
+   * 服务端自己的生命周期读数（`EffectProjection.normalizeStatus` 由 trace 原样透传）。缺席 =
+   * **不知道**（旧服务端没发这个字段），绝不可读成「未撤销」。
+   */
+  status?: TraceEffectStatus
   /** E-1 字段级变更审计：before/after 快照（JSON 字符串；create 类 before 为 null） */
   before?: string | null
   after?: string | null

@@ -32,6 +32,7 @@ vi.mock('vue-router', () => ({
 
 import ElementPlus from 'element-plus'
 import AiTraceView from '../AiTraceView.vue'
+import type { TraceEffect, TraceStep } from '@/types/workbench'
 
 const conv = {
   id: 'conv-1',
@@ -43,7 +44,7 @@ const conv = {
   messages: [{ role: 'user', content: '查一下客户', timestamp: '2026-08-25T10:00:00Z' }],
 }
 
-const steps = [
+const steps: TraceStep[] = [
   { id: 'msg-0', type: 'input', time: '2026-08-25T10:00:00Z', content: '查一下客户' },
   {
     id: 'tool-1',
@@ -65,6 +66,15 @@ const steps = [
   },
 ]
 
+/** A copy of `steps` whose effect carries (or omits) the server's own `status` reading. */
+function traceStepsWithEffectStatus(status?: TraceEffect['status']): TraceStep[] {
+  return steps.map((s) =>
+    s.id === 'effect-3' && s.effect
+      ? { ...s, effect: { ...s.effect, ...(status ? { status } : {}) } }
+      : s,
+  )
+}
+
 function mountView() {
   const i18n = createI18n({ legacy: false, locale: 'zh', messages: { zh, en } })
   return mount(AiTraceView, {
@@ -78,7 +88,6 @@ function mountView() {
 beforeEach(() => {
   vi.clearAllMocks()
   useRouteMock.mockReturnValue({ query: {} })
-  myEffectsMock.mockResolvedValue({ total: 0, page: 1, limit: 100, items: [] })
 })
 
 describe('AiTraceView', () => {
@@ -141,27 +150,9 @@ describe('AiTraceView', () => {
     expect(wrapper.text()).toContain('boom')
   })
 
-  it('切到决策轨迹图 → 节点/边来自服务端步骤；点节点显示该步读数', async () => {
+  it('切到决策轨迹图 → 节点/边来自服务端步骤；副作用状态直接取 trace 的 effect.status', async () => {
     conversationsMock.mockResolvedValue([conv])
-    traceMock.mockResolvedValue({ conversation: conv, steps })
-    myEffectsMock.mockResolvedValue({
-      total: 1,
-      page: 1,
-      limit: 100,
-      items: [
-        {
-          id: 1,
-          toolName: 'create_followup_task',
-          conversationId: 'conv-1',
-          resultType: 'crm_task',
-          resultId: 42,
-          createdAt: '2026-08-25T10:00:03Z',
-          targetExists: true,
-          targetSoftDeleted: true,
-          status: 'revoked',
-        },
-      ],
-    })
+    traceMock.mockResolvedValue({ conversation: conv, steps: traceStepsWithEffectStatus('revoked') })
 
     const wrapper = mountView()
     await flushPromises()
@@ -176,8 +167,8 @@ describe('AiTraceView', () => {
 
     expect(wrapper.findAll('.trace-node')).toHaveLength(4)
     expect(wrapper.findAll('.graph-edge')).toHaveLength(3)
-    // 撤销状态由服务端副作用清单标注（trace 本身不带 status）
-    expect(myEffectsMock).toHaveBeenCalledWith(1, 100)
+    // Trace is the single source — the old join against /ai/my/tool-effects (first 100 rows) is gone.
+    expect(myEffectsMock).not.toHaveBeenCalled()
     expect(wrapper.find('.trace-node[data-step-id="effect-3"]').text()).toContain('已撤销')
 
     await wrapper.find('.trace-node[data-step-id="tool-1"]').trigger('click')
@@ -187,6 +178,53 @@ describe('AiTraceView', () => {
     expect(detail.exists()).toBe(true)
     expect(detail.text()).toContain('该步读数')
     expect(detail.text()).toContain('research-agent')
+  })
+
+  it('撤销前 executed / 撤销后再取 trace revoked → 同一节点从「已执行」变为「已撤销」', async () => {
+    conversationsMock.mockResolvedValue([conv])
+    traceMock
+      .mockResolvedValueOnce({ conversation: conv, steps: traceStepsWithEffectStatus('executed') })
+      .mockResolvedValueOnce({ conversation: conv, steps: traceStepsWithEffectStatus('revoked') })
+    revokeMock.mockResolvedValue({ revoked: true, effectId: 1 })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const select = wrapper.findComponent({ name: 'ElSelect' })
+    await select.vm.$emit('update:modelValue', 'conv-1')
+    await flushPromises()
+
+    const group = wrapper.findComponent({ name: 'ElRadioGroup' })
+    await group.vm.$emit('update:modelValue', 'graph')
+    await flushPromises()
+
+    expect(wrapper.find('.trace-node[data-step-id="effect-3"]').text()).toContain('已执行')
+
+    await wrapper.find('.trace-node[data-step-id="effect-3"] .node-revoke').trigger('click')
+    await flushPromises()
+
+    expect(traceMock).toHaveBeenCalledTimes(2)
+    expect(wrapper.find('.trace-node[data-step-id="effect-3"]').text()).toContain('已撤销')
+  })
+
+  it('trace 不带 status（旧服务端）→ 不标注撤销态：不知道 ≠ 未撤销', async () => {
+    conversationsMock.mockResolvedValue([conv])
+    traceMock.mockResolvedValue({ conversation: conv, steps })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const select = wrapper.findComponent({ name: 'ElSelect' })
+    await select.vm.$emit('update:modelValue', 'conv-1')
+    await flushPromises()
+
+    const group = wrapper.findComponent({ name: 'ElRadioGroup' })
+    await group.vm.$emit('update:modelValue', 'graph')
+    await flushPromises()
+
+    const text = wrapper.find('.trace-node[data-step-id="effect-3"]').text()
+    expect(text).not.toContain('已执行')
+    expect(text).not.toContain('已撤销')
   })
 
   it('图上可撤副作用 → 点撤销调用服务端撤销接口', async () => {
