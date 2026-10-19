@@ -807,8 +807,12 @@ jobs:
           cache-dependency-path: Front-Taro/package-lock.json
       - run: npm ci
       - run: npm run build:h5
+      # H5 output must not keep bare process.env references (Taro replaces only keys listed in config.env).
+      # H5 产物不得残留裸 process.env（Taro 只替换 config.env 里列出的键）。
+      - run: npm run test:env
       # N-1 weapp 构建防回归：build:weapp 已修复（a15c3eb），CI 常驻校验防退化（Taro CLI 构建小程序包无需微信开发者工具）
       - run: npm run build:weapp
+      - run: npm run test:env
 
   flutter-analyze:
     runs-on: ubuntu-latest
