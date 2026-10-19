@@ -38,6 +38,17 @@ export interface TraceEffect {
   resultId: number;
   targetTitle?: string | null;
   revocable: boolean;
+  /**
+   * The server-normalized lifecycle status (`executed` / `revoked` / `revoking_external` /
+   * `revoke_failed`), passed through from `EffectProjection.normalizeStatus` unchanged — the trace
+   * does not derive a second one. There is no "absent" value here: `listForConversation` always
+   * supplies it.
+   *
+   * 服务端归一的生命周期状态（`executed` / `revoked` / `revoking_external` / `revoke_failed`），
+   * 由 `EffectProjection.normalizeStatus` 原样透传 —— 轨迹不自算第二套。这里没有「缺席」这个取值：
+   * `listForConversation` 恒下发。
+   */
+  status: string;
   /** E-1 字段级变更快照（JSON 字符串；create 类 before 为 null） */
   before?: string | null;
   after?: string | null;
@@ -202,6 +213,11 @@ export class DecisionTraceService {
           // KB-6：可撤以服务端单一权威判定（listForConversation 已按 _isRevocable 下发 revocable）——
           // 此处不再自算（原 `status==='executed' && revokeClass!=='none'` 是第二套规则，新增档位即漂移）
           revocable: eff.revocable,
+          // The status is the projection's own reading, passed through untouched. Do not re-derive it
+          // here from `revocable`/`targetSoftDeleted`: that would be a second rule that drifts.
+          // 状态是投影自己的读数，原样透传。不要在这里用 `revocable`/`targetSoftDeleted` 重算：
+          // 那是第二套规则，会漂。
+          status: eff.status,
           before: eff.beforeSnapshot ?? null,
           after: eff.afterSnapshot ?? null,
         },

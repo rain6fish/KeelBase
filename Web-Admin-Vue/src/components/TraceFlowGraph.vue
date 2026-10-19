@@ -109,10 +109,8 @@ const props = withDefaults(
   defineProps<{
     steps: TraceStep[]
     selectedId?: string | null
-    /** `effectId → server status`; absent entries are never labelled (no local inference). */
-    effectStatuses?: Record<number, string>
   }>(),
-  { selectedId: null, effectStatuses: () => ({}) },
+  { selectedId: null },
 )
 const emit = defineEmits<{ select: [step: TraceStep]; revoke: [effect: TraceEffect] }>()
 
@@ -176,20 +174,26 @@ function nodeStatus(step: TraceStep): string {
   }
   if (step.type === 'effect' && step.effect) {
     const base = `${step.effect.resultType} #${step.effect.resultId}`
-    const status = effectStatusLabel(step.effect.effectId)
+    const status = effectStatusLabel(step.effect.status)
     return status ? `${base} · ${status}` : base
   }
   return ''
 }
 
-/** Effect status label — only when the server listed that effect; absent stays unlabelled. */
-function effectStatusLabel(effectId: number): string {
-  const status = props.effectStatuses[effectId]
+/**
+ * Effect status label — the trace's own reading, never a local inference. An absent or unrecognized
+ * value stays unlabelled: unknown must not be rendered as "executed".
+ *
+ * 副作用状态标签 —— 只用 trace 自己的读数，不做本地推断。缺席或认不出的值一律不标注：
+ * 「不知道」不能被渲染成「已执行」。
+ */
+function effectStatusLabel(status?: string): string {
   if (!status) return ''
   if (status === 'revoked') return t('lifecycleRevoked')
   if (status === 'revoking_external') return t('statusRevokingExternal')
   if (status === 'revoke_failed') return t('statusRevokeFailed')
-  return t('lifecycleExecuted')
+  if (status === 'executed') return t('lifecycleExecuted')
+  return ''
 }
 
 function revoke(step: TraceStep): void {
