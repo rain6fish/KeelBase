@@ -75,7 +75,18 @@
         >
           <div class="text-caption">{{ t('aiNotReadyBody') }}</div>
         </el-alert>
-        <div v-if="!items.length" class="text-center text-medium-emphasis pa-6">{{ auth.isAdmin ? t('assWelcome') : t('assWelcomeUser') }}</div>
+        <template v-if="!items.length">
+          <!-- Guided input for non-technical users; administrators keep the system-assistant welcome. -->
+          <!-- 非技术用户的引导式输入；管理员保留系统助手的欢迎语。 -->
+          <CopilotQuickStart
+            v-if="!auth.isAdmin"
+            :disabled="sending"
+            class="mb-3"
+            @analyze-risk="onAnalyzeRisk"
+            @create-task="onCreateTask"
+          />
+          <div class="text-center text-medium-emphasis pa-6">{{ auth.isAdmin ? t('assWelcome') : t('assWelcomeUser') }}</div>
+        </template>
 
         <div v-for="(m, i) in items" :key="i" class="mb-3">
           <!-- 用户 -->
@@ -96,11 +107,11 @@
           </div>
 
           <!-- 工具卡 -->
-          <div v-else-if="m.kind === 'tool'" class="pa-2" style="border-left: 3px solid var(--el-color-primary); border-radius: 4px; background: var(--el-fill-color-light)">
+          <div v-else-if="m.kind === 'tool'" class="pa-2 tool-card" style="border-left: 3px solid var(--el-color-primary); border-radius: 4px; background: var(--el-fill-color-light)">
             <div class="d-flex align-center ga-1">
               <AppIcon :icon="m.toolStart.isWrite ? 'mdi-pencil' : 'mdi-magnify'" :color="m.toolStart.isWrite ? 'var(--el-color-primary)' : 'var(--el-text-color-secondary)'" size="16" />
               <el-tag :type="m.toolStart.isWrite ? 'primary' : 'info'" size="small" effect="plain">{{ m.toolStart.isWrite ? t('writeOp') : t('readOp') }}</el-tag>
-              <span class="text-caption font-weight-medium">{{ m.toolStart.name }}</span>
+              <span class="text-caption font-weight-medium" :title="m.toolStart.name">{{ toolLabelText(m.toolStart.name) }}</span>
             </div>
             <div v-if="m.toolStart.isWrite && presentText(m.toolStart.summary)" class="text-caption text-medium-emphasis mt-1">{{ presentText(m.toolStart.summary) }}</div>
             <div v-if="m.toolEnd" class="text-caption mt-1" :class="m.toolEnd.success ? 'text-success' : 'text-error'">
@@ -125,6 +136,44 @@
             <div v-else class="pa-3 msg-bubble assistant-bubble" :class="m.result?.approved ? 'text-success' : 'text-error'">
               {{ m.result?.approved ? t('approved') : t('rejected') }}
             </div>
+          </div>
+
+          <!-- Deterministic read: risk analysis started from the guided quick start. -->
+          <!-- 确定性只读：从引导式快捷入口发起的风险分析。 -->
+          <div v-else-if="m.kind === 'analysis'" class="pa-3 mb-2 analysis-card" data-testid="risk-analysis-card">
+            <div class="d-flex align-center flex-wrap ga-2">
+              <el-tag type="info" size="small" effect="plain">{{ t('readOp') }}</el-tag>
+              <span class="text-caption font-weight-medium">
+                {{ toolLabelText(m.entityKind === 'customer' ? 'analyze_customer_risk' : 'analyze_project_risk') }}
+              </span>
+              <span class="text-caption text-medium-emphasis">· {{ m.entityName }}</span>
+            </div>
+            <div v-if="m.status === 'pending'" class="text-caption text-medium-emphasis mt-2">{{ t('quickRiskRunning') }}</div>
+            <div v-else-if="m.status === 'error'" class="text-caption text-error mt-2">{{ m.error }}</div>
+            <div v-else class="mt-2">
+              <div class="text-body-2">
+                <strong>{{ t('quickRiskLevel') }}:</strong>
+                <el-tag size="small" :type="riskTagType(m.result!.level)" effect="light" class="ml-1">{{ riskLabel(m.result!.level) }}</el-tag>
+                <span class="ml-3">{{ t('quickRiskScore') }}: {{ m.result!.score }}</span>
+              </div>
+              <ul v-if="m.result!.reasons.length" class="mt-1 mb-0 pl-4 text-body-2">
+                <li v-for="(reason, ri) in m.result!.reasons" :key="ri">{{ reason }}</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Real write started from the guided quick start (same CRM endpoint as the customer page). -->
+          <!-- 从引导式快捷入口发起的真实写操作（与客户页相同的 CRM 端点）。 -->
+          <div v-else-if="m.kind === 'action'" class="pa-3 mb-2 action-card" data-testid="task-action-card">
+            <div class="d-flex align-center flex-wrap ga-2">
+              <el-tag type="primary" size="small" effect="plain">{{ t('writeOp') }}</el-tag>
+              <span class="text-caption font-weight-medium">{{ toolLabelText('create_followup_task') }}</span>
+              <span class="text-caption text-medium-emphasis">· {{ m.entityName }}</span>
+            </div>
+            <div class="text-body-2 mt-2">{{ m.title }}</div>
+            <div v-if="m.status === 'pending'" class="text-caption text-medium-emphasis mt-1">{{ t('quickTaskRunning') }}</div>
+            <div v-else-if="m.status === 'error'" class="text-caption text-error mt-1">{{ m.error }}</div>
+            <div v-else class="text-caption text-success mt-1">{{ t('quickTaskDone', { title: m.title, id: m.resultId }) }}</div>
           </div>
 
           <!-- 错误/提示 -->
@@ -168,14 +217,18 @@ import AppIcon from '@/components/AppIcon.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import AiConfirmationCard from '@/components/AiConfirmationCard.vue'
 import AiDenialCard from '@/components/AiDenialCard.vue'
+import CopilotQuickStart from '@/components/CopilotQuickStart.vue'
 import { useSnackbarStore } from '@/stores/snackbar'
 import { useAuthStore } from '@/stores/auth'
 import { ApiError } from '@/api/client'
 import { adminApi } from '@/api/admin'
 import { capabilitiesApi } from '@/api/capabilities'
+import { crmApi } from '@/api/crm'
+import { pmApi } from '@/api/pm'
 import { streamChat, confirmTool, type AiConfirmation, type AiToolEnd, type AiToolStart } from '@/utils/streamChat'
 import type { AiConversationSummary } from '@/types/admin'
 import { usePresentText } from '@/utils/presentation'
+import { toolLabel } from '@/utils/toolLabel'
 
 const presentText = usePresentText()
 
@@ -185,11 +238,30 @@ type ChatItem =
   | { kind: 'tool'; toolStart: AiToolStart; toolEnd?: AiToolEnd }
   | { kind: 'denied'; toolEnd: AiToolEnd }
   | { kind: 'confirmation'; confirmation: AiConfirmation; status: 'pending' | 'decided'; result?: { approved: boolean } }
+  | {
+      kind: 'analysis'
+      entityKind: 'customer' | 'project'
+      entityName: string
+      status: 'pending' | 'done' | 'error'
+      result?: { level: string; score: number; reasons: string[] }
+      error?: string
+    }
+  | {
+      kind: 'action'
+      entityName: string
+      title: string
+      status: 'pending' | 'done' | 'error'
+      resultId?: number
+      error?: string
+    }
   | { kind: 'notice'; content: string }
 
 const emit = defineEmits<{ (e: 'close'): void }>()
 
-const { t } = useI18n()
+const { t, tm } = useI18n()
+/** Human-readable tool label (reuses the same `ai.tool.*` namespace as the CRM/PM copilots). */
+/** 人类可读的工具标签（复用 CRM/PM Copilot 同一套 `ai.tool.*` 命名空间）。 */
+const toolLabelText = (name: string) => toolLabel(tm('feature') as Record<string, string> | undefined, name)
 const router = useRouter()
 const snackbar = useSnackbarStore()
 const auth = useAuthStore()
@@ -403,6 +475,84 @@ async function send() {
     sending.value = false
     await scrollBottom()
   }
+}
+
+/** Guided risk analysis: call the existing deterministic read endpoint and show the real result. */
+/** 引导式风险分析：调用既有确定性只读端点，展示真实返回值。 */
+async function onAnalyzeRisk(payload: { kind: 'customer' | 'project'; id: number; name: string }) {
+  items.value.push({
+    kind: 'analysis',
+    entityKind: payload.kind,
+    entityName: payload.name,
+    status: 'pending',
+  })
+  const item = items.value[items.value.length - 1] as ChatItem & { kind: 'analysis' }
+  void scrollBottom()
+  try {
+    item.result = payload.kind === 'customer'
+      ? await crmApi.analyze(payload.id)
+      : await pmApi.analyze(payload.id)
+    item.status = 'done'
+  } catch (err) {
+    item.status = 'error'
+    item.error = err instanceof Error && err.message ? err.message : t('quickRiskFailed')
+  } finally {
+    void scrollBottom()
+  }
+}
+
+/**
+ * Guided task creation uses the same real CRM task endpoint as the customer detail page, after the
+ * quick-start form has shown the exact customer and title in its review step. The deterministic
+ * endpoint keeps the write on the customer the user picked even when the demo provider is active.
+ *
+ * 引导式建任务在快捷表单复核步骤展示确切的客户与标题后，调用与客户详情页相同的真实 CRM 任务端点。
+ * 确定性端点保证写操作落在用户选中的客户上——演示 Provider 生效时也成立。
+ */
+async function onCreateTask(payload: { customerId: number; customerName: string; title: string; dueDate?: string }) {
+  items.value.push({
+    kind: 'action',
+    entityName: payload.customerName,
+    title: payload.title,
+    status: 'pending',
+  })
+  const item = items.value[items.value.length - 1] as ChatItem & { kind: 'action' }
+  void scrollBottom()
+  try {
+    const task = await crmApi.createTask({
+      customerId: payload.customerId,
+      title: payload.title,
+      ...(payload.dueDate ? { dueDate: payload.dueDate } : {}),
+    })
+    item.status = 'done'
+    item.resultId = task.id
+    if (task.title) item.title = task.title
+  } catch (err) {
+    item.status = 'error'
+    item.error = err instanceof Error && err.message ? err.message : t('quickTaskFailed')
+  } finally {
+    void scrollBottom()
+  }
+}
+
+function riskLabel(level: string): string {
+  const labels: Record<string, string> = {
+    low: t('crmRiskLow'),
+    medium: t('crmRiskMedium'),
+    high: t('crmRiskHigh'),
+    critical: t('crmRiskCritical'),
+  }
+  return labels[level] ?? level
+}
+
+function riskTagType(level: string): 'success' | 'warning' | 'danger' | 'info' {
+  const types: Record<string, 'success' | 'warning' | 'danger' | 'info'> = {
+    low: 'success',
+    medium: 'warning',
+    high: 'warning',
+    critical: 'danger',
+  }
+  return types[level] ?? 'info'
 }
 
 async function onApprove(item: ChatItem & { kind: 'confirmation' }, trustTool: boolean) {

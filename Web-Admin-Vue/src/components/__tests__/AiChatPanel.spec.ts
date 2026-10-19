@@ -3,10 +3,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createI18n } from 'vue-i18n'
+import { nextTick } from 'vue'
 import ElementPlus, { ElMessageBox } from 'element-plus'
 import { createPinia, setActivePinia } from 'pinia'
 import zh from '@/i18n/zh'
 import en from '@/i18n/en'
+import { useAuthStore } from '@/stores/auth'
 
 // vi.mock 会被提升到 import 之前，故桩必须走 vi.hoisted
 const mocks = vi.hoisted(() => ({
@@ -15,6 +17,11 @@ const mocks = vi.hoisted(() => ({
   rename: vi.fn(),
   streamChat: vi.fn(),
   confirmTool: vi.fn(),
+  crmCustomers: vi.fn(),
+  crmAnalyze: vi.fn(),
+  crmCreateTask: vi.fn(),
+  pmProjects: vi.fn(),
+  pmAnalyze: vi.fn(),
 }))
 
 vi.mock('vue-router', () => ({ useRouter: () => ({ push: mocks.push }) }))
@@ -27,6 +34,16 @@ vi.mock('@/api/admin', () => ({
   },
 }))
 vi.mock('@/api/capabilities', () => ({ capabilitiesApi: { get: vi.fn().mockResolvedValue({}) } }))
+vi.mock('@/api/crm', () => ({
+  crmApi: {
+    customers: (...a: unknown[]) => mocks.crmCustomers(...a),
+    analyze: (...a: unknown[]) => mocks.crmAnalyze(...a),
+    createTask: (...a: unknown[]) => mocks.crmCreateTask(...a),
+  },
+}))
+vi.mock('@/api/pm', () => ({
+  pmApi: { projects: (...a: unknown[]) => mocks.pmProjects(...a), analyze: (...a: unknown[]) => mocks.pmAnalyze(...a) },
+}))
 vi.mock('@/utils/streamChat', () => ({
   streamChat: mocks.streamChat,
   confirmTool: mocks.confirmTool,
@@ -201,11 +218,15 @@ describe('AiChatPanel · 拒绝指引渲染', () => {
     stream.onEvent({ type: 'tool_end', toolEnd: r5End })
     await flushPromises()
 
+    // Still exactly one tool step and one denial card: if the refusal had opened its own step,
+    // the card count and the human label would both double.
+    // 仍然只有一张工具卡与一张拒绝卡：若拒绝另起一步，卡片数与人类标签都会翻倍。
     expect(wrapper.findAll('.ai-denial-card')).toHaveLength(1)
-    // 仍然只有一张工具卡：工具名出现在工具卡标题、拒绝卡标题与原因文案三处；
-    // 若另起了一条拒绝步骤，它会再出现三次。
-    expect((wrapper.text().match(/delete_customer/g) ?? []).length).toBe(3)
+    expect(wrapper.findAll('.tool-card')).toHaveLength(1)
+    // The tool card shows the human label; the raw registry name stays in the denial card.
+    // 工具卡显示人类标签；原始注册名只留在拒绝卡。
     expect(wrapper.text()).toContain('删除客户')
+    expect((wrapper.text().match(/delete_customer/g) ?? []).length).toBe(2)
   })
 
   it('成功路径（无 explanation）不渲染拒绝卡 —— 前端不凭空造', async () => {
@@ -246,5 +267,113 @@ describe('AiChatPanel · 拒绝指引渲染', () => {
     expect(card.text()).toContain('Risk policy (R5)')
     expect(card.text()).toContain('Tool "delete_customer" is risk level R5')
     expect(card.text()).toContain('Use a reversible lower-risk tool')
+  })
+})
+
+const page = (items: unknown[]) => ({ items, total: items.length, page: 1, limit: 100, totalPages: 1 })
+
+describe('AiChatPanel · guided Copilot quick start', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.clearAllMocks()
+  })
+
+  it('普通用户看到引导式入口；管理员看到系统助手欢迎语而不是引导', async () => {
+    mocks.crmCustomers.mockResolvedValue(page([{ id: 5, name: '辰光建材' }]))
+
+    const userWrapper = await mountPanel([])
+    expect(userWrapper.find('[data-testid="copilot-quick-start"]').exists()).toBe(true)
+
+    useAuthStore().user = { id: 1, username: 'admin', role: 'admin' } as never
+    const adminWrapper = await mountPanel([])
+    expect(adminWrapper.find('[data-testid="copilot-quick-start"]').exists()).toBe(false)
+    expect(adminWrapper.text()).toContain('系统有哪些模块')
+  })
+
+  it('选客户 → 一键查风险 → 展示服务端等级、评分与依据（人类工具标签）', async () => {
+    mocks.crmCustomers.mockResolvedValue(page([{ id: 5, name: '辰光建材' }]))
+    mocks.crmAnalyze.mockResolvedValue({ level: 'high', score: 87, reasons: ['2 笔订单逾期'] })
+
+    const wrapper = await mountPanel([])
+    await wrapper.find('[data-testid="quick-action-risk"]').trigger('click')
+    await flushPromises()
+
+    wrapper.findComponent({ name: 'ElSelect' }).vm.$emit('update:modelValue', 5)
+    await nextTick()
+    await wrapper.find('[data-testid="quick-risk-run"]').trigger('click')
+    await flushPromises()
+
+    expect(mocks.crmAnalyze).toHaveBeenCalledWith(5)
+    const card = wrapper.find('[data-testid="risk-analysis-card"]')
+    expect(card.exists()).toBe(true)
+    expect(card.text()).toContain('高')
+    expect(card.text()).toContain('87')
+    expect(card.text()).toContain('2 笔订单逾期')
+    // Human-readable tool label, never the raw registry name.
+    // 显示人类可读的工具标签，不暴露原始注册名。
+    expect(card.text()).toContain('客户风险分析')
+    expect(card.text()).not.toContain('analyze_customer_risk')
+  })
+
+  it('选客户 + 标题 → 复核 → 真实写入；结果卡显示服务端任务号', async () => {
+    mocks.crmCustomers.mockResolvedValue(page([{ id: 5, name: '辰光建材' }]))
+    mocks.crmCreateTask.mockResolvedValue({ id: 42, customerId: 5, title: '回访逾期客户', status: 'pending' })
+
+    const wrapper = await mountPanel([])
+    await wrapper.find('[data-testid="quick-action-task"]').trigger('click')
+    await flushPromises()
+
+    wrapper.findComponent({ name: 'ElSelect' }).vm.$emit('update:modelValue', 5)
+    await nextTick()
+    await wrapper.findComponent({ name: 'ElInput' }).find('input').setValue('回访逾期客户')
+    await wrapper.find('[data-testid="quick-task-create"]').trigger('click')
+    await flushPromises()
+
+    // Review first; no request yet.
+    // 先复核，此时不发请求。
+    expect(wrapper.find('[data-testid="quick-task-review"]').exists()).toBe(true)
+    expect(mocks.crmCreateTask).not.toHaveBeenCalled()
+
+    await wrapper.find('[data-testid="quick-task-confirm"]').trigger('click')
+    await flushPromises()
+
+    expect(mocks.crmCreateTask).toHaveBeenCalledWith({ customerId: 5, title: '回访逾期客户' })
+    const card = wrapper.find('[data-testid="task-action-card"]')
+    expect(card.exists()).toBe(true)
+    expect(card.text()).toContain('创建跟进任务')
+    expect(card.text()).toContain('回访逾期客户')
+    expect(card.text()).toContain('#42')
+  })
+
+  it('写入失败时如实显示错误，不假装成功', async () => {
+    mocks.crmCustomers.mockResolvedValue(page([{ id: 5, name: '辰光建材' }]))
+    mocks.crmCreateTask.mockRejectedValue(new Error('403'))
+
+    const wrapper = await mountPanel([])
+    await wrapper.find('[data-testid="quick-action-task"]').trigger('click')
+    await flushPromises()
+    wrapper.findComponent({ name: 'ElSelect' }).vm.$emit('update:modelValue', 5)
+    await nextTick()
+    await wrapper.findComponent({ name: 'ElInput' }).find('input').setValue('回访逾期客户')
+    await wrapper.find('[data-testid="quick-task-create"]').trigger('click')
+    await wrapper.find('[data-testid="quick-task-confirm"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="task-action-card"]').text()).toContain('403')
+    expect(wrapper.find('[data-testid="task-action-card"]').text()).not.toContain('已创建')
+  })
+
+  it('列表为空时引导仍在，但不发起任何调用', async () => {
+    mocks.crmCustomers.mockResolvedValue(page([]))
+
+    const wrapper = await mountPanel([])
+    await wrapper.find('[data-testid="quick-action-risk"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="copilot-quick-start"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="quick-empty"]').text()).toContain('暂无客户可分析')
+    await wrapper.find('[data-testid="quick-risk-run"]').trigger('click')
+    await flushPromises()
+    expect(mocks.crmAnalyze).not.toHaveBeenCalled()
   })
 })
