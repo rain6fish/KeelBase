@@ -6,15 +6,18 @@
  *     outside it are absent from the wire even though they are present in the database.
  *  ② **organisation / period scope** — an audit reader's rows are narrowed to their account's
  *     organisation, and to the requested window. Admin keeps the full row and every organisation.
+ *  ③ **aggregate surfaces** — `/audit/{stats,cost,coverage,action-report}` count only the reader's
+ *     own organisation; admin still counts everything.
  *
- * Both run as reverse pairs: the in-scope row **is** visible, the out-of-scope row **is not**.
+ * All three run as reverse pairs: the in-scope row **is** visible, the out-of-scope row **is not**.
  *
  * AW-2 余下的两半，在真实 DI 容器与真实库上验证：
  *  ① **字段白名单** —— 审计读者的行由 `AUDIT_READER_ROW_FIELDS` 重建；清单外的列即使库里存在，
  *     也不出现在线上响应里。
  *  ② **组织 / 期间范围** —— 审计读者的行收窄到账号所属组织与请求窗口；管理员保留整行与全部组织。
+ *  ③ **聚合面** —— `/audit/{stats,cost,coverage,action-report}` 只数读者自己的组织；管理员仍数全部。
  *
- * 两条都成对跑反向断言：范围内的行**看得到**，范围外的行**看不到**。
+ * 三条都成对跑反向断言：范围内的行**看得到**，范围外的行**看不到**。
  */
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
@@ -225,6 +228,88 @@ describe('AW-2 audit reader: field whitelist + org/period scope', () => {
       .get(`/api/v1/audit/logs/${otherOrgId}/interpretation`)
       .set(authHeader(admin.token))
       .expect(200);
+  });
+
+  // ── Aggregate surfaces (AW-2, the remaining half) ─────────────────────────────────────────────
+  // The four counts below are reverse pairs too: under the same data, the reader's number is the
+  // org-only expectation and the admin's number is strictly larger.
+  // ── 聚合面（AW-2 余下的那一半）────────────────────────────────────────────────────────────────
+  // 下面四个计数同样是成对反向：同一份数据下，读者的数是「只算其组织」的预期，管理员的数严格更大。
+
+  it('aggregate /stats: the reader counts only their own org, admin counts all', async () => {
+    const readerRes = await request(app.getHttpServer())
+      .get('/api/v1/audit/stats')
+      .set(authHeader(auditor.token))
+      .expect(200);
+    const adminRes = await request(app.getHttpServer())
+      .get('/api/v1/audit/stats')
+      .set(authHeader(admin.token))
+      .expect(200);
+
+    // Org 1 owns `inScopeId` and `outOfPeriodId`; `otherOrgId` belongs to org 2.
+    // 组织 1 拥有 `inScopeId` 与 `outOfPeriodId`；`otherOrgId` 属于组织 2。
+    expect(readerRes.body.data.totalMessages).toBe(2);
+    expect(adminRes.body.data.totalMessages).toBe(3);
+    expect(readerRes.body.data.totalMessages).toBeLessThan(adminRes.body.data.totalMessages);
+  });
+
+  it('aggregate /cost: the reader counts only their own org, admin counts all', async () => {
+    const readerRes = await request(app.getHttpServer())
+      .get('/api/v1/audit/cost')
+      .set(authHeader(auditor.token))
+      .expect(200);
+    const adminRes = await request(app.getHttpServer())
+      .get('/api/v1/audit/cost')
+      .set(authHeader(admin.token))
+      .expect(200);
+
+    expect(readerRes.body.data.summary.totalCalls).toBe(2);
+    expect(adminRes.body.data.summary.totalCalls).toBe(3);
+  });
+
+  it('aggregate /coverage: the statement’s row counts follow the reader’s org', async () => {
+    const window = 'since=2026-01-01T00:00:00Z&until=2026-12-31T23:59:59Z';
+    const readerRes = await request(app.getHttpServer())
+      .get(`/api/v1/audit/coverage?${window}`)
+      .set(authHeader(auditor.token))
+      .expect(200);
+    const adminRes = await request(app.getHttpServer())
+      .get(`/api/v1/audit/coverage?${window}`)
+      .set(authHeader(admin.token))
+      .expect(200);
+
+    const rows = (body: { data?: { sources?: Array<{ id: string; rows: number | null }> } }) =>
+      body.data?.sources?.find((s) => s.id === 'ai_audit_chain')?.rows;
+    expect(rows(readerRes.body)).toBe(2);
+    expect(rows(adminRes.body)).toBe(3);
+  });
+
+  it('aggregate /action-report: samples/counts come from the reader’s org only', async () => {
+    const readerRes = await request(app.getHttpServer())
+      .get('/api/v1/audit/action-report')
+      .set(authHeader(auditor.token))
+      .expect(200);
+    const adminRes = await request(app.getHttpServer())
+      .get('/api/v1/audit/action-report')
+      .set(authHeader(admin.token))
+      .expect(200);
+
+    const sampleIds = (body: { data?: { samples?: Array<{ id: number }> } }) =>
+      (body.data?.samples ?? []).map((s) => s.id);
+    expect(sampleIds(readerRes.body)).toEqual(expect.arrayContaining([inScopeId, outOfPeriodId]));
+    expect(sampleIds(readerRes.body)).not.toContain(otherOrgId);
+    expect(sampleIds(adminRes.body)).toEqual(
+      expect.arrayContaining([inScopeId, outOfPeriodId, otherOrgId]),
+    );
+  });
+
+  it('aggregate fallback: an auditor with no organisation counts their own rows only', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/api/v1/audit/stats')
+      .set(authHeader(outsiderAuditor.token))
+      .expect(200);
+
+    expect(res.body.data.totalMessages).toBe(0);
   });
 
   it('field whitelist reverse: admin still receives those columns', async () => {

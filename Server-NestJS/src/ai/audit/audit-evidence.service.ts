@@ -48,7 +48,12 @@ import {
 // 就是这次改动本身，故没有东西来顶替。
 import { buildPayload } from './payload';
 import { auditVerifyCacheKey } from './cache-keys';
-import { resolveAuditReaderScope, type AuditReaderContext } from './audit-reader-scope';
+import {
+  applyAuditScopeToWhere,
+  auditScopeCacheKey,
+  resolveAuditReaderScope,
+  type AuditReaderContext,
+} from './audit-reader-scope';
 import { OrgService } from '../../org/org.service';
 import { AuditByDayBucket, byDayAggregation } from './by-day';
 import { Sm2SignatureBlock, buildSm2Block, sm2ConfigFromEnv } from '../../common/crypto/sm2';
@@ -308,10 +313,16 @@ export class AuditEvidenceService {
   async getActionReport(
     options: { userId?: string; since?: Date; limit?: number } = {},
     fresh = false,
+    reader?: AuditReaderContext,
   ): Promise<ActionReport> {
     // E-3 聚合缓存：60s TTL；证据包导出（fresh）绕缓存直算（hashChain 必须当前）
+    // AW-2: the scope is part of the key, so one reader's counts are never served to another.
+    // AW-2：范围是键的一部分，故一个读者的计数绝不会发给另一个读者。
+    const scope = await resolveAuditReaderScope(reader, this.orgService);
     const sinceDay = options.since ? options.since.toISOString().slice(0, 10) : 'all';
-    const cacheKey = `audit:report:${options.userId ?? 'all'}:${sinceDay}:${options.limit ?? 10}`;
+    const cacheKey =
+      `audit:report:${auditScopeCacheKey(scope)}:` +
+      `${options.userId ?? 'all'}:${sinceDay}:${options.limit ?? 10}`;
     if (!fresh) {
       const cached = await this.cacheService?.get<ActionReport>(cacheKey);
       if (cached) return cached;
@@ -319,6 +330,7 @@ export class AuditEvidenceService {
     const where: Record<string, unknown> = {};
     if (options.userId) where.userId = options.userId;
     if (options.since) where.createdAt = Between(options.since, new Date());
+    applyAuditScopeToWhere(where, scope);
     // E-3 列投影：只载聚合所需列。
     // §internal.16 A-6 合规：补 businessEvent/evidence/agentId（Decision Evidence + 责任链）。
     // C-3：`outcome` / `tool` 进投影 —— 下面的四个计数按这两列读，不再解析 `detail`。
@@ -367,6 +379,9 @@ export class AuditEvidenceService {
     const effWhere: Record<string, unknown> = {};
     if (options.userId) effWhere.userId = options.userId;
     if (options.since) effWhere.createdAt = Between(options.since, new Date());
+    // Side effects are rows too; the same scope narrows the ledger counts and diffs.
+    // 副作用行同样是「行」；同一范围也收紧账本计数与字段变更样本。
+    applyAuditScopeToWhere(effWhere, scope);
     const effects = await this.effectsRepo.count({ where: effWhere });
     // E-1 字段级变更审计：副作用 before/after 快照示例（证据包人工复核；解析失败降级 null）
     const effectRows = await this.effectsRepo.find({
@@ -416,8 +431,13 @@ export class AuditEvidenceService {
   /** D4 审计证据包导出：ActionReport + 哈希链校验 + 导出时间戳 + 签名（可提交审计机构）。A2：含全量链原始行，可离线机器验证。 */
   async getActionReportExport(
     options: { userId?: string; since?: Date; limit?: number } = {},
+    reader?: AuditReaderContext,
   ): Promise<ActionReportExport> {
-    const report = await this.getActionReport(options, true);
+    // The report half is an aggregate and is scoped; the chain half below stays whole on purpose —
+    // a chain verified over a subset of its rows is not a verification, it is a false verdict.
+    // 报表那一半是聚合，按范围收窄；下面的链那一半有意保持完整 —— 只取一部分行验出来的链不是校验，
+    // 而是一个假结论。
+    const report = await this.getActionReport(options, true, reader);
     const exportedAt = new Date().toISOString();
     const signingKey = process.env.AUDIT_HMAC_KEY || process.env.ENCRYPTION_KEY || '';
     // A2：全量链原始行（payload 与写入侧 _payload 一致，供 scripts/verify-evidence.mjs 离线重算）

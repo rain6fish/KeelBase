@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, IsNull, Not, Repository, type FindOptionsWhere } from 'typeorm';
 import { createHash } from 'node:crypto';
@@ -9,6 +9,12 @@ import { AiToolSideEffect } from '../tool-effects/ai-tool-side-effect.entity';
 import { REVOKE_STATUS } from '../tool-effects/revoke-status';
 import { GovernancePolicyService } from '../governance-bridge/governance-policy.service';
 import { COVERAGE_GAPS, CoverageFacts, applicableGaps, deriveVerdict } from './coverage-gaps';
+import { OrgService } from '../../org/org.service';
+import {
+  applyAuditScopeToWhere,
+  resolveAuditReaderScope,
+  type AuditReaderContext,
+} from './audit-reader-scope';
 
 /**
  * Assembles the coverage statement for a scope — "what was read, and what this reading cannot show".
@@ -94,6 +100,13 @@ export class CoverageService {
     @InjectRepository(AiAuditLog) private readonly auditLogs: Repository<AiAuditLog>,
     @InjectRepository(AiToolSideEffect) private readonly effects: Repository<AiToolSideEffect>,
     private readonly policy: GovernancePolicyService,
+    // AW-2 aggregate half: the statement's counts are rows too, so an audit reader's statement
+    // counts only their own organisation. Optional like the other scope helpers — an absent org
+    // service falls back to the reader's own rows, never to everything.
+    //
+    // AW-2 聚合那一半：声明里的计数同样是「行」，故审计读者的声明只数它自己的组织。与其余范围助手
+    // 一样可选 —— 组织服务缺席时退回读者本人行，绝不是全部。
+    @Optional() private readonly orgService?: OrgService,
   ) {}
 
   /**
@@ -144,9 +157,19 @@ export class CoverageService {
     };
   }
 
-  async forScope(scope: { since: Date; until: Date; userId?: string }): Promise<CoverageStatement> {
-    const { since, until, userId } = scope;
+  async forScope(scope: {
+    since: Date;
+    until: Date;
+    userId?: string;
+    reader?: AuditReaderContext;
+  }): Promise<CoverageStatement> {
+    const { since, until, userId, reader } = scope;
     const granularity = await this.policy.getAuditGranularity();
+    // Row scope: the request's `userId` narrows, the reader's account scope narrows — the two AND.
+    // Admin and an unidentified caller get `null`, which adds nothing (behaviour unchanged).
+    // 行范围：请求的 `userId` 收紧、读者的账号范围收紧，两者取 AND。管理员与无身份调用者得到
+    // `null`，不追加任何约束（行为不变）。
+    const rowScope = await resolveAuditReaderScope(reader, this.orgService);
 
     const effectWhere: FindOptionsWhere<AiToolSideEffect> = {
       createdAt: Between(since, until),
@@ -156,6 +179,8 @@ export class CoverageService {
       createdAt: Between(since, until),
       ...(userId ? { userId } : {}),
     };
+    applyAuditScopeToWhere(effectWhere, rowScope, 'userId');
+    applyAuditScopeToWhere(auditWhere, rowScope, 'userId');
 
     const [auditRows, effectRows, chatRows, withoutSnapshot, openDispute, stalledRevoke] =
       await Promise.all([

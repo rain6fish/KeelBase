@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { And, Equal, FindOperator, Raw } from 'typeorm';
 import { UserRole } from '../../common/entities/user.entity';
 import type { OrgService } from '../../org/org.service';
 
@@ -89,4 +90,59 @@ export function auditScopeSql(scope: AuditRowScope): { sql: string; params: Reco
     };
   }
   return { sql: 'log.userId = :readerUserId', params: { readerUserId: String(scope.userId) } };
+}
+
+/**
+ * Merge the scope into a `find` / `count` `where`. It is **ANDed** with whatever predicate already
+ * sits on that column, so a request filter can narrow the account scope but never replace it.
+ *
+ * The org branch emits the same `org_members` subquery as `auditScopeSql`; only the shape differs
+ * (`FindOperator` here, a raw `WHERE` fragment there) because the aggregate surfaces use the
+ * repository API while the list uses a query builder. One definition of "which rows", two forms.
+ *
+ * 把范围并进 `find` / `count` 的 `where`。它与该列上已有的谓词**取 AND**，故请求侧的过滤只能收紧
+ * 账号范围，绝不能替换它。
+ *
+ * 组织分支发出的子查询与 `auditScopeSql` 相同，只是形状不同（这里是 `FindOperator`，那里是裸
+ * `WHERE` 片段）—— 聚合面走仓储 API，列表走 query builder。同一句「哪些行」的判定，两种形态。
+ */
+export function applyAuditScopeToWhere<T extends object>(
+  where: T,
+  scope: AuditRowScope,
+  column = 'userId',
+): T {
+  if (!scope) return where;
+  const target = where as Record<string, unknown>;
+  const scopePredicate: FindOperator<unknown> =
+    scope.kind === 'org'
+      ? Raw(
+          (alias: string) =>
+            `CAST(${alias} AS INTEGER) IN (SELECT user_id FROM org_members WHERE org_id = :readerOrgId)`,
+          { readerOrgId: scope.orgId },
+        )
+      : Equal(String(scope.userId));
+  const existing = target[column];
+  if (existing === undefined) {
+    target[column] = scopePredicate;
+    return where;
+  }
+  const existingOperator =
+    existing instanceof FindOperator ? existing : Equal(existing as never);
+  target[column] = And(existingOperator as FindOperator<unknown>, scopePredicate);
+  return where;
+}
+
+/**
+ * Cache-key discriminator for a scope. Aggregates cache their result for 60s; without this segment
+ * the first caller's row set would be served to the next caller — an admin's "all" answer to an
+ * auditor, or an auditor's org answer to the admin. Same class of defect as `AW-5` (a verdict for
+ * one database served for another), so the key carries the scope for the same reason.
+ *
+ * 范围的缓存键判别段。聚合结果缓存 60 秒；缺这一段，第一个调用者的行集会发给下一个调用者 ——
+ * 管理员的「全部」答案发给审计读者，或读者的组织答案发给管理员。与 `AW-5`（一个库的结论发给另一个
+ * 库）同一类缺陷，故键里带范围的理由也相同。
+ */
+export function auditScopeCacheKey(scope: AuditRowScope): string {
+  if (!scope) return 'all';
+  return scope.kind === 'org' ? `org:${scope.orgId}` : `own:${scope.userId}`;
 }

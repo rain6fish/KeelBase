@@ -108,12 +108,19 @@ export class AuditController {
   @Get('coverage')
   @CheckPolicies((ability) => ability.can('read', 'AuditLog'))
   @ApiOperation({ summary: 'AW-3 覆盖声明：口径 + 已知缺口（管理员 / 审计读者）' })
-  getCoverage(@Query() query: AuditQueryDto) {
+  getCoverage(@Query() query: AuditQueryDto, @CurrentUser() user: JwtPayload) {
     const until = query.until ? new Date(query.until) : new Date();
     const since = query.since
       ? new Date(query.since)
       : new Date(until.getTime() - 30 * 24 * 60 * 60 * 1000);
-    return this.coverage.forScope({ since, until, userId: query.userId });
+    // AW-2 aggregate half: the counts in the statement are scoped like the rows it describes.
+    // AW-2 聚合那一半：声明里的计数与它所描述的行受同一个范围约束。
+    return this.coverage.forScope({
+      since,
+      until,
+      userId: query.userId,
+      reader: { userId: user.sub, role: user.role },
+    });
   }
 
   @Get('logs/:id/interpretation')
@@ -151,18 +158,20 @@ export class AuditController {
   @CheckPolicies((ability) => ability.can('read', 'AuditLog'))
   @ApiOperation({ summary: '全局 AI 用量统计（管理员）' })
   @ApiQuery({ name: 'since', required: false, description: '起始时间（ISO 8601）' })
-  getStats(@Query('since') since?: string) {
+  getStats(@Query('since') since?: string, @CurrentUser() user?: JwtPayload) {
     const sinceDate = since ? new Date(since) : undefined;
-    return this.auditStats.getAllStats(sinceDate);
+    // AW-2: an audit reader's counts come from their own organisation; admin keeps everything.
+    // AW-2：审计读者的计数只来自它自己的组织；管理员仍看全部。
+    return this.auditStats.getAllStats(sinceDate, user && { userId: user.sub, role: user.role });
   }
 
   @Get('cost')
   @CheckPolicies((ability) => ability.can('read', 'AuditLog'))
   @ApiOperation({ summary: 'AI 成本看板：按用户×模型×意图聚合 tokens（管理员）' })
   @ApiQuery({ name: 'since', required: false, description: '起始时间（ISO 8601）' })
-  getCost(@Query('since') since?: string) {
+  getCost(@Query('since') since?: string, @CurrentUser() user?: JwtPayload) {
     const sinceDate = since ? new Date(since) : undefined;
-    return this.auditStats.getCostBreakdown(sinceDate);
+    return this.auditStats.getCostBreakdown(sinceDate, user && { userId: user.sub, role: user.role });
   }
 
   @Get('action-report')
@@ -175,12 +184,17 @@ export class AuditController {
     @Query('userId') userId?: string,
     @Query('since') since?: string,
     @Query('limit') limit?: string,
+    @CurrentUser() user?: JwtPayload,
   ) {
-    return this.auditEvidence.getActionReport({
-      userId: userId ? String(Number(userId)) : undefined,
-      since: since ? new Date(since) : undefined,
-      limit: limit ? Number(limit) : 10,
-    });
+    return this.auditEvidence.getActionReport(
+      {
+        userId: userId ? String(Number(userId)) : undefined,
+        since: since ? new Date(since) : undefined,
+        limit: limit ? Number(limit) : 10,
+      },
+      false,
+      user && { userId: user.sub, role: user.role },
+    );
   }
 
   @Get('action-report/export')
@@ -193,12 +207,16 @@ export class AuditController {
     @Query('userId') userId?: string,
     @Query('since') since?: string,
     @Query('limit') limit?: string,
+    @CurrentUser() user?: JwtPayload,
   ) {
-    return this.auditEvidence.getActionReportExport({
-      userId: userId ? String(Number(userId)) : undefined,
-      since: since ? new Date(since) : undefined,
-      limit: limit ? Number(limit) : 10,
-    });
+    return this.auditEvidence.getActionReportExport(
+      {
+        userId: userId ? String(Number(userId)) : undefined,
+        since: since ? new Date(since) : undefined,
+        limit: limit ? Number(limit) : 10,
+      },
+      user && { userId: user.sub, role: user.role },
+    );
   }
 
   @Post('feedback')

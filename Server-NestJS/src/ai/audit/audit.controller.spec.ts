@@ -136,13 +136,21 @@ describe('AuditController', () => {
     auditStats.getCostBreakdown.mockReturnValue({ rows: [] });
 
     expect(controller.getStats()).toEqual({ total: 3 });
-    expect(auditStats.getAllStats).toHaveBeenCalledWith(undefined);
+    expect(auditStats.getAllStats).toHaveBeenCalledWith(undefined, undefined);
 
     expect(controller.getStats('2026-08-01T00:00:00Z')).toEqual({ total: 3 });
-    expect(auditStats.getAllStats).toHaveBeenLastCalledWith(new Date('2026-08-01T00:00:00Z'));
+    expect(auditStats.getAllStats).toHaveBeenLastCalledWith(new Date('2026-08-01T00:00:00Z'), undefined);
+
+    // AW-2: the caller is forwarded so the service can resolve the organisation scope.
+    // AW-2：调用者被一并转发，供服务解析组织范围。
+    expect(controller.getStats(undefined, auditor as any)).toEqual({ total: 3 });
+    expect(auditStats.getAllStats).toHaveBeenLastCalledWith(undefined, {
+      userId: auditor.sub,
+      role: UserRole.AUDITOR,
+    });
 
     expect(controller.getCost()).toEqual({ rows: [] });
-    expect(auditStats.getCostBreakdown).toHaveBeenCalledWith(undefined);
+    expect(auditStats.getCostBreakdown).toHaveBeenCalledWith(undefined, undefined);
   });
 
   it('提交反馈委托 service', async () => {
@@ -157,11 +165,15 @@ describe('AuditController', () => {
     auditEvidence.getActionReport.mockReturnValue({ summary: {}, byDay: [], samples: [] });
 
     expect(controller.getActionReport('42', '2026-08-01', '20')).toEqual({ summary: {}, byDay: [], samples: [] });
-    expect(auditEvidence.getActionReport).toHaveBeenCalledWith({
-      userId: '42',
-      since: expect.any(Date),
-      limit: 20,
-    });
+    expect(auditEvidence.getActionReport).toHaveBeenCalledWith(
+      {
+        userId: '42',
+        since: expect.any(Date),
+        limit: 20,
+      },
+      false,
+      undefined,
+    );
   });
 
   it('Action Report 缺省参数 → userId/since undefined、limit 默认 10', () => {
@@ -169,7 +181,11 @@ describe('AuditController', () => {
 
     controller.getActionReport();
 
-    expect(auditEvidence.getActionReport).toHaveBeenCalledWith({ userId: undefined, since: undefined, limit: 10 });
+    expect(auditEvidence.getActionReport).toHaveBeenCalledWith(
+      { userId: undefined, since: undefined, limit: 10 },
+      false,
+      undefined,
+    );
   });
 
   it('每个读端点都声明了判据，且该判据默认拒（不再是清一色 manage-all）', () => {
