@@ -88,14 +88,16 @@ describe('路由守卫角色分流', () => {
     expect(router.currentRoute.value.path).toBe('/')
   })
 
-  // AW-2: the auditor's reach — the audit page plus the three governance read pages whose backend
-  // endpoints were opened in `1b75e884`. Everything else in the console stays admin-only.
-  // AW-2：审计读者的可达面 —— 审计页 + `1b75e884` 放开的三个治理读页；控制台其余页面仍只给 admin。
-  it('auditor 访问四个只读页 → 停驻', async () => {
+  // AW-2: the auditor's reach — the audit page plus the governance read pages whose backend endpoints
+  // were opened in `1b75e884` and, for the operations audit, in the N3 alignment. Everything else in
+  // the console stays admin-only.
+  // AW-2：审计读者的可达面 —— 审计页 + `1b75e884` 放开的治理读页，以及 **N3** 对齐后放开的操作审计；
+  // 控制台其余页面仍只给 admin。
+  it('auditor 访问五个只读页 → 停驻', async () => {
     const router = makeRouter()
     await loginAs('auditor')
 
-    for (const path of ['/audit', '/policy-center', '/ai-tools', '/ai-approvals']) {
+    for (const path of ['/audit', '/policy-center', '/ai-tools', '/ai-approvals', '/op-audit']) {
       await router.push(path)
       expect(router.currentRoute.value.path).toBe(path)
     }
@@ -109,11 +111,11 @@ describe('路由守卫角色分流', () => {
     expect(router.currentRoute.value.path).toBe('/audit')
   })
 
-  it('普通用户直敲三个治理读页 → 弹回工作台', async () => {
+  it('普通用户直敲四个治理读页 → 弹回工作台', async () => {
     const router = makeRouter()
     await loginAs('user')
 
-    for (const path of ['/policy-center', '/ai-tools', '/ai-approvals']) {
+    for (const path of ['/policy-center', '/ai-tools', '/ai-approvals', '/op-audit']) {
       await router.push(path)
       expect(router.currentRoute.value.path).toBe('/workbench/ai')
     }
