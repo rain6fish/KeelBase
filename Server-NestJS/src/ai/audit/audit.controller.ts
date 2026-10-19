@@ -12,6 +12,10 @@ import { SubmitFeedbackDto } from './dto/submit-feedback.dto';
 import { CheckPolicies } from '../../common/casl/check-policies.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
+import {
+  projectAuditEntityForCaller,
+  projectAuditRowsForCaller,
+} from './audit-reader-projection';
 
 /**
  * Every read here is gated on `can('read', 'AuditLog')` rather than the blanket `can('manage','all')`
@@ -59,22 +63,34 @@ export class AuditController {
   @ApiQuery({ name: 'since', required: false, description: '起始时间（ISO 8601）' })
   @ApiQuery({ name: 'isError', required: false, description: '按是否错误过滤（E-2 异常视图）' })
   @ApiQuery({ name: 'denied', required: false, description: '仅越权/阻断事件（A-8：isError + authorization 非空）' })
-  getLogs(@Query() query: AuditQueryDto) {
+  @ApiQuery({ name: 'until', required: false, description: '结束时间（ISO 8601）—— 与 since 一起构成闭合期间' })
+  async getLogs(@Query() query: AuditQueryDto, @CurrentUser() user: JwtPayload) {
+    // Period is the requested window, closed on both ends. Org is the reader's account scope and is
+    // applied inside the service — the request's `orgId` only narrows it.
+    // 期间就是请求的窗口，两端闭合。组织是读者的账号范围，在服务里施加 —— 请求的 `orgId` 只能收紧它。
     const base = {
       limit: query.limit,
       offset: query.offset,
       since: query.since ? new Date(query.since) : undefined,
+      until: query.until ? new Date(query.until) : undefined,
     };
-    if (query.userId) {
-      return this.auditQuery.getUserLogs(query.userId, base);
-    }
-    return this.auditQuery.getLogs({
-      ...base,
-      orgId: query.orgId,
-      agentId: query.agentId,
-      isError: query.isError,
-      denied: query.denied,
-    });
+    const reader = { userId: user.sub, role: user.role };
+    const rows = query.userId
+      ? await this.auditQuery.getUserLogs(query.userId, base, reader)
+      : await this.auditQuery.getLogs(
+          {
+            ...base,
+            orgId: query.orgId,
+            agentId: query.agentId,
+            isError: query.isError,
+            denied: query.denied,
+          },
+          reader,
+        );
+    // AW-2: the row an audit reader receives is rebuilt from the whitelist, so a column added later is
+    // not visible by default. Admins keep the full row (unchanged behaviour).
+    // AW-2：审计读者收到的行由白名单重建，故日后新增的列默认不可见。管理员保留整行（行为不变）。
+    return projectAuditRowsForCaller(rows, user.role);
   }
 
   /**
@@ -107,15 +123,21 @@ export class AuditController {
       '§internal.16 A-4 + P0-20 单事件解释面：一行审计 → 业务摘要 + 证据统计 + 它引起的副作用 + ' +
       '业务那一腿（操作审计）+ 谁批准 + 一个状态（失败/待确认/补偿中/补偿成功/结果未知/…）（管理员）',
   })
-  interpretation(@Param('id', ParseIntPipe) id: number) {
-    return this.auditEvidence.getInterpretation(id);
+  async interpretation(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: JwtPayload) {
+    const result = await this.auditEvidence.getInterpretation(id, {
+      userId: user.sub,
+      role: user.role,
+    });
+    // The embedded row is a row too: an audit reader gets the whitelisted shape here as well.
+    // 内嵌的那一行同样是「行」：审计读者在这里拿到的也是白名单形状。
+    return { ...result, row: projectAuditEntityForCaller(result.row, user.role) };
   }
 
   @Get('logs/:id/chain')
   @CheckPolicies((ability) => ability.can('read', 'AuditLog'))
   @ApiOperation({ summary: '§internal.16 A-5 跨系统身份链：Human→Agent→Tool→Action + 授权依据（管理员）' })
-  chain(@Param('id', ParseIntPipe) id: number) {
-    return this.auditEvidence.getChain(id);
+  chain(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: JwtPayload) {
+    return this.auditEvidence.getChain(id, { userId: user.sub, role: user.role });
   }
 
   @Get('verify')

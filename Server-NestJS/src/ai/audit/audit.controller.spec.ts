@@ -7,6 +7,7 @@ import { AuditQueryService } from './audit-query.service';
 import { AuditEvidenceService } from './audit-evidence.service';
 import { CoverageService } from './coverage.service';
 import { CHECK_POLICIES_KEY } from '../../common/casl/check-policies.decorator';
+import { UserRole } from '../../common/entities/user.entity';
 
 describe('AuditController', () => {
   let controller: AuditController;
@@ -17,6 +18,10 @@ describe('AuditController', () => {
   let coverage: Record<string, jest.Mock>;
 
   const mockUser = { sub: 1, username: 'alex' };
+  // The list projection is role-aware: an admin keeps the full row, everyone else gets the whitelist.
+  // 列表投影按角色分流：管理员保留整行，其余一切角色拿白名单。
+  const admin = { ...mockUser, role: UserRole.ADMIN };
+  const auditor = { ...mockUser, role: UserRole.AUDITOR };
 
   beforeEach(() => {
     // 证据/报表域已拆到 AuditEvidenceService（阶段 3 第三刀）
@@ -43,37 +48,81 @@ describe('AuditController', () => {
     );
   });
 
-  it('日志列表委托 service（无 userId 走全量）', () => {
-    auditQuery.getLogs.mockReturnValue({ items: [], total: 0 });
-    expect(controller.getLogs({ limit: 50, offset: 0 } as any)).toEqual({ items: [], total: 0 });
-    expect(auditQuery.getLogs).toHaveBeenCalledWith({ limit: 50, offset: 0, since: undefined });
+  it('日志列表委托 service（无 userId 走全量）', async () => {
+    auditQuery.getLogs.mockResolvedValue([]);
+    await expect(controller.getLogs({ limit: 50, offset: 0 } as any, admin as any)).resolves.toEqual([]);
+    expect(auditQuery.getLogs).toHaveBeenCalledWith(
+      { limit: 50, offset: 0, since: undefined, until: undefined },
+      { userId: 1, role: UserRole.ADMIN },
+    );
 
-    expect(controller.getLogs({ limit: 10, offset: 5, since: '2026-08-01T00:00:00Z' } as any)).toEqual({ items: [], total: 0 });
-    expect(auditQuery.getLogs).toHaveBeenLastCalledWith({
-      limit: 10,
-      offset: 5,
-      since: new Date('2026-08-01T00:00:00Z'),
-    });
+    await expect(
+      controller.getLogs({ limit: 10, offset: 5, since: '2026-08-01T00:00:00Z' } as any, admin as any),
+    ).resolves.toEqual([]);
+    expect(auditQuery.getLogs).toHaveBeenLastCalledWith(
+      {
+        limit: 10,
+        offset: 5,
+        since: new Date('2026-08-01T00:00:00Z'),
+        until: undefined,
+      },
+      { userId: 1, role: UserRole.ADMIN },
+    );
   });
 
-  it('日志列表带 userId 走按用户查询', () => {
-    auditQuery.getUserLogs.mockReturnValue({ items: [], total: 0 });
-    expect(controller.getLogs({ userId: '42', limit: 20, offset: 0 } as any)).toEqual({ items: [], total: 0 });
-    expect(auditQuery.getUserLogs).toHaveBeenCalledWith('42', { limit: 20, offset: 0, since: undefined });
+  it('日志列表带 userId 走按用户查询', async () => {
+    auditQuery.getUserLogs.mockResolvedValue([]);
+    await expect(
+      controller.getLogs({ userId: '42', limit: 20, offset: 0 } as any, admin as any),
+    ).resolves.toEqual([]);
+    expect(auditQuery.getUserLogs).toHaveBeenCalledWith(
+      '42',
+      { limit: 20, offset: 0, since: undefined, until: undefined },
+      { userId: 1, role: UserRole.ADMIN },
+    );
   });
 
-  it('日志列表 denied 过滤透传 service（A-8 越权专门视图）', () => {
-    auditQuery.getLogs.mockReturnValue({ items: [], total: 0 });
-    expect(controller.getLogs({ limit: 50, offset: 0, denied: 'true' } as any)).toEqual({ items: [], total: 0 });
-    expect(auditQuery.getLogs).toHaveBeenLastCalledWith({
-      limit: 50,
-      offset: 0,
-      since: undefined,
-      orgId: undefined,
-      agentId: undefined,
-      isError: undefined,
-      denied: 'true',
-    });
+  it('日志列表 denied 过滤透传 service（A-8 越权专门视图）', async () => {
+    auditQuery.getLogs.mockResolvedValue([]);
+    await expect(
+      controller.getLogs({ limit: 50, offset: 0, denied: 'true' } as any, admin as any),
+    ).resolves.toEqual([]);
+    expect(auditQuery.getLogs).toHaveBeenLastCalledWith(
+      {
+        limit: 50,
+        offset: 0,
+        since: undefined,
+        until: undefined,
+        orgId: undefined,
+        agentId: undefined,
+        isError: undefined,
+        denied: 'true',
+      },
+      { userId: 1, role: UserRole.ADMIN },
+    );
+  });
+
+  it('AW-2：审计读者拿白名单行，管理员拿整行', async () => {
+    const row = {
+      id: 1,
+      userId: '5',
+      username: 'alice',
+      action: 'tool_call',
+      createdAt: '2026-08-01T00:00:00.000Z',
+      guestId: 'visitor-1',
+      ip: '10.0.0.1',
+      conversationId: 'conv-1',
+    };
+    auditQuery.getLogs.mockResolvedValue([row]);
+
+    const forAuditor = await controller.getLogs({ limit: 10, offset: 0 } as any, auditor as any);
+    expect(forAuditor[0]).toMatchObject({ id: 1, username: 'alice' });
+    expect(forAuditor[0]).not.toHaveProperty('guestId');
+    expect(forAuditor[0]).not.toHaveProperty('ip');
+    expect(forAuditor[0]).not.toHaveProperty('conversationId');
+
+    const forAdmin = await controller.getLogs({ limit: 10, offset: 0 } as any, admin as any);
+    expect(forAdmin[0]).toEqual(row);
   });
 
   it('哈希链校验委托 service', () => {
