@@ -21,10 +21,10 @@ export class CreateSupplierTool implements AiTool {
   readonly description = '创建供应商（供应商名、联系人、状态、风险、年采购额）。这是写操作，系统会弹出确认框，用户确认后才真正创建。';
   readonly parameters: ToolParameter[] = [
     { name: 'name', type: 'string', description: '供应商名', required: true },
-    { name: 'contact', type: 'string', description: '联系人', required: false },
-    { name: 'status', type: 'string', description: '状态', required: false,
+    { name: 'contact', type: 'string', description: '联系人', required: true },
+    { name: 'status', type: 'string', description: '状态', required: true,
       enum: ['active', 'inactive', 'blacklist'] },
-    { name: 'riskLevel', type: 'string', description: '风险', required: false,
+    { name: 'riskLevel', type: 'string', description: '风险', required: true,
       enum: ['low', 'medium', 'high'] },
     { name: 'annualSpend', type: 'number', description: '年采购额', required: false },
   ];
@@ -46,7 +46,7 @@ export class CreateSupplierTool implements AiTool {
             riskLevel: { type: 'string', description: '风险', enum: ['low', 'medium', 'high'] },
             annualSpend: { type: 'number', description: '年采购额' },
           },
-          required: ['name'],
+          required: ['name', 'contact', 'status', 'riskLevel'],
         },
       },
     };

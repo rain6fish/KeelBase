@@ -21,8 +21,8 @@ export class CreateBookTool implements AiTool {
   readonly description = '创建图书（书名、作者、阅读状态、评分）。这是写操作，系统会弹出确认框，用户确认后才真正创建。';
   readonly parameters: ToolParameter[] = [
     { name: 'title', type: 'string', description: '书名', required: true },
-    { name: 'author', type: 'string', description: '作者', required: false },
-    { name: 'status', type: 'string', description: '阅读状态', required: false,
+    { name: 'author', type: 'string', description: '作者', required: true },
+    { name: 'status', type: 'string', description: '阅读状态', required: true,
       enum: ['unread', 'reading', 'finished'] },
     { name: 'rating', type: 'number', description: '评分', required: false },
   ];
@@ -43,7 +43,7 @@ export class CreateBookTool implements AiTool {
             status: { type: 'string', description: '阅读状态', enum: ['unread', 'reading', 'finished'] },
             rating: { type: 'number', description: '评分' },
           },
-          required: ['title'],
+          required: ['title', 'author', 'status'],
         },
       },
     };

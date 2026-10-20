@@ -21,8 +21,8 @@ export class CreateNoteTool implements AiTool {
   readonly description = '创建笔记（标题、内容、分类）。这是写操作，系统会弹出确认框，用户确认后才真正创建。';
   readonly parameters: ToolParameter[] = [
     { name: 'title', type: 'string', description: '标题', required: true },
-    { name: 'content', type: 'string', description: '内容', required: false },
-    { name: 'category', type: 'string', description: '分类', required: false,
+    { name: 'content', type: 'string', description: '内容', required: true },
+    { name: 'category', type: 'string', description: '分类', required: true,
       enum: ['work', 'personal', 'idea', 'archive'] },
   ];
 
@@ -41,7 +41,7 @@ export class CreateNoteTool implements AiTool {
             content: { type: 'string', description: '内容' },
             category: { type: 'string', description: '分类', enum: ['work', 'personal', 'idea', 'archive'] },
           },
-          required: ['title'],
+          required: ['title', 'content', 'category'],
         },
       },
     };

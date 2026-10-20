@@ -592,6 +592,21 @@ export function validateDecimalField(field) {
 }
 
 /**
+ * Whether a field is required: a per-type default plus an explicit override. Single-sourced so the
+ * DTO, the entity column and the AI tool's parameter schema cannot disagree about the same spec.
+ * - string / enum default required; explicit `required: false` makes them optional.
+ * - text / int / bool / date default optional; explicit `required: true` makes them required.
+ *
+ * 字段是否必填：按类型默认 + 显式覆盖。单源，使 DTO、实体列与 AI 工具参数 schema 对同一份 spec
+ * 不可能给出不同答案。
+ * - `string` / `enum` 默认必填；显式 `required: false` 改为可选。
+ * - `text` / `int` / `bool` / `date` 默认可选；显式 `required: true` 改为必填。
+ */
+const REQUIRED_BY_DEFAULT = new Set(['string', 'enum']);
+export const isRequired = (f) =>
+  REQUIRED_BY_DEFAULT.has(f.type) ? f.required !== false : f.required === true;
+
+/**
  * 协议 JSON spec.fields → 结构化字段：保留 name/type/enum，并透传 required（required:true=必填；
  * 缺省/required:false=可选）。此前丢弃 required 会让 string/enum 误按必填生成（#3 陌生人实测卡点）。
  *

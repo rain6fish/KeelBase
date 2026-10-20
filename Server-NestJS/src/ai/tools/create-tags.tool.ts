@@ -20,7 +20,7 @@ export class CreateTagTool implements AiTool {
   readonly permissions = { requireVerifiedEmail: true };
   readonly description = '创建标签（name）。这是写操作，系统会弹出确认框，用户确认后才真正创建。';
   readonly parameters: ToolParameter[] = [
-    { name: 'name', type: 'string', description: 'name', required: false },
+    { name: 'name', type: 'string', description: 'name', required: true },
   ];
 
   constructor(private readonly tagsService: TagsServiceLike) {}
@@ -36,7 +36,7 @@ export class CreateTagTool implements AiTool {
           properties: {
             name: { type: 'string', description: 'name' },
           },
-          required: [],
+          required: ['name'],
         },
       },
     };

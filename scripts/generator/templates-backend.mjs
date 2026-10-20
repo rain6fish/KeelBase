@@ -10,6 +10,7 @@ import {
   attachmentArtifacts,
   attachmentFields,
   decimalScale,
+  isRequired,
   piiFieldNames,
   refColumnName,
   refFields,
@@ -38,14 +39,12 @@ const DECIMAL_TRANSFORMER = `const decimalStringTransformer = {
   from: (value: unknown): string | null => (value === null || value === undefined ? null : String(value)),
 };`;
 
-// required 语义（#3 修复）：按类型默认 + 显式可覆盖。
-// - string/enum 默认必填（业务标题/状态类）；显式 required:false → 可选。
-// - text/int/bool/date 默认可选；显式 required:true → 必填。
-// 此前 spec 路径丢弃 required 且 string/enum 无视 required:false，生成物与协议语义不符（陌生人实测卡点）。
-// 必填 = 列 NOT NULL + DTO @IsNotEmpty；可选 = 列 nullable + DTO @IsOptional。
-const REQUIRED_BY_DEFAULT = new Set(['string', 'enum']);
-const isRequired = (f) =>
-  REQUIRED_BY_DEFAULT.has(f.type) ? f.required !== false : f.required === true;
+// required 语义（#3 修复）：按类型默认 + 显式可覆盖，判定单源在 validate.mjs 的 isRequired
+// （DTO/实体列与 AI 工具参数共用，见 A3）。必填 = 列 NOT NULL + DTO @IsNotEmpty；
+// 可选 = 列 nullable + DTO @IsOptional。
+// Required semantics (#3 fix): per-type default plus explicit override, single-sourced in
+// validate.mjs's isRequired (shared by the DTO/entity column and the AI tool parameters, see A3).
+// Required = NOT NULL column + DTO @IsNotEmpty; optional = nullable column + DTO @IsOptional.
 
 const FIELD_COLUMNS = {
   string: (c, f) =>

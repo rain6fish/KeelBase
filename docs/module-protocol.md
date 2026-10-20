@@ -219,6 +219,8 @@ the generated spec, a real compile of the emitted code, **and** an HTTP e2e agai
 | `aiTools.create.requiresConfirmation` | R3/R4 时 true | 覆盖确认要求（false 需显式配 R1/R2） |
 
 - **缺省行为与旧协议完全一致**（query R1 自动 + create R3 需确认）——增量字段向后兼容，既有 spec 生成的模块行为不变（一致性测试锁定）。
+- **AI tool parameters use the same `required` defaults as the DTO** — `string`/`enum` are required by default, and only an explicit `"required": false` makes them optional, so one spec cannot give the two paths different contracts (ruling A3).
+  **AI 工具参数与 DTO 用同一套 `required` 默认** —— `string`/`enum` 默认必填，显式 `"required": false` 才可选；同一份 spec 的两条路径不会给出不同契约（裁定 A3）。
 - create 文件名用复数（`create-contracts.tool.ts`）、工具名用单数（`create_contract`），与生成器既有约定一致。
 - 工具风险级经 ToolRegistry 进入 R0-R5 治理管线（门控 / 确认 / 双人审批 / 审计 / 撤销）——生成模块即「AI 可调用 + 治理」。
 - **分析/更新等复杂工具仍手写**（协议红线：只自动化高频 CRUD 工具）。

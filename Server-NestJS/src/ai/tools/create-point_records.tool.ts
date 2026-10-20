@@ -21,10 +21,10 @@ export class CreatePointRecordTool implements AiTool {
   readonly description = '创建积分流水（积分、签到日期、流水原因、说明）。这是写操作，系统会弹出确认框，用户确认后才真正创建。';
   readonly parameters: ToolParameter[] = [
     { name: 'points', type: 'number', description: '积分', required: true },
-    { name: 'checkinDate', type: 'string', description: '签到日期', required: false },
+    { name: 'checkinDate', type: 'string', description: '签到日期', required: true },
     { name: 'reason', type: 'string', description: '流水原因', required: true,
       enum: ['checkin', 'achievement', 'bonus', 'admin_adjust'] },
-    { name: 'description', type: 'string', description: '说明', required: false },
+    { name: 'description', type: 'string', description: '说明', required: true },
   ];
 
   constructor(private readonly point_recordsService: PointRecordsServiceLike) {}
@@ -43,7 +43,7 @@ export class CreatePointRecordTool implements AiTool {
             reason: { type: 'string', description: '流水原因', enum: ['checkin', 'achievement', 'bonus', 'admin_adjust'] },
             description: { type: 'string', description: '说明' },
           },
-          required: ['points', 'reason'],
+          required: ['points', 'checkinDate', 'reason', 'description'],
         },
       },
     };

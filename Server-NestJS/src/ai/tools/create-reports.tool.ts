@@ -22,7 +22,7 @@ export class CreateReportTool implements AiTool {
   readonly parameters: ToolParameter[] = [
     { name: 'title', type: 'string', description: '标题', required: true },
     { name: 'summary', type: 'string', description: '摘要', required: false },
-    { name: 'status', type: 'string', description: '状态', required: false,
+    { name: 'status', type: 'string', description: '状态', required: true,
       enum: ['draft', 'published'] },
     { name: 'amount', type: 'number', description: '金额', required: false },
   ];
@@ -43,7 +43,7 @@ export class CreateReportTool implements AiTool {
             status: { type: 'string', description: '状态', enum: ['draft', 'published'] },
             amount: { type: 'number', description: '金额' },
           },
-          required: ['title'],
+          required: ['title', 'status'],
         },
       },
     };

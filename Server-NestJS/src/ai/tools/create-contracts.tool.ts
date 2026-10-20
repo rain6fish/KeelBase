@@ -21,8 +21,8 @@ export class CreateContractTool implements AiTool {
   readonly description = '创建合同（合同名、签约方、状态、金额）。这是写操作，系统会弹出确认框，用户确认后才真正创建。';
   readonly parameters: ToolParameter[] = [
     { name: 'name', type: 'string', description: '合同名', required: true },
-    { name: 'counterparty', type: 'string', description: '签约方', required: false },
-    { name: 'status', type: 'string', description: '状态', required: false,
+    { name: 'counterparty', type: 'string', description: '签约方', required: true },
+    { name: 'status', type: 'string', description: '状态', required: true,
       enum: ['draft', 'reviewing', 'active', 'expired', 'terminated'] },
     { name: 'amount', type: 'number', description: '金额', required: false },
   ];
@@ -43,7 +43,7 @@ export class CreateContractTool implements AiTool {
             status: { type: 'string', description: '状态', enum: ['draft', 'reviewing', 'active', 'expired', 'terminated'] },
             amount: { type: 'number', description: '金额' },
           },
-          required: ['name'],
+          required: ['name', 'counterparty', 'status'],
         },
       },
     };

@@ -8,7 +8,7 @@
  * 固定安全接线：写工具确认 + 审计由 AiService 统一处理，工具只需返回 data.id。
  */
 
-import { aiToolsFlags, searchableFieldNames } from './validate.mjs';
+import { aiToolsFlags, isRequired, searchableFieldNames } from './validate.mjs';
 
 /** create 工具风险级/确认声明（Protocol 2.0）：缺省 R3 + 需确认；R1/R2 不强制确认；显式覆盖优先。 */
 function createToolMeta(ctx) {
@@ -110,7 +110,7 @@ export function createToolTemplate(ctx) {
     name: f.name,
     type: f.type === 'int' ? 'number' : f.type === 'bool' ? 'boolean' : 'string',
     description: f.label ?? f.name,
-    required: f.required === true,
+    required: isRequired(f),
     ...(f.type === 'enum' ? { enum: f.enum } : {}),
   }));
   const paramLines = params
@@ -152,7 +152,7 @@ ${paramLines}
           properties: {
             ${ctx.fields.map((f) => `${f.name}: { type: '${f.type === 'int' ? 'number' : f.type === 'bool' ? 'boolean' : 'string'}', description: '${f.label ?? f.name}'${f.type === 'enum' ? `, enum: [${f.enum.map((o) => `'${o}'`).join(', ')}]` : ''} },`).join('\n            ')}
           },
-          required: [${ctx.fields.filter((f) => f.required).map((f) => `'${f.name}'`).join(', ')}],
+          required: [${ctx.fields.filter((f) => isRequired(f)).map((f) => `'${f.name}'`).join(', ')}],
         },
       },
     };
