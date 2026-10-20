@@ -776,7 +776,7 @@ The seven modules contracts/suppliers/tags/notes/books/posts/reports share an id
 | 大小限制 / Size limit | 最大 10MB / Max 10MB |
 | 失败清理 / Failure cleanup | 魔数不匹配 → 自动删除文件 / Magic number mismatch → file auto-deleted |
 | 签名访问 / Signed access | `/uploads` 相对引用在**出库时**附 HMAC 签名（`?e=&s=`）；`UPLOAD_REQUIRE_SIGN=1` 时裸链接返回 403 / `/uploads` relative refs are signed **on the way out**; bare links return 403 when `UPLOAD_REQUIRE_SIGN=1` |
-| 入库裸引用 / Bare references at rest | 入库只存裸 `/uploads/<file>`（写侧剥掉 query）；读侧每次重签，存量带旧签名的行在读取时自愈、无需迁移 / The store holds only the bare `/uploads/<file>` (the query is stripped on write); reads re-sign every time, so legacy rows heal on read without a migration |
+| 入库裸引用 / Bare references at rest | 入库只存裸 `/uploads/<file>`（写侧剥掉 query）；读侧每次重签（含 `GET/PUT /users/:id` 的回包），存量带旧签名的行在读取时自愈、无需迁移 / The store holds only the bare `/uploads/<file>` (the query is stripped on write); reads re-sign every time (including the `GET/PUT /users/:id` responses), so legacy rows heal on read without a migration |
 
 ### 7.4 AI 功能安全 / 7.4 AI Feature Security
 

@@ -224,6 +224,46 @@ describe('UsersService', () => {
       expect(mockRepository.findOne).toHaveBeenCalledTimes(1);
     });
 
+    it('CR-21：存量行带过期旧签名 ⇒ findOne 返回新签名，且不回写实体', async () => {
+      const uploadSign = (service as any).uploadSign as UploadSignService;
+      const legacy = uploadSign.signUrl('/uploads/avatar.png', -1); // 旧式库存值：签名已过期
+      const stored = { ...mockUser, avatarUrl: legacy };
+      mockRepository.findOne.mockResolvedValue(stored);
+
+      const result = await service.findOne(1);
+
+      const fresh = result.avatarUrl as string;
+      expect(fresh).not.toBe(legacy);
+      expect(fresh.startsWith('/uploads/avatar.png?e=')).toBe(true);
+      const params = new URLSearchParams(fresh.split('?')[1]);
+      expect(uploadSign.verify('/uploads/avatar.png', params.get('e')!, params.get('s')!)).toBe(true);
+      expect(stored.avatarUrl).toBe(legacy); // 签名只进响应副本，绝不回写
+    });
+
+    it('CR-21：绝对 URL（第三方头像 / S3 预签名）原样返回，不重签', async () => {
+      const absolute = 'https://thirdwx.qlogo.cn/mmopen/abc/132';
+      mockRepository.findOne.mockResolvedValue({ ...mockUser, avatarUrl: absolute });
+
+      const result = await service.findOne(1);
+
+      expect(result.avatarUrl).toBe(absolute);
+    });
+
+    it('CR-21：签名与 UPLOAD_REQUIRE_SIGN 无关（关闭模式下响应照样签名，取用行为不变）', async () => {
+      const before = process.env.UPLOAD_REQUIRE_SIGN;
+      delete process.env.UPLOAD_REQUIRE_SIGN;
+      try {
+        mockRepository.findOne.mockResolvedValue({ ...mockUser, avatarUrl: '/uploads/avatar.png' });
+
+        const result = await service.findOne(1);
+
+        expect(result.avatarUrl).toContain('/uploads/avatar.png?e=');
+      } finally {
+        if (before === undefined) delete process.env.UPLOAD_REQUIRE_SIGN;
+        else process.env.UPLOAD_REQUIRE_SIGN = before;
+      }
+    });
+
     it('should throw NotFoundException if user does not exist', async () => {
       mockRepository.findOne.mockResolvedValue(null);
 
@@ -454,6 +494,23 @@ describe('UsersService', () => {
 
     const saved = mockRepository.save.mock.calls[0][0];
     expect(saved.avatarUrl).toBe('/uploads/avatar.png'); // 签名 query 已被剥掉，存的是裸引用
+  });
+
+  it('update 回包：头像是新签名、库里仍是裸引用（CR-21 读侧补签）', async () => {
+    const uploadSign = (service as any).uploadSign as UploadSignService;
+    const atUpload = uploadSign.signUrl('/uploads/avatar.png', -1); // 客户端回传的旧签名
+    mockRepository.findOne.mockResolvedValue({ ...mockUser });
+    mockRepository.save.mockImplementation((u: any) => Promise.resolve(u));
+
+    const result = await service.update(1, { avatarUrl: atUpload } as UpdateUserDto);
+
+    const saved = mockRepository.save.mock.calls[0][0];
+    expect(saved.avatarUrl).toBe('/uploads/avatar.png');
+    const fresh = result.avatarUrl as string;
+    expect(fresh).not.toBe(atUpload);
+    expect(fresh.startsWith('/uploads/avatar.png?e=')).toBe(true);
+    const params = new URLSearchParams(fresh.split('?')[1]);
+    expect(uploadSign.verify('/uploads/avatar.png', params.get('e')!, params.get('s')!)).toBe(true);
   });
 
   it('update avatarUrl：裸引用 / 绝对 URL 原样入库（不误伤 S3）', async () => {

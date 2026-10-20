@@ -235,11 +235,27 @@ export class UsersService {
     }
   }
 
-  /** 剔除敏感字段 + 解密 phone（phone 以密文存储，返回时需还原明文） */
+  /**
+   * Strip sensitive fields, decrypt phone, and sign the avatar on the way out.
+   *
+   * The store keeps the bare `/uploads/<file>` reference (stage C), so every response that carries
+   * it must sign it — otherwise strict mode (`UPLOAD_REQUIRE_SIGN=1`) serves the bare URL and the
+   * image 403s. `signUrl` also strips a frozen pre-stage-C signature and leaves absolute URLs
+   * (third-party OAuth avatars, S3 presigned URLs) untouched. The signature is never written back.
+   *
+   * 剔除敏感字段、解密 phone，并在出库前给头像签名。
+   *
+   * 库里存的是裸 `/uploads/<file>` 引用（stage C），故任何带着它的响应都必须签名——否则强制模式
+   * （`UPLOAD_REQUIRE_SIGN=1`）下送出裸 URL、图片 403。`signUrl` 同时会剥掉 stage C 之前冻结的旧签名，
+   * 绝对 URL（第三方 OAuth 头像、S3 预签名 URL）原样不动。签名绝不回写。
+   */
   private sanitizeUser(user: User): Partial<User> {
     const { password, loginAttempts, lockedUntil, ...rest } = user;
     if (rest.phone) {
       rest.phone = this.encryption.decrypt(rest.phone);
+    }
+    if (rest.avatarUrl) {
+      rest.avatarUrl = this.uploadSign.signUrl(rest.avatarUrl);
     }
     return rest;
   }

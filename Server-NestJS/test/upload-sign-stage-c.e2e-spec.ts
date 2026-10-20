@@ -46,11 +46,13 @@ describe('CR-21 stage C — bare refs on write, fresh signatures on read (e2e)',
       .expect(200);
     const userId = me.body.data.id as number;
 
-    const signed = uploadSign.signUrl('/uploads/avatar-stage-c.png');
+    const signed = uploadSign.signUrl('/uploads/avatar-stage-c.png', -1); // client hands back an expired signature
     expect(signed).toContain('?e=');
     expect(signed).toContain('&s=');
+    const inputSig = splitSignature(signed);
+    expect(uploadSign.verify('/uploads/avatar-stage-c.png', inputSig.e, inputSig.s)).toBe(false);
 
-    await request(app.getHttpServer())
+    const putRes = await request(app.getHttpServer())
       .put(`/api/v1/users/${userId}`)
       .set(authHeader(accessToken))
       .send({ avatarUrl: signed })
@@ -58,6 +60,61 @@ describe('CR-21 stage C — bare refs on write, fresh signatures on read (e2e)',
 
     const row = await dataSource.getRepository('users').findOne({ where: { id: userId } });
     expect(row!.avatarUrl).toBe('/uploads/avatar-stage-c.png');
+
+    // The response carries a fresh signature: Flutter's profile edit stores this reply straight
+    // into its auth state, so a bare reference here would 403 on the profile page in strict mode.
+    // 回包里就是新签名：Flutter 资料编辑会把这份回包直接存进登录态，这里若回裸引用，强制模式下资料页就 403。
+    const echoed = putRes.body.data.avatarUrl as string;
+    expect(echoed.startsWith('/uploads/avatar-stage-c.png?e=')).toBe(true);
+    const echoedSig = splitSignature(echoed);
+    expect(echoedSig).not.toEqual(inputSig);
+    expect(uploadSign.verify('/uploads/avatar-stage-c.png', echoedSig.e, echoedSig.s)).toBe(true);
+  });
+
+  it('读侧补签：GET /users/:id（本人）对存量旧签名重签；绝对 URL 原样返回', async () => {
+    const legacyUser = await registerUser(app, {
+      username: 'stagec_self_legacy',
+      email: 'stagec_self_legacy@example.com',
+      password: 'Passw0rd!',
+      nickname: 'StageC Self Legacy',
+    });
+    const legacyMe = await request(app.getHttpServer())
+      .get('/api/v1/auth/me')
+      .set(authHeader(legacyUser.accessToken))
+      .expect(200);
+    const legacyId = legacyMe.body.data.id as number;
+    const legacy = uploadSign.signUrl('/uploads/avatar-self.png', -1);
+    await dataSource.getRepository('users').update(legacyId, { avatarUrl: legacy });
+
+    const legacyRead = await request(app.getHttpServer())
+      .get(`/api/v1/users/${legacyId}`)
+      .set(authHeader(legacyUser.accessToken))
+      .expect(200);
+    const fresh = legacyRead.body.data.avatarUrl as string;
+    expect(fresh).not.toBe(legacy);
+    expect(fresh.startsWith('/uploads/avatar-self.png?e=')).toBe(true);
+    const freshSig = splitSignature(fresh);
+    expect(uploadSign.verify('/uploads/avatar-self.png', freshSig.e, freshSig.s)).toBe(true);
+
+    const absoluteUser = await registerUser(app, {
+      username: 'stagec_self_absolute',
+      email: 'stagec_self_absolute@example.com',
+      password: 'Passw0rd!',
+      nickname: 'StageC Self Absolute',
+    });
+    const absoluteMe = await request(app.getHttpServer())
+      .get('/api/v1/auth/me')
+      .set(authHeader(absoluteUser.accessToken))
+      .expect(200);
+    const absoluteId = absoluteMe.body.data.id as number;
+    const absolute = 'https://cdn.example.com/avatars/x.png';
+    await dataSource.getRepository('users').update(absoluteId, { avatarUrl: absolute });
+
+    const absoluteRead = await request(app.getHttpServer())
+      .get(`/api/v1/users/${absoluteId}`)
+      .set(authHeader(absoluteUser.accessToken))
+      .expect(200);
+    expect(absoluteRead.body.data.avatarUrl).toBe(absolute);
   });
 
   it('读侧：存量行带过期旧签名 ⇒ /auth/me 返回重新签名的可用 URL', async () => {
