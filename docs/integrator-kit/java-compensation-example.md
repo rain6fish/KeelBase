@@ -47,7 +47,11 @@ public class KeelBaseCompensationController {
         // 2. 幂等：已撤销 / 不存在 → 200 + idempotent:true
         Followup f = followupRepo.findById(id).orElse(null);
         if (f == null || Boolean.TRUE.equals(f.getCancelled())) {
-            return ok(Map.of("idempotent", true, "resultId", id));
+            // Java 8 可编译：不用 Map.of（Java 9+）
+            Map<String, Object> alreadyRevoked = new LinkedHashMap<>();
+            alreadyRevoked.put("idempotent", true);
+            alreadyRevoked.put("resultId", id);
+            return ok(alreadyRevoked);
         }
 
         // 3. 撤销（软删 cancelled；如需硬删走事务）
@@ -58,7 +62,11 @@ public class KeelBaseCompensationController {
         auditLogger.log("compensation", id, claims.getSubject(),
             "followup revoked by KeelBase compensation");
 
-        return ok(Map.of("idempotent", false, "resultId", id, "status", "revoked"));
+        Map<String, Object> revoked = new LinkedHashMap<>();
+        revoked.put("idempotent", false);
+        revoked.put("resultId", id);
+        revoked.put("status", "revoked");
+        return ok(revoked);
     }
 
     /** 验签 KeelBase 委托 JWT：HS256 + audience 校验 + 过期校验 */
