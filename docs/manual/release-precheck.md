@@ -8,9 +8,15 @@
 
 **四层独立审核 → 整合结果 → 落地改进**：
 
-1. **阿里 code review（OpenCodeReview / `ocr` CLI，v1.9.4）**：**默认只审本次发布区间的 diff**——
-   - **默认**：`ocr review --from <prev-release> --to <release-branch>`（只审发布区间的 diff）
-   - **全量**：`ocr scan`（全文件审查）**须单独说明**（谁要 · 为什么 · 预计成本）—— 2026-10-18 实测：一次全量扫 5 个仓 = **4438 次请求 / 42.54 元一小时**，而大多数文件自上次发版以来没动过（`P1-15`）
+1. **阿里 code review（OpenCodeReview / `ocr` CLI，v1.13.1）**：**默认只审本次发布区间的 diff**——
+   - **默认（省 token 档）**：`npm run review:ocr -- --from <prev-release> --to <release-branch>`
+     - 固定 `--effort low`（1 轮；OCR 默认 `medium` 是 2 轮）、`--max-tokens 120000`、`--max-tokens-budget 120000000`；
+     - 默认排除 JSON / lock / SCSS / i18n / specs / provenance 等低价值文件；
+     - 跑完打印「组 / 文件 / 评论 / token / 估算成本」，摘要写入 `artifacts/ocr/`；退出码 `0=完整`、`2=有文件失败`、`1=整体失败`；
+     - 有失败文件时用 `--resume <session-id>` 只补跑，不全量重来；
+     - `--max-tools` 不要调：模板默认已是 50，小于默认不生效；
+     - **基线**（2026-10-18，`v1.1.0..HEAD`，默认 `medium`）：407 文件 / 70 组 / 4,560 次调用 / 267.4M 输入 + 3.62M 输出 / 45m26s / ≈29.9 元。本档目标 **90–120M 输入 / 10–13 元**。
+   - **全量**：`ocr scan`（全文件审查）**须单独说明**（谁要 · 为什么 · 预计成本）—— 2026-10-18 实测：一次全量扫 5 个仓 = **4438 次请求 / 42.54 元一小时**，而大多数文件自上次发版以来没动过（`P1-15`）。确需全量时用 `--path` 限定本次动过的目录，并带 `--max-tokens-budget`；`scan` 没有 `--effort`，省 token 靠 `--no-plan` / `--no-dedup` / `--no-summary` 与范围控制。
    - 或 Claude Code 会话内 `/open-code-review:delegate-review`（OCR 选文件/规则 + 宿主审查，免 key）
 2. **Claude Code 自带 code review**：对同一 diff 跑 Claude 的多维代码审查（正确性 / 安全 / 性能 / 简化 / 测试覆盖）。
 3. **code-review skill（mattpocock，2026-08-28 安装）**：对同一区间跑双轴评审——Standards（是否符合仓库编码规范）与 Spec（是否符合源 issue/spec 要求），两轴并行子代理，结果并排报告。触发方式：`/code-review <commit|branch|tag|merge-base>`。
@@ -113,6 +119,7 @@
 ```text
 Release Precheck（<日期>）：
 - 四层 code review：阿里 X 条 + Claude 自带 Y 条 + code-review skill Z 条 + Code Economy K 条 → 修复 W 条阻塞项
+- OCR 成本：X 组 / Y 文件 / Z token / ¥N（session <id>，effort low）
 - 全量测试：后端单测/e2e/前端/Flutter/生成器 全过（覆盖率 backend xx% / flutter xx%）
 - 覆盖率：较上版 +x.x% / 达标
 - 文档同步：版本线文档（versioning.md / SECURITY.md）已同步（仅开新线 / 改线状态时）· 状态类文档已复核（仅其状态日期 ≥ 1 个季度时；未到期记「无需」）

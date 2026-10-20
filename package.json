@@ -32,6 +32,7 @@
   "scripts": {
     "preflight": "node scripts/keelbase-doctor.mjs --env",
     "cli:test": "node --test \"scripts/*.test.mjs\"",
+    "review:ocr": "node scripts/ocr-release-review.mjs",
     "spec:check": "node scripts/check-business-specs.mjs",
     "check:app-model": "node scripts/check-app-model.mjs",
     "check:boundary": "node scripts/check-core-boundary.mjs",
