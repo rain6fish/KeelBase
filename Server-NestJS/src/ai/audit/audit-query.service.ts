@@ -49,6 +49,17 @@ export interface AiAuditLogWithUser {
    */
   outcome?: string | null;
   tool?: string | null;
+  /**
+   * Contract `ai-audit-log-row` v6: the correlation key of one governed execution, carrying the same
+   * value as the side-effect row that execution wrote. Chain-external, never in the hash payload. This
+   * runtime has no execution-id concept, so the projection always emits null — the field is optional,
+   * but the key-set binding in `audit-query.service.spec.ts` compares against the declared properties
+   * exactly, so it is listed explicitly.
+   * 契约 `ai-audit-log-row` v6：同一次受治理执行的关联键，与那次执行写下的副作用行同值。链外列，
+   * 不入 hash payload。本运行时没有执行号概念，故投影恒发 null —— 该字段可选，但
+   * `audit-query.service.spec.ts` 的键集绑定与声明属性**全等**比较，故此处显式列出。
+   */
+  executionId?: string | null;
   model?: string | null;
   provider?: string | null;
   promptTokens?: number | null;
@@ -190,6 +201,12 @@ export class AuditQueryService {
       deviceId: r.log_device_id ?? null,
       outcome: r.log_outcome ?? null,
       tool: r.log_tool ?? null,
+      // v6: this runtime has no execution-id concept, so the column is always null — the contract
+      // allows omission or null. Emitted explicitly because the key-set binding compares the row
+      // against the schema's declared properties in full.
+      // v6：本运行时没有执行号概念，故该列恒为 null —— 契约允许省略或 null。显式发出的原因是
+      // 键集绑定会拿整行与声明的属性全集做全等比较。
+      executionId: null,
       model: r.log_model ?? null,
       provider: r.log_provider ?? null,
       promptTokens: r.log_prompt_tokens != null ? Number(r.log_prompt_tokens) : null,
