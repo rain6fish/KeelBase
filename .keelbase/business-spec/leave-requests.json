@@ -1,0 +1,73 @@
+{
+  "feature": "leave-requests",
+  "goal": "让员工用一句话提交请假申请，并能随时查回自己提交过的请假单",
+  "actors": ["employee"],
+  "objects": [
+    {
+      "name": "leave_request",
+      "label": "请假申请",
+      "module": "leave_requests",
+      "searchable": true,
+      "fields": [
+        { "name": "requestNo", "type": "string", "label": "申请单号", "required": true },
+        { "name": "leaveType", "type": "enum", "enum": ["annual", "sick", "personal", "other"], "label": "请假类型", "required": true },
+        { "name": "startDate", "type": "date", "label": "开始日期", "required": true },
+        { "name": "endDate", "type": "date", "label": "结束日期", "required": true },
+        { "name": "days", "type": "int", "label": "请假天数", "required": true },
+        { "name": "reason", "type": "text", "label": "请假事由", "required": false },
+        { "name": "status", "type": "enum", "enum": ["pending", "approved", "rejected"], "label": "审批状态", "required": false }
+      ]
+    }
+  ],
+  "aiCapabilities": [
+    { "object": "leave_request", "kind": "read", "intent": "查询我的请假申请" },
+    {
+      "object": "leave_request",
+      "kind": "write",
+      "riskLevel": "R3",
+      "requiresConfirmation": true,
+      "intent": "提交一笔请假申请"
+    }
+  ],
+  "decisions": [
+    {
+      "question": "一次「OA 审批」要建几个模块？",
+      "choice": "本轮只映射「请假申请」一个模块",
+      "reason": "薄协议一次只映射一个业务对象（映射器会把其余对象列进 unmapped）。报销要接金额政策、用印要接实物保管，都会把审批流引擎引进来；请假是 OA 里频次最高、字段最稳定的一张单，先把「提交一张单、查得回来」做成可跑模块。"
+    },
+    {
+      "question": "为什么不建审批流引擎（多级审批、会签、转办）？",
+      "choice": "不建；模板只存这张单，不实现流转规则",
+      "reason": "审批流是规则引擎，不是对象形状：谁有权批、从哪个状态转到哪个状态、驳回要不要理由、超时怎么办，薄协议都表达不了。这些进 unmapped，由服务层手写；本模板如实只做单据本身。"
+    },
+    {
+      "question": "审批状态为什么还是放进字段里？",
+      "choice": "放一个可选 enum（pending / approved / rejected），默认 pending",
+      "reason": "单据没有状态就读不出它处在哪一步；把状态作为形状放进模块，但**谁能改、何时能改**不在模块里强制——那部分进 unmapped。可选是为了让申请人提交时不必填，交给默认值。"
+    },
+    {
+      "question": "一笔请假申请归谁所有？",
+      "choice": "提交它的员工本人",
+      "reason": "与基座本人所有权模型一致；审批人视角（看下属的单）属于跨用户读取，薄协议不表达，进 outOfScope。"
+    }
+  ],
+  "rules": [
+    "请假天数必须为正整数（days > 0）",
+    "开始日期不得晚于结束日期（startDate <= endDate）",
+    "审批状态只能按 pending → approved / rejected 流转，且只有审批人（非申请人本人）可以改动"
+  ],
+  "acceptance": [
+    "员工一句话可问出自己提交过的请假申请",
+    "提交一笔请假申请需人工确认，确认后可在列表看到",
+    "状态流转与日期/天数校验（Rule 1/2/3）由手写服务层保证（本模板未实现）",
+    "提交错了可撤销（软删，可经回收站恢复）"
+  ],
+  "outOfScope": [
+    "多级审批、会签、转办、代理审批与超时提醒",
+    "审批人视角（查看下属/全员的请假单）与审批通知",
+    "请假额度、余额扣减与考勤系统对接",
+    "附件（病假证明等）与报销、用印等其他审批对象",
+    "与既有 AI 治理审批（approval 模块）合并——那是 AI 动作的审批，不是业务单据"
+  ],
+  "evidenceRef": ".keelbase/interview/leave-requests.md"
+}

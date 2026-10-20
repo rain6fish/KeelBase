@@ -4,6 +4,18 @@ import type { I18nDictionary } from './types'
 
 /** 中文词典（默认）。key 命名空间：common.* 通用 / <page>.* 页面 / <store|service>.* 状态与提示 */
 export const zh: I18nDictionary = {
+  // ── 请假申请（EASY-2 生成）──
+  'leave_requests.title': '请假申请',
+  'leave_requests.count': '{total} 条',
+  'leave_requests.placeholder': '新增请假申请…',
+  'leave_requests.add': '添加',
+  'leave_requests.empty': '暂无请假申请',
+  'leave_requests.inputRequired': '请输入请假申请内容',
+  'leave_requests.createFailed': '创建失败',
+  'leave_requests.deleteTitle': '删除请假申请',
+  'leave_requests.deleteFailed': '删除失败',
+  'leave_requests.loadFailed': '加载请假申请失败',
+
   // ── 库存出入库（EASY-2 生成）──
   'inventory_movements.title': '库存出入库',
   'inventory_movements.count': '{total} 条',

@@ -12,6 +12,7 @@ import { UsersModule } from './users/users.module';
 import { HealthModule } from './health/health.module';
 import { EventsModule } from './events/events.module';
 import { TodosModule } from './todos/todos.module';
+import { LeaveRequestsModule } from './leave_requests/leave_requests.module';
 import { InventoryMovementsModule } from './inventory_movements/inventory_movements.module';
 import { AssetLoansModule } from './asset_loans/asset_loans.module';
 import { PointsLedgersModule } from './points_ledgers/points_ledgers.module';
@@ -112,6 +113,7 @@ import { buildTypeOrmOptions } from './config/typeorm-options';
     HealthModule,
     EventsModule,
     TodosModule,
+    LeaveRequestsModule,
     InventoryMovementsModule,
     AssetLoansModule,
     PointsLedgersModule,

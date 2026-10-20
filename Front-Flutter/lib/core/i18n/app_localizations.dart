@@ -279,6 +279,22 @@ class AppLocalizations {
   String get todoEmpty => _t('No todos yet', '暂无待办');
   String get deleteTodoConfirm => _t('Delete this todo?', '删除该待办？');
 
+  // --- 请假申请 · 字段占位符 / field placeholders ---
+  String get leave_requestsFieldRequestNo => _t('requestNo', '申请单号');
+  String get leave_requestsFieldLeaveType => _t('leaveType', '请假类型');
+  String get leave_requestsFieldStartDate => _t('startDate', '开始日期');
+  String get leave_requestsFieldEndDate => _t('endDate', '结束日期');
+  String get leave_requestsFieldDays => _t('days', '请假天数');
+  String get leave_requestsFieldReason => _t('reason', '请假事由');
+  String get leave_requestsFieldStatus => _t('status', '审批状态');
+
+
+  // --- 请假申请（EASY-2 生成） ---
+  String get leave_requestsTitle => _t('LeaveRequest', '请假申请');
+  String get leave_requestsAddTitle => _t('New LeaveRequest', '新增请假申请');
+  String get leave_requestsEmpty => _t('No LeaveRequest yet', '暂无请假申请');
+  String get leave_requestsDeleteConfirm => _t('Delete this leaverequest?', '删除该请假申请？');
+
   // --- 库存出入库 · 字段占位符 / field placeholders ---
   String get inventory_movementsFieldDocumentNo => _t('documentNo', '单据号');
   String get inventory_movementsFieldSku => _t('sku', '商品编码');
@@ -920,6 +936,8 @@ class AppLocalizations {
     'ai.tool.createAssetLoan': ['Create asset loan', '创建资产借用'],
     'ai.tool.queryInventoryMovements': ['Query inventory movements', '查询库存出入库'],
     'ai.tool.createInventoryMovement': ['Create inventory movement', '登记库存出入库'],
+    'ai.tool.queryLeaveRequests': ['Query leave requests', '查询请假申请'],
+    'ai.tool.createLeaveRequest': ['Create leave request', '提交请假申请'],
     'ai.tool.queryPointRecords': ['Query point records', '查询积分记录'],
     'ai.tool.createPointRecord': ['Create point record', '创建积分记录'],
     'ai.tool.queryPointsLedgers': ['Query points ledgers', '查询积分台账'],

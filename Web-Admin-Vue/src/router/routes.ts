@@ -39,6 +39,7 @@ const consoleChildren: RouteRecordRaw[] = [
   // P3 新增
   { path: 'trash', name: 'trash', component: () => import('@/views/trash/TrashView.vue'), meta: { title: 'navTrash' } },
   { path: 'data-import', name: 'data-import', component: () => import('@/views/data-import/DataImportView.vue'), meta: { title: 'navDataImport' } },
+      { path: 'leave_requests', name: 'leave_requests', component: () => import('@/views/leave_requests/LeaveRequestsView.vue'), meta: { title: 'navLeaveRequests', module: 'leave_requests' } },
       { path: 'inventory_movements', name: 'inventory_movements', component: () => import('@/views/inventory_movements/InventoryMovementsView.vue'), meta: { title: 'navInventoryMovements', module: 'inventory_movements' } },
       { path: 'asset_loans', name: 'asset_loans', component: () => import('@/views/asset_loans/AssetLoansView.vue'), meta: { title: 'navAssetLoans', module: 'asset_loans' } },
       { path: 'points_ledgers', name: 'points_ledgers', component: () => import('@/views/points_ledgers/PointsLedgersView.vue'), meta: { title: 'navPointsLedgers', module: 'points_ledgers' } },

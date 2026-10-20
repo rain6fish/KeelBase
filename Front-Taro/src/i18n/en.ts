@@ -4,6 +4,18 @@ import type { I18nDictionary } from './types'
 
 /** 英文词典。key 与 zh.ts 一致；缺失时回退到 zh 或 key 本身。 */
 export const en: I18nDictionary = {
+  // ── 请假申请（EASY-2 生成）──
+  'leave_requests.title': 'LeaveRequests',
+  'leave_requests.count': '{total} items',
+  'leave_requests.placeholder': 'Add leave request…',
+  'leave_requests.add': 'Add',
+  'leave_requests.empty': 'No leave requests yet',
+  'leave_requests.inputRequired': 'Please enter a leave request name',
+  'leave_requests.createFailed': 'Failed to create',
+  'leave_requests.deleteTitle': 'Delete LeaveRequest',
+  'leave_requests.deleteFailed': 'Failed to delete',
+  'leave_requests.loadFailed': 'Failed to load leave requests',
+
   // ── 库存出入库（EASY-2 生成）──
   'inventory_movements.title': 'InventoryMovements',
   'inventory_movements.count': '{total} items',

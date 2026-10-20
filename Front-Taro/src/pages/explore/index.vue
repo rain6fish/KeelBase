@@ -50,6 +50,7 @@ const quickCards = computed(() =>
     { icon: '✅', label: t('explore.todos'), color: '#8B5CF6', path: '/pages/todos/index', module: 'todos' },
     { icon: '📋', label: t('explore.aiHistory'), color: '#0EA5E9', path: '/pages/ai-history/index' },
     { icon: '⚙️', label: t('explore.settings'), color: '#9333EA', path: '/pages/settings/index' },
+  { icon: '📦', label: '请假申请', color: '#F97316', path: '/pages/leave_requests/index' },
   { icon: '📦', label: '库存出入库', color: '#F97316', path: '/pages/inventory_movements/index' },
   { icon: '📦', label: t('explore.assetLoans'), color: '#F97316', path: '/pages/asset_loans/index' },
   { icon: '📦', label: t('explore.pointsLedgers'), color: '#F97316', path: '/pages/points_ledgers/index' },

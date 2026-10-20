@@ -1,0 +1,68 @@
+{
+  "module": "leave_requests",
+  "plural": "leave_requests",
+  "label": "请假申请",
+  "searchable": true,
+  "fields": [
+    {
+      "name": "requestNo",
+      "type": "string",
+      "required": true,
+      "label": "申请单号"
+    },
+    {
+      "name": "leaveType",
+      "type": "enum",
+      "enum": [
+        "annual",
+        "sick",
+        "personal",
+        "other"
+      ],
+      "required": true,
+      "label": "请假类型"
+    },
+    {
+      "name": "startDate",
+      "type": "date",
+      "required": true,
+      "label": "开始日期"
+    },
+    {
+      "name": "endDate",
+      "type": "date",
+      "required": true,
+      "label": "结束日期"
+    },
+    {
+      "name": "days",
+      "type": "int",
+      "required": true,
+      "label": "请假天数"
+    },
+    {
+      "name": "reason",
+      "type": "text",
+      "required": false,
+      "label": "请假事由"
+    },
+    {
+      "name": "status",
+      "type": "enum",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected"
+      ],
+      "required": false,
+      "label": "审批状态"
+    }
+  ],
+  "aiTools": {
+    "query": true,
+    "create": {
+      "riskLevel": "R3",
+      "requiresConfirmation": true
+    }
+  }
+}

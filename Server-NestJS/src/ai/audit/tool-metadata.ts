@@ -115,6 +115,8 @@ export const TOOL_METADATA: Readonly<Record<string, ToolMetadata>> = {
   create_asset_loan: { label: 'Create asset loan', event: 'AssetLoanCreated' },
   query_inventory_movements: { label: 'Query inventory movements' },
   create_inventory_movement: { label: 'Create inventory movement', event: 'InventoryMovementCreated' },
+  query_leave_requests: { label: 'Query leave requests' },
+  create_leave_request: { label: 'Create leave request', event: 'LeaveRequestCreated' },
   query_point_records: { label: 'Query point records' },
   create_point_record: { label: 'Create point record', event: 'PointRecordCreated' },
   query_points_ledgers: { label: 'Query points ledgers' },

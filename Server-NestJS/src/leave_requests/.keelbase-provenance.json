@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "module": "leave_requests",
+  "generator": "keelbase",
+  "generatorVersion": "1.2.0",
+  "protocol": "1.1",
+  "source": "spec:specs/leave-requests.json",
+  "generatedAt": "2026-10-19T22:50:58.260Z"
+}

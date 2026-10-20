@@ -34,6 +34,9 @@ import 'features/ai/data/repositories/ai_conversation_repository.dart';
 import 'features/sessions/data/repositories/session_repository.dart';
 import 'features/sessions/presentation/providers/session_provider.dart';
 import 'features/todos/data/repositories/todos_repository.dart';
+import 'features/leave_requests/data/repositories/leave_requests_repository.dart';
+import 'features/leave_requests/presentation/providers/leave_requests_provider.dart';
+
 import 'features/inventory_movements/data/repositories/inventory_movements_repository.dart';
 import 'features/inventory_movements/presentation/providers/inventory_movements_provider.dart';
 
@@ -296,6 +299,10 @@ Future<void> _initApp() async {
         // Todos (UX-1 缓存优先 + 乐观更新)
         ChangeNotifierProvider<TodosProvider>(
           create: (_) => TodosProvider(TodosRepository(apiClient), cache: AppCache(prefs)),
+        ),
+        // 请假申请（EASY-2 生成）
+        ChangeNotifierProvider<LeaveRequestsProvider>(
+          create: (_) => LeaveRequestsProvider(LeaveRequestsRepository(apiClient), cache: AppCache(prefs)),
         ),
         // 库存出入库（EASY-2 生成）
         ChangeNotifierProvider<InventoryMovementsProvider>(

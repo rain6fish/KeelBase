@@ -16,6 +16,7 @@ import '../../features/events/presentation/pages/event_form_page.dart';
 import '../../features/explore/presentation/pages/explore_page.dart';
 import '../../features/ai/presentation/pages/ai_chat_page.dart';
 import '../../features/todos/presentation/pages/todos_page.dart';
+import '../../features/leave_requests/presentation/pages/leave_requests_page.dart';
 import '../../features/inventory_movements/presentation/pages/inventory_movements_page.dart';
 import '../../features/asset_loans/presentation/pages/asset_loans_page.dart';
 import '../../features/points_ledgers/presentation/pages/points_ledgers_page.dart';
@@ -376,6 +377,11 @@ GoRouter createRouter(
       GoRoute(
         path: '/inventory_movements',
         builder: (_, _) => const InventoryMovementsPage(),
+      ),
+      // 请假申请（EASY-2 生成）
+      GoRoute(
+        path: '/leave_requests',
+        builder: (_, _) => const LeaveRequestsPage(),
       ),
       // Legal pages
       GoRoute(

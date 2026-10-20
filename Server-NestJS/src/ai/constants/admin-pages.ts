@@ -27,6 +27,7 @@ export const ADMIN_PAGE_ROUTES: Record<
   system: { route: '/system', description: '系统信息' },
   trash: { route: '/trash', description: '回收站' },
   'data-import': { route: '/data-import', description: '数据导入' },
+  leave_requests: { route: '/leave_requests', description: '请假申请管理' },
   inventory_movements: { route: '/inventory_movements', description: '库存出入库管理' },
   asset_loans: { route: '/asset_loans', description: '资产借用管理' },
   points_ledgers: { route: '/points_ledgers', description: '积分台账管理' },
