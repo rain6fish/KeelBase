@@ -57,12 +57,31 @@ const BE = resolve(__dirname, '../Server-NestJS');
  * **193 → 188（2026-10-19）**：对落定 193 的提交 `67519821` 复跑 tsc 复核，错误码集合无新增；
  * 净减 5 条来自 TS2339/TS18048/TS2739/TS2322 的既有清理，TS2345/TS18047/TS2769 只在既有文件内
  * 增减。按「先列错误码、确认无新增再下调」的规程，锁住当前读数。
+ *
+ * **188，口径修正 (2026-10-20)**: the predicate now also counts files under `test/`
+ * (`test/ai-service.testbed.ts` had been filed as production code since the gate's first
+ * version). The two errors that the widened scope exposed were fixed — the testbed's
+ * `mockAuditService` was missing `reserveDailyUsage`/`releaseDailyUsage`, and a new
+ * `confirmation.store.spec.ts` assertion read `decidedAt` off a fixture that did not declare
+ * it — so the reading stays 188 under the wider predicate.
+ * **188，口径修正（2026-10-20）**：判据改为也统计 `test/` 下的文件（`test/ai-service.testbed.ts`
+ * 自闸门第一版起一直被算作「生产文件」）。放宽后暴露的两条已修——testbed 的 `mockAuditService`
+ * 缺 `reserveDailyUsage`/`releaseDailyUsage`；`confirmation.store.spec.ts` 新增的断言读了一个
+ * 未声明 `decidedAt` 的夹具字段——故放宽后读数仍是 188。
  */
 const BASELINE = 188;
 
-/** 一行 tsc 输出是否属于「测试文件」：`路径(行,列): error TSxxxx: ...` */
+/**
+ * 一行 tsc 输出是否属于「测试文件」：`路径(行,列): error TSxxxx: ...`
+ *
+ * Matches the predicate documented above: `*.spec.ts`, `*.e2e-spec.ts`, and anything under
+ * `test/` — including helper files such as `test/ai-service.testbed.ts`, which a spec-only
+ * pattern silently counted as production code.
+ * 与上面的判据一致：`*.spec.ts`、`*.e2e-spec.ts`、`test/` 下的全部文件——包括
+ * `test/*.testbed.ts` 这类辅助文件；只认 `.spec.ts` 时它们会被默默算进「生产文件」。
+ */
 const isTestFileError = (line) =>
-  /\.spec\.ts\(\d+,\d+\): error TS/.test(line) || /e2e-spec\.ts\(\d+,\d+\): error TS/.test(line);
+  /\.spec\.ts\(\d+,\d+\): error TS/.test(line) || /(^|[\\/])test[\\/][^(]*\(\d+,\d+\): error TS/.test(line);
 
 function runTsc() {
   try {

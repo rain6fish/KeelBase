@@ -321,6 +321,7 @@ describe('ConfirmationStore', () => {
           // Just 1ms before the cutoff ⇒ outside the closed interval.
           // 早 1ms 于截止时刻 ⇒ 闭区间之外
           createdAt: new Date(NOW - CONFIRMATION_DEFAULT_OFFLINE_TTL_MS - 1),
+          decidedAt: undefined,
         },
       ];
       const memory = inMemoryRepo(rows);

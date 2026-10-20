@@ -196,6 +196,8 @@ export function installAiServiceTestbed(): void {
     getUserLogs: jest.fn(),
     getStats: jest.fn(),
     getAllStats: jest.fn(),
+    reserveDailyUsage: jest.fn(),
+    releaseDailyUsage: jest.fn(),
   };
   // 工具门控已拆到 ToolGateService（阶段 3「主战场」第一刀）。
   // 这里用**真实实例**而非替身：既有测试是**穿过 chat()** 验门控行为的，mock 掉就丢了被测对象。
