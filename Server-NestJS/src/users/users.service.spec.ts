@@ -171,6 +171,21 @@ describe('UsersService', () => {
       expect((result.items[0] as any).role).toBeUndefined();
     });
 
+    it('存量行带过期旧签名 ⇒ 读侧剥签重签（CR-21 stage C 读侧自愈）', async () => {
+      const uploadSign = (service as any).uploadSign as UploadSignService;
+      const legacy = uploadSign.signUrl('/uploads/legacy.png', -1); // 旧式库存值：签名已过期
+      mockRepository.findAndCount.mockResolvedValue([[{ ...mockUser, avatarUrl: legacy }], 1]);
+
+      const result = await service.searchUsers('alex', 1, 10);
+
+      const fresh = result.items[0].avatarUrl as string;
+      expect(fresh).not.toBe(legacy); // 不是那条过期串
+      expect(fresh.startsWith('/uploads/legacy.png?e=')).toBe(true);
+      const [, q] = fresh.split('?');
+      const params = new URLSearchParams(q);
+      expect(uploadSign.verify('/uploads/legacy.png', params.get('e')!, params.get('s')!)).toBe(true);
+    });
+
     it('should match username and nickname with LIKE', async () => {
       mockRepository.findAndCount.mockResolvedValue([[], 0]);
 

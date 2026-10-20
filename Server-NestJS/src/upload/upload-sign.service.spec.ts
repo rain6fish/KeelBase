@@ -24,9 +24,20 @@ describe('UploadSignService（CR-21 签名访问控制）', () => {
       expect(service.signUrl('https://cdn.example.com/bucket/x.jpg')).toBe('https://cdn.example.com/bucket/x.jpg');
     });
 
-    it('已带 query 的 URL 原样返回（避免重复签名）', () => {
-      const url = service.signUrl('/uploads/a.jpg?e=100&s=abc');
-      expect(url).toBe('/uploads/a.jpg?e=100&s=abc');
+    it('已带旧 query 的值：剥掉后重签，而不是原样返回（存量行自愈）', () => {
+      const stale = '/uploads/a.jpg?e=100&s=abc';
+      const url = service.signUrl(stale);
+      expect(url).not.toBe(stale);
+      expect(url.startsWith('/uploads/a.jpg?e=')).toBe(true);
+      expect(url).not.toContain('s=abc');
+      const [, q] = url.split('?');
+      const params = new URLSearchParams(q);
+      expect(service.verify('/uploads/a.jpg', params.get('e')!, params.get('s')!)).toBe(true);
+    });
+
+    it('绝对 URL（含 query）原样返回，不剥不改（S3 预签名）', () => {
+      const presigned = 'https://cdn.example.com/bucket/x.jpg?X-Amz-Signature=deadbeef';
+      expect(service.signUrl(presigned)).toBe(presigned);
     });
 
     it('空/非相对路径原样返回', () => {
@@ -112,14 +123,22 @@ describe('UploadSignService（CR-21 签名访问控制）', () => {
   // Falsifiable reading for stage C: the old behaviour (signed string persisted with the row) breaks on
   // expiry; the new behaviour (bare ref persisted, re-signed on read) is always fresh.
   describe('CR-21 stage C 回归：冻结签名 vs 入库归一化后重签', () => {
-    it('旧行为：读侧对「已带签名的串」原样返回 ⇒ 过期后 verify=false（坏的，可证伪）', () => {
+    it('病：上传时冻结的签名一旦过期，它本身 verify=false（可证伪）', () => {
       const atUpload = service.signUrl('/uploads/avatar.jpg', -1); // 上传时签的、TTL 已过
       expect(atUpload).toContain('?e=');
-      // 读侧（旧）：signUrl 见到 '?' 就原样返回 —— 仍是那串过期签名，重取记录也没用
-      expect(service.signUrl(atUpload)).toBe(atUpload);
       const [, q] = atUpload.split('?');
       const params = new URLSearchParams(q);
       expect(service.verify('/uploads/avatar.jpg', params.get('e')!, params.get('s')!)).toBe(false);
+    });
+
+    it('读侧剥签：存量行仍带过期旧签名 ⇒ signUrl 先剥再重签，读出来可用（无需迁移）', () => {
+      const atUpload = service.signUrl('/uploads/avatar.jpg', -1); // 存量行：上传时冻结、已过期
+      const onRead = service.signUrl(atUpload); // 读侧：剥掉旧 query，重新签名
+      expect(onRead).not.toBe(atUpload); // 不是那条过期串
+      expect(onRead.startsWith('/uploads/avatar.jpg?e=')).toBe(true);
+      const [, q] = onRead.split('?');
+      const params = new URLSearchParams(q);
+      expect(service.verify('/uploads/avatar.jpg', params.get('e')!, params.get('s')!)).toBe(true);
     });
 
     it('新行为：入库剥成裸引用、读侧重签 ⇒ verify=true（且签名不是上传时那串）', () => {

@@ -17,13 +17,23 @@ export class UploadSignService {
 
   constructor(private readonly encryption: EncryptionService) {}
 
-  /** 给 /uploads 相对路径附签名 query；绝对 URL（S3）或已带签名原样返回 */
+  /**
+   * Sign a `/uploads` relative reference for reading. Any query already on the reference is dropped
+   * before re-signing: a stored value from before stage C may still carry the signature frozen at
+   * upload time, and returning it verbatim would keep serving that expired signature. Stripping and
+   * re-signing makes every read fresh, so existing rows heal without a migration. Absolute URLs (S3
+   * public prefixes, or a presigned URL whose query *is* the credential) pass through unchanged.
+   *
+   * 给 `/uploads` 相对引用签名。已有的 query 先剥掉再签：stage C 之前入库的值可能还带着上传时冻结的
+   * 签名，原样返回会一直送那串已过期的签名。先剥再重签让每次读取都是新签的，故存量行无需迁移即可自愈。
+   * 绝对 URL（S3 公网前缀，或 query 本身就是凭据的预签名 URL）原样返回，不剥不改。
+   */
   signUrl(path: string, ttlSeconds: number = this.DEFAULT_TTL): string {
     if (!path || !path.startsWith('/')) return path;
-    if (path.includes('?')) return path; // 已是绝对/已带 query（含签名）
+    const bare = this.normalizeForStorage(path);
     const expires = Math.floor(Date.now() / 1000) + ttlSeconds;
-    const sig = this.encryption.hmac(`${path}:${expires}`);
-    return `${path}?e=${expires}&s=${sig}`;
+    const sig = this.encryption.hmac(`${bare}:${expires}`);
+    return `${bare}?e=${expires}&s=${sig}`;
   }
 
   /**
