@@ -13,6 +13,36 @@ import { CONFIRMATION_RENDER_VERSION } from './confirmation-render';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
+/**
+ * A tiny in-memory repository whose `update` **evaluates the criteria** (equalities + the two
+ * TypeORM range operators the store uses) instead of returning a canned `affected`. CONF-7 is a
+ * condition on the write itself, so a mock that ignores criteria cannot tell the fixed code from
+ * the broken one.
+ * 一个会**真正求值条件**的内存仓库（等值 + store 用到的两个区间操作符），而不是返回写死的
+ * `affected`。CONF-7 的条件就在这次写里，忽略条件的假仓库分不出修好与没修。
+ */
+function inMemoryRepo(rows: Array<Record<string, any>>) {
+  const matches = (row: Record<string, any>, criteria: Record<string, any>): boolean =>
+    Object.entries(criteria).every(([key, expected]) => {
+      if (expected && typeof expected === 'object' && typeof expected.type === 'string' && expected.value instanceof Date) {
+        const actual = row[key] instanceof Date ? row[key].getTime() : new Date(row[key]).getTime();
+        const bound = expected.value.getTime();
+        if (expected.type === 'moreThanOrEqual') return actual >= bound;
+        if (expected.type === 'lessThan') return actual < bound;
+        throw new Error(`unsupported operator ${expected.type}`);
+      }
+      return row[key] === expected;
+    });
+  return {
+    findOne: jest.fn(async ({ where }: { where: Record<string, any> }) => rows.find((r) => matches(r, where)) ?? null),
+    update: jest.fn(async (criteria: Record<string, any>, patch: Record<string, any>) => {
+      const hit = rows.filter((r) => matches(r, criteria));
+      for (const r of hit) Object.assign(r, patch);
+      return { affected: hit.length };
+    }),
+  };
+}
+
 describe('ConfirmationStore', () => {
   let repo: { save: jest.Mock; create: jest.Mock; update: jest.Mock; findOne: jest.Mock };
   let store: ConfirmationStore;
@@ -221,7 +251,8 @@ describe('ConfirmationStore', () => {
 
       expect(res).toMatchObject({ ok: true, status: 'approved' });
       expect(repo.update).toHaveBeenCalledWith(
-        { token, operatorId: '1', status: 'pending' },
+        // CONF-7：窗口与 pending 同在一个条件里
+        expect.objectContaining({ token, operatorId: '1', status: 'pending', createdAt: expect.anything() }),
         expect.objectContaining({ status: 'approved' }),
       );
       // 对话内的等待仍挂着（不被替它 resolve）——否则对话流会再执行一次
@@ -265,6 +296,101 @@ describe('ConfirmationStore', () => {
       const res = await store.decideOutOfBand('z'.repeat(8), '1', 'approve');
 
       expect(res).toMatchObject({ ok: true, status: 'approved' });
+    });
+  });
+
+  describe('CONF-7 离线窗口进入仲裁条件', () => {
+    const NOW = 1_700_000_100_000;
+    let clock: jest.SpyInstance;
+
+    beforeEach(() => {
+      clock = jest.spyOn(Date, 'now').mockReturnValue(NOW);
+    });
+
+    afterEach(() => {
+      clock.mockRestore();
+    });
+
+    it('过了截止时刻（清扫还没跑）：裁决被拒、行仍 pending——窗口在条件更新里，不是先读再判', async () => {
+      const token = 'late-1';
+      const rows = [
+        {
+          token,
+          operatorId: '1',
+          status: CONFIRMATION_STATUS.PENDING,
+          // Just 1ms before the cutoff ⇒ outside the closed interval.
+          // 早 1ms 于截止时刻 ⇒ 闭区间之外
+          createdAt: new Date(NOW - CONFIRMATION_DEFAULT_OFFLINE_TTL_MS - 1),
+        },
+      ];
+      const memory = inMemoryRepo(rows);
+      const lateStore = new ConfirmationStore(memory as never, 1000);
+
+      const res = await lateStore.decideOutOfBand(token, '1', 'approve');
+
+      // Same shape as "already non-pending"; the row is not touched at all.
+      // 与「已非 pending」同形；行一个字节都不动
+      expect(res).toMatchObject({ ok: false, reason: 'already_decided', status: 'pending' });
+      expect(rows[0].status).toBe(CONFIRMATION_STATUS.PENDING);
+      expect(rows[0].decidedAt).toBeUndefined();
+      // The condition really carries the window (reverse proof: drop the time condition ⇒ the
+      // two assertions above turn red).
+      // 条件确实带上了窗口（反向可证：删掉时间条件 ⇒ 上面两条变红）
+      const [criteria] = memory.update.mock.calls[0];
+      expect(criteria.createdAt).toBeDefined();
+      expect(criteria.createdAt.value.getTime()).toBe(
+        offlineWindowCutoff(CONFIRMATION_DEFAULT_OFFLINE_TTL_MS, NOW).getTime(),
+      );
+    });
+
+    it('恰好等于截止时刻：裁决放行、清扫不扫——与读侧闭区间同口径', async () => {
+      const token = 'edge-1';
+      const atCutoff = new Date(NOW - CONFIRMATION_DEFAULT_OFFLINE_TTL_MS);
+      const rows = [
+        { token, operatorId: '1', status: CONFIRMATION_STATUS.PENDING, createdAt: atCutoff },
+        {
+          token: 'just-out',
+          operatorId: '1',
+          status: CONFIRMATION_STATUS.PENDING,
+          createdAt: new Date(atCutoff.getTime() - 1),
+        },
+      ];
+      const memory = inMemoryRepo(rows);
+      const edgeStore = new ConfirmationStore(memory as never, 1000);
+
+      // Decision: exactly at the cutoff still counts as in-window (>=).
+      // 裁决：恰好在截止时刻仍算窗口内（>=）
+      await expect(edgeStore.decideOutOfBand(token, '1', 'approve')).resolves.toMatchObject({
+        ok: true,
+        status: 'approved',
+      });
+      // Sweep: the row at that instant is not matched by `< cutoff` (only the 1ms-earlier row is).
+      // 清扫：那一刻的行不被 `< cutoff` 命中（只有早 1ms 的那条被扫）
+      await expect(edgeStore.expireStale(CONFIRMATION_DEFAULT_OFFLINE_TTL_MS)).resolves.toBe(1);
+      expect(rows[0].status).toBe(CONFIRMATION_STATUS.APPROVED);
+      expect(rows[1].status).toBe(CONFIRMATION_STATUS.TIMEOUT);
+    });
+
+    it('两条裁决入口竞争同一条行：只有一方命中（唯一的仲裁点仍是条件更新）', async () => {
+      const token = 'race-1';
+      const rows = [
+        {
+          token,
+          operatorId: '1',
+          status: CONFIRMATION_STATUS.PENDING,
+          createdAt: new Date(NOW - 60_000),
+        },
+      ];
+      const memory = inMemoryRepo(rows);
+      const raceStore = new ConfirmationStore(memory as never, 1000);
+
+      const [a, b] = await Promise.all([
+        raceStore.decideOutOfBand(token, '1', 'approve'),
+        raceStore.decideOutOfBand(token, '1', 'decline'),
+      ]);
+
+      expect([a.ok, b.ok].filter(Boolean)).toHaveLength(1);
+      expect(rows[0].status).toBe(a.ok ? CONFIRMATION_STATUS.APPROVED : CONFIRMATION_STATUS.DECLINED);
     });
   });
 
