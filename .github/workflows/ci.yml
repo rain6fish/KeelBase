@@ -806,6 +806,9 @@ jobs:
           cache: 'npm'
           cache-dependency-path: Front-Taro/package-lock.json
       - run: npm ci
+      # Race guards (pure Node, seconds) — without this they have no regression protection.
+      # 竞态守卫（纯 Node、秒级）——不接 CI 等于没有回归保护。
+      - run: npm run test:race
       - run: npm run build:h5
       # H5 output must not keep bare process.env references (Taro replaces only keys listed in config.env).
       # H5 产物不得残留裸 process.env（Taro 只替换 config.env 里列出的键）。
