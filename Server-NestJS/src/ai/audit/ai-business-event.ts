@@ -6,7 +6,7 @@
  * resultType 兜底（副作用目标类型），与 operation-audit/business-event.ts（REST 侧）互补。
  */
 
-import { TOOL_METADATA } from './tool-metadata';
+import { TOOL_METADATA } from '../../governance-shared/services/tool-metadata';
 
 /**
  * 工具名 → 业务事件名。派生自 `tool-metadata.ts` 的单一表 —— 此前它是同一批工具的**第二份手抄**，

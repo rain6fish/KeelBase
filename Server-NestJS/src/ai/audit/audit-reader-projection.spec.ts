@@ -8,7 +8,7 @@ import {
   projectAuditRowForReader,
   projectAuditRowsForCaller,
 } from './audit-reader-projection';
-import type { AiAuditLogWithUser } from './audit-query.service';
+import type { AiAuditLogWithUser } from '../../governance-shared/services/audit-query.service';
 
 /**
  * AW-2 field whitelist. The point of these tests is the **default**: a field that exists on the row

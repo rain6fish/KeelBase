@@ -44,7 +44,7 @@ const read = (rel) => readFileSync(join(ROOT, rel), 'utf8');
 const labelKey = (toolName) => `ai.tool.${toolName.replace(/_([a-z])/g, (_, c) => c.toUpperCase())}`;
 
 // 唯一的真源：元数据表的键
-const metadataSrc = read('Server-NestJS/src/ai/audit/tool-metadata.ts');
+const metadataSrc = read('Server-NestJS/src/governance-shared/services/tool-metadata.ts');
 const table = metadataSrc.slice(metadataSrc.indexOf('export const TOOL_METADATA'));
 const toolNames = [...table.matchAll(/^ {2}([a-z][a-z0-9_]*): \{/gm)].map((m) => m[1]);
 const expected = new Set(toolNames.map(labelKey));
@@ -103,7 +103,7 @@ for (const [key, pair] of flutter) {
 if (errors.length) {
   console.error('✗ 工具标签对账未通过：\n');
   for (const e of errors) console.error(`  - ${e}`);
-  console.error('\n  （后端元数据是唯一真源：Server-NestJS/src/ai/audit/tool-metadata.ts）');
+  console.error('\n  （后端元数据是唯一真源：Server-NestJS/src/governance-shared/services/tool-metadata.ts）');
   process.exit(1);
 }
 

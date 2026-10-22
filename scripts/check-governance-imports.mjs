@@ -100,16 +100,20 @@ const CONFIG_WIRING = /^governance-.*\.ts$/;
  * `src/governance-shared/services/`，随之退役 `governance.module.ts` 的 `side-effect-revoker` import；
  * 撤销器类改由 `GovernanceSharedModule` 提供，各进程模块只把自己的 `SIDE_EFFECT_REVOKER` token
  * 绑到那个实例上。
+ *
+ * Baseline note (2026-10-22, S4-H4 C Step 6): the four audit read-side services and their helper
+ * cluster moved to `src/governance-shared/services/`, retiring the `governance.module.ts` imports of
+ * `AuditStatsService`, `AuditQueryService`, `AuditEvidenceService` and `CoverageService`.
+ *
+ * 基线说明（2026-10-22，S4-H4 C 第六步）：四个审计读侧服务连同助手簇搬进
+ * `src/governance-shared/services/`，随之退役 `governance.module.ts` 对 `AuditStatsService`、
+ * `AuditQueryService`、`AuditEvidenceService` 与 `CoverageService` 的 import。
  */
 const BASELINE = [
   ['external-governance.controller.spec.ts', "import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';"],
   ['external-governance.controller.ts', "import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';"],
   ['governance.controller.spec.ts', "import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';"],
   ['governance.controller.ts', "import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';"],
-  ['governance.module.ts', "import { AuditStatsService } from '../ai/audit/audit-stats.service';"],
-  ['governance.module.ts', "import { AuditQueryService } from '../ai/audit/audit-query.service';"],
-  ['governance.module.ts', "import { AuditEvidenceService } from '../ai/audit/audit-evidence.service';"],
-  ['governance.module.ts', "import { CoverageService } from '../ai/audit/coverage.service';"],
   ['governance.module.ts', "import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';"],
   ['governance.module.ts', "import { AuditController } from '../ai/audit/audit.controller';"],
   ['governance.module.ts', "import { AgentsController } from '../ai/agents/agents.controller';"],

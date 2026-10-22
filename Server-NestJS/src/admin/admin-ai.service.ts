@@ -10,7 +10,7 @@ import { APP_VERSION } from '../app-version/app-version.config';
 import { CapabilitiesService } from '../app-version/capabilities.service';
 import { AdminService } from './admin.service';
 import { AdminObservabilityService } from './admin-observability.service';
-import { AuditStatsService } from '../ai/audit/audit-stats.service';
+import { AuditStatsService } from '../governance-shared/services/audit-stats.service';
 import { AdminAiChatDto } from './dto/admin-ai.dto';
 import type { DenialLanguage } from '../common/errors/denial-guidance';
 

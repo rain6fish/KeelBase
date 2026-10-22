@@ -25,7 +25,7 @@
 import { INestApplication } from '@nestjs/common';
 import { createTestApp } from './helpers';
 import { ToolRegistry } from '../src/ai/tools/tool-registry';
-import { TOOL_METADATA } from '../src/ai/audit/tool-metadata';
+import { TOOL_METADATA } from '../src/governance-shared/services/tool-metadata';
 import { isSemanticWrite } from '../src/ai/interfaces/tool.interface';
 
 describe('AI 工具元数据（标签 / 业务事件的单一真源）', () => {

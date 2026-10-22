@@ -2,10 +2,10 @@
 
 import { AuditController } from './audit.controller';
 import { AuditService } from '../../governance-shared/services/audit.service';
-import { AuditStatsService } from './audit-stats.service';
-import { AuditQueryService } from './audit-query.service';
-import { AuditEvidenceService } from './audit-evidence.service';
-import { CoverageService } from './coverage.service';
+import { AuditStatsService } from '../../governance-shared/services/audit-stats.service';
+import { AuditQueryService } from '../../governance-shared/services/audit-query.service';
+import { AuditEvidenceService } from '../../governance-shared/services/audit-evidence.service';
+import { CoverageService } from '../../governance-shared/services/coverage.service';
 import { CHECK_POLICIES_KEY } from '../../common/casl/check-policies.decorator';
 import { UserRole } from '../../common/entities/user.entity';
 

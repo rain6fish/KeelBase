@@ -26,7 +26,7 @@ import {
   resolveRevokeClass,
 } from '../interfaces/tool.interface';
 import { deriveWriteImpact } from '../tool-effects/write-impact';
-import { TOOL_METADATA, toolLabelKey } from '../audit/tool-metadata';
+import { TOOL_METADATA, toolLabelKey } from '../../governance-shared/services/tool-metadata';
 import {
   buildConfirmationRenderProof,
   buildRunRenderProof,

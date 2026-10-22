@@ -30,9 +30,11 @@ import { AppModule } from './app.module';
 import { GovernanceModule } from './governance/governance.module';
 import { SidecarModule } from './governance-sidecar/sidecar.module';
 import { AiAuditModule } from './ai/audit/ai-audit.module';
+import { AiModule } from './ai/ai.module';
 import { AuditService } from './governance-shared/services/audit.service';
 import { GOVERNANCE_REPORTER } from './governance-shared/services/governance-reporter.service';
 import { LocalEntityRevoker, SIDE_EFFECT_REVOKER } from './governance-shared/services/side-effect-revoker';
+import { AuditEvidenceService } from './governance-shared/services/audit-evidence.service';
 
 /**
  * Reporter wiring, read off the instance it was attached to. The constructor parameter is an
@@ -68,6 +70,12 @@ describe('装配冒烟（模块能被实例化）', () => {
     // S4-H4 C Step 5：`SIDE_EFFECT_REVOKER` 必须指向共享模块提供的那一个撤销器。
     // 反向可证：删掉 AiModule 的 token 绑定，或改回 `useClass`（造出第二个实例），本条即红。
     expect(moduleRef.get(SIDE_EFFECT_REVOKER)).toBe(moduleRef.get(LocalEntityRevoker));
+    // S4-H4 C Step 6: the read side is provided once, by AiModule — its code now lives in
+    // governance-shared, but the providers stay where `OrgService` / `OperationAuditService` are
+    // visible.
+    // S4-H4 C 第六步：读侧由 AiModule 唯一提供 —— 代码已搬进 governance-shared，但 provider 留在能看见
+    // `OrgService` / `OperationAuditService` 的模块里。
+    expect(moduleRef.select(AiModule).get(AuditEvidenceService)).toBe(moduleRef.get(AuditEvidenceService));
     await moduleRef.close();
   }, 120_000);
 
@@ -84,6 +92,10 @@ describe('装配冒烟（模块能被实例化）', () => {
     // 这条断言就是那个「静默」的解药。
     // 反向可证：删掉 GovernanceModule 的 `SIDE_EFFECT_REVOKER` 绑定，本条即红。
     expect(moduleRef.get(SIDE_EFFECT_REVOKER)).toBe(moduleRef.get(LocalEntityRevoker));
+    // S4-H4 C Step 6: the console still instantiates the read side itself (its optional business-side
+    // dependencies are absent here, exactly as before the move).
+    // S4-H4 C 第六步：治理台仍自行实例化读侧（业务侧的可选依赖在此缺席，搬迁前也是如此）。
+    expect(moduleRef.get(AuditEvidenceService)).toBeInstanceOf(AuditEvidenceService);
     await moduleRef.close();
   }, 120_000);
 

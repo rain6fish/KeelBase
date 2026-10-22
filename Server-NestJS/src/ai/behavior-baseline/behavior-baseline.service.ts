@@ -18,7 +18,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { MoreThanOrEqual, Repository } from 'typeorm';
 import { AiAuditLog } from '../../governance-shared/entities/ai-audit-log.entity';
 import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
-import { extractToolName } from '../audit/tool-name';
+import { extractToolName } from '../../governance-shared/services/tool-name';
 import { ToolRegistry } from '../tools/tool-registry';
 import { SettingsService, SETTING_KEYS } from '../../settings/settings.service';
 import { AiBehaviorAlert } from './behavior-alert.entity';

@@ -2,7 +2,7 @@
 
 import { UserRole } from '../../common/entities/user.entity';
 import type { AiAuditLog } from '../../governance-shared/entities/ai-audit-log.entity';
-import type { AiAuditLogWithUser } from './audit-query.service';
+import type { AiAuditLogWithUser } from '../../governance-shared/services/audit-query.service';
 
 /**
  * The audit reader's field whitelist — **one declaration**, and the projection is built *from* it.

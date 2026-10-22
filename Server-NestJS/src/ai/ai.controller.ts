@@ -43,7 +43,7 @@ import {
   buildDenialExplanation,
   pickLanguageFromHeader,
 } from '../common/errors/denial-guidance';
-import { AuditEvidenceService } from './audit/audit-evidence.service';
+import { AuditEvidenceService } from '../governance-shared/services/audit-evidence.service';
 import { MemoriesService } from './memory/memory.service';
 import { ChatRequestDto } from './dto/chat-request.dto';
 import { ConfirmDecisionDto } from './dto/confirm-decision.dto';

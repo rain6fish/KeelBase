@@ -7,7 +7,7 @@ import { AiAuditLog } from '../entities/ai-audit-log.entity';
 import { AiDailyUsage } from '../entities/ai-daily-usage.entity';
 import { AiToolSideEffect } from '../entities/ai-tool-side-effect.entity';
 import { AuditService } from './audit.service';
-import { AuditStatsService } from '../../ai/audit/audit-stats.service';
+import { AuditStatsService } from './audit-stats.service';
 import { AuditChainService } from '../../common/audit-chain/audit-chain.service';
 import { AuthorizationExplainerService } from '../../ai/authorization-explainer.service';
 import { actorContext } from '../actor-context';

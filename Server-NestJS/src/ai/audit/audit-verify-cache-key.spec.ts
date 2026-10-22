@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { DataSource } from 'typeorm';
-import { AuditEvidenceService } from './audit-evidence.service';
+import { AuditEvidenceService } from '../../governance-shared/services/audit-evidence.service';
 import { auditVerifyCacheKey } from '../../governance-core/cache-keys';
 import type { CacheService } from '../../common/cache/cache.service';
 

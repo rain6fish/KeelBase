@@ -15,7 +15,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { ConfirmationStore } from '../ai/confirmation/confirmation.store';
 import { BehaviorBaselineService } from '../ai/behavior-baseline/behavior-baseline.service';
 import { AlertWebhookService } from '../alert-webhook/alert-webhook.service';
-import { AuditEvidenceService } from '../ai/audit/audit-evidence.service';
+import { AuditEvidenceService } from '../governance-shared/services/audit-evidence.service';
 import { OperationAuditService } from '../operation-audit/operation-audit.service';
 
 /**

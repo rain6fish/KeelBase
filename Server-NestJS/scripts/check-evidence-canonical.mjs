@@ -7,7 +7,7 @@
  * The signed canonical of `keelbase-audit-evidence/4` is
  * action/authorization/decision/effect/chains/root/coverage/exportedAt (+summary/replay when present).
  * The key order is written by hand in three places: the export side
- * (`src/ai/audit/audit-evidence.service.ts`), the offline verifier (`scripts/verify-evidence.mjs`,
+ * (`src/governance-shared/services/audit-evidence.service.ts`), the offline verifier (`scripts/verify-evidence.mjs`,
  * deliberately standalone — Node built-ins only, for third-party audit), and the signature self-check
  * (`audit-evidence.service.spec.ts`). They cannot share a runtime module by design.
  *
@@ -38,7 +38,7 @@
  *
  * `keelbase-audit-evidence/4` 的整包签名 = HMAC(key, canonical) 覆盖
  * action/authorization/decision/effect/chains/root/coverage/exportedAt（+summary/replay 存在才含）。
- * canonical 键序在三处各有一份手写序：导出侧（`src/ai/audit/audit-evidence.service.ts`）、
+ * canonical 键序在三处各有一份手写序：导出侧（`src/governance-shared/services/audit-evidence.service.ts`）、
  * 离线验证侧（`scripts/verify-evidence.mjs`，依设计只 import Node 内置、供审计机构独立验证）、
  * 签名自证（`audit-evidence.service.spec.ts`）——三者无法共享同一运行时模块。
  *
@@ -61,9 +61,9 @@ const ROOT = resolve(__dirname, '..');
 // The export side moved to its own service with the evidence-domain split (health checklist §3 stage 3);
 // this gate resolves by path, so the path follows the code.
 // 导出侧已随证据域拆分到独立服务（健康清单 §3 阶段 3）；本闸按路径解析，故路径随代码走。
-const auditPath = resolve(ROOT, 'src/ai/audit/audit-evidence.service.ts');
+const auditPath = resolve(ROOT, 'src/governance-shared/services/audit-evidence.service.ts');
 const verifierPath = resolve(ROOT, 'scripts/verify-evidence.mjs');
-const specPath = resolve(ROOT, 'src/ai/audit/audit-evidence.service.spec.ts');
+const specPath = resolve(ROOT, 'src/governance-shared/services/audit-evidence.service.spec.ts');
 const packageCanonicalPath = resolve(ROOT, 'scripts/lib/evidence-package-canonical.mjs');
 
 const bad = (msg) => { console.error(`  ✗ ${msg}`); };

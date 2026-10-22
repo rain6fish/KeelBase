@@ -3,7 +3,7 @@
 import { Test } from '@nestjs/testing';
 import { AiService } from '../ai/ai.service';
 import { ToolExposureService } from '../ai/tools/tool-exposure.service';
-import { AuditStatsService } from '../ai/audit/audit-stats.service';
+import { AuditStatsService } from '../governance-shared/services/audit-stats.service';
 import { GovernancePolicyService } from '../governance-shared/services/governance-policy.service';
 import { ADMIN_SYSTEM_PROMPT } from '../ai/constants/admin-system-prompt';
 import { APP_VERSION } from '../app-version/app-version.config';

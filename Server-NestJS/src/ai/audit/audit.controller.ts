@@ -3,10 +3,10 @@
 import { Controller, Get, Post, Body, Query, Param, ParseIntPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { AuditService } from '../../governance-shared/services/audit.service';
-import { AuditStatsService } from './audit-stats.service';
-import { AuditQueryService } from './audit-query.service';
-import { AuditEvidenceService } from './audit-evidence.service';
-import { CoverageService } from './coverage.service';
+import { AuditStatsService } from '../../governance-shared/services/audit-stats.service';
+import { AuditQueryService } from '../../governance-shared/services/audit-query.service';
+import { AuditEvidenceService } from '../../governance-shared/services/audit-evidence.service';
+import { CoverageService } from '../../governance-shared/services/coverage.service';
 import { AuditQueryDto } from './dto/audit-query.dto';
 import { SubmitFeedbackDto } from './dto/submit-feedback.dto';
 import { CheckPolicies } from '../../common/casl/check-policies.decorator';

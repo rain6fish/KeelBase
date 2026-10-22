@@ -21,6 +21,16 @@
  * module binds to this class, so the business side and the governance console both resolve the same
  * revoker while a process that must not revoke can leave the token unbound.
  *
+ * From Step 6 on it also hosts the audit read side: `AuditStatsService`, `AuditQueryService`,
+ * `CoverageService` and `AuditEvidenceService`, together with the helper cluster they share
+ * (`by-day`, `audit-reader-scope`, `audit-explanation-state`, `audit-interpreter.service`,
+ * `confirmation-detail`, and the tool-label trio `ai-feature-map` / `tool-name` / `tool-metadata`).
+ * Only the code lives here: each process module keeps providing these four, because their
+ * `@Optional` dependencies (`OrgService`, `OperationAuditService`) are only visible inside that
+ * process's own module context — a module's providers cannot see what its importers import.
+ * The tool-label trio moved with them (S4-H4 C decision D4) so no pure helper forces a runtime
+ * import of `src/ai/**`.
+ *
  * Dependency direction (must hold as this module grows):
  *
  *     entities / services / controllers  →  governance-core (pure)  →  (no ai)
@@ -40,6 +50,14 @@
  * 自第五步起它同时提供 `LocalEntityRevoker`（本地软删执行器），同样只此一个实例。`SIDE_EFFECT_REVOKER`
  * **不在此提供**：它是各进程模块自行绑到这个类上的 token —— 业务侧与治理台因此拿到同一个撤销器，
  * 而某个不该做本地撤销的进程只要不绑即可。
+ *
+ * 自第六步起它同时容纳审计读侧：`AuditStatsService`、`AuditQueryService`、`CoverageService` 与
+ * `AuditEvidenceService`，连同它们共用的助手簇（`by-day`、`audit-reader-scope`、
+ * `audit-explanation-state`、`audit-interpreter.service`、`confirmation-detail`，以及工具标签三件
+ * `ai-feature-map` / `tool-name` / `tool-metadata`）。**只放代码**：这四个服务仍由各进程模块自己提供 ——
+ * 它们的 `@Optional` 依赖（`OrgService`、`OperationAuditService`）只在该进程自己的模块上下文里可见，
+ * 一个模块的 provider 看不到它的 importer 引进了什么。工具标签三件随读侧一并搬入（S4-H4 C 决策 D4），
+ * 于是不再有纯助手逼迫运行时 import `src/ai/**`。
  *
  * 依赖方向（本模块长大时必须成立）：
  *
@@ -70,7 +88,17 @@ import { LocalEntityRevoker } from './services/side-effect-revoker';
   // GOVERNANCE_REPORTER 刻意不在此处提供：它的绑定归业务侧。
   // SIDE_EFFECT_REVOKER 同理刻意不提供：各进程模块把自己的 token 绑到**这一个**实例上，于是某个进程
   // 若不该做本地撤销，只要不绑即可。
-  providers: [AiAgentService, GovernancePolicyService, AuditService, LocalEntityRevoker],
-  exports: [AiAgentService, GovernancePolicyService, AuditService, LocalEntityRevoker],
+  providers: [
+    AiAgentService,
+    GovernancePolicyService,
+    AuditService,
+    LocalEntityRevoker,
+  ],
+  exports: [
+    AiAgentService,
+    GovernancePolicyService,
+    AuditService,
+    LocalEntityRevoker,
+  ],
 })
 export class GovernanceSharedModule {}

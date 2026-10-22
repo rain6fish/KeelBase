@@ -23,7 +23,7 @@ import { MaintenanceTasksService } from './maintenance-tasks.service';
 import { AuditChainService } from '../common/audit-chain/audit-chain.service';
 import { AuditChainLock } from '../common/audit-chain/audit-chain-lock.entity';
 import { AuditService } from '../governance-shared/services/audit.service';
-import { AuditEvidenceService } from '../ai/audit/audit-evidence.service';
+import { AuditEvidenceService } from '../governance-shared/services/audit-evidence.service';
 import { AiAuditLog } from '../governance-shared/entities/ai-audit-log.entity';
 import { AiDailyUsage } from '../governance-shared/entities/ai-daily-usage.entity';
 import { AiToolSideEffect } from '../governance-shared/entities/ai-tool-side-effect.entity';

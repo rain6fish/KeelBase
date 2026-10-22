@@ -2,7 +2,7 @@
 
 import { TOOL_METADATA, toolLabelKey } from './tool-metadata';
 import { aiActionLabel } from './ai-feature-map';
-import { deriveAiBusinessEvent } from './ai-business-event';
+import { deriveAiBusinessEvent } from '../../ai/audit/ai-business-event';
 
 /**
  * The two views now come from one table, so what these cases pin is the table's reach: the labels

@@ -83,7 +83,7 @@ if (registered.size < 20) {
 }
 
 // ── 真源 2：TOOL_METADATA ──────────────────────────────────────────────────────
-const mdSrc = read('Server-NestJS/src/ai/audit/tool-metadata.ts');
+const mdSrc = read('Server-NestJS/src/governance-shared/services/tool-metadata.ts');
 const mdStart = mdSrc.indexOf('export const TOOL_METADATA');
 if (mdStart < 0) die('tool-metadata.ts 里找不到 `export const TOOL_METADATA`');
 const mdTable = mdSrc.slice(mdStart);
@@ -105,7 +105,7 @@ const actions = [...actionUnion[1].matchAll(/'([a-z_]+)'/g)].map((m) => m[1]);
 if (actions.length < 5) die(`只解析出 ${actions.length} 个动作取值（下限 5）—— 闸本身失效`);
 
 // ── 真源 4：ACTION_LABELS ──────────────────────────────────────────────────────
-const fmSrc = read('Server-NestJS/src/ai/audit/ai-feature-map.ts');
+const fmSrc = read('Server-NestJS/src/governance-shared/services/ai-feature-map.ts');
 const fmStart = fmSrc.indexOf('const ACTION_LABELS');
 if (fmStart < 0) die('ai-feature-map.ts 里找不到 `const ACTION_LABELS`');
 const fmBlock = fmSrc.slice(fmStart, fmSrc.indexOf('\n};', fmStart));
@@ -167,8 +167,8 @@ for (const [locale, rel] of Object.entries(DICTS)) {
 if (problems.length) {
   console.error('✗ 审计词汇闸未通过：\n');
   for (const p of problems) console.error(`  - ${p}`);
-  console.error('\n  真源：工具名 ← `Server-NestJS/src/ai/tools/**/*.tool.ts`；元数据 ← `ai/audit/tool-metadata.ts`');
-  console.error('        动作取值 ← `governance-shared/services/audit.service.ts` 的 `AuditEntry.action`；标签 ← `ai/audit/ai-feature-map.ts`');
+  console.error('\n  真源：工具名 ← `Server-NestJS/src/ai/tools/**/*.tool.ts`；元数据 ← `governance-shared/services/tool-metadata.ts`');
+  console.error('        动作取值 ← `governance-shared/services/audit.service.ts` 的 `AuditEntry.action`；标签 ← `governance-shared/services/ai-feature-map.ts`');
   console.error('  另一个方向（元数据 → 三个字典）由 `npm run check:tool-labels` 守。');
   process.exit(1);
 }

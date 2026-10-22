@@ -32,7 +32,7 @@ import { AiToolSideEffect } from '../src/governance-shared/entities/ai-tool-side
 import { AuditChainService } from '../src/common/audit-chain/audit-chain.service';
 import { AuditChainLock } from '../src/common/audit-chain/audit-chain-lock.entity';
 import { AuditService } from '../src/governance-shared/services/audit.service';
-import { AuditEvidenceService } from '../src/ai/audit/audit-evidence.service';
+import { AuditEvidenceService } from '../src/governance-shared/services/audit-evidence.service';
 
 function argInt(name: string, def: number): number {
   const idx = process.argv.indexOf(`--${name}`);

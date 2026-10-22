@@ -26,22 +26,21 @@ import { AiGovernancePolicyHistory } from '../governance-shared/entities/ai-gove
 // AuditService 的唯一提供者已是 GovernanceSharedModule（S4-H4 C 第四步）；治理台 import 它即可。
 // The single provider of AuditService is now GovernanceSharedModule (S4-H4 C Step 4); the governance
 // console only has to import it.
-// 阶段 3 把 AuditService 拆成三块（聚合统计 / 查询域 / 证据域），AuditController 一并接收——
-// 治理台自己实例化 AuditController，所以它也必须自己提供这三个，与 AuditService 同理。
-import { AuditStatsService } from '../ai/audit/audit-stats.service';
-import { AuditQueryService } from '../ai/audit/audit-query.service';
-import { AuditEvidenceService } from '../ai/audit/audit-evidence.service';
-// AW-3 gave `AuditEvidenceService` a fourth constructor dependency (`CoverageService`), and the
-// governance plane instantiates these services itself — so it has to provide that one too. This list
-// must follow that constructor, not lag behind it: when it lags, the governance module fails to
-// instantiate, which `app-wiring.spec.ts` catches and nothing in `check:all` does.
-// AW-3 给 `AuditEvidenceService` 加了**第四个**构造器依赖（`CoverageService`），而治理台**自己实例化**
-// 这些服务 —— 故它也必须自己提供这一个。这份清单要跟着那个构造器走、而不是落在它后面：一落后，
-// 治理模块就装配不起来，`app-wiring.spec.ts` 会逮到，而 `check:all` 里没有任何一道会。
-import { CoverageService } from '../ai/audit/coverage.service';
+// In Stage 3 AuditService was split into three (stats / query / evidence); since Step 6 they are
+// provided by GovernanceSharedModule just like AuditService, and the console only imports that module.
+// 阶段 3 把 AuditService 拆成三块（聚合统计 / 查询域 / 证据域）；自第六步起它们与 AuditService 一样
+// 由 GovernanceSharedModule 提供，治理台只 import 该模块。
+// The constructor-dependency list that used to live here now lives in GovernanceSharedModule; a
+// missing provider still fails `app-wiring.spec.ts` and nothing in `check:all` catches it.
+// 过去维护在这里的构造器依赖清单现在由 GovernanceSharedModule 负责；缺 provider 仍会让
+// `app-wiring.spec.ts` 变红，而 `check:all` 里没有任何一道会逮到。
 // Leaf services now have a single provider: the shared module (S4-H4 C Step 3).
 // 叶子服务现在只有一个提供者：共享模块（S4-H4 C 第三步）。
 import { GovernanceSharedModule } from '../governance-shared/governance-shared.module';
+import { AuditStatsService } from '../governance-shared/services/audit-stats.service';
+import { AuditQueryService } from '../governance-shared/services/audit-query.service';
+import { AuditEvidenceService } from '../governance-shared/services/audit-evidence.service';
+import { CoverageService } from '../governance-shared/services/coverage.service';
 import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';
 import { LocalEntityRevoker, SIDE_EFFECT_REVOKER } from '../governance-shared/services/side-effect-revoker';
 import { GovernanceApprovalService } from './governance-approval.service';
@@ -94,6 +93,10 @@ import { GovernanceCaslAbilityFactory } from './governance-casl.factory';
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: PoliciesGuard },
     // 治理服务（注入治理库默认 DataSource）
+    // 审计读侧代码在 governance-shared（S4-H4 C 第六步），但 provider 留在治理台自己的模块里 ——
+    // 它们的可见依赖（本进程的 DataSource / @Optional 服务）只在此上下文成立。
+    // The read-side code lives in governance-shared (S4-H4 C Step 6); the providers stay in this
+    // module because their visible dependencies only exist in this process's context.
     AuditStatsService,
     AuditQueryService,
     AuditEvidenceService,

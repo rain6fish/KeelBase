@@ -17,11 +17,11 @@ import { Repository } from 'typeorm';
 import { AiAuditLog } from '../../governance-shared/entities/ai-audit-log.entity';
 import { ConversationService, ConversationData } from '../conversation/conversation.service';
 import { AiToolEffectsService } from '../tool-effects/ai-tool-effects.service';
-import { parseToolCall as parseToolCallShared } from '../audit/tool-name';
+import { parseToolCall as parseToolCallShared } from '../../governance-shared/services/tool-name';
 import {
   parseConfirmation as parseConfirmationShared,
   type ConfirmationOutcome,
-} from '../audit/confirmation-detail';
+} from '../../governance-shared/services/confirmation-detail';
 import type { AppAbility } from '../../common/casl/casl-ability.factory';
 
 export type TraceStepType =
