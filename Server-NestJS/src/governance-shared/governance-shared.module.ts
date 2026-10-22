@@ -31,6 +31,12 @@
  * The tool-label trio moved with them (S4-H4 C decision D4) so no pure helper forces a runtime
  * import of `src/ai/**`.
  *
+ * From Step 7 on it also hosts the side-effect read/revoke cluster — `AiToolEffectsService`, its
+ * `effect-*` helpers, the write-claim store and the snapshot captor — plus the `EffectComparability`
+ * and `AiWriteClaim` entities. As in Step 6 only the code lives here: the service stays a provider
+ * of `AiModule` / `GovernanceModule`, because its optional `ToolRegistry`, `EXTERNAL_REVOKER`,
+ * `SIDE_EFFECT_REVOKER` and reporter lookups are only visible inside those module contexts.
+ *
  * Dependency direction (must hold as this module grows):
  *
  *     entities / services / controllers  →  governance-core (pure)  →  (no ai)
@@ -58,6 +64,11 @@
  * 它们的 `@Optional` 依赖（`OrgService`、`OperationAuditService`）只在该进程自己的模块上下文里可见，
  * 一个模块的 provider 看不到它的 importer 引进了什么。工具标签三件随读侧一并搬入（S4-H4 C 决策 D4），
  * 于是不再有纯助手逼迫运行时 import `src/ai/**`。
+ *
+ * 自第七步起它同时容纳副作用读/撤销簇 —— `AiToolEffectsService`、它的 `effect-*` 助手、写占位仓储与
+ * 快照捕获器 —— 以及 `EffectComparability`、`AiWriteClaim` 两个实体。与第六步相同，**只放代码**：服务仍由
+ * `AiModule` / `GovernanceModule` 提供，因为它的 `@Optional` 依赖（`ToolRegistry`、`EXTERNAL_REVOKER`、
+ * `SIDE_EFFECT_REVOKER` 与 reporter）只在那些模块上下文里可见。
  *
  * 依赖方向（本模块长大时必须成立）：
  *

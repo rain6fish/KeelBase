@@ -6,7 +6,7 @@ import request from 'supertest';
 import { createTestApp, registerUser, authHeader } from './helpers';
 import { ToolExposureService } from '../src/ai/tools/tool-exposure.service';
 import { AuthorizationDeniedError } from '../src/ai/interfaces/tool.interface';
-import { AiToolEffectsService } from '../src/ai/tool-effects/ai-tool-effects.service';
+import { AiToolEffectsService } from '../src/governance-shared/services/ai-tool-effects.service';
 import { AiToolSideEffect } from '../src/governance-shared/entities/ai-tool-side-effect.entity';
 
 /**

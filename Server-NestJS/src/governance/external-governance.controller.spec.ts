@@ -3,7 +3,7 @@
 import { ExternalGovernanceController } from './external-governance.controller';
 import { AuditService } from '../governance-shared/services/audit.service';
 import { GovernancePolicyService } from '../governance-shared/services/governance-policy.service';
-import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';
+import { AiToolEffectsService } from '../governance-shared/services/ai-tool-effects.service';
 import { SidecarRegistryService } from './sidecar-registry.service';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';

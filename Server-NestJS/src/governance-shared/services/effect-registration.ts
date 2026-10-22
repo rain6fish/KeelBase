@@ -10,7 +10,7 @@ import type { DeclaredSideEffect } from './effect-composition';
 import { argsHash, buildKey, isUniqueViolation, memberKey } from './effect-shared';
 import type { GovernanceReporter } from '../../governance-shared/services/governance-reporter.service';
 import type { CapturedWrite } from '../../common/write-capture/write-capture';
-import type { RevokeClass } from '../interfaces/tool.interface';
+import type { RevokeClass } from '../../ai/interfaces/tool.interface';
 import type { SideEffectSnapshot, WriteToolContext } from './tool-effects.types';
 
 /**

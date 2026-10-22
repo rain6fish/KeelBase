@@ -8,7 +8,7 @@ import { resolve } from 'node:path';
 import { createTestApp, registerUser, loginAs, authHeader } from './helpers';
 import { ToolExposureService } from '../src/ai/tools/tool-exposure.service';
 import { ToolExecutionService } from '../src/ai/tools/tool-execution.service';
-import { AiToolEffectsService } from '../src/ai/tool-effects/ai-tool-effects.service';
+import { AiToolEffectsService } from '../src/governance-shared/services/ai-tool-effects.service';
 import { AuthorizationDeniedError } from '../src/ai/interfaces/tool.interface';
 
 /**

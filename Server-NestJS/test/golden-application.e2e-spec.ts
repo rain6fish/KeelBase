@@ -8,7 +8,7 @@ import { CrmService } from '../src/crm/crm.service';
 import { CrmAnalyticsService } from '../src/crm/crm-analytics.service';
 import { ToolExecutionService } from '../src/ai/tools/tool-execution.service';
 import { ToolExposureService } from '../src/ai/tools/tool-exposure.service';
-import { AiToolEffectsService } from '../src/ai/tool-effects/ai-tool-effects.service';
+import { AiToolEffectsService } from '../src/governance-shared/services/ai-tool-effects.service';
 import { QueryCustomersTool } from '../src/ai/tools/query-customers.tool';
 import { AnalyzeCustomerRiskTool } from '../src/ai/tools/analyze-customer-risk.tool';
 import { CreateFollowupTaskTool } from '../src/ai/tools/create-followup-task.tool';

@@ -6,7 +6,7 @@ import { ToolGateService } from './tool-gate.service';
 import { ExternalToolRegistry } from './external-tool-registry';
 import { AuthorizationDeniedError } from '../interfaces/tool.interface';
 import { ConfirmationStore } from '../confirmation/confirmation.store';
-import { AiToolEffectsService } from '../tool-effects/ai-tool-effects.service';
+import { AiToolEffectsService } from '../../governance-shared/services/ai-tool-effects.service';
 import { outboundIdempotencyKey } from '../proxy/outbound-idempotency';
 
 /**

@@ -5,7 +5,7 @@ import { DataSource, In } from 'typeorm';
 import request from 'supertest';
 import { createTestApp, registerUser, loginAs, authHeader } from './helpers';
 import { User, UserRole } from '../src/common/entities/user.entity';
-import { AiToolEffectsService } from '../src/ai/tool-effects/ai-tool-effects.service';
+import { AiToolEffectsService } from '../src/governance-shared/services/ai-tool-effects.service';
 import { PmService } from '../src/pm/pm.service';
 import { PmProject } from '../src/pm/pm-project.entity';
 import { PmTask } from '../src/pm/pm-task.entity';

@@ -4,7 +4,7 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { createTestApp, registerUser, loginAs, authHeader } from './helpers';
-import { AiToolEffectsService } from '../src/ai/tool-effects/ai-tool-effects.service';
+import { AiToolEffectsService } from '../src/governance-shared/services/ai-tool-effects.service';
 
 /**
  * 30 分钟创造闭环 · 生成模块「治理缺省」—— 把 onboarding-30min §5 的**手工验收清单**升为**自动化闭环**。

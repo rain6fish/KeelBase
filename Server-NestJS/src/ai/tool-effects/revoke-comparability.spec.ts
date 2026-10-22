@@ -10,10 +10,10 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
-import { EffectComparability } from './effect-comparability.entity';
-import { AiToolEffectsService } from './ai-tool-effects.service';
+import { EffectComparability } from '../../governance-shared/entities/effect-comparability.entity';
+import { AiToolEffectsService } from '../../governance-shared/services/ai-tool-effects.service';
 import { LocalEntityRevoker } from '../../governance-shared/services/side-effect-revoker';
-import { SideEffectSnapshotCaptor } from './side-effect-snapshot-captor';
+import { SideEffectSnapshotCaptor } from '../../governance-shared/services/side-effect-snapshot-captor';
 
 /**
  * 测试用最小本地目标实体。**元数据名必须叫 `Event`** —— `resolveLocalEntity` 与 `entityFor('event')`

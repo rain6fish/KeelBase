@@ -2,9 +2,9 @@
 
 import { DataSource } from 'typeorm';
 import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
-import { AiToolEffectsService } from './ai-tool-effects.service';
-import { chainPayload } from './effect-chain';
-import type { DeclaredSideEffect } from './effect-composition';
+import { AiToolEffectsService } from '../../governance-shared/services/ai-tool-effects.service';
+import { chainPayload } from '../../governance-shared/services/effect-chain';
+import type { DeclaredSideEffect } from '../../governance-shared/services/effect-composition';
 
 /**
  * REV-6「effect 身份可依赖」：身份要**同时**答出目标与变更。

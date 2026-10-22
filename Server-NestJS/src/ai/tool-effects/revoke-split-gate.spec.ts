@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { createHash } from 'crypto';
-import { AiToolEffectsService } from './ai-tool-effects.service';
+import { AiToolEffectsService } from '../../governance-shared/services/ai-tool-effects.service';
 
 /**
  * REV-5「过度分裂」：**撤销时的闸门**，而不是库侧扫描。

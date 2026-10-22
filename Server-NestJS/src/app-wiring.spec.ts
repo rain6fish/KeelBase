@@ -31,6 +31,7 @@ import { GovernanceModule } from './governance/governance.module';
 import { SidecarModule } from './governance-sidecar/sidecar.module';
 import { AiAuditModule } from './ai/audit/ai-audit.module';
 import { AiModule } from './ai/ai.module';
+import { AiToolEffectsService } from './governance-shared/services/ai-tool-effects.service';
 import { AuditService } from './governance-shared/services/audit.service';
 import { GOVERNANCE_REPORTER } from './governance-shared/services/governance-reporter.service';
 import { LocalEntityRevoker, SIDE_EFFECT_REVOKER } from './governance-shared/services/side-effect-revoker';
@@ -76,6 +77,14 @@ describe('装配冒烟（模块能被实例化）', () => {
     // S4-H4 C 第六步：读侧由 AiModule 唯一提供 —— 代码已搬进 governance-shared，但 provider 留在能看见
     // `OrgService` / `OperationAuditService` 的模块里。
     expect(moduleRef.select(AiModule).get(AuditEvidenceService)).toBe(moduleRef.get(AuditEvidenceService));
+    // S4-H4 C Step 7: the B-path revoker is assembled by AiModule's factory, not by DI — a missing
+    // `setExternalRevoker` call leaves proxy writes with no compensation path and no test notices.
+    // S4-H4 C 第七步：B 路径撤销器由 AiModule 的工厂装配、不走 DI —— 少了 `setExternalRevoker`，
+    // 代理写就没有补偿路径，而既有测试不会察觉。
+    const effects = moduleRef.get(AiToolEffectsService) as unknown as {
+      revocations?: { externalRevoker?: unknown };
+    };
+    expect(effects.revocations?.externalRevoker).toBeDefined();
     await moduleRef.close();
   }, 120_000);
 

@@ -5,7 +5,7 @@ import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { AiAuditLog } from '../../governance-shared/entities/ai-audit-log.entity';
 import { ConversationService, ConversationData } from '../conversation/conversation.service';
-import { AiToolEffectsService } from '../tool-effects/ai-tool-effects.service';
+import { AiToolEffectsService } from '../../governance-shared/services/ai-tool-effects.service';
 import { DecisionTraceService } from './decision-trace.service';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';

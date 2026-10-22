@@ -16,7 +16,7 @@ import type { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-
 import type { CaptureUnavailableReason } from './side-effect-snapshot-captor';
 import type { CapturedWrite } from '../../common/write-capture/write-capture';
 import type { DerivedReferenceCount } from '../../governance-shared/services/side-effect-revoker';
-import type { RevokeClass } from '../interfaces/tool.interface';
+import type { RevokeClass } from '../../ai/interfaces/tool.interface';
 import type { RevokeStatus } from '../../governance-core/revoke-status';
 
 export interface WriteToolContext {

@@ -3,7 +3,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { GovernanceController } from './governance.controller';
 import { GovernancePolicyService } from '../governance-shared/services/governance-policy.service';
-import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';
+import { AiToolEffectsService } from '../governance-shared/services/ai-tool-effects.service';
 import { GovernanceApprovalService } from './governance-approval.service';
 import { SidecarRegistryService } from './sidecar-registry.service';
 

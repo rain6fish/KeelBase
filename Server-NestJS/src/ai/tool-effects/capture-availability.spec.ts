@@ -3,11 +3,11 @@
 import { DataSource } from 'typeorm';
 import { Entity, PrimaryGeneratedColumn, Column, DeleteDateColumn } from 'typeorm';
 import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
-import { AiToolEffectsService } from './ai-tool-effects.service';
+import { AiToolEffectsService } from '../../governance-shared/services/ai-tool-effects.service';
 import {
   SideEffectSnapshotCaptor,
   type CaptureUnavailableReason,
-} from './side-effect-snapshot-captor';
+} from '../../governance-shared/services/side-effect-snapshot-captor';
 
 /**
  * REV-13: capture availability must be readable **per cause**, and the causes must not mask

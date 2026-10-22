@@ -3,7 +3,7 @@
 import { Controller, Post, Body, UseGuards, NotFoundException } from '@nestjs/common';
 import { Public } from '../../auth/guards/public.decorator';
 import { GovernanceApiGuard } from '../../governance/governance-api.guard';
-import { AiToolEffectsService } from '../tool-effects/ai-tool-effects.service';
+import { AiToolEffectsService } from '../../governance-shared/services/ai-tool-effects.service';
 
 /**
  * D2-4 业务系统撤销回调端点（服务身份）：独立治理台撤销副作用时回调本系统，

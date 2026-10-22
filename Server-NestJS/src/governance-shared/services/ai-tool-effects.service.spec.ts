@@ -6,8 +6,8 @@ import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-
 import { AiToolEffectsService } from './ai-tool-effects.service';
 import { chainPayload } from './effect-chain';
 import { LocalEntityRevoker, SIDE_EFFECT_REVOKER } from '../../governance-shared/services/side-effect-revoker';
-import { ToolRegistry } from '../tools/tool-registry';
-import { resolveRevokeClass } from '../interfaces/tool.interface';
+import { ToolRegistry } from '../../ai/tools/tool-registry';
+import { resolveRevokeClass } from '../../ai/interfaces/tool.interface';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 

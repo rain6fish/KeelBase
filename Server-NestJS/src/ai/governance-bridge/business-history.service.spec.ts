@@ -3,7 +3,7 @@
 import { Test } from '@nestjs/testing';
 import { getEntityManagerToken } from '@nestjs/typeorm';
 import { BusinessHistoryService } from './business-history.service';
-import { AiToolEffectsService } from '../tool-effects/ai-tool-effects.service';
+import { AiToolEffectsService } from '../../governance-shared/services/ai-tool-effects.service';
 import { DecisionTraceService } from '../trace/decision-trace.service';
 import { OperationAuditService } from '../../operation-audit/operation-audit.service';
 

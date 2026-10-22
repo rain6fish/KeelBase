@@ -10,7 +10,7 @@
  * 本用例断言：单条撤销对已 compensating 的副作用不得重复触发外部补偿。
  */
 
-import { AiToolEffectsService } from './ai-tool-effects.service';
+import { AiToolEffectsService } from '../../governance-shared/services/ai-tool-effects.service';
 
 describe('revoke 幂等：单条撤销与批量撤销一致性', () => {
   function make(effect: Record<string, unknown>, externalRevoke: jest.Mock) {

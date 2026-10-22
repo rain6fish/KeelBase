@@ -7,10 +7,10 @@ import { EffectRegistration } from './effect-registration';
 import { EffectComparabilityStore } from './effect-comparability.store';
 import { EffectDisputeStore } from './effect-dispute.store';
 import { OperationAuditService } from '../../operation-audit/operation-audit.service';
-import type { ExternalRevoker } from '../proxy/proxy-revoker.service';
+import type { ExternalRevoker } from '../../ai/proxy/proxy-revoker.service';
 import { isEffectOwner, targetKey } from './effect-shared';
 import type { SideEffectRevoker, DerivedReferenceCount } from '../../governance-shared/services/side-effect-revoker';
-import type { RevokeClass } from '../interfaces/tool.interface';
+import type { RevokeClass } from '../../ai/interfaces/tool.interface';
 import { REVOKE_STATUS } from '../../governance-core/revoke-status';
 import type {
   HostHelpers,

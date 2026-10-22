@@ -3,7 +3,7 @@
 import { Logger } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
-import { AiWriteClaim, WRITE_CLAIM_STATUS } from './ai-write-claim.entity';
+import { AiWriteClaim, WRITE_CLAIM_STATUS } from '../entities/ai-write-claim.entity';
 import { argsHash, buildKey } from './effect-shared';
 import type { WriteToolContext } from './tool-effects.types';
 

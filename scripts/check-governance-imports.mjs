@@ -108,13 +108,15 @@ const CONFIG_WIRING = /^governance-.*\.ts$/;
  * 基线说明（2026-10-22，S4-H4 C 第六步）：四个审计读侧服务连同助手簇搬进
  * `src/governance-shared/services/`，随之退役 `governance.module.ts` 对 `AuditStatsService`、
  * `AuditQueryService`、`AuditEvidenceService` 与 `CoverageService` 的 import。
+ *
+ * Baseline note (2026-10-22, S4-H4 C Step 7): the side-effect read/revoke cluster moved to
+ * `src/governance-shared/services/`, retiring the five `AiToolEffectsService` imports in
+ * `governance.module.ts` and the two governance controllers (with their specs).
+ *
+ * 基线说明（2026-10-22，S4-H4 C 第七步）：副作用读/撤销簇搬进 `src/governance-shared/services/`，
+ * 随之退役 `governance.module.ts` 与治理两个控制器（连同 spec）里的五条 `AiToolEffectsService` import。
  */
 const BASELINE = [
-  ['external-governance.controller.spec.ts', "import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';"],
-  ['external-governance.controller.ts', "import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';"],
-  ['governance.controller.spec.ts', "import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';"],
-  ['governance.controller.ts', "import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';"],
-  ['governance.module.ts', "import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';"],
   ['governance.module.ts', "import { AuditController } from '../ai/audit/audit.controller';"],
   ['governance.module.ts', "import { AgentsController } from '../ai/agents/agents.controller';"],
 ].map(([file, statement]) => `${file} :: ${statement}`);

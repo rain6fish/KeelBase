@@ -23,10 +23,10 @@ import { ProxyTool } from '../proxy/proxy-tool';
 // ACT-9b：把这次写的 action key 送给出站写出方（`ProxyTool` 据此发 `Idempotency-Key`）
 import { outboundIdempotencyKey } from '../proxy/outbound-idempotency';
 import { AuthorizationDeniedError, ToolResult } from '../interfaces/tool.interface';
-import { AiToolEffectsService, sortKeys } from '../tool-effects/ai-tool-effects.service';
+import { AiToolEffectsService, sortKeys } from '../../governance-shared/services/ai-tool-effects.service';
 import { writeEffectTypeFor, EXTERNAL_CALL_EFFECT_TYPE } from '../tool-effects/write-effect-type';
-import { declaredEffects } from '../tool-effects/effect-composition';
-import { SideEffectSnapshotCaptor } from '../tool-effects/side-effect-snapshot-captor';
+import { declaredEffects } from '../../governance-shared/services/effect-composition';
+import { SideEffectSnapshotCaptor } from '../../governance-shared/services/side-effect-snapshot-captor';
 // REV-7：agent 身份与审计行同源，在此边界处读一次
 import { actorContext } from '../../governance-shared/actor-context';
 // REV-10：把工具执行包进写入采集窗口（数据层实际写了什么）

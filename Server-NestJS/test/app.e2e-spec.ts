@@ -7,7 +7,7 @@ import sharp from 'sharp';
 import { createTestApp, registerUser, loginAs, authHeader } from './helpers';
 import { UserRole } from '../src/common/entities/user.entity';
 import { ConfirmationStore } from '../src/ai/confirmation/confirmation.store';
-import { AiToolEffectsService } from '../src/ai/tool-effects/ai-tool-effects.service';
+import { AiToolEffectsService } from '../src/governance-shared/services/ai-tool-effects.service';
 import { CacheService } from '../src/common/cache/cache.service';
 
 describe('App (e2e)', () => {

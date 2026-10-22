@@ -5,7 +5,7 @@ import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { createTestApp, registerUser, loginAs, authHeader } from './helpers';
 import { User, UserRole } from '../src/common/entities/user.entity';
-import { AiToolEffectsService } from '../src/ai/tool-effects/ai-tool-effects.service';
+import { AiToolEffectsService } from '../src/governance-shared/services/ai-tool-effects.service';
 
 /**
  * Revoke Contract §2 工具级撤销验收（docs/revoke-contract.spec.md §2.1 本地可撤，G4 回归固化）。

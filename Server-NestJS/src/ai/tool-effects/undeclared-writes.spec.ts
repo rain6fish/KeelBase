@@ -3,7 +3,7 @@
 import { DataSource } from 'typeorm';
 import { Column, DeleteDateColumn, Entity, PrimaryGeneratedColumn } from 'typeorm';
 import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
-import { AiToolEffectsService } from './ai-tool-effects.service';
+import { AiToolEffectsService } from '../../governance-shared/services/ai-tool-effects.service';
 import { WriteCaptureSubscriber } from '../../common/write-capture/write-capture.subscriber';
 import { withWriteCapture } from '../../common/write-capture/write-capture';
 

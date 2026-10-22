@@ -4,7 +4,7 @@ import { INestApplication } from '@nestjs/common';
 import { DataSource, Repository } from 'typeorm';
 import request from 'supertest';
 import { createTestApp, registerUser, authHeader } from './helpers';
-import { AiToolEffectsService } from '../src/ai/tool-effects/ai-tool-effects.service';
+import { AiToolEffectsService } from '../src/governance-shared/services/ai-tool-effects.service';
 import { AiToolSideEffect } from '../src/governance-shared/entities/ai-tool-side-effect.entity';
 
 /**

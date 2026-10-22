@@ -23,7 +23,7 @@ import { AuditService } from '../governance-shared/services/audit.service';
 import { captureDecisionEvidence } from './audit/decision-evidence';
 import { buildToolCallAudit, confirmationOutcome } from './audit/tool-call-audit';
 // ACT-3：免确认作用域键要按**规范化**参数算（与副作用幂等键同一口径，防同一逻辑调用两种写法算出两个键）
-import { AiToolEffectsService, sortKeys } from './tool-effects/ai-tool-effects.service';
+import { AiToolEffectsService, sortKeys } from '../governance-shared/services/ai-tool-effects.service';
 import { AiDailyUsageService } from './audit/ai-daily-usage.service';
 import { RouterAgent, Intent, WRITE_ACTION_VERBS } from './agents/router-agent.service';
 import { LlmUsage, addLlmUsage } from './llm-usage';

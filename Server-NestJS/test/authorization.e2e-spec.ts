@@ -4,7 +4,7 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { createTestApp, registerUser, authHeader } from './helpers';
 import { CrmService } from '../src/crm/crm.service';
-import { AiToolEffectsService } from '../src/ai/tool-effects/ai-tool-effects.service';
+import { AiToolEffectsService } from '../src/governance-shared/services/ai-tool-effects.service';
 import { QueryCustomersTool } from '../src/ai/tools/query-customers.tool';
 import { CreateFollowupTaskTool } from '../src/ai/tools/create-followup-task.tool';
 

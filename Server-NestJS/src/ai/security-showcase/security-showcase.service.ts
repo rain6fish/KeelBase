@@ -9,7 +9,7 @@ import { DeleteCustomerTool } from '../tools/delete-customer.tool';
 import { CreateFollowupTaskTool } from '../tools/create-followup-task.tool';
 import { detectInjection, sanitizeExternalContent } from '../security/injection-guard';
 import { resolveRevokeClass } from '../interfaces/tool.interface';
-import { isEffectOwner } from '../tool-effects/effect-shared';
+import { isEffectOwner } from '../../governance-shared/services/effect-shared';
 
 export type ShowcaseOutcome =
   | 'refused'

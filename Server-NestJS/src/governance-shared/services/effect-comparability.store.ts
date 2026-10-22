@@ -4,7 +4,7 @@ import { Logger } from '@nestjs/common';
 import { In, Repository } from 'typeorm';
 import { sortKeys } from '../../common/canonical-json';
 import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
-import { EffectComparability } from './effect-comparability.entity';
+import { EffectComparability } from '../entities/effect-comparability.entity';
 import { SideEffectSnapshotCaptor, type CaptureResult } from './side-effect-snapshot-captor';
 import type {
   RevokeComparabilityAttempt,

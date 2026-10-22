@@ -3,7 +3,7 @@
 import { Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
-import { AiToolEffectsService } from './ai-tool-effects.service';
+import { AiToolEffectsService } from '../../governance-shared/services/ai-tool-effects.service';
 import { ToolExecutionService } from '../tools/tool-execution.service';
 import { ToolGateService } from '../tools/tool-gate.service';
 import { ExternalToolRegistry } from '../tools/external-tool-registry';

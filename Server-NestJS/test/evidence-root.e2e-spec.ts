@@ -9,7 +9,7 @@ import { writeFileSync, rmSync, mkdtempSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { createTestApp, registerUser, authHeader } from './helpers';
 import { CrmService } from '../src/crm/crm.service';
-import { AiToolEffectsService } from '../src/ai/tool-effects/ai-tool-effects.service';
+import { AiToolEffectsService } from '../src/governance-shared/services/ai-tool-effects.service';
 import { CreateFollowupTaskTool } from '../src/ai/tools/create-followup-task.tool';
 import { AuditService } from '../src/governance-shared/services/audit.service';
 import { buildAnchor } from '../src/ai/audit/evidence-anchor';

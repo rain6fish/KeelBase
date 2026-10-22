@@ -2,9 +2,9 @@
 
 import { DataSource } from 'typeorm';
 import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
-import { AiWriteClaim, WRITE_CLAIM_STATUS } from './ai-write-claim.entity';
+import { AiWriteClaim, WRITE_CLAIM_STATUS } from '../entities/ai-write-claim.entity';
 import { AiToolEffectsService } from './ai-tool-effects.service';
-import { ToolExecutionService } from '../tools/tool-execution.service';
+import { ToolExecutionService } from '../../ai/tools/tool-execution.service';
 
 /**
  * ACT-5/6 切片 1（roadmap §2.1.16）：**本地实体写**在执行前占位，使「这次调用是否已在执行」

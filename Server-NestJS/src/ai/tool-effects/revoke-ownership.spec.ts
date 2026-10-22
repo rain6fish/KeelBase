@@ -19,9 +19,9 @@
  * 改回手抄比较式，这一翻转就不再起作用，测试转红。
  */
 
-import { AiToolEffectsService } from './ai-tool-effects.service';
-import * as effectShared from './effect-shared';
-import { isEffectOwner } from './effect-shared';
+import { AiToolEffectsService } from '../../governance-shared/services/ai-tool-effects.service';
+import * as effectShared from '../../governance-shared/services/effect-shared';
+import { isEffectOwner } from '../../governance-shared/services/effect-shared';
 
 describe('revoke ownership: one predicate shared by the real path and the showcase replay', () => {
   /** Local revoker stand-in: enough for the real revoke path to reach its terminal write. */

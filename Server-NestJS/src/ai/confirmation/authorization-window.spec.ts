@@ -3,7 +3,7 @@
 import { DataSource } from 'typeorm';
 import { AiConfirmationRequest } from '../../governance-shared/entities/ai-confirmation-request.entity';
 import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
-import { AiToolEffectsService } from '../tool-effects/ai-tool-effects.service';
+import { AiToolEffectsService } from '../../governance-shared/services/ai-tool-effects.service';
 import { ConfirmationStore } from './confirmation.store';
 
 /**

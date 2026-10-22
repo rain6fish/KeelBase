@@ -3,7 +3,7 @@
 import { Injectable, ForbiddenException } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
-import { AiToolEffectsService } from '../tool-effects/ai-tool-effects.service';
+import { AiToolEffectsService } from '../../governance-shared/services/ai-tool-effects.service';
 import { DecisionTraceService } from '../trace/decision-trace.service';
 import { OperationAuditService } from '../../operation-audit/operation-audit.service';
 import { pathsForResultType } from '../../operation-audit/resource-routes';

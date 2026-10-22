@@ -8,7 +8,7 @@ import { ToolExposureService } from '../tools/tool-exposure.service';
 import { AuditService } from '../../governance-shared/services/audit.service';
 import { CrmService } from '../../crm/crm.service';
 import { UsersService } from '../../users/users.service';
-import { AiToolEffectsService } from '../tool-effects/ai-tool-effects.service';
+import { AiToolEffectsService } from '../../governance-shared/services/ai-tool-effects.service';
 import { REVOKE_STATUS } from '../../governance-core/revoke-status';
 import { User } from '../../common/entities/user.entity';
 import { CaslAbilityFactory } from '../../common/casl/casl-ability.factory';

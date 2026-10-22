@@ -12,7 +12,7 @@ jest.mock('../security/injection-guard', () => {
 });
 
 import { detectInjection } from '../security/injection-guard';
-import * as effectShared from '../tool-effects/effect-shared';
+import * as effectShared from '../../governance-shared/services/effect-shared';
 
 describe('SecurityShowcaseService (A2 对抗性证明产品化)', () => {
   let service: SecurityShowcaseService;

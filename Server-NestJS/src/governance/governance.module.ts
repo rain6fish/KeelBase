@@ -41,7 +41,7 @@ import { AuditStatsService } from '../governance-shared/services/audit-stats.ser
 import { AuditQueryService } from '../governance-shared/services/audit-query.service';
 import { AuditEvidenceService } from '../governance-shared/services/audit-evidence.service';
 import { CoverageService } from '../governance-shared/services/coverage.service';
-import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';
+import { AiToolEffectsService } from '../governance-shared/services/ai-tool-effects.service';
 import { LocalEntityRevoker, SIDE_EFFECT_REVOKER } from '../governance-shared/services/side-effect-revoker';
 import { GovernanceApprovalService } from './governance-approval.service';
 import { SidecarRegistryService } from './sidecar-registry.service';

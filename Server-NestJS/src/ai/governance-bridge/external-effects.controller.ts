@@ -3,7 +3,7 @@
 import { BadRequestException, Controller, Get, Param, UseGuards, NotFoundException } from '@nestjs/common';
 import { Public } from '../../auth/guards/public.decorator';
 import { GovernanceApiGuard } from '../../governance/governance-api.guard';
-import { AiToolEffectsService } from '../tool-effects/ai-tool-effects.service';
+import { AiToolEffectsService } from '../../governance-shared/services/ai-tool-effects.service';
 
 /**
  * 服务身份查询 AI 副作用状态（B 路径反向，Java 接入方对账用）：

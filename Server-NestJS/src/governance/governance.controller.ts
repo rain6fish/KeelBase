@@ -5,7 +5,7 @@ import { CheckPolicies } from '../common/casl/check-policies.decorator';
 import { Public } from '../auth/guards/public.decorator';
 import { GovernanceApprovalService } from './governance-approval.service';
 import { GovernancePolicyService } from '../governance-shared/services/governance-policy.service';
-import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';
+import { AiToolEffectsService } from '../governance-shared/services/ai-tool-effects.service';
 import { SidecarRegistryService } from './sidecar-registry.service';
 
 /**

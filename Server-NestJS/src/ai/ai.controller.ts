@@ -55,7 +55,7 @@ import { CurrentAbility } from '../common/casl/current-ability.decorator';
 import { CheckPolicies } from '../common/casl/check-policies.decorator';
 import { SkipAudit } from '../operation-audit/skip-audit.decorator';
 import { FeatureFlag } from '../feature-flags/feature-flag.decorator';
-import { AiToolEffectsService } from './tool-effects/ai-tool-effects.service';
+import { AiToolEffectsService } from '../governance-shared/services/ai-tool-effects.service';
 import { DecisionTraceService, DecisionTrace } from './trace/decision-trace.service';
 import { GovernancePolicyService } from '../governance-shared/services/governance-policy.service';
 import type { GovernancePolicy } from '../governance-shared/services/governance-policy.service';

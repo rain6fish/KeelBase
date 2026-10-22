@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { AiToolEffectsService } from './ai-tool-effects.service';
-import type { RevokeDisputeEvidence } from './ai-tool-effects.service';
-import type { DeclaredSideEffect } from './effect-composition';
-import { chainPayload } from './effect-chain';
+import { AiToolEffectsService } from '../../governance-shared/services/ai-tool-effects.service';
+import type { RevokeDisputeEvidence } from '../../governance-shared/services/ai-tool-effects.service';
+import type { DeclaredSideEffect } from '../../governance-shared/services/effect-composition';
+import { chainPayload } from '../../governance-shared/services/effect-chain';
 
 /**
  * REV-1「少记录」：同参数重试在幂等键上冲突 → 整组回滚 → 回放既有组。若工具**非确定性**、重试声明的成员
