@@ -11,7 +11,8 @@
  * the symbol it added, instead of silently moving a counter.
  *
  * The scan resolves every relative import/export/require specifier in `src/governance/**\/*.ts` (spec
- * files included: a test that reaches into `../ai` keeps the coupling alive) and counts the ones that
+ * files included: a test that reaches into `../ai` keeps the coupling alive) plus `src/config/governance-*.ts`
+ * — the governance console's own wiring, which lives outside that directory — and counts the ones that
  * land inside `src/ai/`. Comment-only mentions are ignored.
  *
  * 治理 → AI 的 import 棘轮。
@@ -22,7 +23,8 @@
  * 计数悄悄变大。
  *
  * 扫描解析 `src/governance/**\/*.ts` 里每个相对 import/export/require 的说明符（含 spec 文件：测试伸进
- * `../ai` 同样让耦合活着），统计落在 `src/ai/` 里的那些。只在注释里出现的提及不算。
+ * `../ai` 同样让耦合活着），外加 `src/config/governance-*.ts` —— 治理台自己的接线（治理 DataSource
+ * 在这里，只扫 src/governance 会漏掉它），统计落在 `src/ai/` 里的那些。只在注释里出现的提及不算。
  *
  * Usage (repository root): node scripts/check-governance-imports.mjs
  * Exit code: 0 = no new import and no baseline drift upward; 1 = a new import appeared.
@@ -34,25 +36,42 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const GOVERNANCE = path.join(ROOT, 'Server-NestJS', 'src', 'governance');
-const AI = path.join(ROOT, 'Server-NestJS', 'src', 'ai');
+const SRC = path.join(ROOT, 'Server-NestJS', 'src');
+const GOVERNANCE = path.join(SRC, 'governance');
+const CONFIG = path.join(SRC, 'config');
+const AI = path.join(SRC, 'ai');
+/**
+ * Governance wiring files under src/config: the console's own DataSource, and anything else named the
+ * same way.
+ * src/config 下的治理接线文件：治理台自己的 DataSource，以及任何同样命名的文件。
+ */
+const CONFIG_WIRING = /^governance-.*\.ts$/;
 
 /**
- * Baseline as of 2026-10-22, measured on `main` (618f10b5).
+ * Baseline as of 2026-10-22, measured on `main` (d093d65d).
  *
- * Each entry is `file (relative to src/governance) :: the import statement, verbatim`. Keys carry the
- * statement rather than a line number so unrelated edits above an import do not invalidate the baseline.
- * When an import is genuinely retired, delete its line here (the gate prints which ones are stale).
- * Never add a line without saying in the commit message why the coupling has to grow; the point of the
- * ratchet is that it cannot grow by accident.
+ * Each entry is `file :: the import statement, verbatim`. Files under src/governance are named relative
+ * to that directory; files under src/config carry a `config/` prefix. Keys carry the statement rather
+ * than a line number so unrelated edits above an import do not invalidate the baseline. When an import
+ * is genuinely retired, delete its line here (the gate prints which ones are stale). Never add a line
+ * without saying in the commit message why the coupling has to grow; the point of the ratchet is that
+ * it cannot grow by accident.
  *
- * 2026-10-22 的基线，在 `main`（618f10b5）实测。
+ * 2026-10-22 的基线，在 `main`（d093d65d）实测。
  *
- * 每条是 `文件（相对 src/governance）:: import 语句原文`。键用语句而不是行号，这样 import 上方无关的
- * 改动不会让基线失效。真的解掉一条 import 时把对应行删掉（闸会打印哪些已失效）。**不要**在没有在提交
- * 信息里说明「耦合为何必须变多」的情况下加行；棘轮的意义就是不让它无意间长大。
+ * 每条是 `文件 :: import 语句原文`。`src/governance` 下的文件按该目录的相对路径记；`src/config` 下的
+ * 文件带 `config/` 前缀。键用语句而不是行号，这样 import 上方无关的改动不会让基线失效。真的解掉一条
+ * import 时把对应行删掉（闸会打印哪些已失效）。**不要**在没有在提交信息里说明「耦合为何必须变多」的
+ * 情况下加行；棘轮的意义就是不让它无意间长大。
  */
 const BASELINE = [
+  ['config/governance-data-source.ts', "import { AiAuditLog } from '../ai/audit/ai-audit-log.entity';"],
+  ['config/governance-data-source.ts', "import { AiDailyUsage } from '../ai/audit/ai-daily-usage.entity';"],
+  ['config/governance-data-source.ts', "import { AiToolSideEffect } from '../ai/tool-effects/ai-tool-side-effect.entity';"],
+  ['config/governance-data-source.ts', "import { AiAgent } from '../ai/agents/ai-agent.entity';"],
+  ['config/governance-data-source.ts', "import { AiConfirmationRequest } from '../ai/approvals/ai-confirmation-request.entity';"],
+  ['config/governance-data-source.ts', "import { AiGovernancePolicy } from '../ai/governance-bridge/ai-governance-policy.entity';"],
+  ['config/governance-data-source.ts', "import { AiGovernancePolicyHistory } from '../ai/governance-bridge/ai-governance-policy-history.entity';"],
   ['external-governance.controller.spec.ts', "import { AuditService } from '../ai/audit/audit.service';"],
   ['external-governance.controller.spec.ts', "import { GovernancePolicyService } from '../ai/governance-bridge/governance-policy.service';"],
   ['external-governance.controller.spec.ts', "import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';"],
@@ -111,15 +130,34 @@ if (!fs.existsSync(GOVERNANCE)) {
   console.error(`[governance-imports] src/governance does not exist — renamed or moved?`);
   process.exit(1);
 }
+if (!fs.existsSync(CONFIG)) {
+  console.error(`[governance-imports] src/config 不存在 —— 治理接线文件的扫描根失去落点。`);
+  console.error(`[governance-imports] src/config does not exist — the wiring scan root has nothing to scan.`);
+  process.exit(1);
+}
 if (!fs.existsSync(AI)) {
   console.error(`[governance-imports] src/ai 不存在 —— 本闸的判据（离开 src/ai 的 import）失去意义。`);
   console.error(`[governance-imports] src/ai does not exist — this gate's predicate no longer means anything.`);
   process.exit(1);
 }
 
+// Both roots, each with the display name its baseline entries use: src/governance files are named
+// relative to that directory, src/config wiring files carry a `config/` prefix.
+// 两个扫描根，各带基线里使用的显示名：src/governance 下的文件按该目录相对路径，src/config 下的接线文件
+// 带 `config/` 前缀。
+const scanTargets = listTsFiles(GOVERNANCE).map((file) => ({
+  file,
+  rel: toPosix(path.relative(GOVERNANCE, file)),
+}));
+for (const name of fs.readdirSync(CONFIG).sort()) {
+  if (!CONFIG_WIRING.test(name)) continue;
+  const file = path.join(CONFIG, name);
+  if (!fs.statSync(file).isFile()) continue;
+  scanTargets.push({ file, rel: `config/${name}` });
+}
+
 const current = [];
-for (const file of listTsFiles(GOVERNANCE)) {
-  const rel = toPosix(path.relative(GOVERNANCE, file));
+for (const { file, rel } of scanTargets) {
   const stripped = stripComments(fs.readFileSync(file, 'utf8')).split(/\r?\n/);
   stripped.forEach((rawLine, index) => {
     const line = rawLine.trim();
