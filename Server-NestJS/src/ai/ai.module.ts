@@ -87,7 +87,7 @@ import { AiAuditLog } from '../governance-shared/entities/ai-audit-log.entity';
 import { AiDailyUsage } from '../governance-shared/entities/ai-daily-usage.entity';
 import { AiConfirmationRequest } from '../governance-shared/entities/ai-confirmation-request.entity';
 import { AiAgent } from '../governance-shared/entities/ai-agent.entity';
-import { AiAgentService } from './agents/ai-agent.service';
+import { GovernanceSharedModule } from '../governance-shared/governance-shared.module';
 import { AgentsController } from './agents/agents.controller';
 import { CreateModuleTool } from './tools/create-module.tool';
 import { CreateModuleApplyTool } from './tools/create-module-apply.tool';
@@ -152,7 +152,7 @@ import { LocalEntityRevoker, SIDE_EFFECT_REVOKER } from './tool-effects/side-eff
 import { DecisionTraceService } from './trace/decision-trace.service';
 import { AiGovernancePolicy } from '../governance-shared/entities/ai-governance-policy.entity';
 import { AiGovernancePolicyHistory } from '../governance-shared/entities/ai-governance-policy-history.entity';
-import { GovernancePolicyService } from './governance-bridge/governance-policy.service';
+import { GovernancePolicyService } from '../governance-shared/services/governance-policy.service';
 import { GovernanceReporter, GOVERNANCE_REPORTER } from './governance-bridge/governance-reporter.service';
 import { InternalEffectsController } from './governance-bridge/internal-effects.controller';
 import { ExternalEffectsController } from './governance-bridge/external-effects.controller';
@@ -205,9 +205,11 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
 @Module({
   imports: [
     ConfigModule,
-    // 授权解释面叶子模块（阶段 4 环根治第一刀）：ToolRegistry / GovernancePolicyService / explainer 由它提供，
-    // 谁需要谁来引，不必经由 AiModule（auth 因此不再引 ai）
+    // 授权解释面叶子模块（阶段 4 环根治第一刀）：ToolRegistry / explainer 由它提供，
+    // 治理策略经它再导出（唯一提供者仍是 GovernanceSharedModule）；谁需要谁来引，不必经由 AiModule
     AuthzExplainModule,
+    // 叶子服务（AiAgentService / GovernancePolicyService）的唯一提供者；本模块再导出它
+    GovernanceSharedModule,
     // 审计写入面叶子模块（阶段 4 环根治第二刀）：flows 只引它，不必经 AiModule
     AiAuditModule,
     AuthModule,
@@ -259,7 +261,6 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     CoverageService,
     AuditStatsService,
     AuditQueryService,
-    AiAgentService,
     InsightsService,
     KnowledgeService,
     EmbeddingsService,
@@ -576,6 +577,6 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
       inject: [ConfigService, EventsService, UsersService, OrgService, OrgDirectoryService, ConversationService, AuditService, AiDailyUsageService, ToolGateService, ToolExecutionService, R4ApprovalService, ToolPresentationService, ToolExposureService, KnowledgeService, CaslAbilityFactory, TodosService, LeaveRequestsService, InventoryMovementsService, AssetLoansService, PointsLedgersService, PointRecordsService, PostsService, TagsService, SuppliersService, NotesService, BooksService, ReportsService, FollowupPlansService, ContractsService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, AiToolEffectsService, GovernancePolicyService, CrmService, CrmAnalyticsService, PmService, ApprovalService, DelegationTokenService, ContentSafetyService, ToolRegistry, AuthorizationExplainerService],
     },
   ],
-  exports: [ConversationService, AiAuditModule, AiService, KnowledgeIngestionService, AuthzExplainModule, ConfirmationStore, BehaviorBaselineService, AuditStatsService, AuditQueryService, AuditEvidenceService, AiDailyUsageService, ToolGateService, ToolExecutionService, R4ApprovalService, ToolPresentationService, ToolExposureService],
+  exports: [ConversationService, AiAuditModule, AiService, KnowledgeIngestionService, AuthzExplainModule, GovernanceSharedModule, ConfirmationStore, BehaviorBaselineService, AuditStatsService, AuditQueryService, AuditEvidenceService, AiDailyUsageService, ToolGateService, ToolExecutionService, R4ApprovalService, ToolPresentationService, ToolExposureService],
 })
 export class AiModule {}

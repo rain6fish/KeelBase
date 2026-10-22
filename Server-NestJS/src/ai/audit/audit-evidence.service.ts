@@ -29,10 +29,10 @@ import { ExplanationState, explainState } from './audit-explanation-state';
 import { AuditChainService, ChainVerification } from '../../common/audit-chain/audit-chain.service';
 import { CacheService } from '../../common/cache/cache.service';
 import { AuthorizationExplainerService } from '../authorization-explainer.service';
-import { AiAgentService } from '../agents/ai-agent.service';
+import { AiAgentService } from '../../governance-shared/services/ai-agent.service';
 import { OperationAuditService } from '../../operation-audit/operation-audit.service';
 import { pathsForResultType } from '../../operation-audit/resource-routes';
-import { GovernancePolicyService } from '../governance-bridge/governance-policy.service';
+import { GovernancePolicyService } from '../../governance-shared/services/governance-policy.service';
 import {
   summarizeAudit,
   AuditInterpretation,

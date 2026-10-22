@@ -72,25 +72,29 @@ const CONFIG_WIRING = /^governance-.*\.ts$/;
  * 基线说明（2026-10-22，S4-H4 C 第二步）：七个共享实体搬进 `src/governance-shared/entities/`，
  * 随之退役 `governance.module.ts` 六条实体 import、`governance-approval.service{,.spec}.ts` 两条
  * `AiConfirmationRequest`、以及 `config/governance-data-source.ts` 七条实体 import。
+ *
+ * Baseline note (2026-10-22, S4-H4 C Step 3): `AiAgentService` and `GovernancePolicyService` moved to
+ * `src/governance-shared/services/`, so the two `governance.module.ts` imports and the
+ * `GovernancePolicyService` imports in `governance.controller{,.spec}.ts` and
+ * `external-governance.controller{,.spec}.ts` are retired.
+ *
+ * 基线说明（2026-10-22，S4-H4 C 第三步）：`AiAgentService` 与 `GovernancePolicyService` 搬进
+ * `src/governance-shared/services/`，随之退役 `governance.module.ts` 两条 import，以及
+ * `governance.controller{,.spec}.ts`、`external-governance.controller{,.spec}.ts` 里的
+ * `GovernancePolicyService` import。
  */
 const BASELINE = [
   ['external-governance.controller.spec.ts', "import { AuditService } from '../ai/audit/audit.service';"],
-  ['external-governance.controller.spec.ts', "import { GovernancePolicyService } from '../ai/governance-bridge/governance-policy.service';"],
   ['external-governance.controller.spec.ts', "import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';"],
   ['external-governance.controller.ts', "import { AuditService } from '../ai/audit/audit.service';"],
-  ['external-governance.controller.ts', "import { GovernancePolicyService } from '../ai/governance-bridge/governance-policy.service';"],
   ['external-governance.controller.ts', "import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';"],
-  ['governance.controller.spec.ts', "import { GovernancePolicyService } from '../ai/governance-bridge/governance-policy.service';"],
   ['governance.controller.spec.ts', "import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';"],
-  ['governance.controller.ts', "import { GovernancePolicyService } from '../ai/governance-bridge/governance-policy.service';"],
   ['governance.controller.ts', "import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';"],
   ['governance.module.ts', "import { AuditService } from '../ai/audit/audit.service';"],
   ['governance.module.ts', "import { AuditStatsService } from '../ai/audit/audit-stats.service';"],
   ['governance.module.ts', "import { AuditQueryService } from '../ai/audit/audit-query.service';"],
   ['governance.module.ts', "import { AuditEvidenceService } from '../ai/audit/audit-evidence.service';"],
   ['governance.module.ts', "import { CoverageService } from '../ai/audit/coverage.service';"],
-  ['governance.module.ts', "import { AiAgentService } from '../ai/agents/ai-agent.service';"],
-  ['governance.module.ts', "import { GovernancePolicyService } from '../ai/governance-bridge/governance-policy.service';"],
   ['governance.module.ts', "import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';"],
   ['governance.module.ts', "import { LocalEntityRevoker, SIDE_EFFECT_REVOKER } from '../ai/tool-effects/side-effect-revoker';"],
   ['governance.module.ts', "import { AuditController } from '../ai/audit/audit.controller';"],

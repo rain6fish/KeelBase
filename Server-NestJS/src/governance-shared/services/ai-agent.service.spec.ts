@@ -5,7 +5,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { getMetadataArgsStorage } from 'typeorm';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { AiAgent } from '../../governance-shared/entities/ai-agent.entity';
+import { AiAgent } from '../entities/ai-agent.entity';
 import { AiAgentService } from './ai-agent.service';
 
 function makeRepo() {

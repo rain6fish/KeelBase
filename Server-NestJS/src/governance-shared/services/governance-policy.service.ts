@@ -1,26 +1,25 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /**
- * This directory is the **business-system side** of the governance seam. The other side is
- * `src/governance`, the control plane: a separate process with its own database and port. What
- * lives here belongs to the running system, not to the plane — the local policy it enforces, the
- * reporter that writes to the plane, and the endpoints the plane and service identities call back
- * into (`internal/*`, `external/*`, both authenticated with the shared service key).
+ * Local governance policy: a single row in `ai_governance_policy` plus a revision history, applied
+ * live by the AI path and read by the standalone governance runtime. It used to live in
+ * `src/ai/governance-bridge/`, the business-system side of the governance seam; S4-H4 C Step 3
+ * moved it here because both sides instantiate the same class, and this module is now its only
+ * provider.
  *
- * 本目录在治理接缝的**业务系统这一侧**。另一侧是 `src/governance`——治理控制平面：独立进程、自带
- * 数据库与端口。这里的东西属于**运行中的业务系统**，不属于平面——它执行的**本地策略**、向平面写入
- * 的**上报器**，以及平面与服务身份**回调进来的端点**（`internal/*`、`external/*`，均以共享服务密钥
- * 认证）。
+ * 本地治理策略：`ai_governance_policy` 里的一行，外加修订历史；AI 路径实时执行它，独立治理运行时也
+ * 读它。它原先住在 `src/ai/governance-bridge/`（治理接缝的业务系统一侧）；S4-H4 C 第三步把它搬到
+ * 这里，因为两侧实例化的是同一个类，而本模块现在是它唯一的提供者。
  */
 
 import { createHash } from 'node:crypto';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { AiGovernancePolicy } from '../../governance-shared/entities/ai-governance-policy.entity';
-import { AiGovernancePolicyHistory } from '../../governance-shared/entities/ai-governance-policy-history.entity';
+import { AiGovernancePolicy } from '../entities/ai-governance-policy.entity';
+import { AiGovernancePolicyHistory } from '../entities/ai-governance-policy-history.entity';
 import { getPolicyPreset, getPolicyPresets, type PolicyPreset } from './governance-policy-presets';
-import type { ToolRiskLevel } from '../interfaces/tool.interface';
+import type { ToolRiskLevel } from '../../ai/interfaces/tool.interface';
 
 /**
  * §internal.15(4) 治理策略可视化编辑 — 门控档位（Gate Mode）：

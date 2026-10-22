@@ -11,27 +11,27 @@
  *
  * 解法不是「把端点搬去 ai 域」（那会改公开 API 路径、牵连管理台与文档），而是**把被共享的 provider 提成叶子**：
  * `ToolRegistry`（零依赖）、`AuthorizationExplainerService`（依赖前者 + CASL 工厂 + 可选治理策略 + 可选用户服务）、
- * `GovernancePolicyService`（仅两个仓库）。本模块**不引 ai、不引 auth**，所以 auth 可以只引它，环即断。
+ * `GovernancePolicyService`（仅两个仓库，第三步起由 `GovernanceSharedModule` 唯一提供并在此再导出）。
+ * 本模块**不引 ai、不引 auth**，所以 auth 可以只引它，环即断。
  *
  * **行为不变**：provider 仍是同一批实例（Nest 单例），且 `AiModule` 仍**再导出本模块**——
  * 既有的 `imports: [AiModule]` 消费者（mcp / admin / app-version / readiness…）照常拿到同样的东西。
  */
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersModule } from '../users/users.module';
 import { ToolRegistry } from './tools/tool-registry';
 import { AuthorizationExplainerService } from './authorization-explainer.service';
-import { GovernancePolicyService } from './governance-bridge/governance-policy.service';
-import { AiGovernancePolicy } from '../governance-shared/entities/ai-governance-policy.entity';
-import { AiGovernancePolicyHistory } from '../governance-shared/entities/ai-governance-policy-history.entity';
+import { GovernanceSharedModule } from '../governance-shared/governance-shared.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([AiGovernancePolicy, AiGovernancePolicyHistory]),
+    // The policy service now has a single provider: the shared module. Import it and re-export it.
+    // 策略服务现在只有一个提供者：共享模块。这里 import 并再导出它。
+    GovernanceSharedModule,
     // explainer 的角色依据要读用户（@Optional，但生产路径上必须有）
     UsersModule,
   ],
-  providers: [ToolRegistry, GovernancePolicyService, AuthorizationExplainerService],
-  exports: [ToolRegistry, GovernancePolicyService, AuthorizationExplainerService],
+  providers: [ToolRegistry, AuthorizationExplainerService],
+  exports: [ToolRegistry, AuthorizationExplainerService, GovernanceSharedModule],
 })
 export class AuthzExplainModule {}

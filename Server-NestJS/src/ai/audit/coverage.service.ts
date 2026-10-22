@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto';
 import { AiAuditLog } from '../../governance-shared/entities/ai-audit-log.entity';
 import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
 import { REVOKE_STATUS } from '../../governance-core/revoke-status';
-import { GovernancePolicyService } from '../governance-bridge/governance-policy.service';
+import { GovernancePolicyService } from '../../governance-shared/services/governance-policy.service';
 import { COVERAGE_GAPS, CoverageFacts, applicableGaps, deriveVerdict } from '../../governance-core/coverage-gaps';
 import { OrgService } from '../../org/org.service';
 import {

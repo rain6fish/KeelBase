@@ -33,8 +33,9 @@ import { AuditEvidenceService } from '../ai/audit/audit-evidence.service';
 // 这些服务 —— 故它也必须自己提供这一个。这份清单要跟着那个构造器走、而不是落在它后面：一落后，
 // 治理模块就装配不起来，`app-wiring.spec.ts` 会逮到，而 `check:all` 里没有任何一道会。
 import { CoverageService } from '../ai/audit/coverage.service';
-import { AiAgentService } from '../ai/agents/ai-agent.service';
-import { GovernancePolicyService } from '../ai/governance-bridge/governance-policy.service';
+// Leaf services now have a single provider: the shared module (S4-H4 C Step 3).
+// 叶子服务现在只有一个提供者：共享模块（S4-H4 C 第三步）。
+import { GovernanceSharedModule } from '../governance-shared/governance-shared.module';
 import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';
 import { LocalEntityRevoker, SIDE_EFFECT_REVOKER } from '../ai/tool-effects/side-effect-revoker';
 import { AuditChainService } from '../common/audit-chain/audit-chain.service';
@@ -76,6 +77,7 @@ import { GovernanceCaslAbilityFactory } from './governance-casl.factory';
       AiGovernancePolicyHistory,
     ]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
+    GovernanceSharedModule,
   ],
   controllers: [AuditController, AgentsController, GovernanceController, ExternalGovernanceController],
   providers: [
@@ -91,8 +93,6 @@ import { GovernanceCaslAbilityFactory } from './governance-casl.factory';
     AuditQueryService,
     AuditEvidenceService,
     CoverageService,
-    AiAgentService,
-    GovernancePolicyService,
     GovernanceApprovalService,
     AiToolEffectsService,
     LocalEntityRevoker,
