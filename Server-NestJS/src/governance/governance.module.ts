@@ -11,12 +11,12 @@ import { DataSourceOptions } from 'typeorm';
 import { GovernanceDataSource } from '../config/governance-data-source';
 
 // 治理实体
-import { AiAuditLog } from '../ai/audit/ai-audit-log.entity';
-import { AiToolSideEffect } from '../ai/tool-effects/ai-tool-side-effect.entity';
-import { AiAgent } from '../ai/agents/ai-agent.entity';
-import { AiConfirmationRequest } from '../ai/approvals/ai-confirmation-request.entity';
-import { AiGovernancePolicy } from '../ai/governance-bridge/ai-governance-policy.entity';
-import { AiGovernancePolicyHistory } from '../ai/governance-bridge/ai-governance-policy-history.entity';
+import { AiAuditLog } from '../governance-shared/entities/ai-audit-log.entity';
+import { AiToolSideEffect } from '../governance-shared/entities/ai-tool-side-effect.entity';
+import { AiAgent } from '../governance-shared/entities/ai-agent.entity';
+import { AiConfirmationRequest } from '../governance-shared/entities/ai-confirmation-request.entity';
+import { AiGovernancePolicy } from '../governance-shared/entities/ai-governance-policy.entity';
+import { AiGovernancePolicyHistory } from '../governance-shared/entities/ai-governance-policy-history.entity';
 
 // 治理服务
 import { AuditService } from '../ai/audit/audit.service';

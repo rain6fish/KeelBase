@@ -19,7 +19,7 @@ import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Repository } from 'typeorm';
 import { randomUUID } from 'crypto';
-import { AiConfirmationRequest } from './ai-confirmation-request.entity';
+import { AiConfirmationRequest } from '../../governance-shared/entities/ai-confirmation-request.entity';
 import { ToolExecutionService } from '../tools/tool-execution.service';
 import { AuditService } from '../audit/audit.service';
 import { deriveAiBusinessEvent } from '../audit/ai-business-event';

@@ -15,12 +15,12 @@ import { Inject, Injectable, NotFoundException, Optional } from '@nestjs/common'
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { Between, DataSource, Repository } from 'typeorm';
 import { createHash, createHmac } from 'crypto';
-import { AiAuditLog } from './ai-audit-log.entity';
+import { AiAuditLog } from '../../governance-shared/entities/ai-audit-log.entity';
 import { CoverageService, type CoverageStatement } from './coverage.service';
-import { AiToolSideEffect } from '../tool-effects/ai-tool-side-effect.entity';
+import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
 // ACT-5（消费者①）：占位行 —— 证据根据此把 effect 配到**它自己**那条触发行（无则退回保守规则）
 import { AiWriteClaim } from '../tool-effects/ai-write-claim.entity';
-import { AiConfirmationRequest } from '../approvals/ai-confirmation-request.entity';
+import { AiConfirmationRequest } from '../../governance-shared/entities/ai-confirmation-request.entity';
 // P0-20：单事件解释面。`revokeWindow` 复用 governance-core 的那一份，不再自己推一遍。
 // P0-20: the single-event explanation. `revokeWindow` is reused from governance-core rather than re-derived here.
 import { revokeWindow } from '../../governance-core/revoke-staleness';

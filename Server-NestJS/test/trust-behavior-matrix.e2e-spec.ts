@@ -5,7 +5,7 @@ import { DataSource, Repository } from 'typeorm';
 import request from 'supertest';
 import { createTestApp, registerUser, authHeader } from './helpers';
 import { AiToolEffectsService } from '../src/ai/tool-effects/ai-tool-effects.service';
-import { AiToolSideEffect } from '../src/ai/tool-effects/ai-tool-side-effect.entity';
+import { AiToolSideEffect } from '../src/governance-shared/entities/ai-tool-side-effect.entity';
 
 /**
  * §14「下一阶段 Benchmark」确定性矩阵（无 LLM，可重复）——把「Trust 面」的三类

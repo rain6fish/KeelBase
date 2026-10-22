@@ -3,7 +3,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { AiAgent } from './ai-agent.entity';
+import { AiAgent } from '../../governance-shared/entities/ai-agent.entity';
 
 export interface AgentSource {
   name: string;

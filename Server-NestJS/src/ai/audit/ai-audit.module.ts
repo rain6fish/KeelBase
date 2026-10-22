@@ -21,7 +21,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuditChainModule } from '../../common/audit-chain/audit-chain.module';
 import { CacheModule } from '../../common/cache/cache.module';
-import { AiAuditLog } from './ai-audit-log.entity';
+import { AiAuditLog } from '../../governance-shared/entities/ai-audit-log.entity';
 import { AuditService } from './audit.service';
 import { GovernanceReporter, GOVERNANCE_REPORTER } from '../governance-bridge/governance-reporter.service';
 

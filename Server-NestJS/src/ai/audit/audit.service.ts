@@ -10,7 +10,7 @@
 import { Injectable, Optional, Inject } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, QueryRunner, Repository } from 'typeorm';
-import { AiAuditLog } from './ai-audit-log.entity';
+import { AiAuditLog } from '../../governance-shared/entities/ai-audit-log.entity';
 import { actorContext } from '../actor-context';
 import { requestContext } from '../../common/request-context';
 import { AuditChainService } from '../../common/audit-chain/audit-chain.service';

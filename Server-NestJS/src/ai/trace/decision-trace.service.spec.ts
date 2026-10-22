@@ -3,7 +3,7 @@
 import { Test } from '@nestjs/testing';
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { AiAuditLog } from '../audit/ai-audit-log.entity';
+import { AiAuditLog } from '../../governance-shared/entities/ai-audit-log.entity';
 import { ConversationService, ConversationData } from '../conversation/conversation.service';
 import { AiToolEffectsService } from '../tool-effects/ai-tool-effects.service';
 import { DecisionTraceService } from './decision-trace.service';

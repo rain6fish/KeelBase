@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { DataSource, EntityManager, Repository } from 'typeorm';
-import { AiToolSideEffect } from './ai-tool-side-effect.entity';
+import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
 import type { AuditChainService } from '../../common/audit-chain/audit-chain.service';
 
 /**

@@ -15,7 +15,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { LessThan, MoreThan, Repository } from 'typeorm';
-import { AiDailyUsage } from './ai-daily-usage.entity';
+import { AiDailyUsage } from '../../governance-shared/entities/ai-daily-usage.entity';
 
 @Injectable()
 export class AiDailyUsageService {

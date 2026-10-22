@@ -9,7 +9,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { AiToolSideEffect } from './ai-tool-side-effect.entity';
+import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
 import { AiToolEffectsService } from './ai-tool-effects.service';
 import { LocalEntityRevoker } from './side-effect-revoker';
 import { SideEffectSnapshotCaptor } from './side-effect-snapshot-captor';

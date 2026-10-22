@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import type { AiAuditLog } from './ai-audit-log.entity';
+import type { AiAuditLog } from '../../governance-shared/entities/ai-audit-log.entity';
 import { parseConfirmation } from './confirmation-detail';
 
 /** B3/E-2 按 UTC 日聚合的趋势桶（5 段：执行/批准/拒绝/阻断/错误） */

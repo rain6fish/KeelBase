@@ -12,7 +12,7 @@
  * sibling modules, deliberately not re-exported from the service, matching the surface it had before.
  */
 import type { DeclaredSideEffect } from './effect-composition';
-import type { AiToolSideEffect } from './ai-tool-side-effect.entity';
+import type { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
 import type { CaptureUnavailableReason } from './side-effect-snapshot-captor';
 import type { CapturedWrite } from '../../common/write-capture/write-capture';
 import type { DerivedReferenceCount } from './side-effect-revoker';

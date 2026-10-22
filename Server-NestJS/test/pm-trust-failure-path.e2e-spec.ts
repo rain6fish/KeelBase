@@ -5,7 +5,7 @@ import { DataSource, Repository } from 'typeorm';
 import request from 'supertest';
 import { createTestApp, registerUser, authHeader } from './helpers';
 import { AiToolEffectsService } from '../src/ai/tool-effects/ai-tool-effects.service';
-import { AiToolSideEffect } from '../src/ai/tool-effects/ai-tool-side-effect.entity';
+import { AiToolSideEffect } from '../src/governance-shared/entities/ai-tool-side-effect.entity';
 
 /**
  * A2「AI PM = 第二证明（Task/Deadline/Dependency 各压一次基座）」（Enterprise Proof，§18.6）。

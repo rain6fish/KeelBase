@@ -3,9 +3,9 @@
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import { AiAuditLog } from './ai-audit-log.entity';
-import { AiDailyUsage } from './ai-daily-usage.entity';
-import { AiToolSideEffect } from '../tool-effects/ai-tool-side-effect.entity';
+import { AiAuditLog } from '../../governance-shared/entities/ai-audit-log.entity';
+import { AiDailyUsage } from '../../governance-shared/entities/ai-daily-usage.entity';
+import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
 import { AuditService } from './audit.service';
 import { AuditStatsService } from './audit-stats.service';
 import { AuditChainService } from '../../common/audit-chain/audit-chain.service';

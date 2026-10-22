@@ -3,7 +3,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, IsNull } from 'typeorm';
-import { AiConfirmationRequest } from '../ai/approvals/ai-confirmation-request.entity';
+import { AiConfirmationRequest } from '../governance-shared/entities/ai-confirmation-request.entity';
 
 /**
  * D2-2 独立治理台：审批 CRUD（读侧）——从 AiService 抽取，只依赖 approvalsRepo（治理自有表）。

@@ -15,7 +15,7 @@
 import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { AiConfirmationRequest } from '../approvals/ai-confirmation-request.entity';
+import { AiConfirmationRequest } from '../../governance-shared/entities/ai-confirmation-request.entity';
 import { R4ApprovalService } from '../approvals/r4-approval.service';
 import { ToolPresentationService } from '../tools/tool-presentation.service';
 import { ConfirmationStore, CONFIRMATION_STATUS, RunItem, isWithinOfflineWindow } from './confirmation.store';

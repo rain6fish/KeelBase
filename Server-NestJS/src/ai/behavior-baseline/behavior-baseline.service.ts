@@ -16,8 +16,8 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { MoreThanOrEqual, Repository } from 'typeorm';
-import { AiAuditLog } from '../audit/ai-audit-log.entity';
-import { AiToolSideEffect } from '../tool-effects/ai-tool-side-effect.entity';
+import { AiAuditLog } from '../../governance-shared/entities/ai-audit-log.entity';
+import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
 import { extractToolName } from '../audit/tool-name';
 import { ToolRegistry } from '../tools/tool-registry';
 import { SettingsService, SETTING_KEYS } from '../../settings/settings.service';

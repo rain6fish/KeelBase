@@ -12,7 +12,7 @@
 import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, Repository } from 'typeorm';
-import { AiAuditLog } from './ai-audit-log.entity';
+import { AiAuditLog } from '../../governance-shared/entities/ai-audit-log.entity';
 import { CacheService } from '../../common/cache/cache.service';
 import { AuditByDayBucket, byDayAggregation } from './by-day';
 import { OrgService } from '../../org/org.service';

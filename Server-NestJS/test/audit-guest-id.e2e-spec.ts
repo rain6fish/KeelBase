@@ -7,7 +7,7 @@ import { createTestApp, registerUser, loginAs, authHeader } from './helpers';
 import { User, UserRole } from '../src/common/entities/user.entity';
 import { OperationAuditLog } from '../src/operation-audit/operation-audit-log.entity';
 import { GUEST_COOKIE } from '../src/common/guest-id';
-import { AiAuditLog } from '../src/ai/audit/ai-audit-log.entity';
+import { AiAuditLog } from '../src/governance-shared/entities/ai-audit-log.entity';
 
 /**
  * AU-3（§22.19 归因层）验收：演示端访客共享同一账号（alex）时，审计仍能区分不同访客。

@@ -2,7 +2,7 @@
 
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken, getEntityManagerToken } from '@nestjs/typeorm';
-import { AiToolSideEffect } from './ai-tool-side-effect.entity';
+import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
 import { AiToolEffectsService } from './ai-tool-effects.service';
 import { chainPayload } from './effect-chain';
 import { LocalEntityRevoker, SIDE_EFFECT_REVOKER } from './side-effect-revoker';

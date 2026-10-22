@@ -2,7 +2,7 @@
 
 import { Logger } from '@nestjs/common';
 import { Repository } from 'typeorm';
-import { AiToolSideEffect } from './ai-tool-side-effect.entity';
+import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
 import type { DeclaredSideEffect } from './effect-composition';
 import { declarationDiff, targetKey } from './effect-shared';
 import type {

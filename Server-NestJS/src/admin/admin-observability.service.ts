@@ -26,7 +26,7 @@ import { Event } from '../events/event.entity';
 import { Notification } from '../notifications/notification.entity';
 import { UserSession } from '../auth/user-session.entity';
 import { OperationAuditLog } from '../operation-audit/operation-audit-log.entity';
-import { AiAuditLog } from '../ai/audit/ai-audit-log.entity';
+import { AiAuditLog } from '../governance-shared/entities/ai-audit-log.entity';
 import { AiConversation } from '../ai/conversation/ai-conversation.entity';
 import { KnowledgeArticle } from '../ai/rag/knowledge-article.entity';
 import { MetricsService } from '../metrics/metrics.service';

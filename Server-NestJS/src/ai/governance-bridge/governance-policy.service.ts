@@ -17,8 +17,8 @@ import { createHash } from 'node:crypto';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { AiGovernancePolicy } from './ai-governance-policy.entity';
-import { AiGovernancePolicyHistory } from './ai-governance-policy-history.entity';
+import { AiGovernancePolicy } from '../../governance-shared/entities/ai-governance-policy.entity';
+import { AiGovernancePolicyHistory } from '../../governance-shared/entities/ai-governance-policy-history.entity';
 import { getPolicyPreset, getPolicyPresets, type PolicyPreset } from './governance-policy-presets';
 import type { ToolRiskLevel } from '../interfaces/tool.interface';
 

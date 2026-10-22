@@ -5,7 +5,7 @@ import { ToolExecutionService } from './tool-execution.service';
 import { ToolRegistry } from './tool-registry';
 import { ToolGateService } from './tool-gate.service';
 import { ExternalToolRegistry } from './external-tool-registry';
-import { AiConfirmationRequest } from '../approvals/ai-confirmation-request.entity';
+import { AiConfirmationRequest } from '../../governance-shared/entities/ai-confirmation-request.entity';
 
 /**
  * 呈现/摘要域单测（阶段 3 第八刀从 `ai.service.spec.ts` 整段搬来，**断言一字未改**；

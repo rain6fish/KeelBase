@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { DataSource } from 'typeorm';
-import { AiConfirmationRequest } from '../approvals/ai-confirmation-request.entity';
-import { AiToolSideEffect } from '../tool-effects/ai-tool-side-effect.entity';
+import { AiConfirmationRequest } from '../../governance-shared/entities/ai-confirmation-request.entity';
+import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
 import { AiToolEffectsService } from '../tool-effects/ai-tool-effects.service';
 import { ConfirmationStore } from './confirmation.store';
 

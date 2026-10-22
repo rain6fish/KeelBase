@@ -64,32 +64,27 @@ const CONFIG_WIRING = /^governance-.*\.ts$/;
  * import 时把对应行删掉（闸会打印哪些已失效）。**不要**在没有在提交信息里说明「耦合为何必须变多」的
  * 情况下加行；棘轮的意义就是不让它无意间长大。
  */
+ *
+ * Baseline note (2026-10-22, S4-H4 C Step 2): the seven shared entities moved to
+ * `src/governance-shared/entities/`, retiring the six `governance.module.ts` entity imports, the
+ * two `governance-approval.service{,.spec}.ts` `AiConfirmationRequest` imports, and the seven
+ * `config/governance-data-source.ts` entity imports.
+ *
+ * 基线说明（2026-10-22，S4-H4 C 第二步）：七个共享实体搬进 `src/governance-shared/entities/`，
+ * 随之退役 `governance.module.ts` 六条实体 import、`governance-approval.service{,.spec}.ts` 两条
+ * `AiConfirmationRequest`、以及 `config/governance-data-source.ts` 七条实体 import。
+ *
 const BASELINE = [
-  ['config/governance-data-source.ts', "import { AiAuditLog } from '../ai/audit/ai-audit-log.entity';"],
-  ['config/governance-data-source.ts', "import { AiDailyUsage } from '../ai/audit/ai-daily-usage.entity';"],
-  ['config/governance-data-source.ts', "import { AiToolSideEffect } from '../ai/tool-effects/ai-tool-side-effect.entity';"],
-  ['config/governance-data-source.ts', "import { AiAgent } from '../ai/agents/ai-agent.entity';"],
-  ['config/governance-data-source.ts', "import { AiConfirmationRequest } from '../ai/approvals/ai-confirmation-request.entity';"],
-  ['config/governance-data-source.ts', "import { AiGovernancePolicy } from '../ai/governance-bridge/ai-governance-policy.entity';"],
-  ['config/governance-data-source.ts', "import { AiGovernancePolicyHistory } from '../ai/governance-bridge/ai-governance-policy-history.entity';"],
   ['external-governance.controller.spec.ts', "import { AuditService } from '../ai/audit/audit.service';"],
   ['external-governance.controller.spec.ts', "import { GovernancePolicyService } from '../ai/governance-bridge/governance-policy.service';"],
   ['external-governance.controller.spec.ts', "import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';"],
   ['external-governance.controller.ts', "import { AuditService } from '../ai/audit/audit.service';"],
   ['external-governance.controller.ts', "import { GovernancePolicyService } from '../ai/governance-bridge/governance-policy.service';"],
   ['external-governance.controller.ts', "import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';"],
-  ['governance-approval.service.spec.ts', "import { AiConfirmationRequest } from '../ai/approvals/ai-confirmation-request.entity';"],
-  ['governance-approval.service.ts', "import { AiConfirmationRequest } from '../ai/approvals/ai-confirmation-request.entity';"],
   ['governance.controller.spec.ts', "import { GovernancePolicyService } from '../ai/governance-bridge/governance-policy.service';"],
   ['governance.controller.spec.ts', "import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';"],
   ['governance.controller.ts', "import { GovernancePolicyService } from '../ai/governance-bridge/governance-policy.service';"],
   ['governance.controller.ts', "import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';"],
-  ['governance.module.ts', "import { AiAuditLog } from '../ai/audit/ai-audit-log.entity';"],
-  ['governance.module.ts', "import { AiToolSideEffect } from '../ai/tool-effects/ai-tool-side-effect.entity';"],
-  ['governance.module.ts', "import { AiAgent } from '../ai/agents/ai-agent.entity';"],
-  ['governance.module.ts', "import { AiConfirmationRequest } from '../ai/approvals/ai-confirmation-request.entity';"],
-  ['governance.module.ts', "import { AiGovernancePolicy } from '../ai/governance-bridge/ai-governance-policy.entity';"],
-  ['governance.module.ts', "import { AiGovernancePolicyHistory } from '../ai/governance-bridge/ai-governance-policy-history.entity';"],
   ['governance.module.ts', "import { AuditService } from '../ai/audit/audit.service';"],
   ['governance.module.ts', "import { AuditStatsService } from '../ai/audit/audit-stats.service';"],
   ['governance.module.ts', "import { AuditQueryService } from '../ai/audit/audit-query.service';"],

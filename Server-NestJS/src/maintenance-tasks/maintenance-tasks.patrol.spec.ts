@@ -24,9 +24,9 @@ import { AuditChainService } from '../common/audit-chain/audit-chain.service';
 import { AuditChainLock } from '../common/audit-chain/audit-chain-lock.entity';
 import { AuditService } from '../ai/audit/audit.service';
 import { AuditEvidenceService } from '../ai/audit/audit-evidence.service';
-import { AiAuditLog } from '../ai/audit/ai-audit-log.entity';
-import { AiDailyUsage } from '../ai/audit/ai-daily-usage.entity';
-import { AiToolSideEffect } from '../ai/tool-effects/ai-tool-side-effect.entity';
+import { AiAuditLog } from '../governance-shared/entities/ai-audit-log.entity';
+import { AiDailyUsage } from '../governance-shared/entities/ai-daily-usage.entity';
+import { AiToolSideEffect } from '../governance-shared/entities/ai-tool-side-effect.entity';
 import { OperationAuditService } from '../operation-audit/operation-audit.service';
 import { OperationAuditLog } from '../operation-audit/operation-audit-log.entity';
 

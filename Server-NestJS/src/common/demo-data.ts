@@ -28,7 +28,7 @@ import { Post } from '../posts/post.entity';
 import { PostComment } from '../posts/post-comment.entity';
 import { PostLike } from '../posts/post-like.entity';
 import { UserFollow } from '../posts/user-follow.entity';
-import { AiAgent } from '../ai/agents/ai-agent.entity';
+import { AiAgent } from '../governance-shared/entities/ai-agent.entity';
 import { FlowDefinition } from '../flows/entities/flow-definition.entity';
 import { FlowInstance } from '../flows/entities/flow-instance.entity';
 import { FlowTask } from '../flows/entities/flow-task.entity';

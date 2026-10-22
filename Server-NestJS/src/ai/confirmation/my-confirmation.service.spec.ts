@@ -6,7 +6,7 @@
  * 已决策**绝不**二次执行工具、超窗口的 pending 不返回。
  */
 import { MyConfirmationService } from './my-confirmation.service';
-import { AiConfirmationRequest } from '../approvals/ai-confirmation-request.entity';
+import { AiConfirmationRequest } from '../../governance-shared/entities/ai-confirmation-request.entity';
 
 describe('MyConfirmationService（GA 待我确认中心）', () => {
   const OFFLINE_TTL = 86_400_000;

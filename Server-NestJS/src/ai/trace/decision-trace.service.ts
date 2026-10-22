@@ -14,7 +14,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { AiAuditLog } from '../audit/ai-audit-log.entity';
+import { AiAuditLog } from '../../governance-shared/entities/ai-audit-log.entity';
 import { ConversationService, ConversationData } from '../conversation/conversation.service';
 import { AiToolEffectsService } from '../tool-effects/ai-tool-effects.service';
 import { parseToolCall as parseToolCallShared } from '../audit/tool-name';

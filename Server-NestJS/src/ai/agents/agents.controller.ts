@@ -4,7 +4,7 @@ import { Controller, Get } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { CheckPolicies } from '../../common/casl/check-policies.decorator';
 import { AiAgentService } from './ai-agent.service';
-import { AiAgent } from './ai-agent.entity';
+import { AiAgent } from '../../governance-shared/entities/ai-agent.entity';
 
 /**
  * D5 Agent Registry（internal-roadmap §internal.10）：管理台查看已注册 Agent（企业可信的可见呈现）。

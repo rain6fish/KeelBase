@@ -22,8 +22,8 @@ import { UsersModule } from '../users/users.module';
 import { ToolRegistry } from './tools/tool-registry';
 import { AuthorizationExplainerService } from './authorization-explainer.service';
 import { GovernancePolicyService } from './governance-bridge/governance-policy.service';
-import { AiGovernancePolicy } from './governance-bridge/ai-governance-policy.entity';
-import { AiGovernancePolicyHistory } from './governance-bridge/ai-governance-policy-history.entity';
+import { AiGovernancePolicy } from '../governance-shared/entities/ai-governance-policy.entity';
+import { AiGovernancePolicyHistory } from '../governance-shared/entities/ai-governance-policy-history.entity';
 
 @Module({
   imports: [

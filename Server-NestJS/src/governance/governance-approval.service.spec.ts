@@ -2,7 +2,7 @@
 
 import { IsNull, Repository } from 'typeorm';
 import { GovernanceApprovalService } from './governance-approval.service';
-import { AiConfirmationRequest } from '../ai/approvals/ai-confirmation-request.entity';
+import { AiConfirmationRequest } from '../governance-shared/entities/ai-confirmation-request.entity';
 
 describe('GovernanceApprovalService（D2-2 治理台审批 CRUD 读侧）', () => {
   let service: GovernanceApprovalService;

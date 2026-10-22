@@ -7,7 +7,7 @@
  * 而这些断言就是那条护栏；搬的时候顺手改断言，等于先把护栏拆了再拆房子。
  */
 import { AuditStatsService } from './audit-stats.service';
-import { AiAuditLog } from './ai-audit-log.entity';
+import { AiAuditLog } from '../../governance-shared/entities/ai-audit-log.entity';
 
 describe('AuditStatsService（从 AuditService 拆出的聚合域）', () => {
   let logRepo: { find: jest.Mock };

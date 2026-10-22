@@ -2,7 +2,7 @@
 
 import { Logger } from '@nestjs/common';
 import { DataSource, EntityManager, IsNull, LessThan, Not, Raw, Repository } from 'typeorm';
-import { AiToolSideEffect } from './ai-tool-side-effect.entity';
+import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
 import { EffectRegistration } from './effect-registration';
 import { EffectComparabilityStore } from './effect-comparability.store';
 import { EffectDisputeStore } from './effect-dispute.store';

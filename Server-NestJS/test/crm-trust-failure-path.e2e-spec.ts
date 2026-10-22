@@ -7,7 +7,7 @@ import { createTestApp, registerUser, authHeader } from './helpers';
 import { ToolExposureService } from '../src/ai/tools/tool-exposure.service';
 import { AuthorizationDeniedError } from '../src/ai/interfaces/tool.interface';
 import { AiToolEffectsService } from '../src/ai/tool-effects/ai-tool-effects.service';
-import { AiToolSideEffect } from '../src/ai/tool-effects/ai-tool-side-effect.entity';
+import { AiToolSideEffect } from '../src/governance-shared/entities/ai-tool-side-effect.entity';
 
 /**
  * A2「AI CRM 作 Business Execution Trust 证明器——失败路径场景化」（Enterprise Proof 证据）。

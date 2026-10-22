@@ -16,7 +16,7 @@
 import { Injectable } from '@nestjs/common';
 import { ToolRegistry } from './tool-registry';
 import { ToolExecutionService } from './tool-execution.service';
-import { AiConfirmationRequest } from '../approvals/ai-confirmation-request.entity';
+import { AiConfirmationRequest } from '../../governance-shared/entities/ai-confirmation-request.entity';
 import { RunItem } from '../confirmation/confirmation.store';
 import {
   ConfirmationImpact,

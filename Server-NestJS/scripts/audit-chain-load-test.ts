@@ -26,9 +26,9 @@
 import { DataSource } from 'typeorm';
 import { performance } from 'perf_hooks';
 import { ConfigService } from '@nestjs/config';
-import { AiAuditLog } from '../src/ai/audit/ai-audit-log.entity';
-import { AiDailyUsage } from '../src/ai/audit/ai-daily-usage.entity';
-import { AiToolSideEffect } from '../src/ai/tool-effects/ai-tool-side-effect.entity';
+import { AiAuditLog } from '../src/governance-shared/entities/ai-audit-log.entity';
+import { AiDailyUsage } from '../src/governance-shared/entities/ai-daily-usage.entity';
+import { AiToolSideEffect } from '../src/governance-shared/entities/ai-tool-side-effect.entity';
 import { AuditChainService } from '../src/common/audit-chain/audit-chain.service';
 import { AuditChainLock } from '../src/common/audit-chain/audit-chain-lock.entity';
 import { AuditService } from '../src/ai/audit/audit.service';

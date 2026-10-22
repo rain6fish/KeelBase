@@ -11,7 +11,7 @@
 import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { AiAuditLog } from './ai-audit-log.entity';
+import { AiAuditLog } from '../../governance-shared/entities/ai-audit-log.entity';
 import { aiActionLabel } from './ai-feature-map';
 import { OrgService } from '../../org/org.service';
 import {

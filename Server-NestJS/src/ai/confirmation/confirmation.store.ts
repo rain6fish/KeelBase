@@ -24,7 +24,7 @@ import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan, MoreThanOrEqual } from 'typeorm';
 import { randomUUID } from 'crypto';
-import { AiConfirmationRequest } from '../approvals/ai-confirmation-request.entity';
+import { AiConfirmationRequest } from '../../governance-shared/entities/ai-confirmation-request.entity';
 import {
   buildConfirmationRenderProof,
   buildRunRenderProof,

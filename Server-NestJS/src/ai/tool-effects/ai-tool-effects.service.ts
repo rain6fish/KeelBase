@@ -3,7 +3,7 @@
 import { Injectable, Logger, Optional, Inject } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
-import { AiToolSideEffect } from './ai-tool-side-effect.entity';
+import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
 import { EffectComparability } from './effect-comparability.entity';
 import { AiWriteClaim } from './ai-write-claim.entity';
 import type { ExternalRevoker } from '../proxy/proxy-revoker.service';

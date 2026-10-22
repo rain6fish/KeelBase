@@ -2,7 +2,7 @@
 
 import { Logger } from '@nestjs/common';
 import { LessThan, Repository } from 'typeorm';
-import { AiToolSideEffect } from './ai-tool-side-effect.entity';
+import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
 import { AiWriteClaim } from './ai-write-claim.entity';
 import { EffectRegistration } from './effect-registration';
 import { WriteClaimStore } from './write-claim.store';
