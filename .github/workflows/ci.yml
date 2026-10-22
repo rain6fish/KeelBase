@@ -229,8 +229,11 @@ jobs:
       - run: node scripts/check-test-types.mjs
 
   # 架构边界门禁（docs/architecture-boundary.md）：
-  #   core-boundary     = Core 无 UI 框架依赖、无前端代码引用；
-  #   frontend-boundary = Frontend→Runtime 反向（FE-1-repo / ADR-0002 Rev-8）——前端/旗舰/模板无跨仓 import、无 runtime 身份分支。
+  #   core-boundary      = Core 无 UI 框架依赖、无前端代码引用；
+  #   frontend-boundary  = Frontend→Runtime 反向（FE-1-repo / ADR-0002 Rev-8）——前端/旗舰/模板无跨仓 import、无 runtime 身份分支；
+  #   governance-imports = 治理台对 src/ai 的 import 棘轮（S4-H4-C 清零路上不许新增，基线见脚本）。
+  # Architecture boundary gates: the governance→ai import ratchet rides here — it fails on any new
+  # `../ai` import under src/governance, and only hints when one disappears.
   core-boundary:
     runs-on: ubuntu-latest
     steps:
@@ -242,6 +245,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - run: node scripts/check-core-boundary.mjs
       - run: node scripts/check-frontend-boundary.mjs
+      - run: node scripts/check-governance-imports.mjs
 
   # 导航对账门（CE-2 缺口 PC-6，零依赖 node 内置）：后端 AI 导航映射 ↔ 客户端路由双向对账——
   # 无死链（后端 route 必须存在于客户端路由）+ 无孤页（客户端顶层页须可 AI 导航或显式 ALLOWLIST）。

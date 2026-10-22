@@ -37,6 +37,7 @@
     "check:app-model": "node scripts/check-app-model.mjs",
     "check:boundary": "node scripts/check-core-boundary.mjs",
     "check:frontend-boundary": "node scripts/check-frontend-boundary.mjs",
+    "check:governance-imports": "node scripts/check-governance-imports.mjs",
     "check:java-vectors": "node scripts/check-java-vector-sync.mjs",
     "check:coverage-gaps": "node scripts/check-coverage-gaps-sync.mjs",
     "check:mobile-preview": "node scripts/check-mobile-preview.mjs",
