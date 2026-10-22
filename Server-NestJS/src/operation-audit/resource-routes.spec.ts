@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { RESOURCE_ROUTES, pathsForResultType, resourceEntityFor, resourceEventFor } from './resource-routes';
-import { entityFor } from '../ai/tool-effects/side-effect-revoker';
+import { entityFor } from '../governance-shared/services/side-effect-revoker';
 
 /**
  * The registry replaced three hand-maintained lists (operation-audit interceptor RESOURCE_ENTITY,

@@ -9,7 +9,7 @@ import {
 } from 'typeorm';
 import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
 import { AiToolEffectsService } from './ai-tool-effects.service';
-import { LocalEntityRevoker } from './side-effect-revoker';
+import { LocalEntityRevoker } from '../../governance-shared/services/side-effect-revoker';
 
 /**
  * ARC-1：「撤销 → 回收站恢复 → 再撤销」这条**往返**不得报完成，而目标仍活着。

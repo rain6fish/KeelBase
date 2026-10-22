@@ -7,7 +7,7 @@ import { AiToolEffectsService } from '../tool-effects/ai-tool-effects.service';
 import { DecisionTraceService } from '../trace/decision-trace.service';
 import { OperationAuditService } from '../../operation-audit/operation-audit.service';
 import { pathsForResultType } from '../../operation-audit/resource-routes';
-import { entityFor } from '../tool-effects/side-effect-revoker';
+import { entityFor } from '../../governance-shared/services/side-effect-revoker';
 import { deriveAiBusinessEvent } from '../audit/ai-business-event';
 import type { TraceStep } from '../trace/decision-trace.service';
 

@@ -43,7 +43,7 @@ import { CoverageService } from '../ai/audit/coverage.service';
 // 叶子服务现在只有一个提供者：共享模块（S4-H4 C 第三步）。
 import { GovernanceSharedModule } from '../governance-shared/governance-shared.module';
 import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';
-import { LocalEntityRevoker, SIDE_EFFECT_REVOKER } from '../ai/tool-effects/side-effect-revoker';
+import { LocalEntityRevoker, SIDE_EFFECT_REVOKER } from '../governance-shared/services/side-effect-revoker';
 import { GovernanceApprovalService } from './governance-approval.service';
 import { SidecarRegistryService } from './sidecar-registry.service';
 
@@ -100,8 +100,10 @@ import { GovernanceCaslAbilityFactory } from './governance-casl.factory';
     CoverageService,
     GovernanceApprovalService,
     AiToolEffectsService,
-    LocalEntityRevoker,
-    { provide: SIDE_EFFECT_REVOKER, useClass: LocalEntityRevoker },
+    // The revoker comes from GovernanceSharedModule (S4-H4 C Step 5); the console only binds its token
+    // to that one instance.
+    // 撤销执行器由 GovernanceSharedModule 提供（S4-H4 C 第五步）；治理台只把 token 指向那个实例。
+    { provide: SIDE_EFFECT_REVOKER, useExisting: LocalEntityRevoker },
     // AuditChainService 不再在此重复提供：AuditService 随 GovernanceSharedModule 而来，链服务由该模块
     // import 的 AuditChainModule 提供 —— 重复列一行只会多出一个实例。
     // AuditChainService is no longer listed here: AuditService comes with GovernanceSharedModule and the

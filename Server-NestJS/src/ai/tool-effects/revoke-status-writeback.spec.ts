@@ -4,7 +4,7 @@ import { DataSource } from 'typeorm';
 import { Column, DeleteDateColumn, Entity, PrimaryGeneratedColumn } from 'typeorm';
 import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
 import { AiToolEffectsService } from './ai-tool-effects.service';
-import { LocalEntityRevoker } from './side-effect-revoker';
+import { LocalEntityRevoker } from '../../governance-shared/services/side-effect-revoker';
 
 /**
  * PRE-3: a failed `revoke_status` write must not be silent, and the read side must read the result

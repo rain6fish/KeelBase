@@ -4,7 +4,7 @@ import { DataSource } from 'typeorm';
 import { Column, DeleteDateColumn, Entity, PrimaryGeneratedColumn } from 'typeorm';
 import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
 import { AiToolEffectsService } from './ai-tool-effects.service';
-import { LocalEntityRevoker } from './side-effect-revoker';
+import { LocalEntityRevoker } from '../../governance-shared/services/side-effect-revoker';
 
 /**
  * ARC-6：争议判据与**危害模型**对齐 ＋ 标记**有解除路径**。

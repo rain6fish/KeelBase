@@ -148,7 +148,7 @@ import { AiWriteClaim } from './tool-effects/ai-write-claim.entity';
 import { AiToolEffectsService } from './tool-effects/ai-tool-effects.service';
 import { TrustSandboxService } from './trust-sandbox/trust-sandbox.service';
 import { SideEffectSnapshotCaptor } from './tool-effects/side-effect-snapshot-captor';
-import { LocalEntityRevoker, SIDE_EFFECT_REVOKER } from './tool-effects/side-effect-revoker';
+import { LocalEntityRevoker, SIDE_EFFECT_REVOKER } from '../governance-shared/services/side-effect-revoker';
 import { DecisionTraceService } from './trace/decision-trace.service';
 import { AiGovernancePolicy } from '../governance-shared/entities/ai-governance-policy.entity';
 import { AiGovernancePolicyHistory } from '../governance-shared/entities/ai-governance-policy-history.entity';
@@ -279,7 +279,12 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     SideEffectSnapshotCaptor,
     ContentSafetyService,
     // D2-1f 副作用撤销执行器：默认本地软删，独立治理控制平面可替换为远程补偿 revoker
-    { provide: SIDE_EFFECT_REVOKER, useClass: LocalEntityRevoker },
+    // useExisting: the class comes from GovernanceSharedModule, so the token is only an alias. Two
+    // provider lines would build two revokers, and they do not share state when resolving or
+    // soft-deleting the same target.
+    // useExisting：类实例来自 GovernanceSharedModule，token 只是它的别名——两条 provider 行会造出
+    // 两个 revoker，而它们对同一目标各自解析/软删并不共享状态。
+    { provide: SIDE_EFFECT_REVOKER, useExisting: LocalEntityRevoker },
     // D2-3b 治理上报（GOVERNANCE_URL 配置时审计双写；未配置 enabled=false 完全本地）
     DecisionTraceService,
     BusinessHistoryService,

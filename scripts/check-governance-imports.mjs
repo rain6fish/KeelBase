@@ -90,6 +90,16 @@ const CONFIG_WIRING = /^governance-.*\.ts$/;
  * 基线说明（2026-10-22，S4-H4 C 第四步）：`AuditService` 搬进 `src/governance-shared/services/`，
  * 改由 `GovernanceSharedModule` 提供，随之退役 `governance.module.ts` 与
  * `external-governance.controller{,.spec}.ts` 里的 `AuditService` import。
+ *
+ * Baseline note (2026-10-22, S4-H4 C Step 5): `LocalEntityRevoker` and its derived-edge registry moved
+ * to `src/governance-shared/services/`, retiring the `side-effect-revoker` import in
+ * `governance.module.ts`; the revoker class is provided by `GovernanceSharedModule` and each process
+ * module only binds its `SIDE_EFFECT_REVOKER` token to that instance.
+ *
+ * 基线说明（2026-10-22，S4-H4 C 第五步）：`LocalEntityRevoker` 与派生边登记表搬进
+ * `src/governance-shared/services/`，随之退役 `governance.module.ts` 的 `side-effect-revoker` import；
+ * 撤销器类改由 `GovernanceSharedModule` 提供，各进程模块只把自己的 `SIDE_EFFECT_REVOKER` token
+ * 绑到那个实例上。
  */
 const BASELINE = [
   ['external-governance.controller.spec.ts', "import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';"],
@@ -101,7 +111,6 @@ const BASELINE = [
   ['governance.module.ts', "import { AuditEvidenceService } from '../ai/audit/audit-evidence.service';"],
   ['governance.module.ts', "import { CoverageService } from '../ai/audit/coverage.service';"],
   ['governance.module.ts', "import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';"],
-  ['governance.module.ts', "import { LocalEntityRevoker, SIDE_EFFECT_REVOKER } from '../ai/tool-effects/side-effect-revoker';"],
   ['governance.module.ts', "import { AuditController } from '../ai/audit/audit.controller';"],
   ['governance.module.ts', "import { AgentsController } from '../ai/agents/agents.controller';"],
 ].map(([file, statement]) => `${file} :: ${statement}`);

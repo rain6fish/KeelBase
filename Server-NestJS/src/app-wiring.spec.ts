@@ -32,6 +32,7 @@ import { SidecarModule } from './governance-sidecar/sidecar.module';
 import { AiAuditModule } from './ai/audit/ai-audit.module';
 import { AuditService } from './governance-shared/services/audit.service';
 import { GOVERNANCE_REPORTER } from './governance-shared/services/governance-reporter.service';
+import { LocalEntityRevoker, SIDE_EFFECT_REVOKER } from './governance-shared/services/side-effect-revoker';
 
 /**
  * Reporter wiring, read off the instance it was attached to. The constructor parameter is an
@@ -61,6 +62,12 @@ describe('装配冒烟（模块能被实例化）', () => {
     expect(reporterOf(audit)).toBe(moduleRef.get(GOVERNANCE_REPORTER));
     // 单一实例：AiAuditModule 视角与根容器视角必须是同一个对象，否则就有两个 AuditService。
     expect(moduleRef.select(AiAuditModule).get(AuditService)).toBe(audit);
+    // S4-H4 C Step 5: `SIDE_EFFECT_REVOKER` must resolve to the one revoker the shared module
+    // provides. Reverse proof: removing the AiModule binding, or going back to `useClass` (a second
+    // instance), turns this red.
+    // S4-H4 C Step 5：`SIDE_EFFECT_REVOKER` 必须指向共享模块提供的那一个撤销器。
+    // 反向可证：删掉 AiModule 的 token 绑定，或改回 `useClass`（造出第二个实例），本条即红。
+    expect(moduleRef.get(SIDE_EFFECT_REVOKER)).toBe(moduleRef.get(LocalEntityRevoker));
     await moduleRef.close();
   }, 120_000);
 
@@ -70,6 +77,13 @@ describe('装配冒烟（模块能被实例化）', () => {
     // S4-H4 C Step 4：治理进程不得自我上报 —— 它解析出的 AuditService 不能持有 reporter。
     // 反向可证：在 GovernanceModule 里提供 GOVERNANCE_REPORTER（或错误地 attach），本条即红。
     expect(reporterOf(moduleRef.get(AuditService))).toBeUndefined();
+    // S4-H4 C Step 5: the governance revoke path takes the token as `@Optional()`, so a missing
+    // binding degrades silently — this assertion is what makes that silence fail. Reverse proof:
+    // deleting the GovernanceModule `SIDE_EFFECT_REVOKER` binding turns this red.
+    // S4-H4 C Step 5：治理台的撤销路径对 token 是 `@Optional()`，绑定丢了只会静默降级 ——
+    // 这条断言就是那个「静默」的解药。
+    // 反向可证：删掉 GovernanceModule 的 `SIDE_EFFECT_REVOKER` 绑定，本条即红。
+    expect(moduleRef.get(SIDE_EFFECT_REVOKER)).toBe(moduleRef.get(LocalEntityRevoker));
     await moduleRef.close();
   }, 120_000);
 

@@ -3,7 +3,7 @@
 import { DataSource } from 'typeorm';
 import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
 import { AiToolEffectsService } from './ai-tool-effects.service';
-import { LocalEntityRevoker } from './side-effect-revoker';
+import { LocalEntityRevoker } from '../../governance-shared/services/side-effect-revoker';
 
 /**
  * ARC-3：外部补偿**派发入口**要有 CAS —— 并发两次撤销不得派发两次。

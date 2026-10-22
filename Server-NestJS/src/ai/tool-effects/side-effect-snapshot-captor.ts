@@ -3,7 +3,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
-import { resolveLocalEntity } from './side-effect-revoker';
+import { resolveLocalEntity } from '../../governance-shared/services/side-effect-revoker';
 import { isSensitiveKey, lowerKeySet, REDACTED } from '../../common/utils/mask';
 import { piiFieldsForEntity } from '../../operation-audit/resource-routes';
 

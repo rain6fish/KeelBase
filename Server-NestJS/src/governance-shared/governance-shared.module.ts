@@ -16,6 +16,11 @@
  * module must never provide it, because the governance process also imports this module and must
  * not report to itself. `AiAuditModule` attaches the reporter to this very instance at init.
  *
+ * From Step 5 on it provides `LocalEntityRevoker` — the local soft-delete executor — as well, again
+ * as the only instance. `SIDE_EFFECT_REVOKER` is **not** provided here: it is a token each process
+ * module binds to this class, so the business side and the governance console both resolve the same
+ * revoker while a process that must not revoke can leave the token unbound.
+ *
  * Dependency direction (must hold as this module grows):
  *
  *     entities / services / controllers  →  governance-core (pure)  →  (no ai)
@@ -32,6 +37,10 @@
  * 留在业务侧的 `AiAuditModule`：本模块**绝不能**提供它，因为治理进程也 import 本模块、且不得给自己
  * 上报。`AiAuditModule` 在初始化时把 reporter 挂到**这个**实例上。
  *
+ * 自第五步起它同时提供 `LocalEntityRevoker`（本地软删执行器），同样只此一个实例。`SIDE_EFFECT_REVOKER`
+ * **不在此提供**：它是各进程模块自行绑到这个类上的 token —— 业务侧与治理台因此拿到同一个撤销器，
+ * 而某个不该做本地撤销的进程只要不绑即可。
+ *
  * 依赖方向（本模块长大时必须成立）：
  *
  *     实体 / 服务 / 控制器  →  governance-core（纯）  →  （不引 ai）
@@ -47,6 +56,7 @@ import { AiGovernancePolicyHistory } from './entities/ai-governance-policy-histo
 import { AiAgentService } from './services/ai-agent.service';
 import { AuditService } from './services/audit.service';
 import { GovernancePolicyService } from './services/governance-policy.service';
+import { LocalEntityRevoker } from './services/side-effect-revoker';
 
 @Module({
   imports: [
@@ -55,8 +65,12 @@ import { GovernancePolicyService } from './services/governance-policy.service';
     CacheModule,
   ],
   // GOVERNANCE_REPORTER is deliberately absent: its binding belongs to the business side.
+  // SIDE_EFFECT_REVOKER is absent for the same reason: each process module binds its own token to
+  // this one instance, so a process that must not revoke locally can simply decline to bind it.
   // GOVERNANCE_REPORTER 刻意不在此处提供：它的绑定归业务侧。
-  providers: [AiAgentService, GovernancePolicyService, AuditService],
-  exports: [AiAgentService, GovernancePolicyService, AuditService],
+  // SIDE_EFFECT_REVOKER 同理刻意不提供：各进程模块把自己的 token 绑到**这一个**实例上，于是某个进程
+  // 若不该做本地撤销，只要不绑即可。
+  providers: [AiAgentService, GovernancePolicyService, AuditService, LocalEntityRevoker],
+  exports: [AiAgentService, GovernancePolicyService, AuditService, LocalEntityRevoker],
 })
 export class GovernanceSharedModule {}

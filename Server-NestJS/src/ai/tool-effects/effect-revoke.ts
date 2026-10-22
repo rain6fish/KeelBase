@@ -9,7 +9,7 @@ import { EffectDisputeStore } from './effect-dispute.store';
 import { OperationAuditService } from '../../operation-audit/operation-audit.service';
 import type { ExternalRevoker } from '../proxy/proxy-revoker.service';
 import { isEffectOwner, targetKey } from './effect-shared';
-import type { SideEffectRevoker, DerivedReferenceCount } from './side-effect-revoker';
+import type { SideEffectRevoker, DerivedReferenceCount } from '../../governance-shared/services/side-effect-revoker';
 import type { RevokeClass } from '../interfaces/tool.interface';
 import { REVOKE_STATUS } from '../../governance-core/revoke-status';
 import type {

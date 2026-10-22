@@ -15,7 +15,7 @@ import type { DeclaredSideEffect } from './effect-composition';
 import type { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
 import type { CaptureUnavailableReason } from './side-effect-snapshot-captor';
 import type { CapturedWrite } from '../../common/write-capture/write-capture';
-import type { DerivedReferenceCount } from './side-effect-revoker';
+import type { DerivedReferenceCount } from '../../governance-shared/services/side-effect-revoker';
 import type { RevokeClass } from '../interfaces/tool.interface';
 import type { RevokeStatus } from '../../governance-core/revoke-status';
 

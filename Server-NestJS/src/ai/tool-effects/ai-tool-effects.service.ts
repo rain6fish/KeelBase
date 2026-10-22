@@ -7,8 +7,8 @@ import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-
 import { EffectComparability } from './effect-comparability.entity';
 import { AiWriteClaim } from './ai-write-claim.entity';
 import type { ExternalRevoker } from '../proxy/proxy-revoker.service';
-import { SIDE_EFFECT_REVOKER } from './side-effect-revoker';
-import type { SideEffectRevoker } from './side-effect-revoker';
+import { SIDE_EFFECT_REVOKER } from '../../governance-shared/services/side-effect-revoker';
+import type { SideEffectRevoker } from '../../governance-shared/services/side-effect-revoker';
 import { GOVERNANCE_REPORTER } from '../../governance-shared/services/governance-reporter.service';
 import type { GovernanceReporter } from '../../governance-shared/services/governance-reporter.service';
 import type { AuditChainService } from '../../common/audit-chain/audit-chain.service';

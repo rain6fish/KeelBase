@@ -9,7 +9,7 @@ import {
 } from 'typeorm';
 import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
 import { AiToolEffectsService } from './ai-tool-effects.service';
-import { LocalEntityRevoker } from './side-effect-revoker';
+import { LocalEntityRevoker } from '../../governance-shared/services/side-effect-revoker';
 
 /**
  * REV-12：补偿行**指回原始授权决定**。

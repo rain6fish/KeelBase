@@ -5,7 +5,7 @@ import { getRepositoryToken, getEntityManagerToken } from '@nestjs/typeorm';
 import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
 import { AiToolEffectsService } from './ai-tool-effects.service';
 import { chainPayload } from './effect-chain';
-import { LocalEntityRevoker, SIDE_EFFECT_REVOKER } from './side-effect-revoker';
+import { LocalEntityRevoker, SIDE_EFFECT_REVOKER } from '../../governance-shared/services/side-effect-revoker';
 import { ToolRegistry } from '../tools/tool-registry';
 import { resolveRevokeClass } from '../interfaces/tool.interface';
 import { readFileSync } from 'node:fs';
