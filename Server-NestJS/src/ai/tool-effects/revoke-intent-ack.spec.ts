@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { AiToolEffectsService } from './ai-tool-effects.service';
-import { revokeWindow } from './revoke-staleness';
+import { revokeWindow } from '../../governance-core/revoke-staleness';
 
 /**
  * REV-2 细化：外呼补偿端点**之前**先写「意图」，返回后把**确认**单独记为事件。

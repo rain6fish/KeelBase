@@ -218,10 +218,10 @@ god service 拆分**由变更驱动，不做"为了拆而拆"的排期**：
 - ✅ 新建 `src/ai/audit/audit-evidence.service.ts`：迁入 `getActionReport` / `getActionReportExport` / `getEvidenceRoot` /
   `getInterpretation` / `getChain` + **`verifyChain` / `_chainSlice`** + `_buildSignature` / `_evidenceRootRestPaths` /
   `_identityChainFromRow` + 三个只服务本域的模块级解析 helper + 五个证据类型。**逻辑逐字不变**。
-- ✅ **地基先行**：`_payload`（无 this 的纯函数）提为 `src/ai/audit/payload.ts` 的 `buildPayload`——它被**写入侧（算 hash）**
+- ✅ **地基先行**：`_payload`（无 this 的纯函数）提为 `src/governance-core/payload.ts` 的 `buildPayload`——它被**写入侧（算 hash）**
   与**证据侧（导出）**共用；复制一份不会响亮失败，只会悄悄算出不同 hash、等验链坏掉才暴露。钉住其键集的契约测试一并迁入 `payload.spec.ts`。
 - ✅ **`verifyChain` 随读侧迁入**（非留在写入侧）：它被报表调用，本身是读侧校验，写入路径只是失效其缓存；留下会让新服务反向依赖那个更大的类
-  （健康清单警告的「跨类调用爆炸」）。**代价是私有字面量变成了跨模块契约** → `audit:verify` 提为 `src/ai/audit/cache-keys.ts` 常量单源。
+  （健康清单警告的「跨类调用爆炸」）。**代价是私有字面量变成了跨模块契约** → `audit:verify` 提为 `src/governance-core/cache-keys.ts` 常量单源。
 - ✅ 接线：`audit.controller` 5 处 + `ai.controller` 1 处（证据根）改注入新服务；`AiModule` providers + exports；
   删去 `AuditService` 因本次拆分而**变成死依赖**的 5 个入参（`effectsRepo`/`authorizationExplainer`/`agentService`/`operationAudit`/`governancePolicy`）。
 - ✅ **契约键序闸按文件路径解析**导出侧 → 搬迁使其 **fail-loud**（而非静默通过），已更新闸内路径，三处一致校验恢复常绿。

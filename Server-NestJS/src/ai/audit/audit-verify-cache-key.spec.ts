@@ -2,7 +2,7 @@
 
 import type { DataSource } from 'typeorm';
 import { AuditEvidenceService } from './audit-evidence.service';
-import { auditVerifyCacheKey } from './cache-keys';
+import { auditVerifyCacheKey } from '../../governance-core/cache-keys';
 import type { CacheService } from '../../common/cache/cache.service';
 
 /**

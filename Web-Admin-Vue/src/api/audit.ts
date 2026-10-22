@@ -52,7 +52,7 @@ export const auditApi = {
   },
   /**
    * AW-3 覆盖声明：这个口径读了什么、**看不了**什么。每一条缺口都来自后端的登记表
-   * （`ai/audit/coverage-gaps.ts`），故往那里加一条，这里自动多一条。
+   * （`governance-core/coverage-gaps.ts`），故往那里加一条，这里自动多一条。
    */
   coverage(params: { since?: string; until?: string; userId?: string } = {}): Promise<CoverageStatement> {
     const query: Record<string, string> = {}

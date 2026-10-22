@@ -10,8 +10,8 @@ import { EffectComparabilityStore } from './effect-comparability.store';
 import { EffectDisputeStore } from './effect-dispute.store';
 import type { RevokeClass } from '../interfaces/tool.interface';
 import type { HostHelpers } from './tool-effects.types';
-import { revokeAge, revokeWindow } from './revoke-staleness';
-import { REVOKE_STATUS } from './revoke-status';
+import { revokeAge, revokeWindow } from '../../governance-core/revoke-staleness';
+import { REVOKE_STATUS } from '../../governance-core/revoke-status';
 import { paginated } from '../../common/dto/paginated';
 
 /**

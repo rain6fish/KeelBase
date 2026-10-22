@@ -21,10 +21,10 @@ import { AiToolSideEffect } from '../tool-effects/ai-tool-side-effect.entity';
 // ACT-5（消费者①）：占位行 —— 证据根据此把 effect 配到**它自己**那条触发行（无则退回保守规则）
 import { AiWriteClaim } from '../tool-effects/ai-write-claim.entity';
 import { AiConfirmationRequest } from '../approvals/ai-confirmation-request.entity';
-// P0-20：单事件解释面。`revokeWindow` 复用 tool-effects 的那一份，不再自己推一遍。
-// P0-20: the single-event explanation. `revokeWindow` is reused from tool-effects rather than re-derived here.
-import { revokeWindow } from '../tool-effects/revoke-staleness';
-import { REVOKE_STATUS, type RevokeStatus } from '../tool-effects/revoke-status';
+// P0-20：单事件解释面。`revokeWindow` 复用 governance-core 的那一份，不再自己推一遍。
+// P0-20: the single-event explanation. `revokeWindow` is reused from governance-core rather than re-derived here.
+import { revokeWindow } from '../../governance-core/revoke-staleness';
+import { REVOKE_STATUS, type RevokeStatus } from '../../governance-core/revoke-status';
 import { ExplanationState, explainState } from './audit-explanation-state';
 import { AuditChainService, ChainVerification } from '../../common/audit-chain/audit-chain.service';
 import { CacheService } from '../../common/cache/cache.service';
@@ -46,8 +46,8 @@ import {
 // C-3 从这里拿掉了两个 import：`extractToolName` 与 `parseConfirmation`。两者都是把某个字段从
 // `detail` 里重新抠出来的手段——工具名、以及确认的结局——而它们现在都是行上的**列**。它们的缺席
 // 就是这次改动本身，故没有东西来顶替。
-import { buildPayload } from './payload';
-import { auditVerifyCacheKey } from './cache-keys';
+import { buildPayload } from '../../governance-core/payload';
+import { auditVerifyCacheKey } from '../../governance-core/cache-keys';
 import {
   applyAuditScopeToWhere,
   auditScopeCacheKey,

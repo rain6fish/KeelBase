@@ -17,7 +17,7 @@ import type { CaptureUnavailableReason } from './side-effect-snapshot-captor';
 import type { CapturedWrite } from '../../common/write-capture/write-capture';
 import type { DerivedReferenceCount } from './side-effect-revoker';
 import type { RevokeClass } from '../interfaces/tool.interface';
-import type { RevokeStatus } from './revoke-status';
+import type { RevokeStatus } from '../../governance-core/revoke-status';
 
 export interface WriteToolContext {
   userId: string;

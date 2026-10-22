@@ -9,7 +9,7 @@
     </PageHeader>
 
     <!-- AW-3 覆盖声明（**先声明、再读数**）：这个口径读了什么、以及这么读**看不了**什么。
-         每一条都来自后端缺口登记表（`ai/audit/coverage-gaps.ts`），故往那里加一条，这里自动多一条
+         每一条都来自后端缺口登记表（`governance-core/coverage-gaps.ts`），故往那里加一条，这里自动多一条
          —— 前端没有任何会漂开的清单。
          AW-3 coverage statement, placed before the numbers: what this window was read from, and what
          reading it cannot show. Every line comes from the backend registry, so a new gap shows up here

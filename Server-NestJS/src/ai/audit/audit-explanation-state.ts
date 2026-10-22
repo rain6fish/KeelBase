@@ -48,7 +48,7 @@
  * 哪个事实、以及为什么它压得住排在它下面的那些。
  */
 
-import { REVOKE_STATUS, type RevokeStatus } from '../tool-effects/revoke-status';
+import { REVOKE_STATUS, type RevokeStatus } from '../../governance-core/revoke-status';
 
 /** The single value the viewer shows. See the header for why it is not the roadmap's five. */
 export type ExplanationState =

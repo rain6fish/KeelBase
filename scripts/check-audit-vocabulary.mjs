@@ -139,7 +139,7 @@ for (const [locale, rel] of Object.entries(DICTS)) {
 // English — silently, because the fallback is a correct-looking sentence, not an error.
 // 覆盖声明按 `gaps[].id` 取字典、没有词条时回落英文 `statement`。少了这一节，往登记表里加一条缺口，
 // 中文读者会看到一句**英文** —— 而且是**静默**的，因为那句回落读起来是一句通顺的话，不是错误。
-const gapSrc = read('Server-NestJS/src/ai/audit/coverage-gaps.ts');
+const gapSrc = read('Server-NestJS/src/governance-core/coverage-gaps.ts');
 const gapStart = gapSrc.indexOf('export const COVERAGE_GAPS');
 if (gapStart < 0) die('coverage-gaps.ts 里找不到 `export const COVERAGE_GAPS`');
 const gapEnd = gapSrc.indexOf('\n];', gapStart);

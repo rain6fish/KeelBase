@@ -11,7 +11,7 @@ import type { ExternalRevoker } from '../proxy/proxy-revoker.service';
 import { isEffectOwner, targetKey } from './effect-shared';
 import type { SideEffectRevoker, DerivedReferenceCount } from './side-effect-revoker';
 import type { RevokeClass } from '../interfaces/tool.interface';
-import { REVOKE_STATUS } from './revoke-status';
+import { REVOKE_STATUS } from '../../governance-core/revoke-status';
 import type {
   HostHelpers,
   CrossGroupClaim,

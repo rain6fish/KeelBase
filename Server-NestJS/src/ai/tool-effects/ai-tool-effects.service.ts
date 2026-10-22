@@ -17,7 +17,7 @@ import { ToolRegistry } from '../tools/tool-registry';
 import { resolveRevokeClass, type RevokeClass } from '../interfaces/tool.interface';
 import type { DeclaredSideEffect } from './effect-composition';
 import { ConfigService } from '@nestjs/config';
-import { DEFAULT_REVOKE_STALE_MINUTES } from './revoke-staleness';
+import { DEFAULT_REVOKE_STALE_MINUTES } from '../../governance-core/revoke-staleness';
 import { SideEffectSnapshotCaptor } from './side-effect-snapshot-captor';
 import { buildKey, memberKey } from './effect-shared';
 import { EffectChainWriter } from './effect-chain';

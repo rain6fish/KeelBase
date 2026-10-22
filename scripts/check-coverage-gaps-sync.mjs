@@ -5,7 +5,7 @@
 /**
  * Cross-repository coverage-gap single-source check.
  *
- * The gap registry is minted in one place — `Server-NestJS/src/ai/audit/coverage-gaps.ts` — because a
+ * The gap registry is minted in one place — `Server-NestJS/src/governance-core/coverage-gaps.ts` — because a
  * gap id has to mean the same thing whichever runtime emitted the package. The Java runtime cannot
  * read TypeScript, so it keeps a vendored copy, and a copy nobody compares is a copy that goes stale
  * silently. This is the comparison.
@@ -28,7 +28,7 @@
  *
  * 跨仓缺口登记表单源检查。
  *
- * 缺口 id 只在一处铸造 —— `Server-NestJS/src/ai/audit/coverage-gaps.ts` —— 因为同一个 id 无论由哪个
+ * 缺口 id 只在一处铸造 —— `Server-NestJS/src/governance-core/coverage-gaps.ts` —— 因为同一个 id 无论由哪个
  * 运行时发出，含义必须相同。Java 运行时读不了 TypeScript，故留一份 vendored 副本；而**没人比对的副本
  * 就是一份会静默陈旧的副本**。这就是那个比对。
  *
@@ -53,7 +53,7 @@ import { resolve, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(fileURLToPath(import.meta.url), '../..');
-const SRC = 'Server-NestJS/src/ai/audit/coverage-gaps.ts';
+const SRC = 'Server-NestJS/src/governance-core/coverage-gaps.ts';
 const SNAPSHOT = 'conformance/coverage-gaps.json';
 
 const argv = process.argv.slice(2);

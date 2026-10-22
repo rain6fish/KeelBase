@@ -16,7 +16,7 @@ describe('buildPayload（审计链 payload 单源）', () => {
       const props = Object.keys(
         (
           JSON.parse(
-            readFileSync(resolve(__dirname, '../../../specs/protocol/schemas/v1/audit-payload.schema.json'), 'utf8'),
+            readFileSync(resolve(__dirname, '../../specs/protocol/schemas/v1/audit-payload.schema.json'), 'utf8'),
           ) as { properties: Record<string, unknown> }
         ).properties,
       );

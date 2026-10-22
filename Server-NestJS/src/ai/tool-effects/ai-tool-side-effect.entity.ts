@@ -7,7 +7,7 @@ import {
   CreateDateColumn,
   Index,
 } from 'typeorm';
-import type { RevokeStatus } from './revoke-status';
+import type { RevokeStatus } from '../../governance-core/revoke-status';
 
 /**
  * HS-3 AI 写操作副作用记录：每次 AI 写工具（create_event/create_todo）成功执行后落一条。

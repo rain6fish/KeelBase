@@ -8,7 +8,7 @@
  * Why it was extracted: that decision used to exist twice inside this one chain — an inline object
  * literal built from the entry at write time, and a private method for reading a stored row. They
  * had to agree, and a divergence would not fail loudly: it would only make the two sides compute
- * different hashes, surfacing later as a broken chain. The AI chain's `ai/audit/payload.ts` was
+ * different hashes, surfacing later as a broken chain. The AI chain's `governance-core/payload.ts` was
  * extracted for the same reason and says the same thing; the binding test next door ties this key
  * set to the frozen `operation-audit-payload` schema, and now covers the write path too — the
  * inline literal had no such binding before.
@@ -25,7 +25,7 @@
  *
  * 为什么提出来：这个决定在**同一条链内**原本有**两份** —— 写入时由 entry 内联构造的对象字面量，
  * 以及读取已存行时的一个私有方法。两者必须一致，而一旦分叉**不会立刻报错**：只会让两边算出不同的
- * hash，等到验链失败才暴露。AI 链的 `ai/audit/payload.ts` 因同样的理由被提出来、写着同样的话；
+ * hash，等到验链失败才暴露。AI 链的 `governance-core/payload.ts` 因同样的理由被提出来、写着同样的话；
  * 隔壁那条绑定测试把这个键集钉在冻结的 `operation-audit-payload` schema 上，如今**连写入路径
  * 一并覆盖**——此前那个内联字面量没有任何绑定。
  *

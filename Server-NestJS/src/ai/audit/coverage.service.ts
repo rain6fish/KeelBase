@@ -6,9 +6,9 @@ import { Between, IsNull, Not, Repository, type FindOptionsWhere } from 'typeorm
 import { createHash } from 'node:crypto';
 import { AiAuditLog } from './ai-audit-log.entity';
 import { AiToolSideEffect } from '../tool-effects/ai-tool-side-effect.entity';
-import { REVOKE_STATUS } from '../tool-effects/revoke-status';
+import { REVOKE_STATUS } from '../../governance-core/revoke-status';
 import { GovernancePolicyService } from '../governance-bridge/governance-policy.service';
-import { COVERAGE_GAPS, CoverageFacts, applicableGaps, deriveVerdict } from './coverage-gaps';
+import { COVERAGE_GAPS, CoverageFacts, applicableGaps, deriveVerdict } from '../../governance-core/coverage-gaps';
 import { OrgService } from '../../org/org.service';
 import {
   applyAuditScopeToWhere,
