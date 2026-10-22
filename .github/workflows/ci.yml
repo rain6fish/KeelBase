@@ -335,6 +335,25 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
+      # A tag's push can land after the pin's commit, and this run can start before the tag is visible:
+      # the gate then reads the previous release and calls a late release drift. Wait for the version
+      # the matrix names, then let the gate decide — the wait is bounded and advisory, and the gate
+      # below is unchanged. A stale matrix (the real failure on 2026-10-20) is not rescued by waiting:
+      # the tag was already visible there, and the gate must still say so.
+      #
+      # tag 的推送可能晚于 pin 的提交，而本 run 又可能早于 tag 可见：此时门禁读到的是上一个版本，把「发布
+      # 来晚了」判成漂移。先等矩阵写着的那个版本，再让门禁自己判 —— 等待有界、只是辅助，下面的门禁判据
+      # 一字未改。矩阵本身写旧了（2026-10-20 那次真正的红）**不是**等待能救的：当时 tag 已经可见，门禁
+      # 仍须照报。
+      - name: Wait for the contract tag the matrix names (bounded)
+        run: |
+          tag=$(grep -E 'KeelBase.*`main`' README.md | head -1 | grep -oE '\*\*v[0-9]+\.[0-9]+\.[0-9]+\*\*' | head -1 | tr -d '*')
+          if [ -z "$tag" ]; then
+            echo "No **vX.Y.Z** on the \`main\` row — the gate below reports it."
+            echo "\`main\` 行没有 **vX.Y.Z** —— 交给下面的门禁报。"
+            exit 0
+          fi
+          scripts/wait-for-contract-ref.sh --repo Server-NestJS/specs/protocol --ref "refs/tags/$tag" || true
       - run: node scripts/check-contract-matrix.mjs
 
   # Every environment variable the config schema declares must be in .env.example — a variable that
@@ -531,13 +550,50 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
-      - run: node scripts/check-java-vector-sync.mjs --java java-repo
-      # The second cross-repo check rides on the same checkout: the coverage-gap registry's Java copy
-      # has the same failure mode (a vendored copy nobody compares), and checking the same repository
-      # out twice would buy nothing.
-      # 第二道跨仓检查搭同一个 checkout：缺口登记表的 Java 副本有一模一样的失效模式（一份没人比对的
-      # vendored 副本），而把同一个仓检出两次什么也换不来。
-      - run: node scripts/check-coverage-gaps-sync.mjs --java java-repo
+      # The sibling is read at *its* main, which can still be receiving the vendored update this gate
+      # compares against — a push-order race, not drift (2026-10-20: run 39413671268 checked KeelBase4J
+      # out at 3e2f2f54, a main that predated the sync commit). Retry within a bounded budget,
+      # refetching main between attempts. Exit 1 (drift / coverage gap) is retried; exit 2 (broken
+      # checkout, unparseable schema) is not — that is a malfunction, not lateness. The comparison
+      # itself is unchanged, so genuine drift still exhausts the budget and fails. A lag longer than
+      # the budget is still red: this buys an in-flight push time, it does not stand in for ordering
+      # the sibling's push before this one.
+      #
+      # 同级运行时是按**它的** main 读的，而那份 vendored 更新可能还在推送途中 —— 这是推送顺序的竞态，
+      # 不是漂移（2026-10-20，run 39413671268 检出的 KeelBase4J main 是 3e2f2f54，早于同步提交）。判据
+      # 本身不变，只在有界预算内重试、每次重试前重取 main。退出码 1（漂移 / 覆盖缺口）重试；退出码 2（检出
+      # 损坏、schema 解析不了）不重试 —— 那是真故障，不是来晚了。真漂移仍会耗完预算后红。**超出预算的滞后
+      # 仍然红**：这里买到的只是「推送在途」的时间，不能替代「先推同级仓、再推本仓」的顺序。
+      - name: Compare against the sibling runtime (bounded wait for its main)
+        run: |
+          attempts=6
+          delay=20
+          attempt=1
+          while :; do
+            rc=0
+            node scripts/check-java-vector-sync.mjs --java java-repo || rc=$?
+            if [ "$rc" -eq 0 ]; then
+              # The second check rides on the same checkout: the coverage-gap registry's Java copy has
+              # the same failure mode (a vendored copy nobody compares).
+              # 第二道检查搭同一个 checkout：缺口登记表的 Java 副本有同样的失效模式（一份没人比对的副本）。
+              node scripts/check-coverage-gaps-sync.mjs --java java-repo || rc=$?
+              if [ "$rc" -eq 0 ]; then
+                exit 0
+              fi
+            fi
+            if [ "$rc" -ne 1 ]; then
+              exit "$rc"
+            fi
+            if [ "$attempt" -ge "$attempts" ]; then
+              exit 1
+            fi
+            echo "::warning::Sibling corpus not in agreement yet (attempt $attempt/$attempts) — refetching KeelBase4J main and retrying in ${delay}s."
+            echo "同级语料尚未一致（第 $attempt/$attempts 次）—— 重取 KeelBase4J main，${delay} 秒后重试。"
+            sleep "$delay"
+            git -C java-repo fetch --depth=1 origin main
+            git -C java-repo reset --hard FETCH_HEAD
+            attempt=$((attempt + 1))
+          done
 
   # Full 剖面合规门禁（CE-1③ / JV-13）：F4 wire 形状 + F5 前端契约面（conformance-profile.md §2.2）。
   # 此前这个判据只有一次性跑过——JV-13 用 verify-full-profile.mjs 量出 Java 距 Full 多远，但没有任何
