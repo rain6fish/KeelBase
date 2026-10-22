@@ -3,7 +3,7 @@
 import { Controller, Post, Get, Body, UseGuards } from '@nestjs/common';
 import { Public } from '../auth/guards/public.decorator';
 import { GovernanceApiGuard } from './governance-api.guard';
-import { AuditService } from '../ai/audit/audit.service';
+import { AuditService } from '../governance-shared/services/audit.service';
 import { GovernancePolicyService } from '../governance-shared/services/governance-policy.service';
 import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';
 import { SidecarRegistryService } from './sidecar-registry.service';

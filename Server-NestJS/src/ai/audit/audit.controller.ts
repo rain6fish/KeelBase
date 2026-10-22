@@ -2,7 +2,7 @@
 
 import { Controller, Get, Post, Body, Query, Param, ParseIntPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
-import { AuditService } from './audit.service';
+import { AuditService } from '../../governance-shared/services/audit.service';
 import { AuditStatsService } from './audit-stats.service';
 import { AuditQueryService } from './audit-query.service';
 import { AuditEvidenceService } from './audit-evidence.service';

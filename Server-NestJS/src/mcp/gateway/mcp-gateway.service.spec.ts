@@ -3,7 +3,7 @@
 import { McpGatewayService, ExternalMcpTool, ExternalToolCallResult } from './mcp-gateway.service';
 import { SettingsService } from '../../settings/settings.service';
 import { GovernancePolicyService } from '../../governance-shared/services/governance-policy.service';
-import { AuditService } from '../../ai/audit/audit.service';
+import { AuditService } from '../../governance-shared/services/audit.service';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { lookup } from 'dns/promises';
 

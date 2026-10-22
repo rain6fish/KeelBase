@@ -28,7 +28,7 @@ import { writeEffectTypeFor, EXTERNAL_CALL_EFFECT_TYPE } from '../tool-effects/w
 import { declaredEffects } from '../tool-effects/effect-composition';
 import { SideEffectSnapshotCaptor } from '../tool-effects/side-effect-snapshot-captor';
 // REV-7：agent 身份与审计行同源，在此边界处读一次
-import { actorContext } from '../actor-context';
+import { actorContext } from '../../governance-shared/actor-context';
 // REV-10：把工具执行包进写入采集窗口（数据层实际写了什么）
 import { withWriteCapture } from '../../common/write-capture/write-capture';
 

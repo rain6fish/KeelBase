@@ -2,7 +2,7 @@
 
 import { SubAgentOrchestrator } from './sub-agent-orchestrator.service';
 import { SkillsRegistry, WEEK_PLAN_SKILL } from '../skills/skills-registry';
-import { actorContext, ActorContext } from '../actor-context';
+import { actorContext, ActorContext } from '../../governance-shared/actor-context';
 
 describe('SubAgentOrchestrator', () => {
   let orchestrator: SubAgentOrchestrator;

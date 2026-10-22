@@ -5,7 +5,7 @@ import { ApiTags, ApiOperation, ApiHeader } from '@nestjs/swagger';
 import { IsString, IsOptional, MaxLength } from 'class-validator';
 import type { Request } from 'express';
 import { AiService } from '../ai/ai.service';
-import { actorContext } from '../ai/actor-context';
+import { actorContext } from '../governance-shared/actor-context';
 import { Public } from '../auth/guards/public.decorator';
 import { SkipAudit } from '../operation-audit/skip-audit.decorator';
 import { HeadlessGuard } from './headless.guard';

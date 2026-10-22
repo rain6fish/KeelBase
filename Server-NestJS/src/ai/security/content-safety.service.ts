@@ -8,7 +8,7 @@ import {
   ContentSafetyConfig,
   ContentSafetyResult,
 } from './content-safety';
-import { AuditService } from '../audit/audit.service';
+import { AuditService } from '../../governance-shared/services/audit.service';
 
 /** N-6 Settings key：AI 内容安全配置（JSON { enabled, sensitive[], jailbreak[] }） */
 export const CONTENT_SAFETY_SETTING_KEY = 'ai_content_safety';

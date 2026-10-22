@@ -8,7 +8,7 @@ import { EffectDisputeStore } from './effect-dispute.store';
 import { WriteClaimStore } from './write-claim.store';
 import type { DeclaredSideEffect } from './effect-composition';
 import { argsHash, buildKey, isUniqueViolation, memberKey } from './effect-shared';
-import type { GovernanceReporter } from '../governance-bridge/governance-reporter.service';
+import type { GovernanceReporter } from '../../governance-shared/services/governance-reporter.service';
 import type { CapturedWrite } from '../../common/write-capture/write-capture';
 import type { RevokeClass } from '../interfaces/tool.interface';
 import type { SideEffectSnapshot, WriteToolContext } from './tool-effects.types';

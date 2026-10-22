@@ -10,7 +10,7 @@ import {
   ListToolsResultSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { ToolExposureService } from '../ai/tools/tool-exposure.service';
-import { AuditService } from '../ai/audit/audit.service';
+import { AuditService } from '../governance-shared/services/audit.service';
 import { toolCallOutcome } from '../ai/audit/tool-call-audit';
 import {
   AuthorizationExplainerService,

@@ -3,7 +3,7 @@
 import { Test } from '@nestjs/testing';
 import { ContentSafetyService } from './content-safety.service';
 import { SettingsService } from '../../settings/settings.service';
-import { AuditService } from '../audit/audit.service';
+import { AuditService } from '../../governance-shared/services/audit.service';
 
 describe('ContentSafetyService（N-6 AI-23 深度化）', () => {
   let service: ContentSafetyService;

@@ -9,7 +9,7 @@ import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import type { Response } from 'express';
 import { AdminAiService } from './admin-ai.service';
 import { AdminAiChatDto } from './dto/admin-ai.dto';
-import { actorContext } from '../ai/actor-context';
+import { actorContext } from '../governance-shared/actor-context';
 import { pickLanguageFromHeader } from '../common/errors/denial-guidance';
 
 /**

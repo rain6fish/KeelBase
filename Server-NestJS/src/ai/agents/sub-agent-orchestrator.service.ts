@@ -16,7 +16,7 @@ import { SkillsRegistry } from '../skills/skills-registry';
 import { SkillDefinition } from '../skills/skill.interface';
 import { SUB_AGENTS, SUB_AGENT_NAMES, SubAgentDefinition } from './sub-agent.types';
 import { ReadOnlyToolExecutor } from './plan-execute-agent.service';
-import { actorContext } from '../actor-context';
+import { actorContext } from '../../governance-shared/actor-context';
 import { LlmUsage, addLlmUsage } from '../llm-usage';
 
 export interface SubAgentTask {

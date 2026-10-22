@@ -12,7 +12,7 @@ import { INestApplication } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { createTestApp } from './helpers';
-import { AuditService } from '../src/ai/audit/audit.service';
+import { AuditService } from '../src/governance-shared/services/audit.service';
 import { BehaviorBaselineService } from '../src/ai/behavior-baseline/behavior-baseline.service';
 import { AiBehaviorAlert } from '../src/ai/behavior-baseline/behavior-alert.entity';
 

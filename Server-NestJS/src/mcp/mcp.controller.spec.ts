@@ -3,7 +3,7 @@
 import { Test } from '@nestjs/testing';
 import { McpExportController } from './mcp.controller';
 import { ToolExposureService } from '../ai/tools/tool-exposure.service';
-import { AuditService } from '../ai/audit/audit.service';
+import { AuditService } from '../governance-shared/services/audit.service';
 import { AuthorizationDeniedError } from '../ai/interfaces/tool.interface';
 import { AuthorizationExplainerService } from '../ai/authorization-explainer.service';
 import { readFileSync } from 'node:fs';

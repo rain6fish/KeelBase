@@ -13,7 +13,7 @@ import { ProxyTool } from '../proxy/proxy-tool';
 import { ProxyToolRevokerService } from '../proxy/proxy-revoker.service';
 import { AiToolEffectsService } from '../tool-effects/ai-tool-effects.service';
 import { ConfirmationStore } from '../confirmation/confirmation.store';
-import { AuditService } from '../audit/audit.service';
+import { AuditService } from '../../governance-shared/services/audit.service';
 import { ToolExecutionService } from '../tools/tool-execution.service';
 import { ToolGateService } from '../tools/tool-gate.service';
 import { AuthorizationDeniedError } from '../interfaces/tool.interface';

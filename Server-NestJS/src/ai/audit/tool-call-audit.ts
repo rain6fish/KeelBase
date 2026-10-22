@@ -16,7 +16,7 @@
  * - `authorization`：放行快照（成功且实际放行）或 deny reasons 的 JSON，由调用方判断该给哪个
  * - `source`：B 路径代理写标 bridge（四处一致）
  */
-import type { AuditEntry } from './audit.service';
+import type { AuditEntry } from '../../governance-shared/services/audit.service';
 import { deriveAiBusinessEvent } from './ai-business-event';
 import { captureDecisionEvidence } from './decision-evidence';
 import { ToolResult } from '../interfaces/tool.interface';

@@ -9,6 +9,10 @@ import { DataSourceOptions } from 'typeorm';
 
 // 治理库连接（独立 DataSource，schema 从治理实体生成）
 import { GovernanceDataSource } from '../config/governance-data-source';
+// 哈希链服务由模块提供（不再是模块里的一行 provider）：治理侧的审计读侧服务都注入它。
+// The hash-chain service comes from its module (no longer a bare provider line): the governance-side
+// audit read services all inject it.
+import { AuditChainModule } from '../common/audit-chain/audit-chain.module';
 
 // 治理实体
 import { AiAuditLog } from '../governance-shared/entities/ai-audit-log.entity';
@@ -19,7 +23,9 @@ import { AiGovernancePolicy } from '../governance-shared/entities/ai-governance-
 import { AiGovernancePolicyHistory } from '../governance-shared/entities/ai-governance-policy-history.entity';
 
 // 治理服务
-import { AuditService } from '../ai/audit/audit.service';
+// AuditService 的唯一提供者已是 GovernanceSharedModule（S4-H4 C 第四步）；治理台 import 它即可。
+// The single provider of AuditService is now GovernanceSharedModule (S4-H4 C Step 4); the governance
+// console only has to import it.
 // 阶段 3 把 AuditService 拆成三块（聚合统计 / 查询域 / 证据域），AuditController 一并接收——
 // 治理台自己实例化 AuditController，所以它也必须自己提供这三个，与 AuditService 同理。
 import { AuditStatsService } from '../ai/audit/audit-stats.service';
@@ -38,7 +44,6 @@ import { CoverageService } from '../ai/audit/coverage.service';
 import { GovernanceSharedModule } from '../governance-shared/governance-shared.module';
 import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';
 import { LocalEntityRevoker, SIDE_EFFECT_REVOKER } from '../ai/tool-effects/side-effect-revoker';
-import { AuditChainService } from '../common/audit-chain/audit-chain.service';
 import { GovernanceApprovalService } from './governance-approval.service';
 import { SidecarRegistryService } from './sidecar-registry.service';
 
@@ -77,6 +82,7 @@ import { GovernanceCaslAbilityFactory } from './governance-casl.factory';
       AiGovernancePolicyHistory,
     ]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
+    AuditChainModule,
     GovernanceSharedModule,
   ],
   controllers: [AuditController, AgentsController, GovernanceController, ExternalGovernanceController],
@@ -88,7 +94,6 @@ import { GovernanceCaslAbilityFactory } from './governance-casl.factory';
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: PoliciesGuard },
     // 治理服务（注入治理库默认 DataSource）
-    AuditService,
     AuditStatsService,
     AuditQueryService,
     AuditEvidenceService,
@@ -97,7 +102,11 @@ import { GovernanceCaslAbilityFactory } from './governance-casl.factory';
     AiToolEffectsService,
     LocalEntityRevoker,
     { provide: SIDE_EFFECT_REVOKER, useClass: LocalEntityRevoker },
-    AuditChainService,
+    // AuditChainService 不再在此重复提供：AuditService 随 GovernanceSharedModule 而来，链服务由该模块
+    // import 的 AuditChainModule 提供 —— 重复列一行只会多出一个实例。
+    // AuditChainService is no longer listed here: AuditService comes with GovernanceSharedModule and the
+    // chain service is provided by the AuditChainModule it imports; a second line would only add a
+    // second instance.
     SidecarRegistryService,
   ],
 })

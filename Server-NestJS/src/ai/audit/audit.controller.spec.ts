@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { AuditController } from './audit.controller';
-import { AuditService } from './audit.service';
+import { AuditService } from '../../governance-shared/services/audit.service';
 import { AuditStatsService } from './audit-stats.service';
 import { AuditQueryService } from './audit-query.service';
 import { AuditEvidenceService } from './audit-evidence.service';

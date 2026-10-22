@@ -29,6 +29,22 @@ import { Test } from '@nestjs/testing';
 import { AppModule } from './app.module';
 import { GovernanceModule } from './governance/governance.module';
 import { SidecarModule } from './governance-sidecar/sidecar.module';
+import { AiAuditModule } from './ai/audit/ai-audit.module';
+import { AuditService } from './governance-shared/services/audit.service';
+import { GOVERNANCE_REPORTER } from './governance-shared/services/governance-reporter.service';
+
+/**
+ * Reporter wiring, read off the instance it was attached to. The constructor parameter is an
+ * `@Optional()` provider, so "does this AuditService hold a reporter" has no public surface; touching
+ * the private field from a wiring test is the honest probe, and it keeps a production getter from
+ * existing only to be testable.
+ *
+ * 读实例上的 reporter 字段来断言接线。该构造器参数是 `@Optional()` provider，「这个 AuditService
+ * 有没有挂 reporter」没有公开面；在装配测试里碰这个私有字段是诚实的探针，也避免为了让断言能写而在
+ * 生产代码里加一个只为测试存在的 getter。
+ */
+const reporterOf = (service: AuditService): unknown =>
+  (service as unknown as { reporter?: unknown }).reporter;
 
 /**
  * 三个入口都要装得起来——`npm start` / `start:governance` / `start:sidecar` 各有一个根模块。
@@ -38,11 +54,22 @@ import { SidecarModule } from './governance-sidecar/sidecar.module';
 describe('装配冒烟（模块能被实例化）', () => {
   it('AppModule：整张依赖图装得起来', async () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    await moduleRef.init();
+    // S4-H4 C Step 4：业务侧必须把 reporter 挂到共享模块提供的**那一个** AuditService 上。
+    // 反向可证：把 AiAuditModule 的 OnModuleInit 去掉（或改回自建 AuditService），本条即红。
+    const audit = moduleRef.get(AuditService);
+    expect(reporterOf(audit)).toBe(moduleRef.get(GOVERNANCE_REPORTER));
+    // 单一实例：AiAuditModule 视角与根容器视角必须是同一个对象，否则就有两个 AuditService。
+    expect(moduleRef.select(AiAuditModule).get(AuditService)).toBe(audit);
     await moduleRef.close();
   }, 120_000);
 
   it('GovernanceModule：独立控制平面装得起来', async () => {
     const moduleRef = await Test.createTestingModule({ imports: [GovernanceModule] }).compile();
+    await moduleRef.init();
+    // S4-H4 C Step 4：治理进程不得自我上报 —— 它解析出的 AuditService 不能持有 reporter。
+    // 反向可证：在 GovernanceModule 里提供 GOVERNANCE_REPORTER（或错误地 attach），本条即红。
+    expect(reporterOf(moduleRef.get(AuditService))).toBeUndefined();
     await moduleRef.close();
   }, 120_000);
 

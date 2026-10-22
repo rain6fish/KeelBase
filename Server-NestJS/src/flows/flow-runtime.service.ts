@@ -11,7 +11,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 
-import { AuditService } from '../ai/audit/audit.service';
+import { AuditService } from '../governance-shared/services/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { LlmProviderFactory } from '../ai/providers/provider-factory';
 import type { AppAbility } from '../common/casl/casl-ability.factory';

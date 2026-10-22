@@ -82,15 +82,20 @@ const CONFIG_WIRING = /^governance-.*\.ts$/;
  * `src/governance-shared/services/`，随之退役 `governance.module.ts` 两条 import，以及
  * `governance.controller{,.spec}.ts`、`external-governance.controller{,.spec}.ts` 里的
  * `GovernancePolicyService` import。
+ *
+ * Baseline note (2026-10-22, S4-H4 C Step 4): `AuditService` moved to
+ * `src/governance-shared/services/` and is provided by `GovernanceSharedModule`, retiring the
+ * `AuditService` imports in `governance.module.ts` and `external-governance.controller{,.spec}.ts`.
+ *
+ * 基线说明（2026-10-22，S4-H4 C 第四步）：`AuditService` 搬进 `src/governance-shared/services/`，
+ * 改由 `GovernanceSharedModule` 提供，随之退役 `governance.module.ts` 与
+ * `external-governance.controller{,.spec}.ts` 里的 `AuditService` import。
  */
 const BASELINE = [
-  ['external-governance.controller.spec.ts', "import { AuditService } from '../ai/audit/audit.service';"],
   ['external-governance.controller.spec.ts', "import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';"],
-  ['external-governance.controller.ts', "import { AuditService } from '../ai/audit/audit.service';"],
   ['external-governance.controller.ts', "import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';"],
   ['governance.controller.spec.ts', "import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';"],
   ['governance.controller.ts', "import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';"],
-  ['governance.module.ts', "import { AuditService } from '../ai/audit/audit.service';"],
   ['governance.module.ts', "import { AuditStatsService } from '../ai/audit/audit-stats.service';"],
   ['governance.module.ts', "import { AuditQueryService } from '../ai/audit/audit-query.service';"],
   ['governance.module.ts', "import { AuditEvidenceService } from '../ai/audit/audit-evidence.service';"],

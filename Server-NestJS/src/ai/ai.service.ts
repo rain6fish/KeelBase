@@ -19,7 +19,7 @@ import { ToolExposureService } from './tools/tool-exposure.service';
 import { PAGE_ROUTES, NAV_KEYWORDS } from './tools/navigate-page.tool';
 import { AuthorizationExplainerService, buildAllowSnapshot } from './authorization-explainer.service';
 import { ConversationService } from './conversation/conversation.service';
-import { AuditService } from './audit/audit.service';
+import { AuditService } from '../governance-shared/services/audit.service';
 import { captureDecisionEvidence } from './audit/decision-evidence';
 import { buildToolCallAudit, confirmationOutcome } from './audit/tool-call-audit';
 // ACT-3：免确认作用域键要按**规范化**参数算（与副作用幂等键同一口径，防同一逻辑调用两种写法算出两个键）

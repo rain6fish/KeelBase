@@ -5,7 +5,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AiService } from '../ai.service';
 import { ToolExposureService } from '../tools/tool-exposure.service';
-import { AuditService } from '../audit/audit.service';
+import { AuditService } from '../../governance-shared/services/audit.service';
 import { CrmService } from '../../crm/crm.service';
 import { UsersService } from '../../users/users.service';
 import { AiToolEffectsService } from '../tool-effects/ai-tool-effects.service';

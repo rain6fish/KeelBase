@@ -12,7 +12,7 @@ import { FlowTask } from './entities/flow-task.entity';
 import { FlowDefinition as FlowDef } from './flow-definition.types';
 import { NotificationsService } from '../notifications/notifications.service';
 import { LlmProviderFactory } from '../ai/providers/provider-factory';
-import { AuditService } from '../ai/audit/audit.service';
+import { AuditService } from '../governance-shared/services/audit.service';
 import { ConfigService } from '@nestjs/config';
 
 describe('FlowRuntimeService', () => {

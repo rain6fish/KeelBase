@@ -35,7 +35,7 @@ import { AiService } from './ai.service';
 import { R4ApprovalService } from './approvals/r4-approval.service';
 import { ToolExposureService } from './tools/tool-exposure.service';
 import { TrustSandboxService } from './trust-sandbox/trust-sandbox.service';
-import { actorContext } from './actor-context';
+import { actorContext } from '../governance-shared/actor-context';
 import { ConversationService } from './conversation/conversation.service';
 import { ConfirmationStore } from './confirmation/confirmation.store';
 import { MyConfirmationService } from './confirmation/my-confirmation.service';
@@ -60,7 +60,7 @@ import { DecisionTraceService, DecisionTrace } from './trace/decision-trace.serv
 import { GovernancePolicyService } from '../governance-shared/services/governance-policy.service';
 import type { GovernancePolicy } from '../governance-shared/services/governance-policy.service';
 import { BusinessHistoryService } from './governance-bridge/business-history.service';
-import { AuditService } from './audit/audit.service';
+import { AuditService } from '../governance-shared/services/audit.service';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import type { AppAbility } from '../common/casl/casl-ability.factory';
 

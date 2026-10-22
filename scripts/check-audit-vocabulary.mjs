@@ -98,7 +98,7 @@ for (const name of [...registered].sort()) {
 }
 
 // ── 真源 3：动作联合类型 ────────────────────────────────────────────────────────
-const auditSrc = read('Server-NestJS/src/ai/audit/audit.service.ts');
+const auditSrc = read('Server-NestJS/src/governance-shared/services/audit.service.ts');
 const actionUnion = auditSrc.match(/action:\s*((?:'[a-z_]+'\s*\|\s*)*'[a-z_]+')\s*;/);
 if (!actionUnion) die('audit.service.ts 里解析不到 `AuditEntry.action` 的联合类型 —— 闸本身失效');
 const actions = [...actionUnion[1].matchAll(/'([a-z_]+)'/g)].map((m) => m[1]);
@@ -168,7 +168,7 @@ if (problems.length) {
   console.error('✗ 审计词汇闸未通过：\n');
   for (const p of problems) console.error(`  - ${p}`);
   console.error('\n  真源：工具名 ← `Server-NestJS/src/ai/tools/**/*.tool.ts`；元数据 ← `ai/audit/tool-metadata.ts`');
-  console.error('        动作取值 ← `ai/audit/audit.service.ts` 的 `AuditEntry.action`；标签 ← `ai/audit/ai-feature-map.ts`');
+  console.error('        动作取值 ← `governance-shared/services/audit.service.ts` 的 `AuditEntry.action`；标签 ← `ai/audit/ai-feature-map.ts`');
   console.error('  另一个方向（元数据 → 三个字典）由 `npm run check:tool-labels` 守。');
   process.exit(1);
 }

@@ -11,6 +11,11 @@
  * instead of listing the providers themselves, so every consumer in a process gets the same
  * instance.
  *
+ * From Step 4 on it also provides `AuditService` (the audit write plane plus its hash chain). The
+ * `GOVERNANCE_REPORTER` **binding** deliberately stays in the business-side `AiAuditModule`: this
+ * module must never provide it, because the governance process also imports this module and must
+ * not report to itself. `AiAuditModule` attaches the reporter to this very instance at init.
+ *
  * Dependency direction (must hold as this module grows):
  *
  *     entities / services / controllers  →  governance-core (pure)  →  (no ai)
@@ -23,21 +28,35 @@
  * `AuthzExplainModule` 与 `GovernanceModule` 改为 import 并再导出它，而不是各自列 provider，
  * 因此同一进程里的消费者拿到的是同一个实例。
  *
+ * 自第四步起它同时提供 `AuditService`（审计写入面与哈希链）。`GOVERNANCE_REPORTER` 的**绑定**刻意
+ * 留在业务侧的 `AiAuditModule`：本模块**绝不能**提供它，因为治理进程也 import 本模块、且不得给自己
+ * 上报。`AiAuditModule` 在初始化时把 reporter 挂到**这个**实例上。
+ *
  * 依赖方向（本模块长大时必须成立）：
  *
  *     实体 / 服务 / 控制器  →  governance-core（纯）  →  （不引 ai）
  */
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuditChainModule } from '../common/audit-chain/audit-chain.module';
+import { CacheModule } from '../common/cache/cache.module';
 import { AiAgent } from './entities/ai-agent.entity';
+import { AiAuditLog } from './entities/ai-audit-log.entity';
 import { AiGovernancePolicy } from './entities/ai-governance-policy.entity';
 import { AiGovernancePolicyHistory } from './entities/ai-governance-policy-history.entity';
 import { AiAgentService } from './services/ai-agent.service';
+import { AuditService } from './services/audit.service';
 import { GovernancePolicyService } from './services/governance-policy.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([AiAgent, AiGovernancePolicy, AiGovernancePolicyHistory])],
-  providers: [AiAgentService, GovernancePolicyService],
-  exports: [AiAgentService, GovernancePolicyService],
+  imports: [
+    TypeOrmModule.forFeature([AiAgent, AiAuditLog, AiGovernancePolicy, AiGovernancePolicyHistory]),
+    AuditChainModule,
+    CacheModule,
+  ],
+  // GOVERNANCE_REPORTER is deliberately absent: its binding belongs to the business side.
+  // GOVERNANCE_REPORTER 刻意不在此处提供：它的绑定归业务侧。
+  providers: [AiAgentService, GovernancePolicyService, AuditService],
+  exports: [AiAgentService, GovernancePolicyService, AuditService],
 })
 export class GovernanceSharedModule {}

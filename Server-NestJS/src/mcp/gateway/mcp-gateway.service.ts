@@ -6,7 +6,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import { SettingsService } from '../../settings/settings.service';
 import { assertPublicUrl } from '../../common/utils/ssrf';
 import { GovernancePolicyService } from '../../governance-shared/services/governance-policy.service';
-import { AuditService } from '../../ai/audit/audit.service';
+import { AuditService } from '../../governance-shared/services/audit.service';
 import { ToolExposureService } from '../../ai/tools/tool-exposure.service';
 import { ExternalToolProvider, ExternalToolDef, ExternalToolCall } from '../../ai/external-tool-provider.interface';
 import { ToolRiskLevel, RISK_STRATEGY } from '../../ai/interfaces/tool.interface';

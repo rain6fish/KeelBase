@@ -5,9 +5,9 @@ import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { createTestApp, registerUser, loginAs, authHeader } from './helpers';
 import { AiAuditLog } from '../src/governance-shared/entities/ai-audit-log.entity';
-import { AuditService } from '../src/ai/audit/audit.service';
+import { AuditService } from '../src/governance-shared/services/audit.service';
 import { AiService } from '../src/ai/ai.service';
-import { actorContext } from '../src/ai/actor-context';
+import { actorContext } from '../src/governance-shared/actor-context';
 import { HeadlessKeysService } from '../src/headless/headless-keys.service';
 
 /**

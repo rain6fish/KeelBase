@@ -21,7 +21,7 @@ import { In, IsNull, Repository } from 'typeorm';
 import { randomUUID } from 'crypto';
 import { AiConfirmationRequest } from '../../governance-shared/entities/ai-confirmation-request.entity';
 import { ToolExecutionService } from '../tools/tool-execution.service';
-import { AuditService } from '../audit/audit.service';
+import { AuditService } from '../../governance-shared/services/audit.service';
 import { deriveAiBusinessEvent } from '../audit/ai-business-event';
 import { toolCallOutcome } from '../audit/tool-call-audit';
 import { PresentationText, ToolResult } from '../interfaces/tool.interface';

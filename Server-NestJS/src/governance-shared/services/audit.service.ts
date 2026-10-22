@@ -10,14 +10,14 @@
 import { Injectable, Optional, Inject } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, QueryRunner, Repository } from 'typeorm';
-import { AiAuditLog } from '../../governance-shared/entities/ai-audit-log.entity';
+import { AiAuditLog } from '../entities/ai-audit-log.entity';
 import { actorContext } from '../actor-context';
 import { requestContext } from '../../common/request-context';
 import { AuditChainService } from '../../common/audit-chain/audit-chain.service';
 import { buildPayload } from '../../governance-core/payload';
 import { auditVerifyCacheKey } from '../../governance-core/cache-keys';
-import { GOVERNANCE_REPORTER } from '../governance-bridge/governance-reporter.service';
-import type { GovernanceReporter } from '../governance-bridge/governance-reporter.service';
+import { GOVERNANCE_REPORTER } from './governance-reporter.service';
+import type { GovernanceReporter } from './governance-reporter.service';
 import { CacheService } from '../../common/cache/cache.service';
 
 export interface AuditEntry {
@@ -75,13 +75,31 @@ export class AuditService {
     private readonly dataSource: DataSource,
     // D2-3b：可选治理上报（主应用配 GOVERNANCE_URL 时双写上报；治理台自身不提供 → 不上报）
     @Optional() @Inject(GOVERNANCE_REPORTER)
-    private readonly reporter?: GovernanceReporter,
+    private reporter?: GovernanceReporter,
     // E-3 聚合缓存（审计统计/成本/报告/verify 短 TTL；log 热路径只失效 verify 单 key 族）
     @Optional() private readonly cacheService?: CacheService,
   ) {}
 
   /** 审计写串行队列：sqlite（单写者，better-sqlite3 单连接不支持多 QueryRunner 并发事务）用进程内串行；postgres 用 DB 级串行锁（internal-roadmap §internal.10 B） */
   private _tail: Promise<unknown> = Promise.resolve();
+
+  /**
+   * Attach (or clear) the governance reporter after construction.
+   *
+   * `GOVERNANCE_REPORTER` is provided by the business-side `AiAuditModule`, not by the shared module
+   * that owns this service — the governance process imports the shared module too and must not report
+   * to itself. Keeping the constructor signature unchanged lets `AiAuditModule` mount the reporter on
+   * the very instance the rest of the process injects, instead of creating a second `AuditService`.
+   *
+   * 构造之后再挂载（或清除）治理上报器。
+   *
+   * `GOVERNANCE_REPORTER` 由业务侧的 `AiAuditModule` 提供，而**不是**由持有本服务的共享模块提供 ——
+   * 治理进程同样 import 共享模块，且不得给自己上报。保持构造器签名不变，是为了让 `AiAuditModule`
+   * 把 reporter 挂到**进程里其他消费者注入的那个**实例上，而不是再新建一个 `AuditService`。
+   */
+  attachReporter(reporter?: GovernanceReporter): void {
+    this.reporter = reporter;
+  }
 
   /**
    * 写一条审计行并**回传落库的那一行**（含 `id`）。
