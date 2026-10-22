@@ -70,6 +70,16 @@
  * `AiModule` / `GovernanceModule` 提供，因为它的 `@Optional` 依赖（`ToolRegistry`、`EXTERNAL_REVOKER`、
  * `SIDE_EFFECT_REVOKER` 与 reporter）只在那些模块上下文里可见。
  *
+ * From Step 8 on it also hosts the two read-side controllers (`AuditController`, `AgentsController`),
+ * the audit-reader projection they share and their DTOs, which closes the file move: `src/governance/`
+ * imports nothing from `src/ai/**` any more and the ratchet baseline is zero. This module still
+ * registers no controllers and provides no read-side service itself — each process module registers
+ * the controllers it serves.
+ *
+ * 自第八步起它同时容纳两个读侧控制器（`AuditController`、`AgentsController`）、它们共用的审计读投影与
+ * DTO，文件搬迁到此收口：`src/governance/` 不再 import `src/ai/**` 任何东西，棘轮基线归零。本模块仍
+ * **不**注册控制器、也不提供读侧服务 —— 各进程模块注册自己对外服务的控制器。
+ *
  * 依赖方向（本模块长大时必须成立）：
  *
  *     实体 / 服务 / 控制器  →  governance-core（纯）  →  （不引 ai）

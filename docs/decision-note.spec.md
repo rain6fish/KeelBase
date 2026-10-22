@@ -5,7 +5,7 @@
 > 状态 / Status: **已实现（2026-09-15）** —— `audit-interpreter.service` 加 `explainAuthorization`（单一真源）+ `summarizeAudit` 附 `decisionNote`；/2 导出 compliance 带出 + i18n `authz.*`（见 §8）
 > 归属 / Home: 审计交付物层（**不新增证据事实**，只做人读化）
 
-> 基于 / Based on：既有 **审计解释器** `Server-NestJS/src/ai/audit/audit-interpreter.service.ts`（`summarizeAudit` 已把审计行渲染成人读句：谁/做了什么/结果/越权·高风险阻断/流程节点/确认决策），+ 授权快照 `authorization.{allowed,denied}`（W5-⑦：`allowed{tool,checks[],policy{revision,updatedAt}}` / `denied{reasons[]}`）+ **P-③ policy-history 回放**（`replayDecision`，已实现）。
+> 基于 / Based on：既有 **审计解释器** `Server-NestJS/src/governance-shared/services/audit-interpreter.service.ts`（`summarizeAudit` 已把审计行渲染成人读句：谁/做了什么/结果/越权·高风险阻断/流程节点/确认决策），+ 授权快照 `authorization.{allowed,denied}`（W5-⑦：`allowed{tool,checks[],policy{revision,updatedAt}}` / `denied{reasons[]}`）+ **P-③ policy-history 回放**（`replayDecision`，已实现）。
 > 关联 / Related：D-2 `docs/evidence-report.spec.md`（授权段复用本说明）｜ D-1 `docs/period-audit-report.spec.md`（"为什么允许"列复用本说明）｜ docs/manual/compliance-mapping.md（证据 → 控制项）｜ docs/policy-history-reproducible.spec.md ｜ D-3
 
 ---
@@ -93,7 +93,7 @@
 
 | 文件 | 改动 |
 |------|------|
-| `Server-NestJS/src/ai/audit/audit-interpreter.service.ts` | 新增授权人读化（`explainAuthorization` / 并入 `summarizeAudit`）+ 结构化字段 + replay 三态 |
+| `Server-NestJS/src/governance-shared/services/audit-interpreter.service.ts` | 新增授权人读化（`explainAuthorization` / 并入 `summarizeAudit`）+ 结构化字段 + replay 三态 |
 | `Server-NestJS/src/ai/audit/audit-interpreter.service.spec.ts` | 允许/拒绝/降级/回放三态断言 |
 | 消费处（D-2/D-1 渲染器、现有审计/B4 响应） | 消费同一产物（实现期接线）|
 | **不改** | 无新端点、无迁移、无新表、无新服务 |

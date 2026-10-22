@@ -101,7 +101,7 @@
 
 ## 9. 关联 / 9. Related
 
-- 数据源：`src/ai/audit/ai-audit-log.entity.ts`｜`src/ai/tool-effects/ai-tool-side-effect.entity.ts`
+- 数据源：`src/governance-shared/entities/ai-audit-log.entity.ts`｜`src/governance-shared/entities/ai-tool-side-effect.entity.ts`
 - 通道：`src/alert-webhook/alert-webhook.service.ts`｜`src/notifications/notifications.service.ts`
 - 扫描宿主：`src/maintenance-tasks/maintenance-tasks.service.ts`
 - 治理面（**不改**）：`AiService._assertToolAllowed`（门控）｜`docs/ai-governance-protocol.md`

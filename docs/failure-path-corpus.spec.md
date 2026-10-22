@@ -43,7 +43,7 @@
 - 测试：`proxy-http.spec.ts`（helper 超时） + `proxy-tool.spec.ts` / `proxy-revoker.service.spec.ts` 各加超时用例。
 
 ### F2：副作用 record 把任意 DB 错误当幂等吞（FP-4）
-- 现状：`AiToolEffectsService.record`（`src/ai/tool-effects/ai-tool-effects.service.ts`）`catch` 任意错误都按「幂等冲突 skip」处理 → DB down 时静默吞错（且 findOne 抛时语义错乱）。
+- 现状：`AiToolEffectsService.record`（`src/governance-shared/services/ai-tool-effects.service.ts`）`catch` 任意错误都按「幂等冲突 skip」处理 → DB down 时静默吞错（且 findOne 抛时语义错乱）。
 - 修复：仅**唯一约束冲突**（postgres code `23505` / sqlite `SQLITE_CONSTRAINT`）走 skip + findOne + report；其他错误 **rethrow** 且不 `_reportEffect`。
 - 测试：`ai-tool-effects.service.spec.ts` 加"非唯一 DB 错误 rethrow / 唯一冲突 skip"用例。
 
@@ -72,7 +72,7 @@ npm run test:e2e -- failure-path   # B 层
 
 **文件改动**：
 - 新：`src/ai/proxy/proxy-http.ts`(+spec)、`src/ai/failure-path/failure-path-corpus.spec.ts`、`test/failure-path.e2e-spec.ts`、`docs/failure-path-corpus.spec.md`、`docs/benchmark/failure-path-*.md`
-- 改：`src/ai/proxy/proxy-tool.ts`(+spec)、`src/ai/proxy/proxy-revoker.service.ts`(+spec)、`src/ai/tool-effects/ai-tool-effects.service.ts`(+spec)、`docs/evidence/README.md`、`Server-NestJS/package.json`、`scripts/release-gate.sh`
+- 改：`src/ai/proxy/proxy-tool.ts`(+spec)、`src/ai/proxy/proxy-revoker.service.ts`(+spec)、`src/governance-shared/services/ai-tool-effects.service.ts`(+spec)、`docs/evidence/README.md`、`Server-NestJS/package.json`、`scripts/release-gate.sh`
 - 复用：`AiToolEffectsService.buildKey/findExisting`、`writeEffectTypeFor`、`proxyResultId`、`test/helpers.ts`（registerUser/loginAs/createTestApp）；**不改动** `src/ai/ai.service.ts`（并发会话有未提交改动）。
 
 *KeelBase · docs · 2026-09-07*

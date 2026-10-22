@@ -38,7 +38,7 @@ else                                                     → 「X 的操作被�
 
 | 文件 | 改动 |
 |------|------|
-| `src/ai/audit/audit-interpreter.service.ts` | UNAUTHORIZED_RE + HIGH_RISK_RE + blocked 分支细分 |
+| `src/governance-shared/services/audit-interpreter.service.ts` | UNAUTHORIZED_RE + HIGH_RISK_RE + blocked 分支细分 |
 | `src/ai/audit/audit-interpreter.service.spec.ts` | 3 种拒绝场景摘要断言 |
 | `Web-Admin-Vue/src/views/risk/RiskView.vue` | denied 行标签区分越权/高风险/阻断 |
 | `Web-Admin-Vue/src/views/ai-timeline/AiTimelineView.vue` | 行为类型筛选（全部/执行/越权·被拒） |

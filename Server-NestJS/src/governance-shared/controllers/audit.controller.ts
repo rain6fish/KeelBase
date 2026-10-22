@@ -7,15 +7,15 @@ import { AuditStatsService } from '../../governance-shared/services/audit-stats.
 import { AuditQueryService } from '../../governance-shared/services/audit-query.service';
 import { AuditEvidenceService } from '../../governance-shared/services/audit-evidence.service';
 import { CoverageService } from '../../governance-shared/services/coverage.service';
-import { AuditQueryDto } from './dto/audit-query.dto';
-import { SubmitFeedbackDto } from './dto/submit-feedback.dto';
+import { AuditQueryDto } from '../dto/audit-query.dto';
+import { SubmitFeedbackDto } from '../dto/submit-feedback.dto';
 import { CheckPolicies } from '../../common/casl/check-policies.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 import {
   projectAuditEntityForCaller,
   projectAuditRowsForCaller,
-} from './audit-reader-projection';
+} from '../services/audit-reader-projection';
 
 /**
  * Every read here is gated on `can('read', 'AuditLog')` rather than the blanket `can('manage','all')`

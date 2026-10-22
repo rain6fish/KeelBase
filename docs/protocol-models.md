@@ -85,7 +85,7 @@ user  → can('manage', 'User', { id: user.sub })
 
 实例校验：`subject('Event', obj)` + `ability.cannot('read', subject) → 403`。
 
-### 3.2 Policy（`src/ai/governance-bridge/governance-policy.service.ts`，HS-9）
+### 3.2 Policy（`src/governance-shared/services/governance-policy.service.ts`，HS-9）
 
 数据驱动策略，存于 Settings `ai_governance_policy`（JSON），实时生效无需发版：
 
@@ -110,7 +110,7 @@ user  → can('manage', 'User', { id: user.sub })
 - 用户可见轨迹：`GET /ai/conversations/:id/trace`（P0-14 聚合 messages+audit+effects）
 - **密钥分离（W4-②）**：链 HMAC 用独立 `AUDIT_HMAC_KEY`（64 hex），不再混用业务加密密钥；`AUDIT_HMAC_KEY_PREVIOUS` 保留轮换旧密钥，verify 候选集 [current/previous/legacy] 任一匹配即通过（换 key 后旧记录仍可验证）
 
-### 3.5 SideEffect（`src/ai/tool-effects/ai-tool-effects.service.ts`，HS-3 / P0-15）
+### 3.5 SideEffect（`src/governance-shared/services/ai-tool-effects.service.ts`，HS-3 / P0-15）
 
 ```text
 ai_tool_side_effects: { idempotencyKey(唯一), userId, conversationId, toolName, argsHash, resultType, resultId }

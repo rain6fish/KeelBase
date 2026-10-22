@@ -115,10 +115,16 @@ const CONFIG_WIRING = /^governance-.*\.ts$/;
  *
  * 基线说明（2026-10-22，S4-H4 C 第七步）：副作用读/撤销簇搬进 `src/governance-shared/services/`，
  * 随之退役 `governance.module.ts` 与治理两个控制器（连同 spec）里的五条 `AiToolEffectsService` import。
+ *
+ * Baseline note (2026-10-22, S4-H4 C Step 8): the two controllers moved to
+ * `src/governance-shared/controllers/`, retiring the last `../ai` imports. The baseline is now empty:
+ * any new `../ai` import from `src/governance/**` or the governance wiring files fails the gate.
+ *
+ * 基线说明（2026-10-22，S4-H4 C 第八步）：两个控制器搬进 `src/governance-shared/controllers/`，最后两条
+ * `../ai` import 随之退役。**基线已为空**：`src/governance/**` 或治理接线文件里再出现任何 `../ai` import
+ * 都会让门禁变红。
  */
 const BASELINE = [
-  ['governance.module.ts', "import { AuditController } from '../ai/audit/audit.controller';"],
-  ['governance.module.ts', "import { AgentsController } from '../ai/agents/agents.controller';"],
 ].map(([file, statement]) => `${file} :: ${statement}`);
 
 /** Recursively list `.ts` files under a directory, in a stable order. 递归列出目录下的 `.ts` 文件，顺序稳定。 */

@@ -149,8 +149,8 @@ L0 运行时（`/audit/verify`、`/audit/operations/verify`）仍验全链；本
 
 | 文件 | 改动 |
 |------|------|
-| `Server-NestJS/src/ai/audit/audit.service.ts` | `getEvidenceRoot(resultType,resultId,viewer,isAdmin)`（装配 + v3 签名 canonical v3 分支）|
-| `Server-NestJS/src/ai/audit/audit.controller.ts`（或 governance 控制器） | `GET /ai/governance/evidence-root/:resultType/:resultId` |
+| `Server-NestJS/src/governance-shared/services/audit.service.ts` | `getEvidenceRoot(resultType,resultId,viewer,isAdmin)`（装配 + v3 签名 canonical v3 分支）|
+| `Server-NestJS/src/governance-shared/controllers/audit.controller.ts`（或 governance 控制器） | `GET /ai/governance/evidence-root/:resultType/:resultId` |
 | `Server-NestJS/src/operation-audit/operation-audit.service.ts` | 暴露链行组装（`_payload`/行重算）给证据根（不破坏既有）|
 | `Server-NestJS/scripts/verify-evidence.mjs` | 加 `/3` 分支（structure + full），v1/v2 不动 |
 | `docs/evidence/README.md` + `docs/protocols/ai-governance-protocol.md` | 登记 v3 |
@@ -253,4 +253,4 @@ L0 运行时（`/audit/verify`、`/audit/operations/verify`）仍验全链；本
 
 **⑦ 红线复核（执行包 §6，逐条）**：措辞——不新增「不可抵赖 / 不可篡改」字样 ✅；信任域——本能力只产出并签名锚，发布/接收渠道由部署方选定，且产出时明示「自持锚不构成可举证材料」✅；不触发不实现——**本条经用户显式解冻**，决策已记入执行日志 ✅；缺库不静默——服务端抛错、verify 侧 FAIL，均不降级 ✅；契约先行——wire 先落（`schemas/v3/evidence-package` + `schemas/v1/evidence-anchor`）再改实现 ✅。
 
-**⑧ 落点与验收**：`src/common/crypto/sm2.ts`（openssl 委托 + DER↔raw + 缺库明报）· `src/ai/audit/audit.service.ts#_buildSignature`（双签产出）· `scripts/verify-evidence.mjs`（形态分派 + 两个新参数）· `src/ai/audit/evidence-anchor.ts` + `scripts/build-evidence-anchor.ts`（锚聚合与签名）。验收：单测 `sm2.spec.ts` / `sm2-unavailable.spec.ts` / `evidence-anchor.spec.ts`；e2e `test/evidence-root.e2e-spec.ts` ⑤⑥（真导出 → 第三方公钥离线独立验签 PASS / 改 canonical 一字节 FAIL → 锚联合校验）。
+**⑧ 落点与验收**：`src/common/crypto/sm2.ts`（openssl 委托 + DER↔raw + 缺库明报）· `src/governance-shared/services/audit.service.ts#_buildSignature`（双签产出）· `scripts/verify-evidence.mjs`（形态分派 + 两个新参数）· `src/ai/audit/evidence-anchor.ts` + `scripts/build-evidence-anchor.ts`（锚聚合与签名）。验收：单测 `sm2.spec.ts` / `sm2-unavailable.spec.ts` / `evidence-anchor.spec.ts`；e2e `test/evidence-root.e2e-spec.ts` ⑤⑥（真导出 → 第三方公钥离线独立验签 PASS / 改 canonical 一字节 FAIL → 锚联合校验）。

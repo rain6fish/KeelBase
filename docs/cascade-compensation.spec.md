@@ -33,7 +33,7 @@
 复合工具在 `ToolResult.data` 里声明它写了什么：
 
 ```ts
-// src/ai/tool-effects/effect-composition.ts
+// src/governance-shared/services/effect-composition.ts
 interface DeclaredSideEffect { resultType: string; resultId: number }
 ```
 

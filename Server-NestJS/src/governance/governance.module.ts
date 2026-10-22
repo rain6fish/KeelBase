@@ -47,8 +47,8 @@ import { GovernanceApprovalService } from './governance-approval.service';
 import { SidecarRegistryService } from './sidecar-registry.service';
 
 // 治理 controller
-import { AuditController } from '../ai/audit/audit.controller';
-import { AgentsController } from '../ai/agents/agents.controller';
+import { AuditController } from '../governance-shared/controllers/audit.controller';
+import { AgentsController } from '../governance-shared/controllers/agents.controller';
 import { GovernanceController } from './governance.controller';
 import { ExternalGovernanceController } from './external-governance.controller';
 import { GovernanceApiGuard } from './governance-api.guard';

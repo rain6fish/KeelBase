@@ -51,7 +51,7 @@ import { EventsService } from '../events/events.service';
 import { UsersService } from '../users/users.service';
 import { AiController } from './ai.controller';
 import { AiService } from './ai.service';
-import { AuditController } from './audit/audit.controller';
+import { AuditController } from '../governance-shared/controllers/audit.controller';
 import { InsightsController } from './insights/insights.controller';
 import { InsightsService } from './insights/insights.service';
 import { KnowledgeController } from './rag/knowledge.controller';
@@ -88,7 +88,7 @@ import { AiDailyUsage } from '../governance-shared/entities/ai-daily-usage.entit
 import { AiConfirmationRequest } from '../governance-shared/entities/ai-confirmation-request.entity';
 import { AiAgent } from '../governance-shared/entities/ai-agent.entity';
 import { GovernanceSharedModule } from '../governance-shared/governance-shared.module';
-import { AgentsController } from './agents/agents.controller';
+import { AgentsController } from '../governance-shared/controllers/agents.controller';
 import { CreateModuleTool } from './tools/create-module.tool';
 import { CreateModuleApplyTool } from './tools/create-module-apply.tool';
 import { QueryEventsTool } from './tools/query-events.tool';

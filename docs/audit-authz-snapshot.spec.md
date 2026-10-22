@@ -48,7 +48,7 @@ if (!denied) {
 | 文件 | 改动 |
 |------|------|
 | `src/ai/ai.service.ts` | 放行 tool_call 审计（`action:'tool_call'` 成功分支）补 `authorization: JSON.stringify({ allowed: true, ...authz })` |
-| `src/ai/audit/audit.service.ts` | 新增 `parseAllowedSnapshot` + `_identityChainFromRow` 优先快照、无快照降级重算 |
+| `src/governance-shared/services/audit.service.ts` | 新增 `parseAllowedSnapshot` + `_identityChainFromRow` 优先快照、无快照降级重算 |
 | `docs/manual/product-language.md` | （无） |
 
 ## 4. 测试
