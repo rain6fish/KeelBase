@@ -12,7 +12,6 @@ import { GovernanceDataSource } from '../config/governance-data-source';
 
 // 治理实体
 import { AiAuditLog } from '../ai/audit/ai-audit-log.entity';
-import { AiDailyUsage } from '../ai/audit/ai-daily-usage.entity';
 import { AiToolSideEffect } from '../ai/tool-effects/ai-tool-side-effect.entity';
 import { AiAgent } from '../ai/agents/ai-agent.entity';
 import { AiConfirmationRequest } from '../ai/approvals/ai-confirmation-request.entity';
@@ -70,7 +69,6 @@ import { GovernanceCaslAbilityFactory } from './governance-casl.factory';
     }),
     TypeOrmModule.forFeature([
       AiAuditLog,
-      AiDailyUsage,
       AiToolSideEffect,
       AiAgent,
       AiConfirmationRequest,
