@@ -63,7 +63,6 @@ const CONFIG_WIRING = /^governance-.*\.ts$/;
  * 文件带 `config/` 前缀。键用语句而不是行号，这样 import 上方无关的改动不会让基线失效。真的解掉一条
  * import 时把对应行删掉（闸会打印哪些已失效）。**不要**在没有在提交信息里说明「耦合为何必须变多」的
  * 情况下加行；棘轮的意义就是不让它无意间长大。
- */
  *
  * Baseline note (2026-10-22, S4-H4 C Step 2): the seven shared entities moved to
  * `src/governance-shared/entities/`, retiring the six `governance.module.ts` entity imports, the
@@ -73,7 +72,7 @@ const CONFIG_WIRING = /^governance-.*\.ts$/;
  * 基线说明（2026-10-22，S4-H4 C 第二步）：七个共享实体搬进 `src/governance-shared/entities/`，
  * 随之退役 `governance.module.ts` 六条实体 import、`governance-approval.service{,.spec}.ts` 两条
  * `AiConfirmationRequest`、以及 `config/governance-data-source.ts` 七条实体 import。
- *
+ */
 const BASELINE = [
   ['external-governance.controller.spec.ts', "import { AuditService } from '../ai/audit/audit.service';"],
   ['external-governance.controller.spec.ts', "import { GovernancePolicyService } from '../ai/governance-bridge/governance-policy.service';"],
