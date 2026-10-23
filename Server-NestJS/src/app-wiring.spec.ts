@@ -32,6 +32,9 @@ import { SidecarModule } from './governance-sidecar/sidecar.module';
 import { AiAuditModule } from './ai/audit/ai-audit.module';
 import { AiModule } from './ai/ai.module';
 import { AiToolEffectsService } from './governance-shared/services/ai-tool-effects.service';
+import { TOOL_REGISTRY, AUTHORIZATION_EXPLAINER } from './governance-shared/di-tokens';
+import { ToolRegistry } from './ai/tools/tool-registry';
+import { AuthorizationExplainerService } from './ai/authorization-explainer.service';
 import { AuditService } from './governance-shared/services/audit.service';
 import { GOVERNANCE_REPORTER } from './governance-shared/services/governance-reporter.service';
 import { LocalEntityRevoker, SIDE_EFFECT_REVOKER } from './governance-shared/services/side-effect-revoker';
@@ -85,6 +88,11 @@ describe('装配冒烟（模块能被实例化）', () => {
       revocations?: { externalRevoker?: unknown };
     };
     expect(effects.revocations?.externalRevoker).toBeDefined();
+    // S4-H4 C D5: the shared services get both business-side capabilities through tokens bound by this
+    // module; the governance process binds neither, exactly as before the move.
+    // S4-H4 C D5：共享服务经本模块绑定的 token 取得两个业务侧能力；治理进程两个都不绑，与搬迁前一致。
+    expect(moduleRef.get(TOOL_REGISTRY)).toBe(moduleRef.get(ToolRegistry));
+    expect(moduleRef.get(AUTHORIZATION_EXPLAINER)).toBe(moduleRef.get(AuthorizationExplainerService));
     await moduleRef.close();
   }, 120_000);
 

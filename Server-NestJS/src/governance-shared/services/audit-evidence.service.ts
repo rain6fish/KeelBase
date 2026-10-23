@@ -28,7 +28,8 @@ import { REVOKE_STATUS, type RevokeStatus } from '../../governance-core/revoke-s
 import { ExplanationState, explainState } from './audit-explanation-state';
 import { AuditChainService, ChainVerification } from '../../common/audit-chain/audit-chain.service';
 import { CacheService } from '../../common/cache/cache.service';
-import { AuthorizationExplainerService } from '../../ai/authorization-explainer.service';
+import type { AuthorizationExplainerService } from '../../ai/authorization-explainer.service';
+import { AUTHORIZATION_EXPLAINER } from '../di-tokens';
 import { AiAgentService } from '../../governance-shared/services/ai-agent.service';
 import { OperationAuditService } from '../../operation-audit/operation-audit.service';
 import { pathsForResultType } from '../../operation-audit/resource-routes';
@@ -210,7 +211,7 @@ export class AuditEvidenceService {
     // 链校验结果 60s 缓存（消除 action-report 的二次全表扫描）
     @Optional() private readonly cacheService?: CacheService,
     // §internal.16 A-5 跨系统身份链：授权依据（缺失降级）
-    @Optional() private readonly authorizationExplainer?: AuthorizationExplainerService,
+    @Optional() @Inject(AUTHORIZATION_EXPLAINER) private readonly authorizationExplainer?: AuthorizationExplainerService,
     @Optional() private readonly agentService?: AiAgentService,
     // ① 证据根（§internal.17 ①）：operation-audit 链行（缺失降级）
     @Optional() private readonly operationAudit?: OperationAuditService,

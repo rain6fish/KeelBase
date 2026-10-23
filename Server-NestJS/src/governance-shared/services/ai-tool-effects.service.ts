@@ -13,8 +13,9 @@ import { GOVERNANCE_REPORTER } from '../../governance-shared/services/governance
 import type { GovernanceReporter } from '../../governance-shared/services/governance-reporter.service';
 import type { AuditChainService } from '../../common/audit-chain/audit-chain.service';
 import { OperationAuditService } from '../../operation-audit/operation-audit.service';
-import { ToolRegistry } from '../../ai/tools/tool-registry';
-import { resolveRevokeClass, type RevokeClass } from '../../ai/interfaces/tool.interface';
+import type { ToolRegistry } from '../../ai/tools/tool-registry';
+import { resolveRevokeClass, type RevokeClass } from './revoke-class';
+import { TOOL_REGISTRY } from '../di-tokens';
 import type { DeclaredSideEffect } from './effect-composition';
 import { ConfigService } from '@nestjs/config';
 import { DEFAULT_REVOKE_STALE_MINUTES } from '../../governance-core/revoke-staleness';
@@ -86,7 +87,7 @@ export class AiToolEffectsService {
     // G-3（§internal.17 ① G-3）：副作用哈希链（AuditChainService，ai.module 已 import AuditChainModule；缺失降级不链化）
     @Optional() private readonly auditChain?: AuditChainService,
     // KB-6：工具注册表（解析副作用撤销能力档位快照；ToolRegistry 为 AiModule provider，构造器注入）
-    @Optional() private readonly toolRegistry?: ToolRegistry,
+    @Optional() @Inject(TOOL_REGISTRY) private readonly toolRegistry?: ToolRegistry,
     // G-3 链写入串行化（postgres 走 DB 锁事务；缺失则退化为进程内串行）——见 _withChainWrite
     @Optional() @InjectDataSource() private readonly dataSource?: DataSource,
     /**

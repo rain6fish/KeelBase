@@ -129,24 +129,13 @@ export function isSemanticWrite(
  *   transactional     — 目标暴露可回滚接口、目标事务内回滚（现仅枚举预留，REST 代理不用）
  * 与 run-level（KB-5）风险级/确认无关；仅服务端关切，不暴露给 LLM。
  */
-export type RevokeClass =
-  | 'none'
-  | 'local_compensate'
-  | 'governed_external'
-  | 'transactional';
-
-/**
- * 解析工具撤销能力档位：显式声明优先；否则按既有语义派生——
- * ProxyTool 构造器已具现显式值（走 tool.revokeClass）；
- * builtin 确认写工具（requiresConfirmation）默认 local_compensate（当前确认写均映射本地软删实体）；
- * R5 / 读 / 干跑（create_module R1）→ none（不产生可撤副作用或永不执行）。
- */
-export function resolveRevokeClass(
-  tool: Pick<AiTool, 'revokeClass' | 'requiresConfirmation'>,
-): RevokeClass {
-  if (tool.revokeClass) return tool.revokeClass;
-  return tool.requiresConfirmation ? 'local_compensate' : 'none';
-}
+// KB-6's single source now lives in governance-shared (S4-H4 C decision D5) so the shared side never
+// imports a value from this directory; it is re-exported here to keep every existing importer unchanged.
+// KB-6 的单源现住 governance-shared（S4-H4 C 决策 D5），共享侧因此不再从本目录取一个值；在此再导出，
+// 使既有 import 全部保持不变。
+import type { RevokeClass } from '../../governance-shared/services/revoke-class';
+export type { RevokeClass } from '../../governance-shared/services/revoke-class';
+export { resolveRevokeClass } from '../../governance-shared/services/revoke-class';
 
 /**
  * Explainable Authorization（W5-⑦，评审四）：单条授权依据。

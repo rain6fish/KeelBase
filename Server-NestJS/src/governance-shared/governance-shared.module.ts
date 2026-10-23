@@ -80,6 +80,15 @@
  * DTO，文件搬迁到此收口：`src/governance/` 不再 import `src/ai/**` 任何东西，棘轮基线归零。本模块仍
  * **不**注册控制器、也不提供读侧服务 —— 各进程模块注册自己对外服务的控制器。
  *
+ * Since decision D5 the runtime direction holds for this module too: business-side capabilities
+ * (`ToolRegistry`, the authorization explainer) arrive through the tokens in `di-tokens.ts`, and
+ * `resolveRevokeClass` now lives here, so no file under `governance-shared/` imports `src/ai/**` at
+ * runtime — `scripts/check-governance-imports.mjs` enforces it.
+ *
+ * 自决策 D5 起运行时方向对本模块也成立：业务侧能力（`ToolRegistry`、授权解释器）经 `di-tokens.ts` 的
+ * token 进入，`resolveRevokeClass` 也已移到这里，故 `governance-shared/` 下没有任何文件在运行时 import
+ * `src/ai/**` —— 由 `scripts/check-governance-imports.mjs` 强制。
+ *
  * 依赖方向（本模块长大时必须成立）：
  *
  *     实体 / 服务 / 控制器  →  governance-core（纯）  →  （不引 ai）

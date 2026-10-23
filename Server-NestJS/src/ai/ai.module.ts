@@ -77,6 +77,7 @@ import { AuthzExplainModule } from './authz-explain.module';
 import { AiAuditModule } from './audit/ai-audit.module';
 import { MetricsModule } from '../metrics/metrics.module';
 import { ExternalToolRegistry } from './tools/external-tool-registry';
+import { TOOL_REGISTRY, AUTHORIZATION_EXPLAINER } from '../governance-shared/di-tokens';
 import { AuditStatsService } from '../governance-shared/services/audit-stats.service';
 import { AuditQueryService } from '../governance-shared/services/audit-query.service';
 import { AuditEvidenceService } from '../governance-shared/services/audit-evidence.service';
@@ -278,6 +279,12 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     TrustSandboxService,
     SideEffectSnapshotCaptor,
     ContentSafetyService,
+    // D5: the shared side no longer imports AI classes or values; these tokens hand it the business-side
+    // instances. The governance process binds neither, so its optional parameters stay undefined.
+    // D5：共享侧不再 import AI 的类/值；这两个 token 把业务侧实例交给它。治理进程两个都不绑，
+    // 可选参数保持 undefined。
+    { provide: TOOL_REGISTRY, useExisting: ToolRegistry },
+    { provide: AUTHORIZATION_EXPLAINER, useExisting: AuthorizationExplainerService },
     // D2-1f 副作用撤销执行器：默认本地软删，独立治理控制平面可替换为远程补偿 revoker
     // useExisting: the class comes from GovernanceSharedModule, so the token is only an alias. Two
     // provider lines would build two revokers, and they do not share state when resolving or

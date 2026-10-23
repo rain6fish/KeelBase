@@ -8,7 +8,7 @@ import { EffectRegistration } from './effect-registration';
 import { WriteClaimStore } from './write-claim.store';
 import { EffectComparabilityStore } from './effect-comparability.store';
 import { EffectDisputeStore } from './effect-dispute.store';
-import type { RevokeClass } from '../../ai/interfaces/tool.interface';
+import type { RevokeClass } from './revoke-class';
 import type { HostHelpers } from './tool-effects.types';
 import { revokeAge, revokeWindow } from '../../governance-core/revoke-staleness';
 import { REVOKE_STATUS } from '../../governance-core/revoke-status';

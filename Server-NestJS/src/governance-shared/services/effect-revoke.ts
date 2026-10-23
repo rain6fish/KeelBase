@@ -10,7 +10,7 @@ import { OperationAuditService } from '../../operation-audit/operation-audit.ser
 import type { ExternalRevoker } from '../../ai/proxy/proxy-revoker.service';
 import { isEffectOwner, targetKey } from './effect-shared';
 import type { SideEffectRevoker, DerivedReferenceCount } from '../../governance-shared/services/side-effect-revoker';
-import type { RevokeClass } from '../../ai/interfaces/tool.interface';
+import type { RevokeClass } from './revoke-class';
 import { REVOKE_STATUS } from '../../governance-core/revoke-status';
 import type {
   HostHelpers,

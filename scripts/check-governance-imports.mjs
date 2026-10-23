@@ -252,4 +252,66 @@ console.log(
   `[governance-imports] 基线 ${BASELINE.length} / 实际 ${current.length}，无新增 ✓` +
     `  (baseline ${BASELINE.length} / actual ${current.length}, no additions ✓)`,
 );
+// ── Strong criterion (S4-H4 C decision D5) ───────────────────────────────────────────────────────
+// `governance-shared` must not import `src/ai/**` **at runtime**. `import type` / `export type` are
+// allowed — they vanish at compile time — and spec files are excluded: a test that reaches into the
+// AI side keeps a test-time coupling, not a runtime one.
+//
+// 强口径（S4-H4 C 决策 D5）：`governance-shared` **不得在运行时** import `src/ai/**`。`import type` /
+// `export type` 允许（编译后消失）；spec 文件不计 —— 测试伸进 AI 侧留下的是测试期耦合，不是运行时耦合。
+const SHARED = path.join(SRC, 'governance-shared');
+const strongToPosix = (p) => p.split(path.sep).join('/');
+const AI_POSIX = strongToPosix(AI);
+function listSharedTs(dir, out = []) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) listSharedTs(full, out);
+    else if (entry.isFile() && entry.name.endsWith('.ts') && !entry.name.endsWith('.spec.ts')) out.push(full);
+  }
+  return out;
+}
+function resolvesIntoAi(fromFile, spec) {
+  if (!spec.startsWith('.')) return false;
+  const base = path.resolve(path.dirname(fromFile), spec);
+  return [base, base + '.ts', path.join(base, 'index.ts')]
+    .map(strongToPosix)
+    .some((c) => c === AI_POSIX || c.startsWith(AI_POSIX + '/'));
+}
+const STRONG_RE = /(^|\n)[ \t]*(import|export)[ \t]+(type[ \t]+)?[^;'"]*?[ \t]*from[ \t]*['"]([^'"]+)['"]/g;
+const REQUIRE_RE = /(^|\n)[^;'"]*?require\([ \t]*['"]([^'"]+)['"]\)/g;
+let sharedRuntime = 0;
+let sharedTypeOnly = 0;
+const strongViolations = [];
+for (const file of listSharedTs(SHARED)) {
+  const text = stripComments(fs.readFileSync(file, 'utf8'));
+  let m;
+  STRONG_RE.lastIndex = 0;
+  while ((m = STRONG_RE.exec(text)) !== null) {
+    const [, , , typeKeyword, spec] = m;
+    if (!resolvesIntoAi(file, spec)) continue;
+    if (typeKeyword) { sharedTypeOnly++; continue; }
+    sharedRuntime++;
+    strongViolations.push([toPosix(path.relative(ROOT, file)), spec]);
+  }
+  REQUIRE_RE.lastIndex = 0;
+  while ((m = REQUIRE_RE.exec(text)) !== null) {
+    const spec = m[2];
+    if (!resolvesIntoAi(file, spec)) continue;
+    sharedRuntime++;
+    strongViolations.push([toPosix(path.relative(ROOT, file)), spec]);
+  }
+}
+strongViolations.forEach(([file, spec]) => {
+  console.error(`✗ shared 运行时 import：${file} → ${spec}`);
+  console.error(`✗ runtime import from governance-shared: ${file} → ${spec}`);
+});
+console.log(`[governance-imports] 强口径：shared 运行时 import ai = ${sharedRuntime}（type-only ${sharedTypeOnly} 条允许）`);
+console.log(`[governance-imports] strong criterion: governance-shared runtime imports of ai = ${sharedRuntime} (type-only: ${sharedTypeOnly})`);
+if (sharedRuntime > 0) {
+  console.error('\n共享模块正在运行时耦合到 src/ai —— 用 di-tokens 注入，或把纯助手搬进 governance-shared。');
+  console.error('The shared module is coupling to src/ai at runtime — inject via di-tokens, or move the pure helper into governance-shared.');
+  process.exit(1);
+}
+
 process.exit(0);
+
