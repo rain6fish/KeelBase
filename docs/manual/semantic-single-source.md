@@ -19,6 +19,7 @@ KeelBase 的关键能力 = 同一 Application Semantic Layer 连 Build 与 Run�
 | `Server-NestJS/src/common/audit-chain/` | canonical JSON / 哈希链 / HMAC 算法 |
 | `Server-NestJS/src/common/wire-schema/` | wire Schema（SSE/确认/trace/side-effect/audit payload…） |
 | `Server-NestJS/src/ai/interfaces/tool.interface.ts` | R0-R5 风险级 + 策略表 |
+| `Server-NestJS/src/governance-shared/services/revoke-class.ts` | 撤销档位（KB-6 单源；`tool.interface.ts` 再导出） |
 | `Server-NestJS/src/ai/audit/ai-business-event.ts` | 业务事件命名 |
 
 **契约真源**（任一命中即视为已落契约）：`Server-NestJS/specs/protocol/` 内的向量/金样本/registry/schema（**出仓前形态**）、以及**子模块指针本身** `Server-NestJS/specs/protocol`（**出仓后形态**，裸路径、精确匹配）。

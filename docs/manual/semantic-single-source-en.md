@@ -19,6 +19,7 @@ KeelBase's key capability is one Application Semantic Layer joining Build and Ru
 | `Server-NestJS/src/common/audit-chain/` | canonical JSON / hash chain / HMAC algorithm |
 | `Server-NestJS/src/common/wire-schema/` | wire Schema (SSE / confirmation / trace / side-effect / audit payload…) |
 | `Server-NestJS/src/ai/interfaces/tool.interface.ts` | R0-R5 risk tiers + strategy table |
+| `Server-NestJS/src/governance-shared/services/revoke-class.ts` | revoke classes (KB-6 single source; re-exported by `tool.interface.ts`) |
 | `Server-NestJS/src/ai/audit/ai-business-event.ts` | business-event naming |
 
 **Contract sources** (any hit satisfies the rule): the vectors / golden samples / registry / schemas under `Server-NestJS/specs/protocol/` (**pre-split form**), and **the submodule pin itself**, `Server-NestJS/specs/protocol` (**post-split form**, bare path, exact match).

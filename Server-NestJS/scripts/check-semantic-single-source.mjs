@@ -28,6 +28,7 @@ const SEMANTIC_SOURCES = [
   'Server-NestJS/src/common/audit-chain/',       // canonical/hash/HMAC（审计链算法）
   'Server-NestJS/src/common/wire-schema/',       // wire Schema 实现
   'Server-NestJS/src/ai/interfaces/tool.interface.ts', // R0-R5 风险级 + 策略表
+  'Server-NestJS/src/governance-shared/services/revoke-class.ts', // KB-6 撤销档位（单源；tool.interface 再导出）
   'Server-NestJS/src/ai/audit/ai-business-event.ts',   // 业务事件命名（语义）
 ];
 
