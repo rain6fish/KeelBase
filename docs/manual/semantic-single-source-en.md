@@ -19,8 +19,17 @@ KeelBase's key capability is one Application Semantic Layer joining Build and Ru
 | `Server-NestJS/src/common/audit-chain/` | canonical JSON / hash chain / HMAC algorithm |
 | `Server-NestJS/src/common/wire-schema/` | wire Schema (SSE / confirmation / trace / side-effect / audit payload…) |
 | `Server-NestJS/src/ai/interfaces/tool.interface.ts` | R0-R5 risk tiers + strategy table |
-| `Server-NestJS/src/governance-shared/services/revoke-class.ts` | revoke classes (KB-6 single source; re-exported by `tool.interface.ts`) |
 | `Server-NestJS/src/ai/audit/ai-business-event.ts` | business-event naming |
+| `Server-NestJS/src/governance-shared/services/revoke-class.ts` | revoke classes (KB-6 single source; re-exported by `tool.interface.ts`) |
+| `Server-NestJS/src/governance-shared/services/audit.service.ts` | audit action/outcome vocabulary (frozen by `ai-audit-log-outcome-v1`) + chain write |
+| `Server-NestJS/src/governance-shared/services/audit-evidence.service.ts` | `audit-evidence/2` and `/4` package formats + action report, whose schema names this file as its source |
+| `Server-NestJS/src/governance-shared/services/effect-chain.ts` | side-effect chain canonical payload: which columns the contract's hash covers |
+| `Server-NestJS/src/governance-shared/services/effect-projection.ts` | API-visible effect `status` (four frozen values) + `revocable` |
+| `Server-NestJS/src/governance-shared/services/effect-revoke.ts` | revoke state machine: the writes that set `revokeStatus` |
+| `Server-NestJS/src/governance-shared/services/governance-policy.service.ts` | governance policy + gate modes (auto / confirm / approval) |
+| `Server-NestJS/src/governance-shared/services/tool-metadata.ts` | single source of tool business-event names (the listed `ai-business-event.ts` derives from it) |
+
+**Membership rule**: a file is listed only when it **owns** a semantic the contract records — a named vocabulary, a canonical payload or a wire shape. Readers, projections of already-recorded state, aggregators, label maps, parsers of persisted text, pure helpers and type re-exports stay out: changing them cannot require a contract change, and listing them would make ordinary refactors demand the exemption trailer. `governance-shared/services/` was swept file by file on 2026-10-25.
 
 **Contract sources** (any hit satisfies the rule): the vectors / golden samples / registry / schemas under `Server-NestJS/specs/protocol/` (**pre-split form**), and **the submodule pin itself**, `Server-NestJS/specs/protocol` (**post-split form**, bare path, exact match).
 

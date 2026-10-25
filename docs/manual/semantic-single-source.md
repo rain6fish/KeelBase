@@ -19,8 +19,18 @@ KeelBase 的关键能力 = 同一 Application Semantic Layer 连 Build 与 Run�
 | `Server-NestJS/src/common/audit-chain/` | canonical JSON / 哈希链 / HMAC 算法 |
 | `Server-NestJS/src/common/wire-schema/` | wire Schema（SSE/确认/trace/side-effect/audit payload…） |
 | `Server-NestJS/src/ai/interfaces/tool.interface.ts` | R0-R5 风险级 + 策略表 |
-| `Server-NestJS/src/governance-shared/services/revoke-class.ts` | 撤销档位（KB-6 单源；`tool.interface.ts` 再导出） |
 | `Server-NestJS/src/ai/audit/ai-business-event.ts` | 业务事件命名 |
+| `Server-NestJS/src/governance-shared/services/revoke-class.ts` | 撤销档位（KB-6 单源；`tool.interface.ts` 再导出） |
+| `Server-NestJS/src/governance-shared/services/audit.service.ts` | 审计 action/outcome 词表（由 `ai-audit-log-outcome-v1` 冻结）+ 链写入 |
+| `Server-NestJS/src/governance-shared/services/audit-evidence.service.ts` | 证据包 `/2` `/4` 格式与 Action Report（其 schema 点名本文件为来源） |
+| `Server-NestJS/src/governance-shared/services/effect-chain.ts` | 副作用链 canonical 载荷：契约哈希覆盖哪些列 |
+| `Server-NestJS/src/governance-shared/services/effect-projection.ts` | 对外可见的副作用 `status`（四值冻结）与 `revocable` |
+| `Server-NestJS/src/governance-shared/services/effect-revoke.ts` | 撤销状态机：写 `revokeStatus` 三值的那一处 |
+| `Server-NestJS/src/governance-shared/services/governance-policy.service.ts` | 治理策略与门控档位（auto / confirm / approval） |
+| `Server-NestJS/src/governance-shared/services/tool-metadata.ts` | 工具业务事件名单源（已收录的 `ai-business-event.ts` 由它派生） |
+
+**收录口径**：只有当文件**拥有**契约记录的那份语义（具名词表、canonical 载荷或 wire 形状）时才列入。读取侧、对已记录状态的投影、聚合、标签映射、对已落库文本的解析、纯助手与类型再导出都不收 —— 改它们不可能要求契约变更，收进来只会让正常重构被迫带豁免 trailer。`governance-shared/services/` 已于 2026-10-25 逐文件核过。
+
 
 **契约真源**（任一命中即视为已落契约）：`Server-NestJS/specs/protocol/` 内的向量/金样本/registry/schema（**出仓前形态**）、以及**子模块指针本身** `Server-NestJS/specs/protocol`（**出仓后形态**，裸路径、精确匹配）。
 

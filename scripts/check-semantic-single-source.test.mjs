@@ -4,8 +4,9 @@
 /**
  * Regression tests for Server-NestJS/scripts/check-semantic-single-source.mjs (node:test, zero
  * dependencies). Commit bab9c1f1 added revoke-class.ts to SEMANTIC_SOURCES but left no test behind it,
- * so deleting that line again would silently reopen the hole. The cases below pin the entry and the
- * gate's decision order: a semantic-only change is red, and a contract change or the
+ * so deleting that line again would silently reopen the hole. The 2026-10-25 directory sweep added seven
+ * more files from the same directory, each with its own pair of cases. The cases below pin the entries
+ * and the gate's decision order: a semantic-only change is red, and a contract change or the
  * `[no-semantic-change]` trailer turns it green.
  *
  * Every fixture is a throwaway git repository under the OS temp directory that carries its own copy of
@@ -15,8 +16,9 @@
  * Run: node --test scripts/check-semantic-single-source.test.mjs
  *
  * check-semantic-single-source.mjs 的回归测试（node:test，零依赖）。提交 bab9c1f1 把 revoke-class.ts
- * 补进 SEMANTIC_SOURCES，却没留下任何测试 —— 再删掉那一行就会悄悄把洞重新打开。下列用例把这一条和闸的
- * 判定顺序都钉住：只改语义源 ⇒ 红；同批改契约、或提交信息带 `[no-semantic-change]` trailer ⇒ 绿。
+ * 补进 SEMANTIC_SOURCES，却没留下任何测试 —— 再删掉那一行就会悄悄把洞重新打开。2026-10-25 的目录巡查又
+ * 从同一目录补了七个文件，每个各带一对用例。下列用例把这些条目和闸的判定顺序都钉住：只改语义源 ⇒ 红；
+ * 同批改契约、或提交信息带 `[no-semantic-change]` trailer ⇒ 绿。
  *
  * 每个 fixture 都是操作系统临时目录下的一次性 git 仓，带着真实闸的一份副本。于是断言不依赖本检出的分支、
  * 工作树脏改，也不依赖 HEAD 的提交信息 —— 闸会读 `git log` 找 trailer，那段文字必须由测试自己写。
@@ -36,6 +38,24 @@ const ROOT = join(HERE, '..');
 const GATE_REL = 'Server-NestJS/scripts/check-semantic-single-source.mjs';
 const GATE = join(ROOT, GATE_REL);
 const REVOKE_CLASS = 'Server-NestJS/src/governance-shared/services/revoke-class.ts';
+
+/**
+ * The files added to the gate on 2026-10-25, when the directory sweep closed the hole the revoke-class
+ * entry left open. Each of them owns a vocabulary or payload the contract records, so a change of meaning
+ * there has to land a contract change in the same batch.
+ *
+ * 2026-10-25 补进闸的一批文件 —— 那次目录巡查补上了 revoke-class 那一条留下的洞。它们各自拥有契约记录的
+ * 词表或载荷，所以改其语义必须同批落契约。
+ */
+const SWEPT_2026_10_25 = [
+  'Server-NestJS/src/governance-shared/services/audit-evidence.service.ts',
+  'Server-NestJS/src/governance-shared/services/audit.service.ts',
+  'Server-NestJS/src/governance-shared/services/effect-chain.ts',
+  'Server-NestJS/src/governance-shared/services/effect-projection.ts',
+  'Server-NestJS/src/governance-shared/services/effect-revoke.ts',
+  'Server-NestJS/src/governance-shared/services/governance-policy.service.ts',
+  'Server-NestJS/src/governance-shared/services/tool-metadata.ts',
+];
 const CONTRACT_FILE = 'Server-NestJS/specs/protocol/vectors/revoke-class.json';
 const CONTRACT_POINTER = 'Server-NestJS/specs/protocol';
 const TRAILER = '[no-semantic-change]';
@@ -106,6 +126,36 @@ test('the real gate lists revoke-class.ts among its semantic sources — 真闸�
     `--list does not name ${REVOKE_CLASS}:\n${r.stdout}`,
   );
 });
+
+test('the real gate lists every file swept in on 2026-10-25 — 真闸列全 2026-10-25 补进的那一批', () => {
+  const r = spawnSync(process.execPath, [GATE, '--list'], { encoding: 'utf8' });
+  assert.equal(r.status, 0, `${r.stdout}\n${r.stderr}`);
+  for (const file of SWEPT_2026_10_25) {
+    assert.ok(r.stdout.includes(file), `--list does not name ${file}:\n${r.stdout}`);
+  }
+});
+
+for (const file of SWEPT_2026_10_25) {
+  const name = file.split('/').at(-1);
+  test(`a ${name} change alone, no contract and no trailer, is red — 只改 ${name}、无契约无 trailer ⇒ 红`, () => {
+    const { dir, base } = makeFixture();
+    commitFiles(dir, { [file]: '// changed semantics\n' }, 'touch one semantic source only');
+
+    const r = runGate(dir, '--base', base);
+    assert.equal(r.status, 1, `${r.stdout}\n${r.stderr}`);
+    assert.match(r.stderr, /FAIL/);
+    assert.ok(r.stderr.includes(file), `failure does not name the source:\n${r.stderr}`);
+  });
+
+  test(`a ${name} change with the exemption trailer is green — 改 ${name} 带豁免 trailer ⇒ 绿`, () => {
+    const { dir, base } = makeFixture();
+    commitFiles(dir, { [file]: '// pure refactor\n' }, `refactor: rename a local\n\n${TRAILER}`);
+
+    const r = runGate(dir, '--base', base);
+    assert.equal(r.status, 0, `${r.stdout}\n${r.stderr}`);
+    assert.ok(r.stdout.includes(TRAILER), r.stdout);
+  });
+}
 
 test('a revoke-class.ts change alone, no contract and no trailer, is red — 只改 revoke-class.ts、无契约无 trailer ⇒ 红', () => {
   const { dir, base } = makeFixture();

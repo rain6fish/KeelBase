@@ -23,13 +23,37 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '../..'); // Server-NestJS/scripts → 仓库根
 
-/** 语义源实现文件（前缀匹配，相对仓库根；变更即暗示协议/治理/审计/事件语义，需同批契约变更） */
+/**
+ * Semantic-source implementation files (prefix match, relative to the repo root): a change here implies a
+ * change to protocol / governance / audit / event semantics, so the contract must move in the same batch.
+ *
+ * Membership rule — a file is listed only when it **owns** a semantic the contract records: a named
+ * vocabulary, a canonical payload, or a wire shape. Readers, projections of already-recorded state,
+ * aggregators, label maps, parsers of persisted text, pure helpers and type re-exports stay out: changing
+ * them cannot require a contract change, and listing them would make ordinary refactors demand the
+ * exemption trailer.
+ *
+ * 语义源实现文件（前缀匹配，相对仓库根）：改这里即暗示协议/治理/审计/事件语义变了，契约须同批变更。
+ *
+ * 收录口径 —— 只有当文件**拥有**契约记录的那份语义（具名词表、canonical 载荷或 wire 形状）时才列入。
+ * 读取侧、对已记录状态的投影、聚合、标签映射、对已落库文本的解析、纯助手与类型再导出都不收：改它们
+ * 不可能要求契约变更，收进来只会让正常重构被迫带豁免 trailer。
+ */
 const SEMANTIC_SOURCES = [
   'Server-NestJS/src/common/audit-chain/',       // canonical/hash/HMAC（审计链算法）
   'Server-NestJS/src/common/wire-schema/',       // wire Schema 实现
   'Server-NestJS/src/ai/interfaces/tool.interface.ts', // R0-R5 风险级 + 策略表
-  'Server-NestJS/src/governance-shared/services/revoke-class.ts', // KB-6 撤销档位（单源；tool.interface 再导出）
   'Server-NestJS/src/ai/audit/ai-business-event.ts',   // 业务事件命名（语义）
+  // governance-shared/services/ — swept 2026-10-25; contract-owning files only —
+  // 2026-10-25 逐文件核过，只收拥有契约语义的文件。
+  'Server-NestJS/src/governance-shared/services/audit-evidence.service.ts', // audit-evidence/2 and /4 package formats + action report, whose schema names this file as its source — 证据包 /2 /4 格式与 Action Report（其 schema 点名本文件为来源）
+  'Server-NestJS/src/governance-shared/services/audit.service.ts', // audit action/outcome vocabulary (frozen by ai-audit-log-outcome-v1) + chain write — 审计 action/outcome 词表（由 ai-audit-log-outcome-v1 冻结）与链写入
+  'Server-NestJS/src/governance-shared/services/effect-chain.ts', // side-effect chain canonical payload: which columns the contract's hash covers — 副作用链 canonical 载荷：契约哈希覆盖哪些列
+  'Server-NestJS/src/governance-shared/services/effect-projection.ts', // API-visible effect `status` (executed/revoked/revoking_external/revoke_failed) + `revocable` — 对外可见的副作用 `status`（四值冻结）与 `revocable`
+  'Server-NestJS/src/governance-shared/services/effect-revoke.ts', // revoke state machine: the writes that set `revokeStatus` (revoked/compensating/revoke_failed) — 撤销状态机：写 `revokeStatus` 三值的那一处
+  'Server-NestJS/src/governance-shared/services/governance-policy.service.ts', // governance policy + gate modes (auto/confirm/approval) — 治理策略与门控档位
+  'Server-NestJS/src/governance-shared/services/revoke-class.ts', // KB-6 撤销档位（单源；tool.interface 再导出）
+  'Server-NestJS/src/governance-shared/services/tool-metadata.ts', // single source of tool business-event names; the listed ai-business-event.ts derives from it — 工具业务事件名单源；已收录的 ai-business-event.ts 由它派生
 ];
 
 /**
