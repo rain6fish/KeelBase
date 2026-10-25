@@ -51,6 +51,7 @@ npm run check:semantic-single-source --list                 # 打印语义源/�
 ```
 
 - 无可用 base（首推 / shallow clone）→ 跳过，不误伤。
+- 本地的 `npm run` 脚本额外带 `--worktree`：把**未提交**（已暂存 + 未暂存）的语义源改动也算进来 —— 只比对 `base...HEAD` 的话，改了还没提交的语义源在本地是绿的，而它一提交 CI 就红。未提交的命中**不能**用 trailer 豁免（没有提交可承载它）：先提交（带契约指针或 trailer）再复跑。CI 不带这个开关，其行为不变。
 - CI：`semantic-guard` job（**硬门禁**：无契约变更即红；纯重构加 trailer `[no-semantic-change]` 豁免）。无可用 diff base（首推/shallow）→ 脚本自行跳过。
 
 ## 与 CE-1 其他件的关系 / Related

@@ -12,9 +12,22 @@
  *
  * 用法（cd Server-NestJS）：
  *   node scripts/check-semantic-single-source.mjs --base <ref>   # 与 <ref>...HEAD 比对
+ *   node scripts/check-semantic-single-source.mjs --base <ref> --worktree  # 再并上工作树未提交改动
  *   node scripts/check-semantic-single-source.mjs --files "a b"  # 直接给变更文件（CI/测试）
  *   node scripts/check-semantic-single-source.mjs --list         # 打印语义源/契约目录清单
  * 无可用 base（首推/shallow/无 git）→ 跳过（exit 0），不误伤。
+ *
+ * `--worktree` exists because the committed range is the only thing CI can see, but the local run is the
+ * look taken *before* a push: a semantic source edited but not yet committed is invisible to
+ * `git diff <base>...HEAD`, so the local gate would report PASS on a tree that fails CI minutes later. The
+ * flag is opt-in so the gate's default output and exit code stay exactly as they were; the local npm
+ * script passes it, CI does not. A working-tree hit cannot be exempted by the trailer — there is no commit
+ * to carry it — so the message says to commit (with the contract pin or the trailer) and re-run.
+ *
+ * `--worktree` 的理由：已提交区间是 CI 唯一看得见的东西，而本地这一跑是**推送之前**看的那一眼 ——
+ * 语义源改了但还没提交时，`git diff <base>...HEAD` 看不见它，本地闸于是对一棵几分钟后会让 CI 红的树报 PASS。
+ * 该开关默认关闭，故闸的默认输出与退出码一字不变；本地 npm 脚本带上它，CI 不带。工作树命中**不能**用
+ * trailer 豁免（没有提交可承载它），故提示写的是「先提交 —— 带契约指针或 trailer —— 再复跑」。
  */
 import { execSync } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
@@ -78,12 +91,13 @@ const CONTRACT_DIRS = [
 const EXEMPT_TRAILER = '[no-semantic-change]';
 
 function parseArgs(argv) {
-  const out = { base: null, files: null, list: false };
+  const out = { base: null, files: null, list: false, worktree: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--base') out.base = argv[++i];
     else if (a === '--files') out.files = argv[++i];
     else if (a === '--list') out.list = true;
+    else if (a === '--worktree') out.worktree = true;
   }
   return out;
 }
@@ -98,6 +112,30 @@ function changedFiles(base) {
   } catch {
     return null; // 无可用 base（首推/shallow）→ 跳过
   }
+}
+
+/**
+ * Staged + unstaged edits against HEAD — what the committed range cannot show. Both listings are needed:
+ * a staged submodule-pointer move (`--cacheinfo 160000`) has no working-tree counterpart, so plain
+ * `git diff HEAD` reports it as deleted again and drops it, while `git diff --cached HEAD` keeps it.
+ * Untracked files are not listed: they enter the index as soon as they are `git add`-ed, which a commit
+ * requires anyway.
+ * 相对 HEAD 的已暂存 + 未暂存改动 —— 已提交区间看不见的那部分。两条清单都要：已暂存的子模块指针前进
+ * （`--cacheinfo 160000`）没有工作树对应物，单用 `git diff HEAD` 会把它当「又删了」丢掉，而
+ * `git diff --cached HEAD` 留得住它。未跟踪文件未列入：`git add` 之后它就进索引，而提交本来就要 add。
+ */
+function uncommittedFiles() {
+  const run = (args) => {
+    try {
+      return execSync(`git diff --name-only ${args}`, { cwd: ROOT, encoding: 'utf8' })
+        .split('\n')
+        .map((s) => s.trim())
+        .filter(Boolean);
+    } catch {
+      return [];
+    }
+  };
+  return [...new Set([...run('HEAD'), ...run('--cached HEAD')])];
 }
 
 /**
@@ -130,6 +168,7 @@ function main() {
   }
 
   let files;
+  let uncommitted = [];
   if (args.files != null) {
     files = args.files.split(/[\s,]+/).filter(Boolean);
   } else {
@@ -137,6 +176,10 @@ function main() {
     if (files == null) {
       console.log('[semantic-single-source] 无可用 base（首推/shallow）→ 跳过');
       return 0;
+    }
+    if (args.worktree) {
+      uncommitted = uncommittedFiles();
+      files = [...new Set([...files, ...uncommitted])];
     }
   }
 
@@ -169,6 +212,10 @@ function main() {
     '[semantic-single-source] FAIL — 触及语义源实现但本批无 contract 变更（指针前进 / specs/protocol 内文件）',
   );
   console.error('  语义源: ' + touchedSemantic.join(', '));
+  const fromWorktree = touchedSemantic.filter((f) => uncommitted.includes(f));
+  if (fromWorktree.length > 0) {
+    console.error(`  未提交: ${fromWorktree.join(', ')} —— 工作树改动（--worktree），没有提交可承载 trailer；先提交（带契约指针或 trailer）再复跑`);
+  }
   console.error('  规则（CE-1 L3 单源）：语义变更须先落契约再改代码——');
   console.error('   · 契约出仓后：先把契约仓的向量/金样本/schema 提交并**推进本仓子模块指针**，同批提交；或');
   console.error(`   · 纯重构/无契约影响 → 提交信息加 trailer "${EXEMPT_TRAILER}"（评审可见）。`);

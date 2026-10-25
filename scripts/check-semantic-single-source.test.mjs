@@ -218,3 +218,45 @@ test('a change outside the semantic sources stays green — 改动不落在语�
   assert.equal(r.status, 0, `${r.stdout}\n${r.stderr}`);
   assert.ok(r.stdout.includes('未触及语义源实现 → PASS'), r.stdout);
 });
+
+// ── `--worktree`: the local pre-push look must see edits the committed range cannot ──
+// ── `--worktree`：推送前那一跑必须看见已提交区间看不见的改动 ──
+
+test('an uncommitted semantic edit stays green without --worktree — 未提交的语义源改动，不带 --worktree ⇒ 仍绿（默认不变）', () => {
+  const { dir, base } = makeFixture();
+  writeFiles(dir, { [REVOKE_CLASS]: '// edited, not committed\n' }); // staged, never committed
+
+  const r = runGate(dir, '--base', base);
+  assert.equal(r.status, 0, `${r.stdout}\n${r.stderr}`);
+  assert.match(r.stdout, /→ PASS/);
+});
+
+test('the same uncommitted edit is red with --worktree and names it as uncommitted — 同一未提交改动带 --worktree ⇒ 红，并点明未提交', () => {
+  const { dir, base } = makeFixture();
+  writeFiles(dir, { [REVOKE_CLASS]: '// edited, not committed\n' });
+
+  const r = runGate(dir, '--base', base, '--worktree');
+  assert.equal(r.status, 1, `${r.stdout}\n${r.stderr}`);
+  assert.match(r.stderr, /FAIL/);
+  assert.ok(r.stderr.includes(REVOKE_CLASS), `failure does not name the source:\n${r.stderr}`);
+  assert.ok(r.stderr.includes('未提交'), `failure does not mark it uncommitted:\n${r.stderr}`);
+});
+
+test('--worktree on a clean tree is green — 工作树干净时带 --worktree ⇒ 绿', () => {
+  const { dir, base } = makeFixture();
+  commitFiles(dir, { [REVOKE_CLASS]: '// pure refactor\n' }, `refactor: move it\n\n${TRAILER}`);
+
+  const r = runGate(dir, '--base', base, '--worktree');
+  assert.equal(r.status, 0, `${r.stdout}\n${r.stderr}`);
+  assert.ok(r.stdout.includes(TRAILER), r.stdout);
+});
+
+test('--worktree with an uncommitted contract pin is green — 未提交的契约指针 + --worktree ⇒ 绿', () => {
+  const { dir, base } = makeFixture();
+  writeFiles(dir, { [REVOKE_CLASS]: '// edited with its contract\n' });
+  mustGit(dir, 'update-index', '--add', '--cacheinfo', `160000,${base},${CONTRACT_POINTER}`);
+
+  const r = runGate(dir, '--base', base, '--worktree');
+  assert.equal(r.status, 0, `${r.stdout}\n${r.stderr}`);
+  assert.ok(r.stdout.includes('语义源 + 契约同批变更 → PASS'), r.stdout);
+});

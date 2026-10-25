@@ -50,6 +50,7 @@ npm run check:semantic-single-source --list                 # print source/contr
 ```
 
 - No usable base (first push / shallow clone) → skip, no false positives.
+- Locally the `npm run` script also passes `--worktree`, so **uncommitted** (staged + unstaged) semantic-source edits count. Diffing `base...HEAD` alone leaves a just-edited source green locally while it turns CI red the moment it is committed. A working-tree hit **cannot** be exempted by the trailer — there is no commit to carry it — so commit (with the contract pin or the trailer) and re-run. CI does not pass the flag; its behaviour is unchanged.
 - CI: `semantic-guard` job (**hard gate**: red without a same-batch contract change; pure refactors exempt via the `[no-semantic-change]` trailer). No usable diff base (first push/shallow) → the script skips itself.
 
 ## Related
