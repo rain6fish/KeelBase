@@ -24,6 +24,7 @@ KeelBase's key capability is one Application Semantic Layer joining Build and Ru
 | `Server-NestJS/src/governance-shared/services/audit.service.ts` | audit action/outcome vocabulary (frozen by `ai-audit-log-outcome-v1`) + chain write |
 | `Server-NestJS/src/governance-shared/services/audit-evidence.service.ts` | `audit-evidence/2` and `/4` package formats + action report, whose schema names this file as its source |
 | `Server-NestJS/src/governance-shared/services/effect-chain.ts` | side-effect chain canonical payload: which columns the contract's hash covers |
+| `Server-NestJS/src/governance-shared/services/effect-composition.ts` | declared shape of a multi-table write: `ToolResult.data.effects[]` decides which rows share one compensation group |
 | `Server-NestJS/src/governance-shared/services/effect-projection.ts` | API-visible effect `status` (four frozen values) + `revocable` |
 | `Server-NestJS/src/governance-shared/services/effect-revoke.ts` | revoke state machine: the writes that set `revokeStatus` |
 | `Server-NestJS/src/governance-shared/services/governance-policy.service.ts` | governance policy + gate modes (auto / confirm / approval) |

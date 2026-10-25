@@ -49,6 +49,7 @@ const SEMANTIC_SOURCES = [
   'Server-NestJS/src/governance-shared/services/audit-evidence.service.ts', // audit-evidence/2 and /4 package formats + action report, whose schema names this file as its source — 证据包 /2 /4 格式与 Action Report（其 schema 点名本文件为来源）
   'Server-NestJS/src/governance-shared/services/audit.service.ts', // audit action/outcome vocabulary (frozen by ai-audit-log-outcome-v1) + chain write — 审计 action/outcome 词表（由 ai-audit-log-outcome-v1 冻结）与链写入
   'Server-NestJS/src/governance-shared/services/effect-chain.ts', // side-effect chain canonical payload: which columns the contract's hash covers — 副作用链 canonical 载荷：契约哈希覆盖哪些列
+  'Server-NestJS/src/governance-shared/services/effect-composition.ts', // declared shape of a multi-table write: `ToolResult.data.effects[]` decides which rows share one compensation group — 复合写声明的形状：`ToolResult.data.effects[]` 决定哪些行同属一个补偿组
   'Server-NestJS/src/governance-shared/services/effect-projection.ts', // API-visible effect `status` (executed/revoked/revoking_external/revoke_failed) + `revocable` — 对外可见的副作用 `status`（四值冻结）与 `revocable`
   'Server-NestJS/src/governance-shared/services/effect-revoke.ts', // revoke state machine: the writes that set `revokeStatus` (revoked/compensating/revoke_failed) — 撤销状态机：写 `revokeStatus` 三值的那一处
   'Server-NestJS/src/governance-shared/services/governance-policy.service.ts', // governance policy + gate modes (auto/confirm/approval) — 治理策略与门控档位

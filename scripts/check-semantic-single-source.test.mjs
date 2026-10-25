@@ -4,7 +4,7 @@
 /**
  * Regression tests for Server-NestJS/scripts/check-semantic-single-source.mjs (node:test, zero
  * dependencies). Commit bab9c1f1 added revoke-class.ts to SEMANTIC_SOURCES but left no test behind it,
- * so deleting that line again would silently reopen the hole. The 2026-10-25 directory sweep added seven
+ * so deleting that line again would silently reopen the hole. The 2026-10-25 directory sweep added eight
  * more files from the same directory, each with its own pair of cases. The cases below pin the entries
  * and the gate's decision order: a semantic-only change is red, and a contract change or the
  * `[no-semantic-change]` trailer turns it green.
@@ -17,7 +17,7 @@
  *
  * check-semantic-single-source.mjs 的回归测试（node:test，零依赖）。提交 bab9c1f1 把 revoke-class.ts
  * 补进 SEMANTIC_SOURCES，却没留下任何测试 —— 再删掉那一行就会悄悄把洞重新打开。2026-10-25 的目录巡查又
- * 从同一目录补了七个文件，每个各带一对用例。下列用例把这些条目和闸的判定顺序都钉住：只改语义源 ⇒ 红；
+ * 从同一目录补了八个文件，每个各带一对用例。下列用例把这些条目和闸的判定顺序都钉住：只改语义源 ⇒ 红；
  * 同批改契约、或提交信息带 `[no-semantic-change]` trailer ⇒ 绿。
  *
  * 每个 fixture 都是操作系统临时目录下的一次性 git 仓，带着真实闸的一份副本。于是断言不依赖本检出的分支、
@@ -51,6 +51,7 @@ const SWEPT_2026_10_25 = [
   'Server-NestJS/src/governance-shared/services/audit-evidence.service.ts',
   'Server-NestJS/src/governance-shared/services/audit.service.ts',
   'Server-NestJS/src/governance-shared/services/effect-chain.ts',
+  'Server-NestJS/src/governance-shared/services/effect-composition.ts',
   'Server-NestJS/src/governance-shared/services/effect-projection.ts',
   'Server-NestJS/src/governance-shared/services/effect-revoke.ts',
   'Server-NestJS/src/governance-shared/services/governance-policy.service.ts',
