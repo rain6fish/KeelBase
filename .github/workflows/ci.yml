@@ -463,16 +463,25 @@ jobs:
       - run: node scripts/check-audit-write-points.mjs
 
   # The contract is not edited here. The protocol contract lives in rain6fish/keelbase-contract; this
-  # repository consumes it. This gate is a transition guard for as long as specs/protocol is still real
-  # files here — once it is a submodule, the structure itself prevents edits and this job does nothing.
+  # repository consumes it as a gitlink at Server-NestJS/specs/protocol. The gitlink is itself the
+  # guarantee: git cannot record a file inside a submodule entry, so that state has nothing to guard.
+  # What does need guarding is the state *without* that guarantee — if the path is not a gitlink at
+  # HEAD, the only proof that it was not edited is a diff against a usable base. With no usable base
+  # (new ref, or a base commit this clone does not have) the job used to print "skipping" and exit 0,
+  # i.e. it passed without proving anything; it now fails closed there. A red here means "cannot
+  # verify", not "edited" — the two cases print different messages.
   # Evidence it is needed: within a day of the extraction the directory was edited three times in this
   # repository (a sample token, the registry, and two objects to v2), all in good faith — the editors
   # had no reason to read those as protocol changes.
   #
-  # 契约不在本仓编辑。协议契约住在 rain6fish/keelbase-contract，本仓只消费它。本门禁是**过渡期守卫**——
-  # 只要 specs/protocol 仍是本仓的真实文件就有意义；一旦它成为 submodule，结构本身即防住编辑，本 job
-  # 自动无事可做。需要它的实证：抽取后一天内本目录在主仓被改过三次（一个样例 token、registry、两个对象
-  # 升 v2），**三次都是善意**——改的人没有理由把那些读成「协议变更」。
+  # 契约不在本仓编辑。协议契约住在 rain6fish/keelbase-contract，本仓以 gitlink 消费它（Server-NestJS/specs/protocol）。
+  # gitlink 本身就是保证：git 无法在 submodule 条目里记录文件，所以那个状态本就没有可守的东西。
+  # 真正要守的是**没有**这层保证的状态 —— 若该路径在 HEAD 下不是 gitlink，唯一能证明它未被改动的，
+  # 是拿一个可用的基点做 diff。而过去在没有可用基点时（新 ref，或本克隆没有那个基点提交），本 job
+  # 打印「跳过」并 exit 0，等于什么都没证明就放行；现在这种情况一律 fail-closed 判红。
+  # 这里的红表示「无法核验」，不是「被改动」—— 两种情况打印的是不同的话。
+  # 需要它的实证：抽取后一天内本目录在主仓被改过三次（一个样例 token、registry、两个对象升 v2），
+  # **三次都是善意**——改的人没有理由把那些读成「协议变更」。
   contract-not-edited-here:
     runs-on: ubuntu-latest
     steps:
@@ -485,18 +494,30 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
           set -euo pipefail
-          mode=$(git ls-tree HEAD -- Server-NestJS/specs/protocol | awk '{print $2}')
+          path=Server-NestJS/specs/protocol
+          mode=$(git ls-tree HEAD -- "$path" | awk '{print $2}')
           if [ "$mode" = "commit" ]; then
-            echo "specs/protocol is a submodule here — this gate has nothing to check."
-            echo "specs/protocol 已是 submodule —— 本门禁无事可做。"
+            echo "specs/protocol is a submodule here — the tree itself prevents edits; nothing to check."
+            echo "specs/protocol 在本仓是 submodule —— 结构本身即防住编辑，本门禁无事可做。"
             exit 0
           fi
+          # Not a submodule at HEAD: only a diff against a usable base can show it was not touched.
+          # 本仓 HEAD 下它不是 submodule：只有对着可用基点的 diff 才能证明它没被动过。
+          reason=""
           if [ -z "${BASE_SHA:-}" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
-            echo "No diff base (new branch or first push) — skipping."
-            echo "无 diff 基点（新分支或首次推送）—— 跳过。"
-            exit 0
+            reason="no diff base (new branch or first push)"
+          elif ! git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
+            reason="diff base $BASE_SHA is not in this clone"
           fi
-          changed=$(git diff --name-only "$BASE_SHA" HEAD -- Server-NestJS/specs/protocol/ || true)
+          if [ -n "$reason" ]; then
+            echo "::error::specs/protocol is not a submodule here — this run cannot prove it was not edited."
+            echo "本仓的 specs/protocol 不是 submodule —— 本次运行无法证明它未被改动。"
+            echo "Why / 原因: $reason"
+            echo "Consume the contract as a gitlink (see .gitmodules); if this ref predates the switch (a623345e), rebase it."
+            echo "请按 .gitmodules 以 gitlink 消费契约；若本 ref 早于 submodule 改造（a623345e），请先 rebase。"
+            exit 1
+          fi
+          changed=$(git diff --name-only "$BASE_SHA" HEAD -- "$path/")
           if [ -n "$changed" ]; then
             echo "::error::Server-NestJS/specs/protocol is not edited in this repository — the contract lives in rain6fish/keelbase-contract"
             echo "本仓不得改动 Server-NestJS/specs/protocol —— 协议契约住在 rain6fish/keelbase-contract。"
