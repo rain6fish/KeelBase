@@ -126,19 +126,45 @@ describe('AW-11 判据 #6：图级正向可达性（输出不可达清单）', (
 
     expect(report).toEqual({
       checked: 1,
-      unreachable: [{ rowType: 'claim', count: 1, reasons: ['no_write_claim_id'] }],
+      unreachable: [
+        { rowType: 'claim', count: 1, reasons: ['no_write_claim_id'] },
+        { rowType: 'effect', count: 1, reasons: ['claim_unreachable'] },
+        { rowType: 'confirmation', count: 1, reasons: ['claim_unreachable'] },
+      ],
       notApplicable: [],
     });
+    // A blocked claim must not silently omit the downstream row types — listing only `claim` would
+    // read as "effect and confirmation were fine".
+    // 占位被阻断时**绝不能默默省略**下游 row type —— 只列 `claim` 会被读成「副作用与确认都没问题」。
+    expect(report.unreachable.map((gap) => gap.rowType)).toEqual(['claim', 'effect', 'confirmation']);
   });
 
-  it('`write_claim_id` 指向不存在的占位行 ⇒ `claim` 不可达（claim_missing）', async () => {
+  it('`write_claim_id` 指向不存在的占位行 ⇒ `claim` 不可达（claim_missing），下游同样级联', async () => {
     const audit = await seedAudit(999_999);
 
     const report = await checkAuditReachability([audit.id], repos);
 
     expect(report).toEqual({
       checked: 1,
-      unreachable: [{ rowType: 'claim', count: 1, reasons: ['claim_missing'] }],
+      unreachable: [
+        { rowType: 'claim', count: 1, reasons: ['claim_missing'] },
+        { rowType: 'effect', count: 1, reasons: ['claim_unreachable'] },
+        { rowType: 'confirmation', count: 1, reasons: ['claim_unreachable'] },
+      ],
+      notApplicable: [],
+    });
+  });
+
+  it('审计行本身不存在 ⇒ `claim` 不可达（audit_row_missing），下游同样级联', async () => {
+    const report = await checkAuditReachability([999_999], repos);
+
+    expect(report).toEqual({
+      checked: 1,
+      unreachable: [
+        { rowType: 'claim', count: 1, reasons: ['audit_row_missing'] },
+        { rowType: 'effect', count: 1, reasons: ['claim_unreachable'] },
+        { rowType: 'confirmation', count: 1, reasons: ['claim_unreachable'] },
+      ],
       notApplicable: [],
     });
   });
@@ -197,7 +223,7 @@ describe('AW-11 判据 #6：图级正向可达性（输出不可达清单）', (
     });
   });
 
-  it('批量混排：可达与不可达分别计数，清单按 claim → effect → confirmation 排列', async () => {
+  it('批量混排：可达、级联与单点缺口分别计数，清单按 claim → effect → confirmation 排列', async () => {
     const { audit: goodAudit } = await linked('tok-ok');
     const historyAudit = await seedAudit(null);
     const missingConfirmClaim = await seedClaim({ effectId: null, authorizationRef: 'tok-missing' });
@@ -211,11 +237,16 @@ describe('AW-11 判据 #6：图级正向可达性（输出不可达清单）', (
     expect(report.checked).toBe(3);
     expect(report.unreachable).toEqual([
       { rowType: 'claim', count: 1, reasons: ['no_write_claim_id'] },
-      { rowType: 'confirmation', count: 1, reasons: ['confirmation_missing'] },
+      // The blocked claim cascades: its downstream types are unreachable, not "fine".
+      // 被阻断的占位行会级联：它的下游 row type 不可达，而不是「没问题」。
+      { rowType: 'effect', count: 1, reasons: ['claim_unreachable'] },
+      { rowType: 'confirmation', count: 2, reasons: ['claim_unreachable', 'confirmation_missing'] },
     ]);
     // The third record has no effect id, so its effect is "not applicable" — a separate fact from
-    // the two gaps above, and never folded into them.
-    // 第三条没有副作用 id，故其 effect 记为「不适用」—— 与上面两个缺口是**不同的事实**，绝不并入。
+    // the gaps above, and never folded into them. The blocked record adds no `notApplicable` count:
+    // whether its downstream rows would have applied is unknowable.
+    // 第三条没有副作用 id，故其 effect 记为「不适用」—— 与上面的缺口是**不同的事实**，绝不并入。
+    // 被阻断的那条不增加 `notApplicable`：它下游本是否会适用无法得知。
     expect(report.notApplicable).toEqual([{ rowType: 'effect', count: 1 }]);
   });
 

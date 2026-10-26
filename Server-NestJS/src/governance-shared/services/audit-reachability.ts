@@ -17,6 +17,11 @@ import { forwardWalkFromAuditRow, type ForwardWalkRepos } from './audit-forward-
  * pairing by tool name plus time, and never reverses through `claim.audit_row_id`: a row without the
  * forward edge is reported as unreachable, because that is what was recorded.
  *
+ * An unreachable claim blocks the path. `effect` and `confirmation` are then reported unreachable too,
+ * with the distinct reason `claim_unreachable`; omitting them would read as if those row types were
+ * fine. They are not counted as `notApplicable` either, because whether they would have applied cannot
+ * be known once the claim is out of reach.
+ *
  * `notApplicable` is deliberately separate from `unreachable`. A dry-run claim names no effect and an
  * automatic write names no authorization — those are real answers about the action, not gaps in the
  * record. Collapsing them into "unreachable" would invent failures that do not exist.
@@ -28,6 +33,10 @@ import { forwardWalkFromAuditRow, type ForwardWalkRepos } from './audit-forward-
  *
  * 走法只向前，且只沿存储边 `audit.write_claim_id`。绝不回落到「按工具名加时间」配对，也绝不反向穿过
  * `claim.audit_row_id`：没有正向边的行就报不可达，因为当时记下的就是这些。
+ *
+ * 占位行不可达即阻断通路。此时 `effect` 与 `confirmation` 也报不可达，原因单列为 `claim_unreachable`；
+ * 省略它们会被读成下游 row type 一切正常。它们也不计入 `notApplicable` —— 占位行一旦够不到，
+ * 它们本是否会适用就无法得知。
  *
  * `notApplicable` 刻意与 `unreachable` 分开。dry-run 的占位行本就没有副作用、自动写本就没有授权 ——
  * 那是关于这次动作的**真答案**，不是记录缺口。把它们并进「不可达」会造出不存在的失败。
@@ -44,10 +53,13 @@ export interface ReachabilityGap {
   count: number;
   /**
    * Distinct reasons, sorted. Each reason is a fact (`no_write_claim_id`, `claim_missing`,
-   * `effect_missing`, `confirmation_missing`, `audit_row_missing`) — never a merged "unknown".
+   * `audit_row_missing`, `claim_unreachable`, `effect_missing`, `confirmation_missing`) — never a
+   * merged "unknown". `claim_unreachable` means the path is blocked at the claim, not that an effect or
+   * confirmation row itself is missing.
    *
-   * 去重并排序的原因。每个原因是一个事实（`no_write_claim_id` / `claim_missing` /
-   * `effect_missing` / `confirmation_missing` / `audit_row_missing`），从不合并成一个「未知」。
+   * 去重并排序的原因。每个原因是一个事实（`no_write_claim_id` / `claim_missing` / `audit_row_missing` /
+   * `claim_unreachable` / `effect_missing` / `confirmation_missing`），从不合并成一个「未知」。
+   * `claim_unreachable` 表示通路断在占位行，而不是副作用或确认行本身缺失。
    */
   reasons: string[];
 }
@@ -93,8 +105,17 @@ export async function checkAuditReachability(
 
     if (walk.state === 'unlinked') {
       // `audit_row_missing` means the starting row itself is gone; it is still a claim-side gap.
+      // The blocked path takes the downstream row types with it: reporting only `claim` would let a
+      // reader conclude that effect and confirmation were fine. `claim_unreachable` says the path is
+      // blocked here — not that those rows are missing — and `notApplicable` is deliberately not
+      // incremented, because whether they would have applied is unknowable.
       // `audit_row_missing` 指起点行本身已不在；它仍归为 claim 侧的缺口。
+      // 通路断在这里，下游 row type 一并算不可达：只报 `claim` 会让读者以为副作用与确认都没问题。
+      // `claim_unreachable` 表示通路断在占位行，而不是那些行缺失；也**有意不**增加 `notApplicable`——
+      // 占位行够不到时，它们本是否会适用无法得知。
       markUnreachable('claim', walk.reason);
+      markUnreachable('effect', 'claim_unreachable');
+      markUnreachable('confirmation', 'claim_unreachable');
       continue;
     }
 
