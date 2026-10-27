@@ -26,6 +26,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { contractSubmoduleProblem, printSubmoduleProblem } from './require-contract-submodule.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SUB = 'Server-NestJS/specs/protocol';
@@ -34,6 +35,19 @@ const READMES = ['README.md', 'README.zh-CN.md'];
 const gitIn = (cwd, args) => execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
 
 const sub = path.join(ROOT, SUB);
+
+// Without this, an uninitialised submodule (an empty directory) makes every `gitIn(sub, …)` below answer
+// about the ENCLOSING repository: `describe --tags` returns this repo's own tag, and the gate then reports a
+// README/contract mismatch that does not exist — plus a fix that would make the tree wrong.
+//
+// 少了这一步，未初始化的 submodule（空目录）会让下面每个 `gitIn(sub, …)` 回答**外层仓**的问题：
+// `describe --tags` 给出本仓自己的 tag，于是门禁报告一个并不存在的 README/契约不符 —— 还附一条会把树改**错**的修法。
+const problem = contractSubmoduleProblem(ROOT);
+if (problem) {
+  printSubmoduleProblem(problem, 'contract-matrix');
+  process.exit(1);
+}
+
 /** Resolve the pin's own tag; returns null when the checkout carries no tags. 解析 pin 自身的 tag；无 tag 时返回 null。 */
 function resolvePin() {
   const tag = gitIn(sub, ['describe', '--tags', '--abbrev=0']);

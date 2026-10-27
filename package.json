@@ -59,7 +59,7 @@
     "check:semantic-single-source": "node Server-NestJS/scripts/check-semantic-single-source.mjs --base origin/main --worktree",
     "check:terminology": "node Server-NestJS/scripts/check-protocol-language.mjs",
     "check:navigation-parity": "node scripts/check-navigation-parity.mjs",
-    "check:protocol-vectors": "node Server-NestJS/scripts/generate-protocol-vectors.mjs --check",
+    "check:protocol-vectors": "node scripts/require-contract-submodule.mjs && node Server-NestJS/scripts/generate-protocol-vectors.mjs --check",
     "check:keelbase-init": "node scripts/keelbase-init.mjs inspect && node scripts/keelbase-init.mjs doctor",
     "check:gates-wired": "node scripts/check-gates-wired.mjs",
     "check:all": "node scripts/check-all.mjs"

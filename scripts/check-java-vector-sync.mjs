@@ -243,13 +243,16 @@ if (!javaSource.hasDir('')) {
 if (!existsSync(MAIN_SCHEMAS_DIR)) {
   die(
     `主仓 schema 目录不存在：${MAIN_SCHEMAS_DIR}`,
-    '本检查要求两侧 checkout 完整；缺目录时 fail-loud，不静默跳过 schema 比对。',
+    '这个目录在契约 submodule 里：先跑 git submodule update --init --recursive 再复跑。\n' +
+      '  It lives in the contract submodule — run git submodule update --init --recursive, then re-run.',
   );
 }
 if (!javaSource.hasDir('schemas')) {
   die(
     `Java schema 快照目录不存在：${JAVA_REPO} 的 ${PREFIX}/schemas（${javaSource.label}）`,
-    '本检查要求两侧 checkout 完整；缺目录时 fail-loud，不静默跳过 schema 比对。',
+    '先克隆同级 Java 仓：git clone --depth 1 https://github.com/rain6fish/KeelBase4J.git ../KeelBase4J' +
+      '（或用 --java <目录> / KEELBASE_JAVA_REPO 指向它）。\n' +
+      '  Clone the sibling repository next to this one, or point --java at it.',
   );
 }
 
