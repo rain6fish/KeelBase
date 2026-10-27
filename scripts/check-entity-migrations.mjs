@@ -28,9 +28,11 @@
  *   - `DROP COLUMN` / `DROP TABLE` are not simulated. A column dropped and re-added counts as created,
  *     and a table dropped and re-created pools its columns across both lives. Both make the gate more
  *     lenient, never louder.
- *   - `ALTER TABLE "${table}" ADD "<col>"` (table name chosen at runtime, as in
- *     `1819000000000-AddDataScopeColumns.ts`) cannot be attributed to a table statically, so such a
- *     column name is accepted for any table. Today that is `org_id` / `dept_id` and nothing else.
+ *   - `ALTER TABLE "${table}" ADD "<col>"` is attributed to the tables of its enclosing
+ *     `for (const table of ...)` loop, read from the array literal or from the static field that
+ *     loop names in the same file (`SCOPED_TABLES`, `this.withoutColumn`). A list it cannot read
+ *     fails the gate rather than accepting the column for every table or skipping it: a static gate
+ *     can only answer what it can read, and "did not look" must not read as "fine" (F-10d).
  *   - It does **not** check that the migration is *registered* (the globs in
  *     `src/config/postgres-migrations.ts`) — a migration that never runs creates nothing. That rule
  *     already has one home, the guard test `postgres-migrations.spec.ts`, which CI runs; this gate
@@ -58,8 +60,10 @@
  *   - 内嵌列（`@Column(() => X)`）与解析不出的装饰器只跳过、不猜；下面的下限负责兜住「其实什么都没解析到」。
  *   - **不模拟** `DROP COLUMN` / `DROP TABLE`：删了又加回来的列仍算「建过」，删了又重建的表把两段历史的列并在一起。
  *     两者都只让闸**更宽**，不会更吵。
- *   - `ALTER TABLE "${table}" ADD "<col>"`（表名运行期才定，如 `1819000000000-AddDataScopeColumns.ts`）
- *     静态无法归属到某张表，于是该列名**对任何表都算已建**。今天只有 `org_id` / `dept_id` 两个。
+ *   - `ALTER TABLE "${table}" ADD "<col>"` 归到**外层 `for (const table of ...)` 循环的表名清单**：清单从数组
+ *     字面量读，或从该循环在同文件里引用的静态字段读（`SCOPED_TABLES`、`this.withoutColumn`）。**读不出来的清单
+ *     判失败**，而不是把该列对任何表放行、也不是跳过 —— 静态闸只答得出它读得到的东西，而「没看见」不能读成
+ *     「没事」（F-10d）。
  *   - **不**检查迁移是否**已登记**（`src/config/postgres-migrations.ts` 里的 glob）—— 一条从不执行的迁移
  *     什么也建不出来。那条规则已有一个家：守卫单测 `postgres-migrations.spec.ts`（CI 会跑）；本闸有意不复述它。
  *
@@ -100,15 +104,17 @@ function entityFiles(dir, out = []) {
 }
 
 /**
- * Index of the parenthesis that closes the one at `openIdx`, or -1. SQL bodies nest (`PRIMARY KEY
+ * Index of the bracket that closes the one at `openIdx`, or -1. SQL bodies nest (`PRIMARY KEY
  * ("id")`, `DEFAULT (datetime('now'))`), so counting is the only cheap way in.
  * 返回与 `openIdx` 处左括号配对的右括号位置；SQL 正文会嵌套，只能靠计数。
  */
-function closingParen(text, openIdx) {
+function closing(text, openIdx) {
+  const pair = { '(': ')', '[': ']', '{': '}' }[text[openIdx]];
+  if (!pair) return -1;
   let depth = 0;
   for (let i = openIdx; i < text.length; i++) {
-    if (text[i] === '(') depth++;
-    else if (text[i] === ')' && --depth === 0) return i;
+    if (text[i] === text[openIdx]) depth++;
+    else if (text[i] === pair && --depth === 0) return i;
   }
   return -1;
 }
@@ -142,7 +148,7 @@ function decoratedProperty(text, from) {
     }
     if (text[i] === '@') {
       const open = text.indexOf('(', i);
-      const close = open < 0 ? -1 : closingParen(text, open);
+      const close = open < 0 ? -1 : closing(text, open);
       if (close < 0) return null;
       i = close + 1;
       continue;
@@ -172,7 +178,7 @@ for (const f of entityFiles(SRC)) {
   const cols = columnsByEntityTable.get(name) ?? new Map();
   for (const m of src.matchAll(COLUMN_DECORATOR_RE)) {
     const open = m.index + m[0].length - 1;
-    const close = closingParen(src, open);
+    const close = closing(src, open);
     if (close < 0) {
       unresolved.push(`${rel(f)} —— ${m[1]} 的括号不配对`);
       continue;
@@ -201,9 +207,10 @@ const migrationFiles = fs
 // Hand-written migrations split one statement over concatenated template literals (`` `...(` + `...` ``),
 // which would otherwise cut a CREATE TABLE body in half. Joining them is safe for a text scan.
 // 手写迁移会把一条语句拆成相邻的模板字面量（`` `...(` + `...` ``），不拼回来就会把 CREATE TABLE 正文劈成两半。
-const sql = migrationFiles
-  .map((f) => fs.readFileSync(f, 'utf8').replace(/`\s*\+\s*`/g, ''))
-  .join('\n');
+const migrationText = migrationFiles.map((f) => ({
+  file: f,
+  text: fs.readFileSync(f, 'utf8').replace(/`\s*\+\s*`/g, ''),
+}));
 
 const created = new Map(); // table name → Set(column)
 const addColumn = (table, column) => {
@@ -219,46 +226,104 @@ const bodyColumn = (item) => {
   return t.match(/^"([^"]+)"/)?.[1] ?? t.match(/^([A-Za-z_][A-Za-z0-9_]*)/)?.[1] ?? null;
 };
 
-const createdTables = [];
-const CREATE_RE = /CREATE TABLE(?:\s+IF NOT EXISTS)?\s+"([^"]+)"\s*\(/g;
-for (const m of sql.matchAll(CREATE_RE)) {
-  const table = m[1];
-  createdTables.push(table);
-  const open = m.index + m[0].length - 1;
-  const close = closingParen(sql, open);
-  if (close < 0) {
-    unresolved.push(`迁移里 CREATE TABLE "${table}" 的括号不配对`);
-    continue;
+/**
+ * The table names a `for (const table of X)` loop iterates, read from the literal or from the static
+ * field `X` names in the same file. Returns null when it is not written as data — the caller then
+ * fails instead of guessing (see the header).
+ * 读出 `for (const table of X)` 迭代的表名清单：从字面量，或从同文件里 `X` 指的那个静态字段。
+ * 不是写成数据就读不出来、返回 null —— 调用方据此判失败，而不是猜。
+ */
+function staticTableList(text, iterableStart, iterableEnd) {
+  const raw = text.slice(iterableStart, iterableEnd);
+  const expr = raw.trim();
+  let arrayStart;
+  if (expr.startsWith('[')) {
+    arrayStart = iterableStart + raw.indexOf('[');
+  } else {
+    const ident = expr.match(/([A-Za-z_$][\w$]*)\s*$/)?.[1];
+    if (!ident) return null;
+    const decl = new RegExp(`\\b${ident}\\s*[:=]\\s*\\[`).exec(text);
+    if (!decl) return null;
+    arrayStart = decl.index + decl[0].length - 1;
   }
-  const body = sql.slice(open + 1, close);
-  let depth = 0;
-  let item = '';
-  const items = [];
-  for (const ch of body) {
-    if (ch === '(') depth++;
-    if (ch === ')') depth--;
-    if (ch === ',' && depth === 0) {
-      items.push(item);
-      item = '';
-    } else item += ch;
-  }
-  items.push(item);
-  for (const it of items) {
-    const col = bodyColumn(it);
-    if (col) addColumn(table, col);
-  }
+  if (text[arrayStart] !== '[') return null;
+  const arrayEnd = closing(text, arrayStart);
+  if (arrayEnd < 0) return null;
+  const names = [...text.slice(arrayStart, arrayEnd).matchAll(/['"]([^'"]+)['"]/g)].map((x) => x[1]);
+  return names.length > 0 ? names : null;
 }
 
+/** Tables of the `for (const <var> of ...)` loop whose body contains `atIndex`, or null. */
+function loopTablesContaining(text, varName, atIndex) {
+  for (const m of text.matchAll(/for\s*\(\s*(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s+of\s+/g)) {
+    if (m[1] !== varName) continue;
+    const headerOpen = text.indexOf('(', m.index);
+    const headerEnd = headerOpen < 0 ? -1 : closing(text, headerOpen);
+    if (headerEnd < 0) continue;
+    const brace = text.slice(headerEnd + 1).match(/^\s*\{/);
+    if (!brace) continue;
+    const bodyOpen = headerEnd + brace[0].length;
+    const bodyEnd = closing(text, bodyOpen);
+    if (bodyEnd < 0 || atIndex < bodyOpen || atIndex > bodyEnd) continue;
+    return staticTableList(text, m.index + m[0].length, headerEnd);
+  }
+  return null;
+}
+
+const createdTables = [];
+const CREATE_RE = /CREATE TABLE(?:\s+IF NOT EXISTS)?\s+"([^"]+)"\s*\(/g;
 // ALTER TABLE "t" ADD [COLUMN] [IF NOT EXISTS] "c" — the quoted name also excludes `ADD CONSTRAINT`.
 // ALTER TABLE "t" ADD [COLUMN] [IF NOT EXISTS] "c" —— 带引号同时排除了 `ADD CONSTRAINT`。
 const ADD_RE = /ALTER TABLE\s+"([^"]+)"\s+ADD\s+(?:COLUMN\s+)?(?:IF NOT EXISTS\s+)?"([^"]+)"/g;
-for (const m of sql.matchAll(ADD_RE)) addColumn(m[1], m[2]);
+// Table name chosen at runtime: `${table}` inside a loop. Attributed to that loop's list below.
+// 表名运行期才定（循环里的 `${table}`）：下面按该循环的表名清单归属。
+const DYNAMIC_ADD_RE =
+  /ALTER TABLE\s+"?\$\{\s*([^}]+?)\s*\}"?\s+ADD\s+(?:COLUMN\s+)?(?:IF NOT EXISTS\s+)?"([^"]+)"/g;
+const RENAME_RE = /ALTER TABLE\s+"([^"]+)"\s+RENAME TO\s+"([^"]+)"/g;
 
-// Table name chosen at runtime: the column cannot be attributed, so accept it for every table.
-// 表名运行期才定：列归属不了，于是对任何表都算已建。
-const dynamicColumns = new Set();
-const DYNAMIC_ADD_RE = /ALTER TABLE\s+"?\$\{[^}]+\}"?\s+ADD\s+(?:COLUMN\s+)?(?:IF NOT EXISTS\s+)?"([^"]+)"/g;
-for (const m of sql.matchAll(DYNAMIC_ADD_RE)) dynamicColumns.add(m[1]);
+for (const { file, text } of migrationText) {
+  for (const m of text.matchAll(CREATE_RE)) {
+    const table = m[1];
+    createdTables.push(table);
+    const open = m.index + m[0].length - 1;
+    const close = closing(text, open);
+    if (close < 0) {
+      unresolved.push(`${rel(file)} —— CREATE TABLE "${table}" 的括号不配对`);
+      continue;
+    }
+    const body = text.slice(open + 1, close);
+    let depth = 0;
+    let item = '';
+    const items = [];
+    for (const ch of body) {
+      if (ch === '(') depth++;
+      if (ch === ')') depth--;
+      if (ch === ',' && depth === 0) {
+        items.push(item);
+        item = '';
+      } else item += ch;
+    }
+    items.push(item);
+    for (const it of items) {
+      const col = bodyColumn(it);
+      if (col) addColumn(table, col);
+    }
+  }
+
+  for (const m of text.matchAll(ADD_RE)) addColumn(m[1], m[2]);
+
+  for (const m of text.matchAll(DYNAMIC_ADD_RE)) {
+    const tables = loopTablesContaining(text, m[1], m.index);
+    if (!tables) {
+      unresolved.push(
+        `${rel(file)} —— ALTER TABLE "\${${m[1]}}" ADD "${m[2]}"：解析不出外层循环里的静态表名清单` +
+          `（把表名写成字面量，或在本文件里声明成静态数组）`,
+      );
+      continue;
+    }
+    for (const t of tables) addColumn(t, m[2]);
+  }
+}
 
 /** Renames are treated as one table's lives: `events` ↔ `temporary_events` pool their columns. */
 const parent = new Map();
@@ -268,10 +333,12 @@ const find = (x) => {
   while (parent.get(r) !== r) r = parent.get(r);
   return r;
 };
-for (const m of sql.matchAll(/ALTER TABLE\s+"([^"]+)"\s+RENAME TO\s+"([^"]+)"/g)) {
-  const a = find(m[1]);
-  const b = find(m[2]);
-  if (a !== b) parent.set(a, b);
+for (const { text } of migrationText) {
+  for (const m of text.matchAll(RENAME_RE)) {
+    const a = find(m[1]);
+    const b = find(m[2]);
+    if (a !== b) parent.set(a, b);
+  }
 }
 
 const columnsByRoot = new Map();
@@ -308,7 +375,7 @@ for (const [table, files] of byTable) {
   }
   const createdCols = columnsOfTable(table);
   for (const [col, file] of declared) {
-    if (!createdCols.has(col) && !dynamicColumns.has(col)) {
+    if (!createdCols.has(col)) {
       failures.push(`列 "${table}"."${col}"（${file}）没有任何已检入的迁移建它`);
     }
   }
