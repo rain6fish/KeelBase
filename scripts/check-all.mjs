@@ -47,6 +47,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { contractSubmoduleProblem, SUBMODULE_FIX } from './require-contract-submodule.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
@@ -59,6 +60,46 @@ const names = Object.keys(pkg.scripts)
 const width = Math.max(...names.map((n) => n.length));
 const failures = [];
 const started = Date.now();
+
+/**
+ * Prerequisites are reported before the table, once, with the command that fixes each. Four gates below go
+ * red when these are missing, and each of them can only describe its own symptom — the contract submodule's
+ * absence reads as `ERR_MODULE_NOT_FOUND`, a missing schema directory, or (worst) a bogus README/contract
+ * mismatch. Saying it once, at the top, turns four puzzles into one command.
+ *
+ * This does not stop the run: the gates that do not depend on these prerequisites are still worth reading.
+ *
+ * 先决条件在表格之前报一次，每条都带上能修好它的命令。缺这些时下面有**四道**门禁会红，而每道只能说出
+ * 自己的症状 —— 契约 submodule 缺失会读成 `ERR_MODULE_NOT_FOUND`、schema 目录不存在，甚至（最糟）
+ * 一个并不存在的 README/契约不符。在顶部说一次，就把四道谜题变成一条命令。
+ *
+ * 它不中断运行：不依赖这些前提的门禁仍然值得读。
+ */
+const prerequisites = [];
+{
+  const problem = contractSubmoduleProblem(ROOT);
+  if (problem) prerequisites.push({ zh: problem.zh, en: problem.en, fix: SUBMODULE_FIX });
+}
+const serverNodeModules = path.join(ROOT, 'Server-NestJS', 'node_modules');
+if (!fs.existsSync(serverNodeModules)) {
+  prerequisites.push({
+    zh: 'Server-NestJS/node_modules 缺失（check:app-wiring 会因此报「找不到 jest」）',
+    en: 'Server-NestJS/node_modules is missing (check:app-wiring will report "cannot find jest")',
+    fix: 'cd Server-NestJS && npm install',
+  });
+}
+if (prerequisites.length > 0) {
+  console.log('── 先决条件 / prerequisites ──');
+  for (const p of prerequisites) {
+    console.log(`  ✗ ${p.zh}`);
+    console.log(`    ✗ ${p.en}`);
+    console.log(`    → ${p.fix}`);
+  }
+  console.log(
+    '\n  先跑上面每条命令，再复跑 npm run check:all —— 下面传不过的门禁多半就是它们造成的。\n' +
+      '  Run the commands above, then re-run npm run check:all — the gates that fail below usually come from these.\n',
+  );
+}
 
 for (const name of names) {
   process.stdout.write(`▶ ${name.padEnd(width)} `);

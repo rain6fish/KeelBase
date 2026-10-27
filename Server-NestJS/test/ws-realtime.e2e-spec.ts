@@ -10,16 +10,25 @@ import { AiService } from '../src/ai/ai.service';
 import { FeatureFlagsModule } from '../src/feature-flags/feature-flags.module';
 import { RealtimeModule } from '../src/realtime/realtime.module';
 import { RealtimeService } from '../src/realtime/realtime.service';
+// Side effect: writes Server-NestJS/.env.test on a fresh clone, before the `@Module` below is evaluated.
+// 有副作用：全新 clone 上先把 Server-NestJS/.env.test 写出来，赶在下面 `@Module` 求值之前。
+import './test-env';
 
-/** 最小 WS 测试模块：自给 JwtModule + stub AiService，不加载 AiModule/OrgModule 等全依赖图 */
+/**
+ * 最小 WS 测试模块：自给 JwtModule + stub AiService，不加载 AiModule/OrgModule 等全依赖图。
+ *
+ * `envFilePath` 与其余 e2e 套件（`helpers.ts` 里的 `ConfigModule.forRoot`）一致地指向 `.env.test`：本套件
+ * 不走 helpers，早先因此读不到该文件，`RealtimeModule` 的 `getOrThrow('JWT_SECRET')` 直接抛错 —— CI 靠
+ * workflow 注入同名环境变量掩盖了这一点，本地裸跑则是 5 条红。
+ */
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env.test' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET', 'test-secret'),
+        secret: configService.getOrThrow<string>('JWT_SECRET'),
       }),
     }),
     FeatureFlagsModule,
