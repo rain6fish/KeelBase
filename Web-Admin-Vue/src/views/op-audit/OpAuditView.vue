@@ -52,6 +52,24 @@
     <el-card v-if="expanded" shadow="never" class="mt-2">
       <template #header>{{ t('statistics') }}</template>
       <div class="d-flex flex-column ga-3">
+        <!-- G-1 event-time authorization basis: why this human write was allowed. What the snapshot
+             recorded is what is shown; an unparseable snapshot is printed as-is rather than guessed.
+
+             G-1 事件时点授权依据：这次人类写「凭什么允许」。快照里记了什么就显示什么；解析不了就原样
+             给出，不猜、也不藏。 -->
+        <div v-if="expanded.authorization" class="d-flex ga-2">
+          <span class="text-body-2 text-medium-emphasis" style="min-width: 100px">{{ t('authzBasis') }}</span>
+          <div v-if="authzSnapshot" class="d-flex align-center ga-2 flex-wrap text-body-2">
+            <el-tag size="small" effect="plain" :type="authzSnapshot.allowed === false ? 'danger' : 'success'">
+              {{ authzSnapshot.allowed === false ? t('authzDeny') : t('authzAllow') }}
+            </el-tag>
+            <span v-if="authzSnapshot.role">{{ t('authzRole') }}={{ authzSnapshot.role }}</span>
+            <span v-if="authzSnapshot.basis" class="text-medium-emphasis">
+              {{ t('authzBasisKind') }}={{ basisLabel(authzSnapshot.basis) }}
+            </span>
+          </div>
+          <code v-else class="text-caption">{{ expanded.authorization }}</code>
+        </div>
         <!-- A-1 字段级变更留痕（业务语言：字段 X 从 A → B） -->
         <div v-if="changes.length" class="d-flex ga-2">
           <span class="text-body-2 text-medium-emphasis" style="min-width: 100px">{{ t('changesLabel') }}</span>
@@ -135,6 +153,37 @@ const changes = computed<Array<{ field: string; before: string | null; after: st
     return []
   }
 })
+
+/**
+ * G-1 authorization snapshot (`{allowed, role, basis, feature, statusCode}`). Returns null when it is
+ * not an object, and the template then prints the raw string rather than swallowing it.
+ *
+ * G-1 授权依据快照：解析不出对象返回 null —— 由模板原样显示那一串，而不是吞掉它。
+ */
+const authzSnapshot = computed<{ allowed?: boolean; role?: string | null; basis?: string | null } | null>(() => {
+  const raw = expanded.value?.authorization
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null
+  } catch {
+    return null
+  }
+})
+
+/**
+ * The two known bases are translated; every other identifier is printed **as-is** rather than given a
+ * prettier-sounding name it does not have.
+ *
+ * 两条已知依据翻成人话；其余标识符**原样**给出（不编一个更好听的说法）。
+ */
+function basisLabel(basis: string): string {
+  const map: Record<string, string> = {
+    'casl:manage-all': t('authzBasisAdmin'),
+    'casl:own-scope(handler-enforced)': t('authzBasisOwn'),
+  }
+  return map[basis] ?? basis
+}
 
 async function load(p = 1) {
   loading.value = true

@@ -1521,6 +1521,18 @@ const en: ZhDict = {
   statusCol: 'Status',
   changesLabel: 'Changed fields',
   wasLabel: 'was',
+  // G-1 event-time authorization snapshot (`operation_audit_logs.authorization`): why this human write
+  // was allowed. The heading reuses the root-level `authzBasis` (line 22); only the snapshot's parts
+  // are new here.
+  //
+  // G-1 事件时点授权依据快照：这次人类写「凭什么允许」。标题复用根级 `authzBasis`（第 22 行，已有），
+  // 这里只补快照里那三段的说法。
+  authzAllow: 'Allowed',
+  authzDeny: 'Denied',
+  authzRole: 'Role',
+  authzBasisKind: 'Basis',
+  authzBasisAdmin: 'Administrator (manage all)',
+  authzBasisOwn: 'Own scope (enforced by handler)',
 
   aiAuditTitle: 'AI Audit',
   // AW-3 coverage statement. **Root level** (`t('coverageTitle')` resolves from the root; nesting these
