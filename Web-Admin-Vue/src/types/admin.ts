@@ -80,6 +80,15 @@ export interface OperationAuditLog {
   changes?: string | null
   /** A-1 业务事件归一化（如 CustomerUpdated） */
   businessEvent?: string | null
+  /**
+   * G-1 event-time authorization snapshot (`{allowed, role, basis, feature, statusCode}`; one of the
+   * annotation columns outside the hash payload). The wire has always carried it; the type did not
+   * declare it, so the operation-audit surface could not answer "why was it allowed".
+   *
+   * G-1 事件时点授权依据快照（链外注解列）。线上一直带着它，但此前**没有声明** —— 于是「为什么允许」
+   * 在操作审计这一面答不出来。
+   */
+  authorization?: string | null
   ip?: string | null
   /** AU-3（§22.19 归因层）：访客标识——区分共享演示账号（alex）下的不同访客；链外列 */
   guestId?: string | null

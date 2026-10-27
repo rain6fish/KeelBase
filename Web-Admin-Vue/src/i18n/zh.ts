@@ -1528,6 +1528,18 @@ const zh = {
   statusCol: '状态',
   changesLabel: '变更字段',
   wasLabel: '原为',
+  // G-1 event-time authorization snapshot (`operation_audit_logs.authorization`): why this human write
+  // was allowed. The heading reuses the root-level `authzBasis` (line 22); only the snapshot's parts
+  // are new here.
+  //
+  // G-1 事件时点授权依据快照：这次人类写「凭什么允许」。标题复用根级 `authzBasis`（第 22 行，已有），
+  // 这里只补快照里那三段的说法。
+  authzAllow: '允许',
+  authzDeny: '拒绝',
+  authzRole: '角色',
+  authzBasisKind: '依据',
+  authzBasisAdmin: '管理员权限（manage all）',
+  authzBasisOwn: '本人数据范围（处理函数强制）',
 
   // AI 审计
   aiAuditTitle: 'AI 审计',
