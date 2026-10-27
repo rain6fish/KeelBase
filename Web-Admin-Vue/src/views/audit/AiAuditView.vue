@@ -395,7 +395,7 @@ import { adminApi } from '@/api/admin'
 import { downloadCsv } from '@/utils/csv'
 import { formatTime } from '@/utils/format'
 import { toolLabel, toolArgsSummary, errorLabel } from '@/utils/businessLabel'
-import type { AuditLog, UsageStats, ChainVerifyResult, AuditInterpretation, IdentityChain, CoverageStatement } from '@/types/audit'
+import type { AuditLog, UsageStats, ChainVerifyResult, AuditInterpretation, IdentityChain, CoverageStatement, ExplanationState } from '@/types/audit'
 import type { AiConversationMeta, AiConversationMessage } from '@/types/admin'
 
 const { t, te, messages, locale } = useI18n()
@@ -576,8 +576,15 @@ const identityChain = ref<IdentityChain | null>(null)
  * uses — `revoke_failed` there means "the revoke failed", whereas this surface has to be able to say
  * "the action failed", "it was refused", "it is still waiting for a person" and "nobody knows". The
  * eight values are the same set as the back end's `audit-explanation-state.ts`; the two move together.
+ *
+ * Both maps are typed against the union rather than `Record<string, string>`, so a ninth value added on
+ * the wire fails `vue-tsc` here instead of rendering the raw enum in the console (StatusChip falls back
+ * to the raw value when a key is missing).
+ *
+ * 两张表都按联合类型声明、而不是 `Record<string, string>`：线上加了第九个值时，这里**编译不过**，
+ * 而不是在管理台里把原始枚举值显示出来（`StatusChip` 在缺少键时回落到原值）。
  */
-const explanationStateLabels = computed<Record<string, string>>(() => ({
+const explanationStateLabels = computed<Record<ExplanationState, string>>(() => ({
   awaiting_confirmation: t('explanationStateAwaiting'),
   compensation_failed: t('explanationStateCompensationFailed'),
   compensation_succeeded: t('explanationStateCompensationSucceeded'),
@@ -589,7 +596,7 @@ const explanationStateLabels = computed<Record<string, string>>(() => ({
 }))
 
 /** 颜色只表达「该注意什么」：红的要处理、黄的等人、绿的已了结、蓝的在进行。 */
-const explanationStateColors: Record<string, string> = {
+const explanationStateColors: Record<ExplanationState, string> = {
   awaiting_confirmation: 'warning',
   compensation_failed: 'danger',
   compensation_succeeded: 'success',
