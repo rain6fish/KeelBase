@@ -671,7 +671,7 @@ describe('P0-19 ② readings — Action Recoverability × Lifecycle Coverage, th
     const r4 = slices['r4-approved']!;
     const r4NoApprover: Slice = {
       ...r4,
-      confirmations: r4.confirmations.map((c) => ({ ...c, approverId: null })),
+      confirmations: r4.confirmations.map((c) => ({ ...c, approverId: undefined })),
     };
     expect(readingsFor('r4-approved', r4).ar.detail['who-approved']).toBe(true);
     expect(readingsFor('r4-approved', r4NoApprover).ar.detail['who-approved']).toBe(false);
