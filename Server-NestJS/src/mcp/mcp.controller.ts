@@ -218,14 +218,14 @@ export class McpExportController {
     // HS-10：MCP 调用落 AI 审计（provider=mcp 便于区分来源；username 快照 D2-1c——非 actor 路径，显式带出）
     // T5 跨入口一致：放行依据快照与 REST/SSE 同形（buildAllowSnapshot 单一构造）。
     //
-    // Two kinds of row carry the basis, one does not. "Allowed and it ran" answers why it could run;
-    // "held for a person" (`pending`, `isError=false`) answers why it was allowed to reach the
-    // confirmation step. Failed / denied rows still never carry it: A-8 reads `is_error AND a
-    // non-empty authorization`, so a basis there would be read as a refusal.
+    // Two kinds of row carry the basis. "Allowed and it ran" answers why it could run; "held for a
+    // person" (`pending`) answers why it was allowed to reach the confirmation step. The remaining
+    // shape on this door is a failed *read*, which keeps the old rule — its story is the failure, not
+    // the basis that let it start.
     //
-    // 写依据的只有两种行：实际放行且执行成功的行，和**被扣下等人**（`pending`、`isError=false`）的行
-    // —— 后者回答的是「凭什么允许它走到确认这一步」。失败/拒绝的行仍不写：A-8 的判据是
-    // `is_error AND authorization 非空`，在那里写依据会被读成一次拒绝。
+    // 写依据的有两种行：实际放行且执行成功的行，和**被扣下等人**（`pending`）的行 —— 后者回答的是
+    // 「凭什么允许它走到确认这一步」。这扇门上剩下的形状是**读工具执行失败**，仍按旧规则不写 ——
+    // 它的故事是那次失败，不是让它起跑的依据。
     let allowSnapshot: string | undefined;
     if (!out.executed || out.result?.success) {
       // 富化失败不得把「已执行成功」翻成调用方可见的错误（fail-after-execute：副作用已发生却报错，

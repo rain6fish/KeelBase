@@ -13,7 +13,7 @@
  * - `isError`：未执行（deny / 待批）恒为真；有结果时按结果判，且 **R4 待批不算失败**
  *   （否则单次审批被计 approved + blocked + errors 三重误报）
  * - `businessEvent` / `evidence`：**只有真正执行过（有结果）才派生**——deny 行不含这两列
- * - `authorization`：放行快照（成功且实际放行，或被扣下等人那一行）或 deny reasons 的 JSON，由调用方判断该给哪个
+ * - `authorization`：放行快照（成功执行 / 被扣下等人 / 没发生的那两种）或 deny reasons 的 JSON，由调用方判断该给哪个
  * - `source`：B 路径代理写标 bridge（四处一致）
  */
 import type { AuditEntry } from '../../governance-shared/services/audit.service';
@@ -38,6 +38,15 @@ export interface ToolCallAuditInput {
   authorization?: string;
   /** R4 待批：已提交人工审批不算失败（此区分当前只有流式路径有） */
   pendingApproval?: boolean;
+  /**
+   * How a confirmation ended **without an execution** — a person declined it, or the window closed
+   * with no decision. Neither is a failure: nothing ran. Callers pass the decision; the words are
+   * decided here, once, so the two ends cannot spell one non-event two ways.
+   *
+   * 确认以「**没有执行**」收场的两种情形：有人拒绝，或窗口到期无人裁决。两者都**不是失败** ——
+   * 一次都没跑。调用方给的是裁决，词由这里一处决定，两端才不会把同一件「没发生」写成两种样子。
+   */
+  unconfirmed?: 'declined' | 'timeout';
   /**
    * §22.19 AU-2: the handle that groups every row of one delegate/plan turn — written on the turn's
    * `tool_call` rows and on its conversation-level row alike, so the whole turn is one query away.
@@ -96,11 +105,18 @@ export function buildToolCallAudit(input: ToolCallAuditInput): AuditEntry {
   // `pendingApproval`，而「在等人」是 `pending`，绝不是 `failed`。
   const outcome = input.pendingApproval
     ? 'pending'
-    : result
-      ? toolCallOutcome(result)
-      : input.deniedBy?.includes('risk_policy')
-        ? 'blocked'
-        : 'refused';
+    : input.unconfirmed
+      ? // `declined` names who ended it; `not_executed` says the window closed with no decision —
+        // neither claims an attempt happened. `declined` names a person, `not_executed` names nobody.
+        // `declined` 点名是谁结束的；`not_executed` 说窗口到期无人裁决 —— 两者都不声称尝试过。
+        input.unconfirmed === 'declined'
+        ? 'declined'
+        : 'not_executed'
+      : result
+        ? toolCallOutcome(result)
+        : input.deniedBy?.includes('risk_policy')
+          ? 'blocked'
+          : 'refused';
   return {
     userId: input.userId,
     conversationId: input.conversationId,

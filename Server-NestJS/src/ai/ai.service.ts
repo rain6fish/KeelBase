@@ -1167,6 +1167,10 @@ export class AiService {
       for (const tc of acc.toolCalls()) {
         let started = false;
         let pendingApproval = false; // R4 高影响动作（已提交审批）——通用 tool_call 审计不算失败
+        // 确认以「没有执行」收场：有人拒绝，或窗口到期无人裁决。两者都**不是失败** —— 一次都没跑。
+        // The confirmation ended without an execution: a person declined it, or the window closed with
+        // no decision. Neither is a failure — nothing ran.
+        let unconfirmed: 'declined' | 'timeout' | undefined;
         try {
           const parsed = JSON.parse(tc.args);
           // HS-2 工具权限门控（featureFlag / requireVerifiedEmail）— 先于确认流程
@@ -1362,6 +1366,10 @@ export class AiService {
                 },
               };
             } else {
+              // 没跑就是没跑：把「没有执行」这一事实交给审计行的词表，而不是让它冒充「失败」。
+              // Nothing ran, so say so: hand the "never executed" fact to the row's vocabulary instead
+              // of letting it pass for a failure.
+              unconfirmed = outcome === 'timeout' ? 'timeout' : 'declined';
               result = {
                 success: false,
                 error:
@@ -1440,12 +1448,19 @@ export class AiService {
                 result,
                 // R4 待批不算失败（与下一分支的 errorMessage 同源）
                 pendingApproval,
-                // §internal.16 A-5 事件时点放行授权依据快照：**实际放行且执行成功**的行写，**被扣下等人**
-                // （R4 待批，`outcome=pending`、`isError=false`）的行也写 —— 后者回答的是「凭什么允许它走到
-                // 确认这一步」。用户拒绝/超时/运行时失败这些 `isError=true` 的行仍不写：A-8 denied 视图的判据
-                // 是 `is_error AND authorization 非空`（见 docs/audit-authz-snapshot.spec.md）。
+                // 「没有执行」的两种收场 —— 有人拒绝、窗口到期无人裁决 —— 各自一个词，都不叫 failed。
+                // The two ways a call ends without running — declined, or the window closed with no
+                // decision — each get their own word; neither is called `failed`.
+                unconfirmed,
+                // §internal.16 A-5 事件时点放行授权依据快照：**这道门放行了它**的行都写 —— 执行成功的、
+                // 被扣下等人的、以及**没发生的**（拒绝/超时）。这三种行回答的是同一个问题：「凭什么允许
+                // 它走到这一步」。只有被门拒绝的行不写（它们带的是 deny reasons），A-8 亦已按**形状**
+                // 判别（数组 = 拒绝理由 / 对象 = 放行快照），见 docs/audit-authz-snapshot.spec.md §5.6。
                 // §internal.17③ Policy Evidence：快照携带授权时点策略内容指纹（policy.revision），供「决策可复现」校验
-                authorization: result.success || pendingApproval ? buildAllowSnapshot(tc.name, authz) : undefined,
+                authorization:
+                  result.success || pendingApproval || unconfirmed
+                    ? buildAllowSnapshot(tc.name, authz)
+                    : undefined,
               }),
             );
             // ACT-5（消费者①）：**执行过**的这一支才挂链 —— 未执行的（deny / 待批）没有占位行可挂。

@@ -116,30 +116,43 @@ if (!denied) {
 
 现口径（三档）：
 
-| 行的形状 | 写不写 | 理由 |
+| 行的形状（`outcome`） | 写不写 | 理由 |
 |---|---|---|
-| 实际放行且执行成功（`isError=false`） | **写** | 回答「凭什么允许它跑」 |
-| 被扣下等人（`outcome=pending`、`isError=false`） | **写** | 回答「凭什么允许它走到确认这一步」 |
-| 拒绝 / 失败 / 超时 / 用户拒绝（`isError=true`） | **不写** | A-8 越权视图的判据是 `is_error AND authorization IS NOT NULL`，在那里写依据会被读成一次拒绝 |
+| 实际放行且执行成功（`executed`） | **写** | 回答「凭什么允许它跑」 |
+| 被扣下等人（`pending`） | **写** | 回答「凭什么允许它走到确认这一步」 |
+| **没发生**（`not_executed` / `declined`） | **写** | 同一个问题：凭什么允许它**走到裁决**（只是裁决没有来，或是否） |
+| 被门拒绝（`blocked` / `refused`） | 不写（带 deny reasons 数组） | 那一列在这里的语义是「拒绝理由」，不是「放行依据」 |
+| 执行失败（`failed`） | 暂不写 | 故事是那次失败；本项只覆盖「没发生」这一类 |
 
-**为什么放宽是安全的（判据，可复核）**：可能误读这一列的三个读取方，全都以 `isError` 为前提 ——
-A-8 denied 视图（`audit-query.service.ts`：`is_error = true AND authorization IS NOT NULL`）、
-`blocked` 计数（`audit-evidence.service.ts`：按 `outcome === 'blocked'` 计，不看本列）、
-决策轨迹的 checks 解析（`decision-trace.service.ts`：`parseChecks` 只认 JSON **数组**，放行快照是对象 ⇒ 返回 undefined，
-与从前一致）。被扣下等人的行 `isError=false`，三处都不受影响。
+**为什么放宽是安全的（判据，可复核）**：可能误读这一列的三个读取方，现在都**按形状**判别 ——
+A-8 denied 视图（`audit-query.service.ts`：`is_error` **且** `authorization` 以 `[` 开头 = 拒绝理由数组；
+2026-10-28 起由「非空」改为按形状）、`blocked` 计数（`audit-evidence.service.ts`：按 `outcome === 'blocked'` 计，
+不看本列）、决策轨迹的 checks 解析（`decision-trace.service.ts`：`parseChecks` 只认 JSON **数组**，
+放行快照是对象 ⇒ 返回 undefined，与从前一致）。
 
-**没有放宽的地方**：R4 执行器（`r4-approval.service.ts`）仍只在成功时写 —— 它的非成功形状是**失败**
-（`isError=true`），不是 `pending`。
+**同一轮的口径更正**：`tool_call` 行的结局词新增 `not_executed`（确认窗口到期、无人裁决），落 `declined`
+而行不再冒充 `failed` —— 「没发生」与「失败」此前共用一个词，是 P0-19 ② 读数暴露的既有发现。
+操作者可见的单一状态（`audit-explanation-state.ts`）随之新增 `not_executed`，否则它会由 `isError` 兜底
+重新塌回 `failed`，这次的更正就只剩表面。（该词表的差异按该文件头的规矩记在 roadmap 行上，本项未改 roadmap。）
+
+**没有放宽的地方**：R4 执行器（`r4-approval.service.ts`）仍只在成功时写 —— 它的非成功形状是**执行失败**。
 
 **Write timing (2026-10-28): held rows carry the basis too.** The rule used to be "only when the tool was
 really allowed and really ran". P0-19 ② showed one shape was caught by it: a row **held for a person**
 (`outcome=pending`, `isError=false` — R4 awaiting approval, the MCP export's write tools) has the very fact
 "why was it allowed to reach the confirmation step", and the old rule made it unreadable. The rule is now
-three-way: written for a successful allowed execution, written for a held row, still never written for
-denials / failures / timeouts / declines (`isError=true`) — because A-8 reads `is_error AND a non-empty
-authorization` and would take the basis there for a refusal. The relaxation is safe by the same three
-readers that motivated the original rule, and all three key off `isError`. The R4 executor keeps the
-narrower condition — its non-success shape is a failure, not a `pending`.
+four-way: written for a successful allowed execution, written for a held row, written for a row that
+**never ran** (`not_executed` / `declined` — the window closed with no decision, or a person said no),
+and still not written for a row the gate refused (that column means deny reasons there) or for an
+execution that failed. The relaxation is safe because the three readers that motivated the original
+rule now all judge by **shape**: the A-8 view (2026-10-28: `is_error` **and** an authorization starting
+with `[`), the `blocked` counter (by `outcome`), and the decision trace's array-only `parseChecks`.
+
+**Same round, vocabulary:** a `tool_call` row that ends without running gets its own word —
+`not_executed` when the window closed with no decision — instead of borrowing `failed`, and a declined
+row writes `declined`. The operator-facing single state (`audit-explanation-state.ts`) gains
+`not_executed` too; without it the `isError` fallback would collapse the correction straight back to
+`failed`. The R4 executor keeps the narrower condition — its non-success shape is a failure.
 
 ## 6. 相关
 

@@ -22,10 +22,10 @@ import { GovernancePolicyService, sanitizeBoundedFields } from '../governance-sh
 
 /**
  * §internal.16 A-5 / T5 跨入口一致：**放行授权依据快照的单一构造**（JSON 字符串）。
- * 写两种行：**实际放行并成功执行**的行；以及**被扣下等人**（`outcome=pending`、`isError=false`）的行 ——
- * 后者回答「凭什么允许它走到确认这一步」。`isError=true` 的行（拒绝 / 失败 / 超时）仍不写：否则
- * isError+authorization 非空会被 A-8 denied 视图与 blocked 聚合误判为越权/阻断
- * （见 docs/audit-authz-snapshot.spec.md §「写入时机」）。SSE 流式 / 非流式 / MCP / R4 执行器共用本函数，防形状漂移。
+ * 写三种行：**实际放行并成功执行**的行、**被扣下等人**（`outcome=pending`）的行、以及**没发生**的行
+ * （`not_executed` / `declined`——窗口到期无人裁决，或有人拒绝）。三者回答的是同一个问题：「凭什么允许它
+ * 到这一步」。**被门拒绝**的行不写（它们带的是 deny reasons 数组）→ 列里两种形状由此可分
+ * （见 docs/audit-authz-snapshot.spec.md §5.6）。SSE 流式 / 非流式 / MCP / R4 执行器共用本函数，防形状漂移。
  * 注意对外键名为 `strategy`（源字段 riskStrategy）；`allowed/checks/riskLevel/policy` 是读取侧
  * `parseAllowedSnapshot` 依赖的契约字段。
  */

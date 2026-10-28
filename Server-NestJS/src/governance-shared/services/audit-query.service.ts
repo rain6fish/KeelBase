@@ -162,10 +162,17 @@ export class AuditQueryService {
     if (options.feedback) qb.andWhere('log.feedback = :feedback', { feedback: options.feedback });
     if (options.agentId) qb.andWhere('log.agent_id = :agentId', { agentId: options.agentId });
     if (options.isError) qb.andWhere('log.is_error = :isError', { isError: options.isError === 'true' });
-    // A-8 越权专门视图：错误事件 + 携带授权数据（越权/阻断而非普通失败——「AI 被拒」同样是安全证据）
+    // A-8 越权专门视图：错误事件 + 携带**拒绝理由**（越权/阻断而非普通失败——「AI 被拒」同样是安全证据）。
+    // 判据按**形状**，不按「非空」：拒绝理由是 JSON **数组**，放行快照是 JSON **对象**
+    // （docs/audit-authz-snapshot.spec.md §2）。自 2026-10-28 起，「没发生」的行（超时/拒绝）也带放行快照，
+    // 按非空判别会把它们读成一次越权。
+    //
+    // A-8: error rows carrying **deny reasons** — judged by **shape**, not by "non-empty". Deny reasons
+    // are a JSON **array**, an allow snapshot is a JSON **object**. Since 2026-10-28 the never-executed
+    // rows (timeout / declined) carry an allow snapshot too, and "non-empty" would read them as denials.
     if (options.denied) {
       qb.andWhere('log.is_error = :deniedIsErr', { deniedIsErr: true });
-      qb.andWhere("log.authorization IS NOT NULL AND log.authorization <> ''");
+      qb.andWhere("log.authorization IS NOT NULL AND substr(log.authorization, 1, 1) = '['");
     }
     if (options.orgId != null) {
       qb.andWhere(
