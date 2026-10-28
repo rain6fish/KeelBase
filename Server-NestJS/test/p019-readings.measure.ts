@@ -44,7 +44,7 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
-import { createTestApp, registerUser, authHeader } from './helpers';
+import { createTestApp, registerUser, loginAs, authHeader } from './helpers';
 import { SettingsService, SETTING_KEYS } from '../src/settings/settings.service';
 import { AiAuditLog } from '../src/governance-shared/entities/ai-audit-log.entity';
 import { AiConfirmationRequest } from '../src/governance-shared/entities/ai-confirmation-request.entity';
@@ -173,6 +173,23 @@ type ArQuestion = (typeof AR_QUESTIONS)[number];
  * person whose approval could be recorded, and counting it as missing would charge the record for a
  * stage the event never had. It is dropped from that class's denominator instead.
  */
+/**
+ * The row that says how the event ended.
+ *
+ * One event can leave more than one `tool_call` row: the R4 door writes one when the proposal is
+ * parked for approval (`pending`) and a *second* one when the approver's execution lands
+ * (`executed`). Taking the first would report the parked state as the ending, which is exactly the
+ * reading error this instrument exists to avoid. Later id = later fact.
+ *
+ * 一次事件可能留下**不止一行** `tool_call`：R4 那扇门在「挂起等审批」时写一行（`pending`），
+ * 审批人执行时**再写一行**（`executed`）。取第一行就会把「挂起」当成结局 —— 正是本仪器要避免的
+ * 读数错误。id 更大 = 更晚的事实。
+ */
+function finalToolRow(slice: Slice) {
+  const toolRows = slice.audits.filter((a) => a.action === 'tool_call');
+  return toolRows[toolRows.length - 1];
+}
+
 interface ArAnswer {
   value: boolean | null;
   /** Which column answered it — so a reader can re-run the predicate instead of trusting this file. */
@@ -180,7 +197,7 @@ interface ArAnswer {
 }
 
 function answerAr(slice: Slice): { asked: boolean; answers: Record<ArQuestion, ArAnswer> } {
-  const toolRow = slice.audits.find((a) => a.action === 'tool_call') ?? slice.audits[0];
+  const toolRow = finalToolRow(slice);
   const conf = slice.confirmations[0];
   const eff = slice.effects[0];
   const asked = Boolean(conf);
@@ -253,17 +270,63 @@ const LC_STAGES = [
 ] as const;
 type LcStage = (typeof LC_STAGES)[number];
 
-/** Which stages each class **should** leave a durable trace of. */
+/**
+ * Which entry the event came through.
+ *
+ * The six core numbers were taken on one door — the chat stream. The same event kind reached
+ * through another door is a *different record*: the MCP door writes its audit row by hand and
+ * refuses to execute anything that needs confirmation; the R4 door executes in a *later request*,
+ * by a *different person*. Measuring one door describes the door, not the product.
+ *
+ * 事件是从哪扇门进来的。六个核心数只在一扇门（对话流）上取过。同一个事件类换一扇门进来，
+ * 留下的记录就不同：MCP 那扇自己手拼审计行、且需确认的工具一律不执行；R4 那扇是在**另一个请求、
+ * 另一个人**手里执行的。只测一扇门，描述的是门，不是产品。
+ */
+type Entry = 'chat' | 'mcp' | 'r4';
+
+type ClassKind =
+  | 'success'
+  | 'blocked'
+  | 'timeout'
+  | 'mcp-blocked'
+  | 'mcp-held'
+  | 'mcp-read'
+  | 'r4-approved';
+
+const ENTRY_OF: Record<ClassKind, Entry> = {
+  success: 'chat',
+  blocked: 'chat',
+  timeout: 'chat',
+  'mcp-blocked': 'mcp',
+  'mcp-held': 'mcp',
+  'mcp-read': 'mcp',
+  'r4-approved': 'r4',
+};
+
+/**
+ * Which stages each class **should** leave a durable trace of.
+ *
+ * The denominators follow what the event is, not a wish: a read has no side effect to record, and
+ * an event the door refused to run has no execution stage. But where the door *claims* to have
+ * asked for a confirmation — `mcp-held` tells the caller "requires confirmation" — that stage is
+ * required: an artifact you cannot point at is not an artifact.
+ *
+ * 分母跟着事件本身走，不跟着愿望走：读没有副作用可记，被扣下的事件也没有执行阶段。但凡入口
+ * **声称**问过确认（`mcp-held` 就告诉调用方「requires confirmation」），那一阶段就算必填 ——
+ * 指不出来的东西不算留痕。
+ */
 const LC_REQUIRED: Record<ClassKind, LcStage[]> = {
   success: [...LC_STAGES],
   blocked: ['turn', 'proposal', 'policy-decision', 'outcome'],
   timeout: ['turn', 'proposal', 'policy-decision', 'confirmation-asked', 'outcome'],
+  'mcp-blocked': ['turn', 'proposal', 'policy-decision', 'outcome'],
+  'mcp-held': ['turn', 'proposal', 'policy-decision', 'confirmation-asked', 'outcome'],
+  'mcp-read': ['turn', 'proposal', 'execution', 'outcome'],
+  'r4-approved': [...LC_STAGES],
 };
 
-type ClassKind = 'success' | 'blocked' | 'timeout';
-
 function answerLc(slice: Slice): Record<LcStage, boolean> {
-  const toolRow = slice.audits.find((a) => a.action === 'tool_call');
+  const toolRow = finalToolRow(slice);
   const conf = slice.confirmations[0];
   const eff = slice.effects[0];
   return {
@@ -331,6 +394,7 @@ describe('P0-19 ② readings — Action Recoverability × Lifecycle Coverage, th
   let ds: DataSource;
   let port: number;
   let token: string;
+  let adminToken: string;
   const readings: Reading[] = [];
   const observed: Record<string, unknown> = {};
   const slices: Partial<Record<ClassKind, Slice>> = {};
@@ -357,6 +421,21 @@ describe('P0-19 ② readings — Action Recoverability × Lifecycle Coverage, th
       .set(authHeader(token))
       .send({ name: '辰光建材', company: '辰光集团', status: 'active', riskLevel: 'high' })
       .expect(201);
+
+    // The R4 door needs a second person: the approver. Same shape the other suites use.
+    const adminReg = await registerUser(app, {
+      username: 'p019approver',
+      email: 'p019approver@test.com',
+      password: 'P019abcd2',
+      nickname: 'P019Approver',
+    });
+    const me = await request(app.getHttpServer())
+      .get('/api/v1/auth/me')
+      .set(authHeader(adminReg.accessToken))
+      .expect(200);
+    await ds.getRepository('users').update(Number(me.body.data.id), { role: 'admin' });
+    // Re-login so the token carries the promoted role — the registration token does not have it.
+    adminToken = (await loginAs(app, 'p019approver', 'P019abcd2')).accessToken;
   });
 
   afterAll(async () => {
@@ -427,28 +506,117 @@ describe('P0-19 ② readings — Action Recoverability × Lifecycle Coverage, th
     observed['timeout.slice'] = summarize(slice);
   });
 
-  it('④ 读数 — the six numbers, plus what they were counted from', () => {
+  /** One MCP `tools/call`, in the shape the export endpoint parses. */
+  const mcpCall = (name: string, args: Record<string, unknown>) =>
+    request(app.getHttpServer())
+      .post('/api/v1/mcp')
+      .set(authHeader(token))
+      .send({ jsonrpc: '2.0', id: Date.now(), method: 'tools/call', params: { name, arguments: args } });
+
+  it('④ MCP · 被拒 — R5 through the other door', async () => {
+    const f = await floors();
+    const res = await mcpCall('delete_customer', { customerId: 1 }).expect(201);
+    observed['mcp.blocked.response'] = res.body;
+
+    const slice = await settle(ds, f, (s) => s.audits.some((a) => a.action === 'tool_call'));
+    slices['mcp-blocked'] = slice;
+    readings.push(readingsFor('mcp-blocked', slice));
+    observed['mcp.blocked.slice'] = summarize(slice);
+  });
+
+  it('⑤ MCP · 被扣下 — the door says "requires confirmation" and stops', async () => {
+    const f = await floors();
+    const res = await mcpCall('create_event', { title: 'p019-held' }).expect(201);
+    observed['mcp.held.response'] = res.body;
+
+    const slice = await settle(ds, f, (s) => s.audits.some((a) => a.action === 'tool_call'));
+    slices['mcp-held'] = slice;
+    readings.push(readingsFor('mcp-held', slice));
+    observed['mcp.held.slice'] = summarize(slice);
+  });
+
+  it('⑥ MCP · 只读成功 — a read really runs, so "success" means something else here', async () => {
+    const f = await floors();
+    const res = await mcpCall('query_events', {}).expect(201);
+    observed['mcp.read.response'] = res.body;
+
+    const slice = await settle(ds, f, (s) => s.audits.some((a) => a.action === 'tool_call'));
+    slices['mcp-read'] = slice;
+    readings.push(readingsFor('mcp-read', slice));
+    observed['mcp.read.slice'] = summarize(slice);
+  });
+
+  it('⑦ R4 · 双人审批通过 — proposed by the operator, executed by another person', async () => {
+    // The demo provider cannot emit an R4 tool, so the approval tier is reached the way the product
+    // lets an administrator reach it: by policy. This makes a tool the demo provider *can* propose
+    // (create_followup_task) require a second person — no product code changes, one product feature.
+    //
+    // Demo provider 造不出 R4 工具，故按产品**自己给的**入口进入审批档：用治理策略把 demo 能提议的
+    // 工具（create_followup_task）升档为「需第二人审批」。不改产品码，用的是产品功能。
+    await request(app.getHttpServer())
+      .put('/api/v1/ai/governance/policy')
+      .set(authHeader(adminToken))
+      .send({ tools: { create_followup_task: { mode: 'approval' } }, audit: { granularity: 'all' } })
+      .expect(200);
+
+    const f = await floors();
+    let approvalToken = '';
+    const events = await runStream({
+      port,
+      token,
+      message: '帮我为这个客户创建跟进任务',
+      onConfirmation: async (confirmation) => {
+        // R4 parks the request; the operator does not decide it. Nothing to post here on purpose.
+        approvalToken = String(confirmation.token);
+        observed['r4.mode'] = confirmation.mode ?? null;
+      },
+    });
+    observed['r4.proposalEvents'] = events.map((e) => e.type);
+
+    const approved = await request(app.getHttpServer())
+      .post(`/api/v1/ai/confirmations/${approvalToken}/approve-by`)
+      .set(authHeader(adminToken))
+      .send({ decision: 'approve' })
+      .expect(200);
+    observed['r4.approveResponse'] = approved.body;
+
+    const slice = await settle(ds, f, (s) =>
+      s.audits.some((a) => a.action === 'tool_call' && a.outcome === 'executed'),
+    );
+    slices['r4-approved'] = slice;
+    readings.push(readingsFor('r4-approved', slice));
+    observed['r4.slice'] = summarize(slice);
+
+    // Put the policy back so nothing below (or a re-run) sees a raised tier.
+    await request(app.getHttpServer())
+      .put('/api/v1/ai/governance/policy')
+      .set(authHeader(adminToken))
+      .send({ tools: {}, audit: { granularity: 'all' } })
+      .expect(200);
+  });
+
+  it('⑧ 读数 — the numbers, by door and by event class', () => {
     const pad = (s: string, n: number) => s + ' '.repeat(Math.max(0, n - s.length));
     const lines = [
       '',
-      '=== P0-19 ② readings ===',
-      `${pad('class', 10)} ${pad('AR (structured-only)', 24)} ${pad('LC (present/required)', 24)} uncovered`,
-      '-'.repeat(84),
+      '=== P0-19 ② readings — by door, by event class ===',
+      `${pad('door', 6)} ${pad('class', 14)} ${pad('AR (structured-only)', 24)} ${pad('LC (present/required)', 24)} uncovered`,
+      '-'.repeat(96),
       ...readings.map(
         (r) =>
-          `${pad(r.klass, 10)} ${pad(`${r.ar.numerator}/${r.ar.denominator}`, 24)} ${pad(`${r.lc.present}/${r.lc.required}`, 24)} ${r.lc.missing.join(',') || '-'}`,
+          `${pad(ENTRY_OF[r.klass], 6)} ${pad(r.klass, 14)} ${pad(`${r.ar.numerator}/${r.ar.denominator}`, 24)} ${pad(`${r.lc.present}/${r.lc.required}`, 24)} ${r.lc.missing.join(',') || '-'}`,
       ),
       '',
       'per-question (AR): ' +
-        JSON.stringify(readings.map((r) => ({ class: r.klass, ...r.ar.detail }))),
+        JSON.stringify(readings.map((r) => ({ door: ENTRY_OF[r.klass], class: r.klass, ...r.ar.detail }))),
       'per-stage (LC): ' +
-        JSON.stringify(readings.map((r) => ({ class: r.klass, ...r.lc.detail }))),
+        JSON.stringify(readings.map((r) => ({ door: ENTRY_OF[r.klass], class: r.klass, ...r.lc.detail }))),
       '',
       `MACHINE ${JSON.stringify({ readings, observed })}`,
       '',
     ];
     console.log(lines.join('\n'));
-    expect(readings).toHaveLength(3);
+    expect(readings).toHaveLength(7);
   });
 
   /**
@@ -461,7 +629,7 @@ describe('P0-19 ② readings — Action Recoverability × Lifecycle Coverage, th
    * 反向可证：所读的那一列没了，计数必须跟着掉。**掉不下来的读数不是读数**，只是长得像数字的常数。
    * 两处改动都施加在刚测出来的切片的内存副本上，不碰数据库。
    */
-  it('⑤ 反向可证 — 抹掉一列，读数必须掉；补上缺失的列，读数必须回来', () => {
+  it('⑨ 反向可证 — 抹掉一列，读数必须掉；补上缺失的列，读数必须回来', () => {
     const success = slices.success!;
 
     // (a) Drop `outcome` from the tool row: "what came of it" and the `outcome` stage must both fall.
@@ -491,6 +659,19 @@ describe('P0-19 ② readings — Action Recoverability × Lifecycle Coverage, th
     const afterApprove = readingsFor('success', withApprover);
     expect(afterApprove.ar.detail['who-approved']).toBe(true);
     expect(afterApprove.ar.numerator).toBe(6); // 5 → 6
+
+    // (c) The R4 door is the one where "who approved" is genuinely answered. Blank the approver and
+    // the reading must fall — otherwise the 5/6 measured there would mean nothing.
+    //
+    // (c) R4 那扇门才是「谁批准」真答得出的一扇。把审批人抹掉、读数必须跟着掉 —— 否则那边测出的
+    // 5/6 什么也没说明。数值见下。
+    const r4 = slices['r4-approved']!;
+    const r4NoApprover: Slice = {
+      ...r4,
+      confirmations: r4.confirmations.map((c) => ({ ...c, approverId: null })),
+    };
+    expect(readingsFor('r4-approved', r4).ar.detail['who-approved']).toBe(true);
+    expect(readingsFor('r4-approved', r4NoApprover).ar.detail['who-approved']).toBe(false);
   });
 });
 
@@ -499,6 +680,8 @@ function summarize(slice: Slice) {
     auditRows: slice.audits.map((a) => ({
       id: a.id,
       action: a.action,
+      userId: a.userId,
+      username: a.username ?? null,
       tool: a.tool ?? null,
       outcome: a.outcome ?? null,
       isError: a.isError,
