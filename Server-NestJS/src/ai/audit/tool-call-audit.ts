@@ -40,19 +40,19 @@ export interface ToolCallAuditInput {
   pendingApproval?: boolean;
   /**
    * How a confirmation ended **without an execution** — a person declined it, or the window closed
-   * with no decision. Callers pass the decision; the word is decided here, once.
+   * with no decision. Callers pass the decision; the words are decided here, once.
    *
-   * ⚠ **`timeout` has no word of its own** in the frozen vocabulary
-   * (`ai-audit-log-outcome-v1-vector.json`, `legalByAction.tool_call`): it settles on `failed`, the
-   * value that vector assigns to a timeout. Inventing `not_executed` was tried on 2026-10-28 and
-   * reverted — it would write rows a conforming consumer must reject. Giving "nothing ran" its own
-   * word is a contract change, not a code change.
+   * The second word, `not_executed`, was added to the frozen vocabulary on 2026-10-28 (contract
+   * v1.15.0, `ai-audit-log-outcome-v2-vector.json`): until then `legalByAction.tool_call` had no way
+   * to say "nothing ran", and the row had to borrow `failed` — which says an attempt happened and
+   * broke. Writing it before the contract changed would have produced rows a conforming consumer must
+   * reject, so the order was: contract first, then this.
    *
    * 确认以「**没有执行**」收场的两种情形：有人拒绝，或窗口到期无人裁决。调用方给的是裁决，词由这里一处定。
    *
-   * ⚠ **`timeout` 在冻结词表里没有自己的词**（`legalByAction.tool_call`）：它落到 `failed` ——
-   * 那个向量把「超时」归给的值。2026-10-28 试过造一个 `not_executed`，已撤回 —— 那会写出符合契约的
-   * 消费方**必须拒绝**的行。给「没发生」一个自己的词是**契约变更**，不是代码变更。
+   * 第二个词 `not_executed` 于 2026-10-28 进冻结词表（契约 v1.15.0，`ai-audit-log-outcome-v2-vector.json`）：
+   * 在那之前 `legalByAction.tool_call` 说不出「一次都没跑」，这一行只能借 `failed` —— 而那个词说的是
+   * 「试过、坏了」。契约改之前就写它，等于产出符合契约的消费方**必须拒绝**的行；故顺序是契约先行。
    */
   unconfirmed?: 'declined' | 'timeout';
   /**
@@ -129,13 +129,12 @@ export function buildToolCallAudit(input: ToolCallAuditInput): AuditEntry {
   const outcome = input.pendingApproval
     ? 'pending'
     : input.unconfirmed
-      ? // `declined` names who ended it. A timeout has no word of its own in the frozen vocabulary —
-        // see the `unconfirmed` field's comment; it settles on `failed`.
-        // `declined` 点名是谁结束的。超时在冻结词表里没有自己的词（见 `unconfirmed` 字段的注释），
-        // 落到 `failed`。
+      ? // Neither word claims an attempt happened: `declined` names who ended it, `not_executed` says
+        // the window closed with nobody deciding.
+        // 两个词都不声称尝试过：`declined` 点名是谁结束的，`not_executed` 说窗口到期无人裁决。
         input.unconfirmed === 'declined'
         ? 'declined'
-        : 'failed'
+        : 'not_executed'
       : result
         ? toolCallOutcome(result)
         : input.deniedBy?.includes('risk_policy')

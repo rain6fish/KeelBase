@@ -130,11 +130,11 @@ A-8 denied 视图（`audit-query.service.ts`：`is_error` **且** `authorization
 不看本列）、决策轨迹的 checks 解析（`decision-trace.service.ts`：`parseChecks` 只认 JSON **数组**，
 放行快照是对象 ⇒ 返回 undefined，与从前一致）。
 
-**同一轮的口径更正（部分）**：被人工拒绝的 `tool_call` 行改写 `declined`（冻结词表里对 `tool_call` 合法），
-不再冒充 `failed`。**确认窗口到期、无人裁决**这一种**仍然**是 `failed` —— 冻结词表
-`ai-audit-log-outcome-v1-vector.json` 的 `legalByAction.tool_call` 里没有「没发生」这个值，且它把「超时」
-归在 `failed` 名下。2026-10-28 曾造过 `not_executed` 并撤回：那会写出符合契约的消费方**必须拒绝**的行。
-给「没发生」一个自己的词是**契约变更**（向量 + `legalByAction`，且跨仓），不是代码变更 —— 见报告。
+**同一轮的口径更正**：被人工拒绝的 `tool_call` 行改写 `declined`；**确认窗口到期、无人裁决**的行改写
+`not_executed` —— 两者都不再冒充 `failed`。后者是**契约先行**的结果：TS 侧第一次这么写时，冻结词表
+`ai-audit-log-outcome-v1-vector.json` 的 `legalByAction.tool_call` 里没有这个值（且把「超时」归在 `failed`
+名下），那样的行是符合契约的消费方**必须拒绝**的，故撤回；随后契约按加性规则发布 **v1.15.0**
+（`ai-audit-log-row` v7 + `ai-audit-log-outcome-v2-vector.json`，v1 向量一字未动），代码才跟上。
 
 **没有放宽的地方**：R4 执行器（`r4-approval.service.ts`）仍只在成功时写 —— 它的非成功形状是**执行失败**。
 
@@ -149,13 +149,13 @@ execution that failed. The relaxation is safe because the three readers that mot
 rule now all judge by **shape**: the A-8 view (2026-10-28: `is_error` **and** an authorization starting
 with `[`), the `blocked` counter (by `outcome`), and the decision trace's array-only `parseChecks`.
 
-**Same round, vocabulary (partial):** a declined `tool_call` row now writes `declined`, a value the
-frozen vocabulary allows for that action, instead of borrowing `failed`. A row whose window closed with
-no decision **still** reads `failed`: `legalByAction.tool_call` in `ai-audit-log-outcome-v1-vector.json`
-has no word for "nothing ran", and assigns 超时 to `failed`. A `not_executed` word was tried on
-2026-10-28 and reverted — it would write rows a conforming consumer must reject. Giving that shape its
-own word is a **contract change** (vector + `legalByAction`, across repositories), not a code change.
-The R4 executor keeps the narrower condition — its non-success shape is a failure.
+**Same round, vocabulary:** a declined `tool_call` row writes `declined`; a row whose window closed with
+no decision writes `not_executed`. Neither borrows `failed` any more. The second one landed **contract
+first**: writing it against the then-current vocabulary would have produced rows a conforming consumer
+must reject (`legalByAction.tool_call` had no word for "nothing ran"), so it was reverted, the contract
+published it additively as **v1.15.0** (`ai-audit-log-row` v7 + `ai-audit-log-outcome-v2-vector.json`,
+the v1 vector untouched), and only then did the code follow. The R4 executor keeps the narrower
+condition — its non-success shape is a failure.
 
 ## 6. 相关
 

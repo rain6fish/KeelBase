@@ -816,7 +816,7 @@ beforeEach(installAiServiceTestbed);
       expect(JSON.parse(pendingRow.authorization)).toMatchObject({ allowed: true, tool: 'create_event' });
     });
 
-    it('2026-10-28：超时行带放行依据（结局词仍是契约给的 `failed`）', async () => {
+    it('2026-10-28：超时行说「没发生」（not_executed）并带放行依据', async () => {
       async function* mockStreamWithWriteTool() {
         yield {
           type: 'tool_call' as const,
@@ -850,9 +850,9 @@ beforeEach(installAiServiceTestbed);
         .map((c) => c[0])
         .find((e: any) => e.action === 'tool_call' && e.detail?.startsWith('create_event'));
       expect(row).toBeDefined();
-      // 冻结词表（ai-audit-log-outcome-v1-vector.json）的 legalByAction.tool_call 里没有
-      // 「没发生」这个值，超时归 `failed`；给它自己的词是契约变更，不是代码变更。
-      expect(row.outcome).toBe('failed');
+      // 契约 v1.15.0（ai-audit-log-outcome-v2-vector.json）才有这个词：确认窗口到期、无人裁决
+      // 是「没发生」，不是「跑过、坏了」。
+      expect(row.outcome).toBe('not_executed');
       expect(mockToolRegistry.execute).not.toHaveBeenCalled();
       // 依据在：凭什么允许它走到确认这一步
       expect(row.authorization).toBeDefined();
