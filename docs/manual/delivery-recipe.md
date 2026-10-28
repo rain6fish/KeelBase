@@ -174,11 +174,14 @@ delivery and is not one.
 Stop the server once this step is done — started as `npm run start:dev &` it can leave the port
 listening, and a leftover listener makes the *next* run fail for a reason unrelated to your delivery
 (`netstat -ano | grep :3111`, then kill that PID). **Under `--watch` the listener is not the only
-process**: `nest start --watch` keeps a watchdog that respawns the child, and it is the listener's
-**parent** — so `taskkill //PID <listener-pid> //T //F` kills the child and leaves the watchdog,
-which brings the port back on a fresh PID (measured 2026-10-28). Walk `ParentProcessId` up from the
-netstat PID and kill the watch process itself, or match `start --watch` in the command lines against
-your own clone path — otherwise the port reappears a minute later.
+process**: `nest start --watch` keeps a watchdog above the listener, so `taskkill //PID <listener-pid>
+//T //F` kills only the listener — the watchdog survives and rebuilds on your next content change
+under `src/`, bringing the port back on a fresh PID within seconds (measured 2026-10-28: left alone
+for 150 s the port stays dead, but one content change and it is listening again 5 s later; a bare
+`touch` does not count). The watchdog is not the listener's direct parent either — the chain is
+listener → `cmd.exe /d /s /c "node …\dist\main"` → `nest start --watch`, i.e. two hops up. Walk
+`ParentProcessId` from the netstat PID and kill the watch process itself, or match `start --watch` in
+the command lines against your own clone path — otherwise the port returns the moment you edit a file.
 
 Then hit the hand-written rules over HTTP (login as `alex`, then four POSTs to `/api/v1/asset_loans`):
 
@@ -488,10 +491,12 @@ MODULE=asset_loans MARKER_FIELD=assetTag TITLE_MARKER=AI-verify-001 \
 
 这一步做完就把服务停掉 —— 用 `npm run start:dev &` 起的那种可能把端口留着监听，残留的监听会让**下一次**运行
 因为与你的交付毫不相干的原因失败（`netstat -ano | grep :3111`，然后杀掉那个 PID）。**`--watch` 下监听者不是唯一
-的进程**：`nest start --watch` 还留着一个看门进程，它会把子进程再拉起来，而且它是监听者的**父进程** ——
-所以 `taskkill //PID <监听者 pid> //T //F` 只杀掉子进程、看门的那个还在，端口会换一个新 PID 再冒出来
-（2026-10-28 实测）。正确做法：从 netstat 拿到的 PID 沿 `ParentProcessId` 往上找到那个看门进程再杀，
-或按命令行匹配 `start --watch` 并对照你自己的克隆路径，把那些根进程杀掉。
+的进程**：`nest start --watch` 在监听者之上还留着一个看门进程，所以 `taskkill //PID <监听者 pid> //T //F`
+只杀掉监听者、看门的那个还在；它会在你**下一次改 `src/` 里的文件内容**时重建，并把端口换个新 PID 拉起来 ——
+几秒之内就回来（2026-10-28 实测：静置 150 秒端口一直是空的，改一次内容后 5 秒内又在监听；只 `touch` 不算）。
+它也不是监听者的**直接父进程** —— 链是 监听者 → `cmd.exe /d /s /c "node …\dist\main"` → `nest start --watch`，
+即**上两跳**。正确做法：从 netstat 拿到的 PID 沿 `ParentProcessId` 往上找到那个看门进程再杀，
+或按命令行匹配 `start --watch` 并对照你自己的克隆路径，把那些根进程杀掉 —— 否则你一编辑文件，端口就回来。
 
 再在 HTTP 边界上打那两条手写规则（以 `alex` 登录，然后对 `/api/v1/asset_loans` 发四个 POST）：
 
