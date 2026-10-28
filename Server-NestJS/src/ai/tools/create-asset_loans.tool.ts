@@ -24,7 +24,7 @@ export class CreateAssetLoanTool implements AiTool {
     { name: 'assetTag', type: 'string', description: '资产编号', required: true },
     { name: 'purpose', type: 'string', description: '借用事由', required: false },
     { name: 'dueDate', type: 'string', description: '计划归还日', required: false },
-    { name: 'status', type: 'string', description: '状态', required: false,
+    { name: 'status', type: 'string', description: '状态', required: true,
       enum: ['active', 'returned', 'overdue'] },
   ];
 
@@ -45,7 +45,7 @@ export class CreateAssetLoanTool implements AiTool {
             dueDate: { type: 'string', description: '计划归还日' },
             status: { type: 'string', description: '状态', enum: ['active', 'returned', 'overdue'] },
           },
-          required: ['assetName', 'assetTag'],
+          required: ['assetName', 'assetTag', 'status'],
         },
       },
     };
