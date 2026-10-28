@@ -1448,9 +1448,11 @@ export class AiService {
                 result,
                 // R4 待批不算失败（与下一分支的 errorMessage 同源）
                 pendingApproval,
-                // 「没有执行」的两种收场 —— 有人拒绝、窗口到期无人裁决 —— 各自一个词，都不叫 failed。
-                // The two ways a call ends without running — declined, or the window closed with no
-                // decision — each get their own word; neither is called `failed`.
+                // 「没有执行」的两种收场：有人拒绝写 `declined`（冻结词表里对 tool_call 合法）；
+                // 窗口到期无人裁决**没有**自己的词，仍落 `failed` —— 见 tool-call-audit 的 `unconfirmed`。
+                // The two ways a call ends without running: a decline writes `declined` (legal for
+                // `tool_call` in the frozen vocabulary); a timeout has no word of its own and still
+                // settles on `failed` — see `unconfirmed` in tool-call-audit.
                 unconfirmed,
                 // §internal.16 A-5 事件时点放行授权依据快照：**这道门放行了它**的行都写 —— 执行成功的、
                 // 被扣下等人的、以及**没发生的**（拒绝/超时）。这三种行回答的是同一个问题：「凭什么允许

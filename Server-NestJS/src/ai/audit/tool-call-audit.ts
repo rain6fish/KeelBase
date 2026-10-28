@@ -40,11 +40,19 @@ export interface ToolCallAuditInput {
   pendingApproval?: boolean;
   /**
    * How a confirmation ended **without an execution** — a person declined it, or the window closed
-   * with no decision. Neither is a failure: nothing ran. Callers pass the decision; the words are
-   * decided here, once, so the two ends cannot spell one non-event two ways.
+   * with no decision. Callers pass the decision; the word is decided here, once.
    *
-   * 确认以「**没有执行**」收场的两种情形：有人拒绝，或窗口到期无人裁决。两者都**不是失败** ——
-   * 一次都没跑。调用方给的是裁决，词由这里一处决定，两端才不会把同一件「没发生」写成两种样子。
+   * ⚠ **`timeout` has no word of its own** in the frozen vocabulary
+   * (`ai-audit-log-outcome-v1-vector.json`, `legalByAction.tool_call`): it settles on `failed`, the
+   * value that vector assigns to a timeout. Inventing `not_executed` was tried on 2026-10-28 and
+   * reverted — it would write rows a conforming consumer must reject. Giving "nothing ran" its own
+   * word is a contract change, not a code change.
+   *
+   * 确认以「**没有执行**」收场的两种情形：有人拒绝，或窗口到期无人裁决。调用方给的是裁决，词由这里一处定。
+   *
+   * ⚠ **`timeout` 在冻结词表里没有自己的词**（`legalByAction.tool_call`）：它落到 `failed` ——
+   * 那个向量把「超时」归给的值。2026-10-28 试过造一个 `not_executed`，已撤回 —— 那会写出符合契约的
+   * 消费方**必须拒绝**的行。给「没发生」一个自己的词是**契约变更**，不是代码变更。
    */
   unconfirmed?: 'declined' | 'timeout';
   /**
@@ -106,12 +114,13 @@ export function buildToolCallAudit(input: ToolCallAuditInput): AuditEntry {
   const outcome = input.pendingApproval
     ? 'pending'
     : input.unconfirmed
-      ? // `declined` names who ended it; `not_executed` says the window closed with no decision —
-        // neither claims an attempt happened. `declined` names a person, `not_executed` names nobody.
-        // `declined` 点名是谁结束的；`not_executed` 说窗口到期无人裁决 —— 两者都不声称尝试过。
+      ? // `declined` names who ended it. A timeout has no word of its own in the frozen vocabulary —
+        // see the `unconfirmed` field's comment; it settles on `failed`.
+        // `declined` 点名是谁结束的。超时在冻结词表里没有自己的词（见 `unconfirmed` 字段的注释），
+        // 落到 `failed`。
         input.unconfirmed === 'declined'
         ? 'declined'
-        : 'not_executed'
+        : 'failed'
       : result
         ? toolCallOutcome(result)
         : input.deniedBy?.includes('risk_policy')

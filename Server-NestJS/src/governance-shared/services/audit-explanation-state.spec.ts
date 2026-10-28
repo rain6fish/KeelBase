@@ -70,13 +70,6 @@ describe('explainState（单事件解释面的那一个状态）', () => {
     expect(explainState({ isError: 1 })).toBe('failed');
   });
 
-  it('⚠ 没发生 ≠ 失败：outcome=not_executed 压过 isError 兜底', () => {
-    // 超时行 isError 仍为真（它确实是一次没有完成的动作），但「没发生」是更具体的事实。
-    // A timed-out row still carries `isError`, but "nothing ran" is the more specific fact.
-    expect(explainState({ outcome: 'not_executed' })).toBe('not_executed');
-    expect(explainState({ outcome: 'not_executed', isError: true })).toBe('not_executed');
-  });
-
   it('被拒：blocked / refused / declined 三种都算，且不算作失败', () => {
     for (const outcome of ['blocked', 'refused', 'declined']) {
       expect(explainState({ outcome })).toBe('rejected');
@@ -96,7 +89,6 @@ describe('explainState（单事件解释面的那一个状态）', () => {
       compensating: { revokeStatus: 'compensating' },
       executed: { outcome: 'executed' },
       failed: { outcome: 'failed' },
-      not_executed: { outcome: 'not_executed' },
       rejected: { outcome: 'refused' },
       result_unknown: { revokeStatus: 'compensating', revokeWindow: 'awaiting_target' },
     };

@@ -120,7 +120,7 @@ if (!denied) {
 |---|---|---|
 | 实际放行且执行成功（`executed`） | **写** | 回答「凭什么允许它跑」 |
 | 被扣下等人（`pending`） | **写** | 回答「凭什么允许它走到确认这一步」 |
-| **没发生**（`not_executed` / `declined`） | **写** | 同一个问题：凭什么允许它**走到裁决**（只是裁决没有来，或是否） |
+| **没发生**：有人拒绝（`declined`）、窗口到期无人裁决（词仍落 `failed`） | **写** | 同一个问题：凭什么允许它**走到裁决**（只是裁决没有来，或是否） |
 | 被门拒绝（`blocked` / `refused`） | 不写（带 deny reasons 数组） | 那一列在这里的语义是「拒绝理由」，不是「放行依据」 |
 | 执行失败（`failed`） | 暂不写 | 故事是那次失败；本项只覆盖「没发生」这一类 |
 
@@ -130,10 +130,11 @@ A-8 denied 视图（`audit-query.service.ts`：`is_error` **且** `authorization
 不看本列）、决策轨迹的 checks 解析（`decision-trace.service.ts`：`parseChecks` 只认 JSON **数组**，
 放行快照是对象 ⇒ 返回 undefined，与从前一致）。
 
-**同一轮的口径更正**：`tool_call` 行的结局词新增 `not_executed`（确认窗口到期、无人裁决），落 `declined`
-而行不再冒充 `failed` —— 「没发生」与「失败」此前共用一个词，是 P0-19 ② 读数暴露的既有发现。
-操作者可见的单一状态（`audit-explanation-state.ts`）随之新增 `not_executed`，否则它会由 `isError` 兜底
-重新塌回 `failed`，这次的更正就只剩表面。（该词表的差异按该文件头的规矩记在 roadmap 行上，本项未改 roadmap。）
+**同一轮的口径更正（部分）**：被人工拒绝的 `tool_call` 行改写 `declined`（冻结词表里对 `tool_call` 合法），
+不再冒充 `failed`。**确认窗口到期、无人裁决**这一种**仍然**是 `failed` —— 冻结词表
+`ai-audit-log-outcome-v1-vector.json` 的 `legalByAction.tool_call` 里没有「没发生」这个值，且它把「超时」
+归在 `failed` 名下。2026-10-28 曾造过 `not_executed` 并撤回：那会写出符合契约的消费方**必须拒绝**的行。
+给「没发生」一个自己的词是**契约变更**（向量 + `legalByAction`，且跨仓），不是代码变更 —— 见报告。
 
 **没有放宽的地方**：R4 执行器（`r4-approval.service.ts`）仍只在成功时写 —— 它的非成功形状是**执行失败**。
 
@@ -148,11 +149,13 @@ execution that failed. The relaxation is safe because the three readers that mot
 rule now all judge by **shape**: the A-8 view (2026-10-28: `is_error` **and** an authorization starting
 with `[`), the `blocked` counter (by `outcome`), and the decision trace's array-only `parseChecks`.
 
-**Same round, vocabulary:** a `tool_call` row that ends without running gets its own word —
-`not_executed` when the window closed with no decision — instead of borrowing `failed`, and a declined
-row writes `declined`. The operator-facing single state (`audit-explanation-state.ts`) gains
-`not_executed` too; without it the `isError` fallback would collapse the correction straight back to
-`failed`. The R4 executor keeps the narrower condition — its non-success shape is a failure.
+**Same round, vocabulary (partial):** a declined `tool_call` row now writes `declined`, a value the
+frozen vocabulary allows for that action, instead of borrowing `failed`. A row whose window closed with
+no decision **still** reads `failed`: `legalByAction.tool_call` in `ai-audit-log-outcome-v1-vector.json`
+has no word for "nothing ran", and assigns 超时 to `failed`. A `not_executed` word was tried on
+2026-10-28 and reverted — it would write rows a conforming consumer must reject. Giving that shape its
+own word is a **contract change** (vector + `legalByAction`, across repositories), not a code change.
+The R4 executor keeps the narrower condition — its non-success shape is a failure.
 
 ## 6. 相关
 
