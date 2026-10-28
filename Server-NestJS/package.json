@@ -24,6 +24,7 @@
     "test:e2e:cov": "node scripts/run-e2e-shards.mjs --coverage",
     "test:failure-path": "jest src/ai/failure-path --forceExit",
     "scenarios:check": "jest src/ai/scenarios-pack.spec.ts --forceExit",
+    "measure:p019": "node scripts/measure-p019-readings.mjs",
     "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/config/typeorm-data-source.ts",
     "migration:run": "typeorm-ts-node-commonjs migration:run -d src/config/typeorm-data-source.ts",
     "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/config/typeorm-data-source.ts",

@@ -1,0 +1,279 @@
+{
+  "$comment": "Pinned readings for `npm run measure:p019` (P0-19 ②). Written by that script with --update; do not hand-edit. A diff here is the claim that a reading moved on purpose — say why in the commit message. Values come from Server-NestJS/test/p019-readings.measure.ts.",
+  "$pinnedAt": "2026-10-28",
+  "readings": [
+    {
+      "door": "chat",
+      "klass": "blocked",
+      "ar": {
+        "numerator": 4,
+        "denominator": 5,
+        "detail": {
+          "who": true,
+          "what": false,
+          "why-allowed": true,
+          "who-approved": null,
+          "result": true,
+          "how-proved": true
+        },
+        "evidence": {
+          "who": "ai_audit_logs.user_id + username",
+          "what": "ai_audit_logs.tool (no structured args column)",
+          "why-allowed": "ai_audit_logs.authorization",
+          "who-approved": "ai_confirmation_requests.approver_id + decided_at",
+          "result": "ai_audit_logs.outcome",
+          "how-proved": "ai_audit_logs.hash (+ prev_hash chain)"
+        }
+      },
+      "lc": {
+        "present": 4,
+        "required": 4,
+        "detail": {
+          "turn": true,
+          "proposal": true,
+          "policy-decision": true,
+          "confirmation-asked": false,
+          "human-decision": false,
+          "execution": false,
+          "side-effect": false,
+          "outcome": true,
+          "revocability": false
+        }
+      }
+    },
+    {
+      "door": "mcp",
+      "klass": "mcp-blocked",
+      "ar": {
+        "numerator": 4,
+        "denominator": 5,
+        "detail": {
+          "who": true,
+          "what": false,
+          "why-allowed": true,
+          "who-approved": null,
+          "result": true,
+          "how-proved": true
+        },
+        "evidence": {
+          "who": "ai_audit_logs.user_id + username",
+          "what": "ai_audit_logs.tool (no structured args column)",
+          "why-allowed": "ai_audit_logs.authorization",
+          "who-approved": "ai_confirmation_requests.approver_id + decided_at",
+          "result": "ai_audit_logs.outcome",
+          "how-proved": "ai_audit_logs.hash (+ prev_hash chain)"
+        }
+      },
+      "lc": {
+        "present": 4,
+        "required": 4,
+        "detail": {
+          "turn": true,
+          "proposal": true,
+          "policy-decision": true,
+          "confirmation-asked": false,
+          "human-decision": false,
+          "execution": false,
+          "side-effect": false,
+          "outcome": true,
+          "revocability": false
+        }
+      }
+    },
+    {
+      "door": "mcp",
+      "klass": "mcp-held",
+      "ar": {
+        "numerator": 3,
+        "denominator": 5,
+        "detail": {
+          "who": true,
+          "what": false,
+          "why-allowed": false,
+          "who-approved": null,
+          "result": true,
+          "how-proved": true
+        },
+        "evidence": {
+          "who": "ai_audit_logs.user_id + username",
+          "what": "ai_audit_logs.tool (no structured args column)",
+          "why-allowed": "ai_audit_logs.authorization",
+          "who-approved": "ai_confirmation_requests.approver_id + decided_at",
+          "result": "ai_audit_logs.outcome",
+          "how-proved": "ai_audit_logs.hash (+ prev_hash chain)"
+        }
+      },
+      "lc": {
+        "present": 3,
+        "required": 5,
+        "detail": {
+          "turn": true,
+          "proposal": true,
+          "policy-decision": false,
+          "confirmation-asked": false,
+          "human-decision": false,
+          "execution": false,
+          "side-effect": false,
+          "outcome": true,
+          "revocability": false
+        }
+      }
+    },
+    {
+      "door": "mcp",
+      "klass": "mcp-read",
+      "ar": {
+        "numerator": 4,
+        "denominator": 5,
+        "detail": {
+          "who": true,
+          "what": false,
+          "why-allowed": true,
+          "who-approved": null,
+          "result": true,
+          "how-proved": true
+        },
+        "evidence": {
+          "who": "ai_audit_logs.user_id + username",
+          "what": "ai_audit_logs.tool (no structured args column)",
+          "why-allowed": "ai_audit_logs.authorization",
+          "who-approved": "ai_confirmation_requests.approver_id + decided_at",
+          "result": "ai_audit_logs.outcome",
+          "how-proved": "ai_audit_logs.hash (+ prev_hash chain)"
+        }
+      },
+      "lc": {
+        "present": 4,
+        "required": 4,
+        "detail": {
+          "turn": true,
+          "proposal": true,
+          "policy-decision": true,
+          "confirmation-asked": false,
+          "human-decision": false,
+          "execution": true,
+          "side-effect": false,
+          "outcome": true,
+          "revocability": false
+        }
+      }
+    },
+    {
+      "door": "r4",
+      "klass": "r4-approved",
+      "ar": {
+        "numerator": 4,
+        "denominator": 6,
+        "detail": {
+          "who": false,
+          "what": true,
+          "why-allowed": false,
+          "who-approved": true,
+          "result": true,
+          "how-proved": true
+        },
+        "evidence": {
+          "who": "ai_audit_logs.user_id + username",
+          "what": "ai_audit_logs.tool + ai_confirmation_requests.args",
+          "why-allowed": "ai_audit_logs.authorization",
+          "who-approved": "ai_confirmation_requests.approver_id + decided_at",
+          "result": "ai_audit_logs.outcome",
+          "how-proved": "ai_audit_logs.hash (+ prev_hash chain)"
+        }
+      },
+      "lc": {
+        "present": 8,
+        "required": 9,
+        "detail": {
+          "turn": true,
+          "proposal": true,
+          "policy-decision": false,
+          "confirmation-asked": true,
+          "human-decision": true,
+          "execution": true,
+          "side-effect": true,
+          "outcome": true,
+          "revocability": true
+        }
+      }
+    },
+    {
+      "door": "chat",
+      "klass": "success",
+      "ar": {
+        "numerator": 5,
+        "denominator": 6,
+        "detail": {
+          "who": true,
+          "what": true,
+          "why-allowed": true,
+          "who-approved": false,
+          "result": true,
+          "how-proved": true
+        },
+        "evidence": {
+          "who": "ai_audit_logs.user_id + username",
+          "what": "ai_audit_logs.tool + ai_confirmation_requests.args",
+          "why-allowed": "ai_audit_logs.authorization",
+          "who-approved": "ai_confirmation_requests.approver_id + decided_at",
+          "result": "ai_audit_logs.outcome",
+          "how-proved": "ai_audit_logs.hash (+ prev_hash chain)"
+        }
+      },
+      "lc": {
+        "present": 9,
+        "required": 9,
+        "detail": {
+          "turn": true,
+          "proposal": true,
+          "policy-decision": true,
+          "confirmation-asked": true,
+          "human-decision": true,
+          "execution": true,
+          "side-effect": true,
+          "outcome": true,
+          "revocability": true
+        }
+      }
+    },
+    {
+      "door": "chat",
+      "klass": "timeout",
+      "ar": {
+        "numerator": 4,
+        "denominator": 6,
+        "detail": {
+          "who": true,
+          "what": true,
+          "why-allowed": false,
+          "who-approved": false,
+          "result": true,
+          "how-proved": true
+        },
+        "evidence": {
+          "who": "ai_audit_logs.user_id + username",
+          "what": "ai_audit_logs.tool + ai_confirmation_requests.args",
+          "why-allowed": "ai_audit_logs.authorization",
+          "who-approved": "ai_confirmation_requests.approver_id + decided_at",
+          "result": "ai_audit_logs.outcome",
+          "how-proved": "ai_audit_logs.hash (+ prev_hash chain)"
+        }
+      },
+      "lc": {
+        "present": 4,
+        "required": 5,
+        "detail": {
+          "turn": true,
+          "proposal": true,
+          "policy-decision": false,
+          "confirmation-asked": true,
+          "human-decision": false,
+          "execution": true,
+          "side-effect": false,
+          "outcome": true,
+          "revocability": false
+        }
+      }
+    }
+  ]
+}

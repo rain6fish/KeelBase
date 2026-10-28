@@ -349,6 +349,8 @@ function answerLc(slice: Slice): Record<LcStage, boolean> {
 
 interface Reading {
   klass: ClassKind;
+  /** Carried into the machine line so the pinned baseline can name a door, not only a class. */
+  door: Entry;
   ar: {
     numerator: number;
     denominator: number;
@@ -379,6 +381,7 @@ function readingsFor(klass: ClassKind, slice: Slice): Reading {
 
   return {
     klass,
+    door: ENTRY_OF[klass],
     ar: { numerator: arNum, denominator: applicable.length, detail, evidence },
     lc: {
       present: presentStages.length,
