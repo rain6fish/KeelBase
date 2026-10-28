@@ -6,6 +6,10 @@ import { ToolExposureService } from '../ai/tools/tool-exposure.service';
 import { AuditService } from '../governance-shared/services/audit.service';
 import { AuthorizationDeniedError } from '../ai/interfaces/tool.interface';
 import { AuthorizationExplainerService } from '../ai/authorization-explainer.service';
+import { ConfirmationStore } from '../ai/confirmation/confirmation.store';
+import { R4ApprovalService } from '../ai/approvals/r4-approval.service';
+import { ToolGateService } from '../ai/tools/tool-gate.service';
+import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -13,8 +17,11 @@ describe('McpExportController (HS-10)', () => {
   let controller: McpExportController;
   let ai: jest.Mocked<Pick<AiService, 'listMcpTools' | 'executeToolForExternal'>>;
   let audit: jest.Mocked<Pick<AuditService, 'log'>>;
+  let store: { create: jest.Mock };
+  let r4: { createR4ApprovalRequest: jest.Mock };
+  let gate: { destinationOf: jest.Mock; requiresApproval: jest.Mock };
 
-  const user = { sub: 1, username: 'alex', role: 'user' as const };
+  const user = { sub: 1, username: 'alex', role: 'user' } as JwtPayload;
 
   beforeEach(async () => {
     ai = {
@@ -39,6 +46,12 @@ describe('McpExportController (HS-10)', () => {
       executeToolForExternal: jest.fn(),
     };
     audit = { log: jest.fn().mockResolvedValue(undefined) };
+    store = { create: jest.fn().mockResolvedValue({ token: 'r3-token', decision: new Promise(() => {}) }) };
+    r4 = { createR4ApprovalRequest: jest.fn().mockResolvedValue({ token: 'r4-token', id: 7 }) };
+    gate = {
+      destinationOf: jest.fn().mockReturnValue('local'),
+      requiresApproval: jest.fn().mockResolvedValue(false),
+    };
     const explainer = {
       getAuthorizationReasons: jest.fn().mockResolvedValue({
         tool: 'query_events',
@@ -54,6 +67,9 @@ describe('McpExportController (HS-10)', () => {
         { provide: ToolExposureService, useValue: ai },
         { provide: AuditService, useValue: audit },
         { provide: AuthorizationExplainerService, useValue: explainer },
+        { provide: ConfirmationStore, useValue: store },
+        { provide: R4ApprovalService, useValue: r4 },
+        { provide: ToolGateService, useValue: gate },
       ],
     }).compile();
     controller = moduleRef.get(McpExportController);
@@ -187,6 +203,78 @@ describe('McpExportController (HS-10)', () => {
     // C-4: a call held for confirmation is `pending`, and still names its tool — a blank row here is
     // what the two columns exist to prevent.
     // C-4：被扣下等确认的调用是 `pending`，并仍点名它的工具 —— 空行正是这两列要防止的东西。
+    expect(audit.log).toHaveBeenCalledWith(
+      expect.objectContaining({ outcome: 'pending', tool: 'create_event' }),
+    );
+  });
+
+  /**
+   * Holding a call is only half a promise: before this, the door said "requires confirmation" and
+   * handed the client nothing to confirm with — a dead end the P0-19 readings charged as
+   * `confirmation-asked` missing. These three pin the artifact and the token.
+   *
+   * 只说「需确认」是半句承诺：此前那扇门告诉客户端「requires confirmation」，却没给任何可拿去确认的
+   * 东西 —— 正是 P0-19 读数记为 `confirmation-asked` 缺失的那条死路。下面三条钉住 artifact 与 token。
+   */
+  it('写工具（R3）→ 建持久确认行并把 token 返给客户端（本人可裁）', async () => {
+    ai.executeToolForExternal.mockResolvedValue({ executed: false, requiresConfirmation: true });
+    const res = await controller.handle(user, {
+      jsonrpc: '2.0',
+      id: 51,
+      method: 'tools/call',
+      params: { name: 'create_event', arguments: { title: 'x' } },
+    });
+
+    // 同一份参数进 artifact（不是散文），目的地绑定随行（AUTHZ-1）
+    expect(store.create).toHaveBeenCalledWith('1', 'create_event', { title: 'x' }, undefined, undefined, 'local');
+    expect(r4.createR4ApprovalRequest).not.toHaveBeenCalled();
+    expect((res as any).result._meta.keelbase).toEqual({
+      requiresConfirmation: true,
+      status: 'pending',
+      confirmationToken: 'r3-token',
+      decidedBy: 'operator',
+    });
+    expect((res as any).result.content[0].text).toContain('r3-token');
+    expect((res as any).result.isError).toBe(false);
+    // 被扣下的结局不变：pending；工具没有执行
+    expect(audit.log).toHaveBeenCalledWith(
+      expect.objectContaining({ outcome: 'pending', tool: 'create_event' }),
+    );
+  });
+
+  it('写工具（审批档 R4）→ 建审批请求而不是本人可裁的确认行（第二个人点头）', async () => {
+    gate.requiresApproval.mockResolvedValue(true);
+    ai.executeToolForExternal.mockResolvedValue({ executed: false, requiresConfirmation: true });
+    const res = await controller.handle(user, {
+      jsonrpc: '2.0',
+      id: 52,
+      method: 'tools/call',
+      params: { name: 'create_event', arguments: { title: 'x' } },
+    });
+
+    expect(r4.createR4ApprovalRequest).toHaveBeenCalledWith('1', 'create_event', { title: 'x' }, undefined, 'local');
+    // 派到本人确认行就等于绕过 R4 的双人控制
+    expect(store.create).not.toHaveBeenCalled();
+    expect((res as any).result._meta.keelbase).toMatchObject({
+      confirmationToken: 'r4-token',
+      decidedBy: 'approver',
+    });
+  });
+
+  it('建 artifact 失败 → 仍如实回「需确认且未执行」，不谎称有 token、不 500', async () => {
+    store.create.mockRejectedValue(new Error('db down'));
+    ai.executeToolForExternal.mockResolvedValue({ executed: false, requiresConfirmation: true });
+    const res = await controller.handle(user, {
+      jsonrpc: '2.0',
+      id: 53,
+      method: 'tools/call',
+      params: { name: 'create_event', arguments: {} },
+    });
+
+    expect((res as any).result.content[0].text).toContain('requires confirmation');
+    expect((res as any).result._meta).toBeUndefined();
+    expect((res as any).result.isError).toBe(false);
+    // 审计行照写（失败的是「留可确认的凭据」，不是「这次调用没发生」）
     expect(audit.log).toHaveBeenCalledWith(
       expect.objectContaining({ outcome: 'pending', tool: 'create_event' }),
     );
