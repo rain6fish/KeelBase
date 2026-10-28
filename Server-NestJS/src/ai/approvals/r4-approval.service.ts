@@ -310,12 +310,14 @@ export class R4ApprovalService {
     // D2-1c：本行的执行者是 operator，而这条路**不经过** `actorContext`（approve-by 入口不设它）——
     // 故 username 必须在这里显式带出。否则同一事件里其余各行都有快照，只有它说不出执行的是谁。
     const username = await this._userNameOf(req.operatorId);
-    // A-5 / T5: the allow basis is written only when the tool was really allowed and really ran, and
-    // through the same builder as the chat path and the MCP export — of the three doors, only this
-    // one used to omit it.
+    // A-5 / T5: the executor writes the basis through the same builder as the chat path and the MCP
+    // export — of the three doors, only this one used to omit it. The narrower condition is right
+    // here: this row's non-success shape is a *failure* (`isError=true`), not the `pending` shape the
+    // relaxation covers, and a basis on a failed row would be read as a refusal by A-8.
     //
-    // A-5 / T5 跨入口一致：放行依据快照只在**实际放行且成功执行**时写，且与对话流、MCP 出口共用
-    // 同一个构造 —— 三个入口此前只有这一个漏了它。
+    // A-5 / T5 跨入口一致：本执行器与对话流、MCP 出口共用同一个构造 —— 三个入口此前只有这一个漏了它。
+    // 这里仍只在成功时写是对的：本行的非成功形状是**失败**（`isError=true`），不是本次放宽所覆盖的
+    // `pending` 形状；失败行带依据会被 A-8 读成一次拒绝。
     let allowSnapshot: string | undefined;
     if (result.success) {
       try {

@@ -7,7 +7,7 @@ import { StreamChunk } from './interfaces/llm-provider.interface';
 import { AuthorizationDeniedError } from './interfaces/tool.interface';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { aiService, confirmationStore, installAiServiceTestbed, mockAuditService, mockConversationService, mockProvider, mockProviderFactory, mockTool, mockToolGate, mockToolRegistry, presentation, toolExecution, wiredSchema } from '../../test/ai-service.testbed';
+import { aiService, confirmationStore, installAiServiceTestbed, mockAuditService, mockConversationService, mockProvider, mockProviderFactory, mockTool, mockToolGate, mockToolRegistry, presentation, r4Approval, toolExecution, wiredSchema } from '../../test/ai-service.testbed';
 
 beforeEach(installAiServiceTestbed);
 
@@ -767,6 +767,47 @@ beforeEach(installAiServiceTestbed);
       expect(declinedAudit![0].isError).toBe(true);
       expect(declinedAudit![0].errorMessage).toBe('User declined the operation');
       expect(declinedAudit![0].authorization).toBeUndefined();
+    });
+
+    it('2026-10-28 放宽：R4 待批的 tool_call 行带放行依据（凭什么允许它走到确认这一步）', async () => {
+      async function* mockStreamWithWriteTool() {
+        yield {
+          type: 'tool_call' as const,
+          toolCall: {
+            index: 0,
+            id: 'call_1',
+            name: 'create_event',
+            arguments: '{"title":"评审","startTime":"S","endTime":"E"}',
+          },
+        };
+      }
+      async function* mockStreamAfterPending() {
+        yield { type: 'text' as const, content: '已提交人工审批' };
+        yield { type: 'done' as const };
+      }
+      mockProvider.stream
+        .mockReturnValueOnce(mockStreamWithWriteTool())
+        .mockReturnValueOnce(mockStreamAfterPending());
+
+      mockToolRegistry.requiresConfirmation.mockReturnValue(true);
+      mockToolRegistry.getTool.mockReturnValue(mockTool({ requiresConfirmation: true }));
+      // 升到审批档：requiresApproval 走 riskLevelFor → riskLevel（治理策略未挂时看风险级）
+      mockToolRegistry.riskLevel.mockReturnValue('R4');
+      jest.spyOn(r4Approval, 'createR4ApprovalRequest').mockResolvedValue({ token: 'r4-token', id: 1 });
+
+      for await (const _ of aiService.chatStream('1', { message: 'create an event' })) {
+        // drain
+      }
+
+      const pendingRow = (mockAuditService.log as jest.Mock).mock.calls
+        .map((c) => c[0])
+        .find((e: any) => e.action === 'tool_call' && e.detail?.startsWith('create_event'));
+      expect(pendingRow).toBeDefined();
+      // 结局仍是「在等人」，不是失败 —— 正是放宽后仍不算拒绝的那一档
+      expect(pendingRow.outcome).toBe('pending');
+      expect(pendingRow.isError).toBe(false);
+      expect(pendingRow.authorization).toBeDefined();
+      expect(JSON.parse(pendingRow.authorization)).toMatchObject({ allowed: true, tool: 'create_event' });
     });
 
     it('ACT-3：勾选「不再询问」只免**那一次调用** —— 同工具换参数仍须确认', async () => {

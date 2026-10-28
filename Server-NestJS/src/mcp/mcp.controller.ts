@@ -216,15 +216,28 @@ export class McpExportController {
     }
 
     // HS-10：MCP 调用落 AI 审计（provider=mcp 便于区分来源；username 快照 D2-1c——非 actor 路径，显式带出）
-    // T5 跨入口一致：放行依据快照与 REST/SSE 同形（buildAllowSnapshot 单一构造）——仅实际放行且成功才写，
-    // 否则 isError+authorization 非空会被 A-8 denied 视图与 blocked 聚合误判为越权/阻断。
-    // executed ⇒ 未经确认门控 ⇒ 非写路径（写工具在 executeToolForExternal 里就返回 executed:false）→ isWrite=false。
+    // T5 跨入口一致：放行依据快照与 REST/SSE 同形（buildAllowSnapshot 单一构造）。
+    //
+    // Two kinds of row carry the basis, one does not. "Allowed and it ran" answers why it could run;
+    // "held for a person" (`pending`, `isError=false`) answers why it was allowed to reach the
+    // confirmation step. Failed / denied rows still never carry it: A-8 reads `is_error AND a
+    // non-empty authorization`, so a basis there would be read as a refusal.
+    //
+    // 写依据的只有两种行：实际放行且执行成功的行，和**被扣下等人**（`pending`、`isError=false`）的行
+    // —— 后者回答的是「凭什么允许它走到确认这一步」。失败/拒绝的行仍不写：A-8 的判据是
+    // `is_error AND authorization 非空`，在那里写依据会被读成一次拒绝。
     let allowSnapshot: string | undefined;
-    if (out.executed && out.result?.success) {
+    if (!out.executed || out.result?.success) {
       // 富化失败不得把「已执行成功」翻成调用方可见的错误（fail-after-execute：副作用已发生却报错，
       // 且审计不落）——降级为无快照，审计照写（Design for Recovery）。
       try {
-        const reasons = await this.authorizationExplainer.getAuthorizationReasons(toolName, userId, false);
+        const reasons = await this.authorizationExplainer.getAuthorizationReasons(
+          toolName,
+          userId,
+          // Held ⇒ it is a write waiting on a person; executed ⇒ the only thing that runs here is a
+          // read. 被扣下的是等人点头的写；执行过的是读。
+          !out.executed,
+        );
         allowSnapshot = buildAllowSnapshot(toolName, reasons);
       } catch {
         allowSnapshot = undefined;

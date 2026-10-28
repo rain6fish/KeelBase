@@ -13,7 +13,7 @@
  * - `isError`：未执行（deny / 待批）恒为真；有结果时按结果判，且 **R4 待批不算失败**
  *   （否则单次审批被计 approved + blocked + errors 三重误报）
  * - `businessEvent` / `evidence`：**只有真正执行过（有结果）才派生**——deny 行不含这两列
- * - `authorization`：放行快照（成功且实际放行）或 deny reasons 的 JSON，由调用方判断该给哪个
+ * - `authorization`：放行快照（成功且实际放行，或被扣下等人那一行）或 deny reasons 的 JSON，由调用方判断该给哪个
  * - `source`：B 路径代理写标 bridge（四处一致）
  */
 import type { AuditEntry } from '../../governance-shared/services/audit.service';

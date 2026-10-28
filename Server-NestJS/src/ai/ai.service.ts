@@ -1440,11 +1440,12 @@ export class AiService {
                 result,
                 // R4 待批不算失败（与下一分支的 errorMessage 同源）
                 pendingApproval,
-                // §internal.16 A-5 事件时点放行授权依据快照：仅当工具实际放行并成功执行才写（对象格式 parseChecks 只认数组 → 不误判为拒绝）。
-                // 用户拒绝/超时、R4 待批、运行时失败等「未放行/未成功」行不落快照——否则 isError+authorization 非空
-                // 会被 A-8 denied 视图与 blocked 聚合误判为越权/阻断（放行快照语义 = 成功分支，见 docs/audit-authz-snapshot.spec.md）
+                // §internal.16 A-5 事件时点放行授权依据快照：**实际放行且执行成功**的行写，**被扣下等人**
+                // （R4 待批，`outcome=pending`、`isError=false`）的行也写 —— 后者回答的是「凭什么允许它走到
+                // 确认这一步」。用户拒绝/超时/运行时失败这些 `isError=true` 的行仍不写：A-8 denied 视图的判据
+                // 是 `is_error AND authorization 非空`（见 docs/audit-authz-snapshot.spec.md）。
                 // §internal.17③ Policy Evidence：快照携带授权时点策略内容指纹（policy.revision），供「决策可复现」校验
-                authorization: result.success ? buildAllowSnapshot(tc.name, authz) : undefined,
+                authorization: result.success || pendingApproval ? buildAllowSnapshot(tc.name, authz) : undefined,
               }),
             );
             // ACT-5（消费者①）：**执行过**的这一支才挂链 —— 未执行的（deny / 待批）没有占位行可挂。
@@ -1663,8 +1664,8 @@ export class AiService {
           // 审计日志：工具调用（HS-9 粒度门控：tool 级在 off 时不记录）
           if (await this._shouldAudit('tool')) {
             // §internal.16 A-5 事件时点放行授权依据快照：对齐流式路径（对象格式 parseChecks 不误判为拒绝）。
-            // 非流式路径写工具一律被拒（返回「请用流式」），读工具失败亦不落快照——快照仅当实际放行并成功执行才写，
-            // 避免 isError+authorization 非空被 A-8 denied 视图与 blocked 聚合误判为越权/阻断
+            // 本路径没有「被扣下等人」这一档（写工具直接拒、返回「请用流式」），故只写成功执行的行；
+            // 失败行带非空 authorization 会被 A-8 denied 视图与 blocked 聚合误判为越权/阻断
             const authz = resolvedResult.success
               ? await this.authorizationExplainer.getAuthorizationReasons(
                   tc.name,

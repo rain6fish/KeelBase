@@ -261,6 +261,27 @@ describe('McpExportController (HS-10)', () => {
     });
   });
 
+  it('被扣下的行也带放行依据（2026-10-28 放宽：待批行不再读不出「为何允许」）', async () => {
+    ai.executeToolForExternal.mockResolvedValue({ executed: false, requiresConfirmation: true });
+    await controller.handle(user, {
+      jsonrpc: '2.0',
+      id: 54,
+      method: 'tools/call',
+      params: { name: 'create_event', arguments: { title: 'x' } },
+    });
+
+    const logged = (audit.log as jest.Mock).mock.calls[0][0] as {
+      authorization?: string;
+      isError?: boolean;
+      outcome?: string;
+    };
+    // 仍是被扣下的形状（没执行、不是失败），但依据在了
+    expect(logged.outcome).toBe('pending');
+    expect(logged.isError).toBe(false);
+    expect(logged.authorization).toBeDefined();
+    expect(JSON.parse(logged.authorization!)).toMatchObject({ allowed: true, tool: 'create_event' });
+  });
+
   it('建 artifact 失败 → 仍如实回「需确认且未执行」，不谎称有 token、不 500', async () => {
     store.create.mockRejectedValue(new Error('db down'));
     ai.executeToolForExternal.mockResolvedValue({ executed: false, requiresConfirmation: true });
