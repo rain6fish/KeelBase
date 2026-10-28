@@ -86,16 +86,39 @@ const isTestFileError = (line) =>
 function runTsc() {
   try {
     execSync('npx tsc --noEmit', { cwd: BE, encoding: 'utf8', stdio: 'pipe' });
-    return '';
+    return { clean: true, output: '' };
   } catch (err) {
     // 类型错误会让 tsc 以非零退出——这正是常态，输出在 stdout
-    return `${err.stdout ?? ''}${err.stderr ?? ''}`;
+    return { clean: false, output: `${err.stdout ?? ''}${err.stderr ?? ''}` };
   }
 }
 
 console.log('运行 tsc --noEmit（只看测试文件）…');
-const output = runTsc();
-const errorLines = output.split(/\r?\n/).filter((l) => /error TS\d+/.test(l));
+const tsc = runTsc();
+const errorLines = tsc.output.split(/\r?\n/).filter((l) => /error TS\d+/.test(l));
+
+// A non-zero exit means one of two very different things: tsc *reported* type errors, or tsc never
+// ran (no node_modules, a broken install). Only the first is a reading. Counted as-is the second
+// says "0 test errors" and reads as an improvement — and this gate then advises lowering BASELINE to
+// 0, welding a tree nobody type-checked. A non-zero exit with no diagnostic line at all is that
+// second case, so it fails instead (2026-10-27: a gate reddens when it cannot verify).
+//
+// 非零退出有两种很不一样的含义：tsc **报出了**类型错误，或者 tsc **根本没跑起来**（没有 node_modules、
+// 安装已坏）。只有第一种是读数。照原样计数，第二种会报「0 个测试错误」、读起来像改善 —— 而本闸随后还会
+// 建议把 BASELINE 下调到 0，等于把一棵**没被检查过**的树焊死。非零退出却一条诊断都没有，就是第二种，
+// 故判红（2026-10-27：「门禁在无法核验时判红」）。
+if (!tsc.clean && errorLines.length === 0) {
+  console.error(
+    '\n✗ tsc produced no diagnostics yet exited non-zero — it most likely never ran (dependencies missing or broken).',
+  );
+  console.error('✗ tsc 一条诊断都没有却以非零退出 —— 多半根本没跑起来（依赖未安装，或安装已损坏）。');
+  const tail = tsc.output.trim().split(/\r?\n/).slice(-6).join('\n');
+  if (tail) console.error(`\n${tail}\n`);
+  console.error('  → cd Server-NestJS && npm install   # then re-run this check');
+  console.error('  → cd Server-NestJS && npm install   # 然后重跑本检查');
+  process.exit(1);
+}
+
 const testErrors = errorLines.filter(isTestFileError);
 
 const byFile = new Map();

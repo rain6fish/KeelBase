@@ -26,7 +26,11 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { contractSubmoduleProblem, printSubmoduleProblem } from './require-contract-submodule.mjs';
+import {
+  contractSubmoduleProblem,
+  printSubmoduleProblem,
+  SUBMODULE_FIX,
+} from './require-contract-submodule.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SUB = 'Server-NestJS/specs/protocol';
@@ -56,20 +60,49 @@ function resolvePin() {
   return { tag, ahead, extra };
 }
 
+/** Whether `sub` is a git checkout at all — a downloaded archive has none, and needs other advice. */
+const subIsGitCheckout = () => {
+  try {
+    gitIn(sub, ['rev-parse', '--show-toplevel']);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 let pin;
 try {
   pin = resolvePin();
 } catch {
-  // A checkout can hold the submodule without its tags. One best-effort fetch, then give up honestly —
-  // say so rather than fake a pass or a failure.
+  // A checkout can hold the submodule without its tags: CI checks submodules out with `--depth=1`, so
+  // every CI run lands here (`No names found, cannot describe anything`) and only the fetch below gets
+  // the tags. One best-effort fetch stays; if it fails too, the pin's version cannot be read at all —
+  // the matrix is UNVERIFIED, not satisfied, so this fails (2026-10-27: "a contract gate reddens when it
+  // cannot verify") and names the command that fixes it. Local full clones resolve the tag above and
+  // never reach this branch, so nothing here makes a network round-trip a prerequisite for green.
   //
-  // 检出里可能带着 submodule 却没有它的 tag。先尽力取一次，仍不行就如实说明 —— 不假装通过、也不算失败。
+  // 检出里可能带着 submodule 却没有它的 tag：CI 以 `--depth=1` 取 submodule，于是**每次 CI 都走到这里**
+  // （`No names found, cannot describe anything`），只有下面这一次 fetch 能拿到 tag。尽力取一次仍不行，
+  // 就说明 pin 的版本**根本读不出来** —— 此时矩阵是**未核验**、不是「通过」，故判红（2026-10-27 裁决：
+  // 「契约门禁在无法核验时判红」）并给出修它的命令。本地完整 clone 在上一步就解析到 tag、走不到这里，
+  // 所以这里不会让「联网」成为变绿的先决条件。
   try {
     gitIn(sub, ['fetch', '--tags', '--depth=1', 'origin']);
     pin = resolvePin();
   } catch {
-    console.log(`[contract-matrix] 跳过：${SUB} 里解析不到 tag（取 tags 也失败）`);
-    process.exit(0);
+    if (subIsGitCheckout()) {
+      console.error(`✗ [contract-matrix] Cannot verify — no tag resolves in ${SUB}, and fetching tags failed.`);
+      console.error(`✗ [contract-matrix] 无法核验 —— ${SUB} 里解析不到 tag，取 tags 也失败。`);
+      console.error(`  → git -C ${SUB} fetch --tags`);
+      console.error(`  → then re-run: npm run check:contract-matrix`);
+      console.error(`  → 然后重跑：npm run check:contract-matrix`);
+    } else {
+      console.error(`✗ [contract-matrix] Cannot verify — ${SUB} is not a git checkout here (a downloaded archive carries no submodule), so the pin's tag cannot be read.`);
+      console.error(`✗ [contract-matrix] 无法核验 —— 这里的 ${SUB} 不是 git 检出（下载的压缩包不含 submodule），读不出 pin 的 tag。`);
+      console.error(`  → ${SUBMODULE_FIX}`);
+      console.error(`  → 这里需要一份把 submodule 初始化过的 git 检出。`);
+    }
+    process.exit(1);
   }
 }
 const { tag, ahead, extra } = pin;
