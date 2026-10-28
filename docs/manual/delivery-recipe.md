@@ -174,9 +174,11 @@ delivery and is not one.
 Stop the server once this step is done — started as `npm run start:dev &` it can leave the port
 listening, and a leftover listener makes the *next* run fail for a reason unrelated to your delivery
 (`netstat -ano | grep :3111`, then kill that PID). **Under `--watch` the listener is not the only
-process**: `nest start --watch` keeps a parent watchdog that can respawn the child, so kill the tree,
-not just the PID (`taskkill //PID <pid> //T //F`, or match the command lines against your own clone
-path) — otherwise the port reappears a minute later.
+process**: `nest start --watch` keeps a watchdog that respawns the child, and it is the listener's
+**parent** — so `taskkill //PID <listener-pid> //T //F` kills the child and leaves the watchdog,
+which brings the port back on a fresh PID (measured 2026-10-28). Walk `ParentProcessId` up from the
+netstat PID and kill the watch process itself, or match `start --watch` in the command lines against
+your own clone path — otherwise the port reappears a minute later.
 
 Then hit the hand-written rules over HTTP (login as `alex`, then four POSTs to `/api/v1/asset_loans`):
 
@@ -486,8 +488,10 @@ MODULE=asset_loans MARKER_FIELD=assetTag TITLE_MARKER=AI-verify-001 \
 
 这一步做完就把服务停掉 —— 用 `npm run start:dev &` 起的那种可能把端口留着监听，残留的监听会让**下一次**运行
 因为与你的交付毫不相干的原因失败（`netstat -ano | grep :3111`，然后杀掉那个 PID）。**`--watch` 下监听者不是唯一
-的进程**：`nest start --watch` 还留着一个父看门进程，它会把子进程再拉起来 ⇒ **要杀的是那棵树，不是那个 PID**
-（`taskkill //PID <pid> //T //F`，或按命令行匹配你自己的克隆路径）；只杀 PID 的话，端口过一分钟又会冒出来。
+的进程**：`nest start --watch` 还留着一个看门进程，它会把子进程再拉起来，而且它是监听者的**父进程** ——
+所以 `taskkill //PID <监听者 pid> //T //F` 只杀掉子进程、看门的那个还在，端口会换一个新 PID 再冒出来
+（2026-10-28 实测）。正确做法：从 netstat 拿到的 PID 沿 `ParentProcessId` 往上找到那个看门进程再杀，
+或按命令行匹配 `start --watch` 并对照你自己的克隆路径，把那些根进程杀掉。
 
 再在 HTTP 边界上打那两条手写规则（以 `alex` 登录，然后对 `/api/v1/asset_loans` 发四个 POST）：
 
