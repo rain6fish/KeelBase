@@ -27,6 +27,8 @@ import { toolCallOutcome } from '../audit/tool-call-audit';
 import { PresentationText, ToolResult } from '../interfaces/tool.interface';
 import { buildConfirmationRenderProof } from '../confirmation/confirmation-render';
 import { UsersService } from '../../users/users.service';
+import { AuthorizationExplainerService, buildAllowSnapshot } from '../authorization-explainer.service';
+import { ToolGateService } from '../tools/tool-gate.service';
 import {
   ExecutionState,
   deriveExecutionState,
@@ -67,6 +69,11 @@ export class R4ApprovalService {
     @InjectRepository(AiConfirmationRequest)
     private readonly approvalsRepo?: Repository<AiConfirmationRequest>,
     @Optional() private readonly usersService?: UsersService,
+    // This class writes its own row, so it also has to work out "why allowed" itself. Missing
+    // injection degrades to "no snapshot" — the same tolerance the MCP export takes.
+    // 本类自己拼行，故「为何允许」也得自己算；未注入时降级为不落快照 —— 与 MCP 出口同一容错。
+    @Optional() private readonly authorizationExplainer?: AuthorizationExplainerService,
+    @Optional() private readonly toolGate?: ToolGateService,
   ) {}
 
   /**
@@ -296,11 +303,43 @@ export class R4ApprovalService {
       result = { success: false, error: err instanceof Error ? err.message : String(err) };
     }
     await this._settleExecution(req.token, result);
+    // D2-1c: this row's executor is the operator, and the path does **not** go through `actorContext`
+    // (the approve-by entry never sets it) — so the username snapshot has to be named here. Without
+    // it every sibling row of the event has one and only this row cannot say who executed.
+    //
+    // D2-1c：本行的执行者是 operator，而这条路**不经过** `actorContext`（approve-by 入口不设它）——
+    // 故 username 必须在这里显式带出。否则同一事件里其余各行都有快照，只有它说不出执行的是谁。
+    const username = await this._userNameOf(req.operatorId);
+    // A-5 / T5: the allow basis is written only when the tool was really allowed and really ran, and
+    // through the same builder as the chat path and the MCP export — of the three doors, only this
+    // one used to omit it.
+    //
+    // A-5 / T5 跨入口一致：放行依据快照只在**实际放行且成功执行**时写，且与对话流、MCP 出口共用
+    // 同一个构造 —— 三个入口此前只有这一个漏了它。
+    let allowSnapshot: string | undefined;
+    if (result.success) {
+      try {
+        const reasons = await this.authorizationExplainer?.getAuthorizationReasons(
+          req.toolName,
+          req.operatorId,
+          true,
+          await this.toolGate?.riskLevelFor(req.toolName),
+        );
+        if (reasons) allowSnapshot = buildAllowSnapshot(req.toolName, reasons);
+      } catch {
+        // Enrichment failing must not turn "it ran" into a caller-visible error (fail-after-execute):
+        // degrade to no snapshot and still write the row.
+        // 富化失败不得把「已执行成功」翻成调用方可见的错误（fail-after-execute）——降级为无快照，审计照写。
+        allowSnapshot = undefined;
+      }
+    }
     await this.auditService.log({
       userId: req.operatorId,
+      username,
       conversationId: req.conversationId,
       action: 'tool_call',
       detail: `${req.toolName}(${JSON.stringify(args)})`,
+      authorization: allowSnapshot,
       isError: !result.success,
       errorMessage: result.success ? note : `${note}; execution failed: ${result.error}`,
       // 工具内部自调 LLM 时的开销记在工具自己这行
@@ -317,6 +356,22 @@ export class R4ApprovalService {
       tool: req.toolName,
     });
     return result;
+  }
+
+  /**
+   * D2-1c username snapshot, resolved from the row's own `userId` (the operator). A deleted user or
+   * a service assembled without `UsersService` leaves it empty: a missing name never blocks the row.
+   *
+   * D2-1c username 快照：按这行的 `userId`（operator）取，用户已删/未注入时留空 —— 审计行不因取不到名字而不写。
+   */
+  private async _userNameOf(userId: string): Promise<string | undefined> {
+    if (!this.usersService) return undefined;
+    try {
+      const user = await this.usersService.findOne(Number(userId), true);
+      return user.username ?? undefined;
+    } catch {
+      return undefined;
+    }
   }
 
   /**
