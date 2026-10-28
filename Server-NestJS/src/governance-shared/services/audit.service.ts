@@ -61,6 +61,14 @@ export interface AuditEntry {
    */
   outcome?: string;
   tool?: string;
+  /**
+   * P0-19: the call's arguments as a machine-shaped column (off-chain — see the entity's comment).
+   * Callers pass the JSON they already have; the row does not re-serialize or truncate it.
+   *
+   * P0-19：本次调用的参数，机器可读的一列（链外 —— 见实体的注释）。调用方把它手上的那份 JSON 交过来；
+   * 本行不重新序列化、也不截断。
+   */
+  toolArgs?: string;
 }
 
 
@@ -182,6 +190,9 @@ export class AuditService {
       // 就会把链劈叉，那正是它们要避免的事。
       outcome: entry.outcome,
       tool: entry.tool,
+      // P0-19: same stance as the two above — the row, never the payload.
+      // P0-19：与上面两列同一立场 —— 去的是**行**，不进 payload。
+      toolArgs: entry.toolArgs,
       payloadVersion: 2,
     };
 

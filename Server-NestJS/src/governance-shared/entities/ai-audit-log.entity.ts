@@ -128,6 +128,20 @@ export class AiAuditLog {
   @Column({ type: 'text', nullable: true, name: 'authorization' })
   authorization?: string;
 
+  /**
+   * P0-19: the call's own arguments, as a machine-shaped column — the answer to "what was done"
+   * without parsing `detail`. Off-chain (not in the hash payload), same stance as `outcome` / `tool`:
+   * in the payload it would change the recomputed payload of every historical v2 row and break chain
+   * verification. Absent when the writer had none or when they exceeded the bound — **never
+   * truncated**, because a half-JSON value answers nothing and lies about being parseable.
+   *
+   * P0-19：本次调用的参数，作为一列机器可读值 —— 不解析 `detail` 就能答「做了什么」。链外（不进
+   * hash payload），与 `outcome` / `tool` 同一立场。没有参数、或超出上限时留空 —— **不截断**：
+   * 半截 JSON 什么也答不出，还会假装自己可解析。
+   */
+  @Column({ type: 'text', nullable: true, name: 'tool_args' })
+  toolArgs?: string;
+
   /** §internal.16 A-1 业务行为取证：业务事件名（CustomerRiskAssessed/FollowupTaskCreated 等跨系统归一）；不入哈希链 payload（同 agent_id，防破坏历史链） */
   @Column({ length: 64, nullable: true, name: 'business_event' })
   businessEvent?: string;

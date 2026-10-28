@@ -202,13 +202,26 @@ function answerAr(slice: Slice): { asked: boolean; answers: Record<ArQuestion, A
   const eff = slice.effects[0];
   const asked = Boolean(conf);
 
-  // Arguments count as structured only when they are a machine-shaped column: the confirmation row's
-  // JSON args, or the effect row's args hash. `ai_audit_logs.detail` spells them inside prose —
-  // `tool({...})` — and reading that is the parsing this measurement exists to price.
+  // Arguments count as structured only when they are a machine-shaped column: the audit row's own
+  // `tool_args`, the confirmation row's JSON args, or the effect row's args hash. `ai_audit_logs.detail`
+  // spells them inside prose — `tool({...})` — and reading that is the parsing this measurement exists
+  // to price.
   //
-  // 参数只有在**机器形状的列**里才算结构化：确认行的 JSON args，或副作用行的 args 哈希。
-  // `ai_audit_logs.detail` 把参数拼在散文里 —— `tool({...})` —— 去读它正是本次测量要计价的解析。
-  const structuredArgs = conf && safeJson(conf.args) ? 'ai_confirmation_requests.args' : eff?.argsHash ? 'ai_tool_side_effects.args_hash' : null;
+  // ⚠ **Predicate change, 2026-10-28**: `ai_audit_logs.tool_args` was added to this list when the
+  // column was added. Before that the predicate named only the two places arguments could live, because
+  // those were the only two; a row that had neither was unanswerable by construction. This is a change
+  // to the **ruler**, not to the count it takes — re-pin any baseline taken before it.
+  //
+  // 参数只有在**机器形状的列**里才算结构化：审计行自己的 `tool_args`、确认行的 JSON args，或副作用行的
+  // args 哈希。`ai_audit_logs.detail` 把参数拼在散文里 —— `tool({...})` —— 去读它正是本次测量要计价的解析。
+  //
+  // ⚠ **谓词变更（2026-10-28）**：加这一列时把 `ai_audit_logs.tool_args` 列进了这份清单。此前它只点名
+  // 参数可能存在的两处，因为那时只有那两处；两处都没有的行是**构造上答不出**。这是改**尺子**、不是改
+  // 它量出的数 —— 此前取的基线都要重钉。
+  const auditArgs = toolRow && safeJson(toolRow.toolArgs) ? 'ai_audit_logs.tool_args' : null;
+  const structuredArgs =
+    auditArgs ??
+    (conf && safeJson(conf.args) ? 'ai_confirmation_requests.args' : eff?.argsHash ? 'ai_tool_side_effects.args_hash' : null);
 
   return {
     asked,
@@ -650,7 +663,14 @@ describe('P0-19 ② readings — Action Recoverability × Lifecycle Coverage, th
     // (b) Record a decider on the confirmation row: "who approved" must come back.
     const withoutConfirmation = { ...slices.timeout!, confirmations: [] };
     const timeoutNoConfirmation = readingsFor('timeout', withoutConfirmation);
-    expect(timeoutNoConfirmation.lc.present).toBe(3); // 4 → 3: `confirmation-asked` was real
+    // Pinned as "one less than the real reading", not as a literal: the class's total moves whenever
+    // a gap is closed (2026-10-28 closed `policy-decision`), and what this proof has to show is
+    // **which** stage the mutation removes, not what today's total happens to be.
+    //
+    // 钉「比真实读数少一阶」，不钉字面总数：这一类的总数会随缺口被补上而变（2026-10-28 补上了
+    // `policy-decision`），而这条证明要说明的是**掉的是哪一阶**，不是某个时刻的总数。
+    expect(timeoutNoConfirmation.lc.present).toBe(readingsFor('timeout', slices.timeout!).lc.present - 1);
+    expect(timeoutNoConfirmation.lc.detail['confirmation-asked']).toBe(false);
 
     const withApprover: Slice = {
       ...success,

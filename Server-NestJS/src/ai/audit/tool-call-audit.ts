@@ -104,6 +104,21 @@ export function toolCallOutcome(result: { success: boolean }): string {
   return result.success ? 'executed' : 'failed';
 }
 
+/**
+ * Bound for the machine-shaped arguments column, and the reason it is absent rather than cut: a
+ * half-JSON value answers nothing and pretends to be parseable. `detail` truncates freely because
+ * prose survives a cut; a column meant to be parsed does not.
+ *
+ * 参数列的上限，以及「超出就留空、不截断」的理由：半截 JSON 什么也答不出，却假装自己可解析。
+ * `detail` 可以随便截 —— 散文挨一刀还是散文；一列准备被解析的值不行。
+ */
+export const TOOL_ARGS_COLUMN_MAX = 8000;
+
+export function boundedToolArgs(json: string | undefined | null): string | undefined {
+  if (!json) return undefined;
+  return json.length <= TOOL_ARGS_COLUMN_MAX ? json : undefined;
+}
+
 export function buildToolCallAudit(input: ToolCallAuditInput): AuditEntry {
   const { result } = input;
   // Order matters: the R4 path hands over both a `result` (a placeholder failure saying "submitted for
@@ -131,6 +146,9 @@ export function buildToolCallAudit(input: ToolCallAuditInput): AuditEntry {
     conversationId: input.conversationId,
     action: 'tool_call',
     detail: `${input.toolName}(${input.argsJson})`,
+    // P0-19: the same arguments, machine-shaped — "what was done" without parsing `detail`.
+    // P0-19：同一份参数，机器可读 —— 不解析 `detail` 也能答「做了什么」。
+    toolArgs: boundedToolArgs(input.argsJson),
     outcome,
     tool: input.toolName,
     isError: result ? !result.success && !input.pendingApproval : true,

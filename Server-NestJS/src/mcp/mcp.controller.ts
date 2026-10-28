@@ -11,7 +11,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { ToolExposureService } from '../ai/tools/tool-exposure.service';
 import { AuditService } from '../governance-shared/services/audit.service';
-import { toolCallOutcome } from '../ai/audit/tool-call-audit';
+import { boundedToolArgs, toolCallOutcome } from '../ai/audit/tool-call-audit';
 import { ConfirmationStore } from '../ai/confirmation/confirmation.store';
 import { R4ApprovalService } from '../ai/approvals/r4-approval.service';
 import { ToolGateService } from '../ai/tools/tool-gate.service';
@@ -201,6 +201,10 @@ export class McpExportController {
           // —— 与 `buildToolCallAudit` 同一套分法。
           outcome: e.reasons.some((r) => r.name === 'risk_policy') ? 'blocked' : 'refused',
           tool: toolName,
+          // P0-19：被拒的行同样要答「做了什么」—— 参数一列，不再只躺在被截断的 detail 里。
+          // P0-19: a refused row answers "what was done" too — in its own column, not only in the
+          // truncated `detail`.
+          toolArgs: boundedToolArgs(JSON.stringify(toolArgs)),
         });
         // JSON-RPC `data` is free-form: carry the same `explanation` shape as the HTTP 403 / SSE
         // tool_end, so an MCP client can render why + the next step without parsing prose.
@@ -257,6 +261,10 @@ export class McpExportController {
       promptTokens: out.result?.usage?.promptTokens,
       completionTokens: out.result?.usage?.completionTokens,
       authorization: allowSnapshot,
+      // P0-19：同一份参数另存一列机器可读的（`detail` 那份截到 500 字符，读它就是在解析散文）。
+      // P0-19: the same arguments in a machine-shaped column — `detail` cuts them at 500 characters,
+      // and reading that is prose parsing.
+      toolArgs: boundedToolArgs(JSON.stringify(toolArgs)),
       // C-4: the row answers its own outcome. Held for confirmation (`!executed`) is `pending`; an
       // execution answers `toolCallOutcome` — the one spelling the chat path and the R4 executor
       // share, so the three ends cannot word one outcome three ways.

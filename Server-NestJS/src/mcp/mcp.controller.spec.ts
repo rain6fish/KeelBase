@@ -282,6 +282,48 @@ describe('McpExportController (HS-10)', () => {
     expect(JSON.parse(logged.authorization!)).toMatchObject({ allowed: true, tool: 'create_event' });
   });
 
+  it('P0-19：三条腿都带机器可读的参数列（读 / 被拒 / 被扣下）', async () => {
+    const args = { title: '评审' };
+
+    // 读
+    ai.executeToolForExternal.mockResolvedValue({
+      executed: true,
+      requiresConfirmation: false,
+      result: { success: true, data: {} },
+    });
+    await controller.handle(user, {
+      jsonrpc: '2.0',
+      id: 61,
+      method: 'tools/call',
+      params: { name: 'query_events', arguments: args },
+    });
+    expect((audit.log as jest.Mock).mock.calls[0][0].toolArgs).toBe(JSON.stringify(args));
+
+    // 被拒（deny 分支自己拼行）
+    (audit.log as jest.Mock).mockClear();
+    ai.executeToolForExternal.mockRejectedValue(
+      new AuthorizationDeniedError('blocked', [{ name: 'risk_policy', ok: false }]),
+    );
+    await controller.handle(user, {
+      jsonrpc: '2.0',
+      id: 62,
+      method: 'tools/call',
+      params: { name: 'delete_customer', arguments: { customerId: 1 } },
+    });
+    expect((audit.log as jest.Mock).mock.calls[0][0].toolArgs).toBe('{"customerId":1}');
+
+    // 被扣下
+    (audit.log as jest.Mock).mockClear();
+    ai.executeToolForExternal.mockResolvedValue({ executed: false, requiresConfirmation: true });
+    await controller.handle(user, {
+      jsonrpc: '2.0',
+      id: 63,
+      method: 'tools/call',
+      params: { name: 'create_event', arguments: args },
+    });
+    expect((audit.log as jest.Mock).mock.calls[0][0].toolArgs).toBe(JSON.stringify(args));
+  });
+
   it('建 artifact 失败 → 仍如实回「需确认且未执行」，不谎称有 token、不 500', async () => {
     store.create.mockRejectedValue(new Error('db down'));
     ai.executeToolForExternal.mockResolvedValue({ executed: false, requiresConfirmation: true });
