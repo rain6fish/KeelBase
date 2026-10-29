@@ -13,22 +13,23 @@
 
 ```bash
 git clone --recurse-submodules https://github.com/rain6fish/KeelBase.git && cd KeelBase
-cd Server-NestJS && cp .env.example .env && npm install
-cd .. && git clone --depth 1 https://github.com/rain6fish/KeelBase4J.git ../KeelBase4J  # sibling repo — step 6's check:java-vectors reads it
-# `../KeelBase4J` already there (you have the Java repo on this machine)? That clone exits 128 — skip it,
-# keep the copy you have, and `export KEELBASE_JAVA_REPO=<its path>` in every shell that runs step 6.
-cd Web-Admin-Vue && npm install                                                        # step 8 builds the admin bundle
-cd ..                                                                                  # back to the repo root — every step below uses repo-root-relative paths
+npm run prereqs        # the rest of this step, as one idempotent command (see the bullets)
 # leave the LLM API keys empty in .env → the runtime falls back to the deterministic demo provider
 ```
 
-- **This block ends at the repo root on purpose.** §1's paths (`.keelbase/…`, `specs/…`, `scripts/…`) are relative to the
-  clone's root; a shell that runs the block top-to-bottom otherwise finishes inside `Web-Admin-Vue` and §1 dies with
-  `Cannot find module …/Web-Admin-Vue/scripts/generator/business-spec.mjs`.
+- **`npm run prereqs` fills in every prerequisite the checks declare, and nothing else**: the contract submodule at the
+  commit this checkout pins, `Server-NestJS` and `Web-Admin-Vue` dependencies, `Server-NestJS/.env` copied from
+  `.env.example` when absent (an existing `.env` is never overwritten), and the sibling Java checkout cloned when it is
+  not there. It builds nothing and runs no test. Measured on a bare clone: `check:all` **24/29 before, 29/29 after**.
+- **It is idempotent and self-reporting.** A second run prints `nothing to do` and exits 0. A step it cannot complete
+  stops the run and says which one, why, and what to run by hand — so a failure here is a prerequisite problem, not a
+  broken tree.
+- **The command never changes directory.** It finishes in the clone's root, so every step below can use
+  repo-root-relative paths (`.keelbase/…`, `specs/…`, `scripts/…`). Doing these installs by hand instead is how §1 used
+  to die with `Cannot find module …/Web-Admin-Vue/scripts/generator/business-spec.mjs`.
 - Node **>= 22** (`Server-NestJS/package.json` → `engines`); the versions below were read on node 24.
-- `--recurse-submodules` is not optional: `Server-NestJS/specs/protocol` is a submodule.
-- **The sibling `../KeelBase4J` clone is not optional either.** Step 6's `check:java-vectors` compares this repo's protocol vectors against the Java repo's read-only snapshot, and it resolves that repo at `../KeelBase4J` (or `$KEELBASE_JAVA_REPO`). Without the sibling, `check:all` comes back **one gate short of all-green** (only `check:java-vectors` red; the gate count itself grows with the repo) — and that red is the missing prerequisite, not your delivery.
-- **Install `Web-Admin-Vue`'s dependencies here too**: step 8's `deploy/demo.sh` builds the admin bundle as its first step and fails there without them.
+- `--recurse-submodules` on the clone is now belt-and-braces: `prereqs` does the same initialisation. (`Server-NestJS/specs/protocol` is a submodule, and it must sit on **the pinned commit**, not merely exist — a checkout of the wrong commit quietly changes what `check:protocol-vectors` is comparing.)
+- **The sibling `../KeelBase4J` clone is not optional.** `prereqs` clones it (`--depth 1`) when it is absent, reuses the copy you already have, and honours `$KEELBASE_JAVA_REPO`. Step 6's `check:java-vectors` compares this repo's protocol vectors against it and `check:coverage-gaps` compares its gate-coverage file; without the sibling both come back red — and that red is the missing prerequisite, not your delivery.
 - No LLM key needed anywhere below; the demo provider drives the write tool from explicit `field=value` tokens.
 - **Why step 5 exports secrets that steps 7–8 don't:** `.env.example` already carries usable `JWT_SECRET` / `JWT_REFRESH_SECRET` / `ENCRYPTION_KEY` values and leaves `ENCRYPTION_HMAC_KEY` empty **by design** (it falls back). Step 5 exports its own four so the migration run does not depend on whatever is in your `.env`; the runtime steps need nothing beyond the file.
 - **Docker** (or a reachable PostgreSQL) is needed for one action only: `migration:consistency:pg` in step 5, which starts a throwaway `pgvector/pgvector:pg17` container.
@@ -334,24 +335,25 @@ never the counts.
 
 ```bash
 git clone --recurse-submodules https://github.com/rain6fish/KeelBase.git && cd KeelBase
-cd Server-NestJS && cp .env.example .env && npm install
-cd .. && git clone --depth 1 https://github.com/rain6fish/KeelBase4J.git ../KeelBase4J  # 兄弟仓 —— 第 6 步的 check:java-vectors 要读它
-# `../KeelBase4J` 已经在那儿（本机已有 Java 仓）？上面这句 clone 会 exit 128 —— 跳过它，改用你手头那份，
-# 并在**每一个**要跑第 6 步的 shell 里 `export KEELBASE_JAVA_REPO=<它的路径>`。
-cd Web-Admin-Vue && npm install                                                        # 第 8 步要构建管理台产物
-cd ..                                                                                  # 回到仓库根 —— 下面每一步用的都是相对仓库根的路径
+npm run prereqs        # 这一步剩下的全部，一条幂等命令（说明见下面各条）
 # .env 里 LLM 的 API key 留空 → 运行时会回落到确定性演示 Provider
 ```
 
-- **这个代码块刻意停在仓库根。** §1 的路径（`.keelbase/…`、`specs/…`、`scripts/…`）都相对克隆出来的根目录；
-  一个从上到下顺序执行的 shell 否则会停在 `Web-Admin-Vue`，§1 随即以
+- **`npm run prereqs` 只补各道检查自己声明过的前提**：契约 submodule 落在本检出的 pin 那个提交上、`Server-NestJS`
+  与 `Web-Admin-Vue` 的依赖、`Server-NestJS/.env`（缺失时从 `.env.example` 拷，已存在则**从不覆盖**）、
+  同级 Java 检出（不在时克隆）。不构建、不跑测试。空检出实测：`check:all` **补前 24/29，补后 29/29**。
+- **幂等、且会自述。** 第二次运行打印 `nothing to do` 并 exit 0。某一步做不到就停下，说清是哪一步、为什么、
+  以及要手工跑什么 —— 所以这里的失败是**前提**的问题，不是树坏了。
+- **这条命令不切换目录。** 它结束时仍在克隆的根目录，于是下面每一步都能用相对仓库根的路径（`.keelbase/…`、
+  `specs/…`、`scripts/…`）。改成手工装依赖，§1 会以
   `Cannot find module …/Web-Admin-Vue/scripts/generator/business-spec.mjs` 挂掉。
 - Node **>= 22**（`Server-NestJS/package.json` 的 `engines`）；下面那些版本号是在 node 24 上读的。
-- `--recurse-submodules` 不是可选项：`Server-NestJS/specs/protocol` 是一个 submodule。
-- **兄弟仓 `../KeelBase4J` 也不是可选项。** 第 6 步的 `check:java-vectors` 拿本仓的协议向量与该 Java 仓的只读快照比对，
-  而它按 `../KeelBase4J`（或 `$KEELBASE_JAVA_REPO`）找那个仓。缺了兄弟仓，`check:all` 会**差一道门才全绿**（只有
-  `check:java-vectors` 红；门的条数本身也随仓库增长）—— 那道红是**前置没备齐**，不是你的交付有问题。
-- **`Web-Admin-Vue` 的依赖也在这里装**：第 8 步的 `deploy/demo.sh` 第一步就是构建管理台产物，缺依赖会卡在第一步。
+- 克隆时的 `--recurse-submodules` 现在是双保险：`prereqs` 做同一件初始化。（`Server-NestJS/specs/protocol` 是
+  submodule，而且必须落在 **pin 的那个提交**上，不是「有就行」—— 检出成别的提交会悄悄改变
+  `check:protocol-vectors` 到底在比什么。）
+- **兄弟仓 `../KeelBase4J` 不是可选项。** `prereqs` 在它缺席时克隆（`--depth 1`）、已有时复用，并认
+  `$KEELBASE_JAVA_REPO`。第 6 步的 `check:java-vectors` 拿本仓的协议向量与它比对，`check:coverage-gaps` 比对它的
+  门禁覆盖文件；缺了兄弟仓这两道都会红 —— 那道红是**前置没备齐**，不是你的交付有问题。
 - 下面全程**不需要** LLM key；演示 Provider 靠显式 `field=value` 令牌驱动写工具。
 - **为什么第 5 步 export 密钥、第 7–8 步不 export：** `.env.example` 里 `JWT_SECRET` / `JWT_REFRESH_SECRET` /
   `ENCRYPTION_KEY` 本就带着可用值，而 `ENCRYPTION_HMAC_KEY` **按设计留空**（它有回退）。第 5 步 export 自己那四个，
