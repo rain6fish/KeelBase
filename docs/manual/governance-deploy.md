@@ -27,6 +27,26 @@ docker compose up governance sidecar
 
 > 治理库连接配置：`GOVERNANCE_DB_PATH`（sqlite）或 `GOVERNANCE_DB_HOST/PORT/NAME`（postgres，默认库名 `governance`）。未配置时回落主库连接信息，但**库名/路径独立**（避免治理台连业务库）。
 
+### 升级既有的治理库 / Upgrading an Existing Governance Database
+
+The control plane owns its own database but **has no migration runner**. `src/config/governance-data-source.ts` declares entities and `synchronize` only, and `synchronize` is off when `NODE_ENV=production`. A **fresh** database is created either by a development run or by the business-side migrations; an **existing** production governance database is not altered by any KeelBase upgrade. The seven tables it shares with the business database — `ai_audit_logs`, `ai_daily_usage`, `ai_tool_side_effects`, `ai_agents`, `ai_confirmation_requests`, `ai_governance_policy`, `ai_governance_policy_history` — must therefore be brought forward by hand whenever a release changes one of them. Running the business migration is not enough: the console reads those tables through the same entity classes, so a column the business database has and the governance database does not is a runtime failure (`column "write_claim_id" does not exist`), not a degraded read.
+
+Check the two schemas against each other and apply the difference to the governance database **before** starting the console. Since the console's release notes name the change, the statement is one line — for example, the statement added with the audit → claim forward edge (`1845000000000-AddAuditWriteClaimLink`):
+
+```sql
+-- postgres and sqlite alike / 两种方言同一条
+ALTER TABLE "ai_audit_logs" ADD "write_claim_id" integer;
+```
+
+这段要单独写成一条规矩：**治理库没有迁移运行器**。`src/config/governance-data-source.ts` 只声明实体与 `synchronize`，而 `NODE_ENV=production` 时 `synchronize` 是关的。**全新**的库由开发态启动或业务侧迁移建出来；**既有的**生产治理库**不会**被任何 KeelBase 升级改动。因此，只要某个版本改了它与业务库共用的七张表（`ai_audit_logs`、`ai_daily_usage`、`ai_tool_side_effects`、`ai_agents`、`ai_confirmation_requests`、`ai_governance_policy`、`ai_governance_policy_history`），就必须**手工**把它们补到同一个形状。只跑业务侧迁移**不够**：治理台读的是同一批实体类，业务库有、治理库没有的那一列不是「降级读」，而是运行时失败（`column "write_claim_id" does not exist`）。
+
+启动治理台**之前**，先把两边 schema 对一遍，把差集应用到治理库。因为发布说明会点名这一处，语句通常只有一行 —— 例如随「审计行 → 占位行正向边」一起加的那条（`1845000000000-AddAuditWriteClaimLink`）：
+
+```sql
+-- 两种方言同一条 / postgres and sqlite alike
+ALTER TABLE "ai_audit_logs" ADD "write_claim_id" integer;
+```
+
 ---
 
 ## 二、业务系统接入 / Integrate a Business System
