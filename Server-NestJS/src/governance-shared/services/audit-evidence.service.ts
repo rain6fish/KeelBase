@@ -57,6 +57,7 @@ import {
 } from './audit-reader-scope';
 import { OrgService } from '../../org/org.service';
 import { AuditByDayBucket, byDayAggregation } from './by-day';
+import { resolveOutcome } from './audit-outcome';
 import { Sm2SignatureBlock, buildSm2Block, sm2ConfigFromEnv } from '../../common/crypto/sm2';
 
 export interface ActionReport {
@@ -64,15 +65,26 @@ export interface ActionReport {
   summary: {
     executed: number; // 工具执行（含写）
     approved: number; // 写操作人工批准
-    rejected: number; // 写操作人工拒绝/超时
-    blocked: number; // 工具被拒（治理/越权/R5）
+    rejected: number; // 写操作人工拒绝（`declined`；确认超时不算拒绝）
+    blocked: number; // 被风险策略拦下，**没有到过裁决**（`outcome=blocked`）
+    refused: number; // 到了裁决并被拒（治理 / 越权 / R5 之外的拒绝，`outcome=refused`）
     errors: number; // 全部 error
     effects: number; // 可撤销副作用记录数
   };
   byAction: Array<{ action: string; count: number }>;
-  /** B3 时间趋势：按 UTC 日聚合执行/批准/拒绝/阻断/错误（升序），合规报告可看趋势 */
+  /** B3 时间趋势：按 UTC 日聚合执行/批准/拒绝/阻断/被治理拒绝/错误（升序），合规报告可看趋势 */
   byDay: AuditByDayBucket[];
-  hashChain: { valid: boolean; checked: number; brokenIndex: number | null };
+  /**
+   * `checked` counts the rows **already in the chain**; `tableRows` counts the table. The two differ
+   * wherever a row has no `hash` (rows written before `AddAuditHashChain`, and rows inserted directly
+   * by tools): those are never verified, so a verification rate over `checked` alone has a denominator
+   * the reader cannot see.
+   *
+   * `checked` 数的是**已入链**的行，`tableRows` 数的是表里的行。两者之差就是 `hash` 为空的那些行
+   * （`AddAuditHashChain` 之前写下的、以及工具直插的）—— 它们从不参与校验，故只看 `checked` 的验证率
+   * 有一个读者看不见的分母。
+   */
+  hashChain: { valid: boolean; checked: number; brokenIndex: number | null; tableRows: number };
   samples: Array<{
     id: number;
     action: string;
@@ -262,20 +274,24 @@ export class AuditEvidenceService {
   ) {}
 
   /** HS-11：沿 id 升序校验审计哈希链完整性。返回含逐行链明细（切片，供 E-2 哈希链可视化）。60s 缓存（消除 action-report 二次全表扫描）。 */
-  async verifyChain(): Promise<ChainVerification & { chain: AuditChainNode[] }> {
+  async verifyChain(): Promise<ChainVerification & { chain: AuditChainNode[]; tableRows: number }> {
     // AW-5：键带数据库身份 —— 否则一个库的结论会被当另一个库的答案发出（见 cache-keys.ts）。
     // AW-5: the key carries the database identity — otherwise one database's verdict is served for another.
     const cacheKey = auditVerifyCacheKey(this.dataSource);
-    const cached = await this.cacheService?.get<ChainVerification & { chain: AuditChainNode[] }>(cacheKey);
+    const cached = await this.cacheService?.get<ChainVerification & { chain: AuditChainNode[]; tableRows: number }>(cacheKey);
     if (cached) return cached;
     // 只取**已入链**的行：`hash` 为 null 的行从未入链（AddAuditHashChain 迁移前的历史行；
     // 以及测试/工具直插的行）。让它们参与校验会让 genesis 检查在**第 1 行**即失败
     // （_matches(null, …) 恒 false）→ 整条链被误判 invalid，而链实际未被破坏。
     // 与副作用链 verifySideEffectChain 的 `filter(r => r.hash)` **同口径**：两条链对
     // 「未入链的行不参与校验」必须一致，否则同一份数据在两条链上会得出相反结论。
-    const rows = (await this.logRepo.find({ order: { id: 'ASC' } })).filter((r) => r.hash);
+    const all = await this.logRepo.find({ order: { id: 'ASC' } });
+    const rows = all.filter((r) => r.hash);
     const result = this.auditChain.verifyChain(rows, (row) => buildPayload(row));
-    const detailed = { ...result, chain: this._chainSlice(rows, result) };
+    // `tableRows` rides along so the rate and its denominator travel together: the rows left out of
+    // the chain are counted here rather than silently dropped.
+    // `tableRows` 随结果一起出门，于是验证率与它的分母同行 —— 未入链的行在这里被数出来，而不是悄悄丢掉。
+    const detailed = { ...result, chain: this._chainSlice(rows, result), tableRows: all.length };
     await this.cacheService?.set(cacheKey, detailed, 60_000);
     return detailed;
   }
@@ -354,24 +370,31 @@ export class AuditEvidenceService {
     let approved = 0;
     let rejected = 0;
     let blocked = 0;
+    let refused = 0;
     let errors = 0;
     const byAction = new Map<string, number>();
     for (const l of logs) {
       byAction.set(l.action, (byAction.get(l.action) ?? 0) + 1);
       if (l.isError) { errors++; }
-      // C-3：四个计数**按列读**。`blocked` 的含义随之收紧了——它此前是「任何带 authorization 的拒绝，
+      // C-3：计数**按列读**。`blocked` 的含义随之收紧了——它此前是「任何带 authorization 的拒绝，
       // 或 errorMessage 里带某一族词」，现在只是「`outcome` 答 blocked」，而那个词只在 `authorization`
       // 点名 `risk_policy` 时才有：那道闸**没到过裁决**，其余拒绝是 `refused`。⇒ 历史数据的 blocked
       // 会变小，这是 `C-3` 存在的理由，不是回归。
       //
       // 确认行的两个计数也从「是不是 isError」改成「说没说那个词」：一次**确认超时**不是一次拒绝，
       // 此前它被计进 rejected——与同一段注释下面防「转审批被计成批准」的顾虑是同一类虚报。
+      //
+      // `refused` 此前**一桶都不入**：它既不是 executed 也不是 blocked，于是治理/越权拒绝全被并进
+      // `errors`，与真正的执行失败混在一起。一份报表把「被闸挡下」和「跑了但坏了」报成同一个数，
+      // 正是这张报表要回答的问题答不出来。历史行经 `resolveOutcome` 回落到推导，故口径与列同在。
+      const outcome = resolveOutcome(l);
       if (l.action === 'tool_call') {
-        if (l.outcome === 'executed') { executed++; }
-        else if (l.outcome === 'blocked') { blocked++; }
+        if (outcome === 'executed') { executed++; }
+        else if (outcome === 'blocked') { blocked++; }
+        else if (outcome === 'refused') { refused++; }
       } else if (l.action === 'tool_confirmation') {
-        if (l.outcome === 'approved') { approved++; }
-        else if (l.outcome === 'declined') { rejected++; }
+        if (outcome === 'approved') { approved++; }
+        else if (outcome === 'declined') { rejected++; }
       }
     }
     // B3 时间趋势：按 UTC 日聚 5 段（与 getAllStats 共享 _byDayAggregation，避免重复聚合逻辑）
@@ -416,12 +439,17 @@ export class AuditEvidenceService {
 
     const result = {
       period: { since: options.since ? options.since.toISOString() : null, to: new Date().toISOString() },
-      summary: { executed, approved, rejected, blocked, errors, effects },
+      summary: { executed, approved, rejected, blocked, refused, errors, effects },
       byAction: Array.from(byAction.entries())
         .map(([action, count]) => ({ action, count }))
         .sort((a, b) => b.count - a.count),
       byDay,
-      hashChain: { valid: chain.valid, checked: chain.checked, brokenIndex: chain.brokenIndex ?? null },
+      hashChain: {
+        valid: chain.valid,
+        checked: chain.checked,
+        brokenIndex: chain.brokenIndex ?? null,
+        tableRows: chain.tableRows,
+      },
       samples,
       effectDiffs,
     };

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { summarizeAudit, aggregateConversation, explainAuthorization, replayKey } from './audit-interpreter.service';
-import { deriveOutcome, deriveTool, BackfillRow } from '../../ai/audit/audit-outcome';
+import { deriveOutcome, deriveTool, BackfillRow } from './audit-outcome';
 
 /**
  * C-3：叙述层现在**按列**读 `outcome` / `tool`，所以夹具必须带这两列 —— 行是从库里读出来的，

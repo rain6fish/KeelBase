@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { MigrationInterface, QueryRunner } from 'typeorm';
-import { BackfillRow, deriveOutcome, deriveTool } from '../ai/audit/audit-outcome';
+import { BackfillRow, deriveOutcome, deriveTool } from '../governance-shared/services/audit-outcome';
 
 /**
  * C-3 backfill: give the rows written before `outcome` / `tool` existed the values the writers would

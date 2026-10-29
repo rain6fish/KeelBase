@@ -151,6 +151,10 @@
               <div class="text-caption text-medium-emphasis">{{ t('secActionBlocked') }}</div>
             </el-card>
             <el-card shadow="never" class="flex-1" style="min-width: 120px">
+              <div class="text-h6 text-warning">{{ actionReport.summary.refused }}</div>
+              <div class="text-caption text-medium-emphasis">{{ t('secActionRefused') }}</div>
+            </el-card>
+            <el-card shadow="never" class="flex-1" style="min-width: 120px">
               <div class="text-h6">{{ actionReport.summary.effects }}</div>
               <div class="text-caption text-medium-emphasis">{{ t('secActionEffects') }}</div>
             </el-card>
@@ -161,7 +165,9 @@
                   :label-map="{ ok: t('secChainValid'), cancelled: `${t('secChainBroken')} @${actionReport.hashChain.brokenIndex ?? '?'}` }"
                 />
               </div>
-              <div class="text-caption text-medium-emphasis mt-1">{{ t('secActionChain') }} ({{ actionReport.hashChain.checked }})</div>
+              <div class="text-caption text-medium-emphasis mt-1">
+                {{ t('secActionChain') }} ({{ actionReport.hashChain.checked }} / {{ actionReport.hashChain.tableRows }})
+              </div>
             </el-card>
           </div>
           <div v-else class="text-medium-emphasis">{{ t('loading') }}</div>

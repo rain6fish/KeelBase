@@ -99,7 +99,7 @@ describe('AuditStatsService（从 AuditService 拆出的聚合域）', () => {
       logRepo.find.mockResolvedValue([
         { action: 'tool_call', detail: 'query_customers({})', isError: false, createdAt: new Date('2026-08-30T10:00:00Z') },
         { action: 'tool_call', detail: 'create_followup_task({})', isError: false, createdAt: new Date('2026-08-30T11:00:00Z') },
-        { action: 'tool_call', detail: 'query_evil({})', isError: true, errorMessage: 'blocked (risk level R5)', createdAt: new Date('2026-08-30T12:00:00Z') },
+        { action: 'tool_call', detail: 'query_evil({})', isError: true, errorMessage: 'blocked (risk level R5)', authorization: '[{"name":"risk_policy"}]', createdAt: new Date('2026-08-30T12:00:00Z') },
       ]);
       const result = await service.getAllStats();
       expect(result.byDay).toHaveLength(1);
@@ -123,15 +123,18 @@ describe('AuditStatsService（从 AuditService 拆出的聚合域）', () => {
   });
 
   describe('byDay 聚合纯函数（报表域与统计域共用单源）', () => {
-    it('blocked 与 executed 的口径不变：有拒绝标记才算 blocked', async () => {
+    // 口径按 C-3 的结局词表分桶：风险策略拦下的是 blocked，裁决之后被拒的是 refused，
+    // 两者**不合并**；结局推不出来的行（失败 / 待批在盘上一样）一桶都不入，只算 error。
+    it('按 outcome 分桶：risk_policy → blocked · 其余拒绝 → refused · 推不出的只算 error', async () => {
       logRepo.find.mockResolvedValue([
-        { action: 'tool_call', isError: true, authorization: '{"denied":{}}', createdAt: new Date('2026-09-01T00:00:00Z') },
-        { action: 'tool_call', isError: true, errorMessage: 'boom', createdAt: new Date('2026-09-01T01:00:00Z') },
+        { action: 'tool_call', isError: true, authorization: '[{"name":"risk_policy"}]', createdAt: new Date('2026-09-01T00:00:00Z') },
+        { action: 'tool_call', isError: true, authorization: '[{"name":"tool_enabled"}]', createdAt: new Date('2026-09-01T01:00:00Z') },
+        { action: 'tool_call', isError: true, errorMessage: 'boom', createdAt: new Date('2026-09-01T02:00:00Z') },
       ] as unknown as AiAuditLog[]);
 
       const result = await service.getAllStats();
 
-      expect(result.byDay[0]).toMatchObject({ blocked: 1, executed: 0, errors: 2 });
+      expect(result.byDay[0]).toMatchObject({ blocked: 1, refused: 1, executed: 0, errors: 3 });
     });
   });
 });

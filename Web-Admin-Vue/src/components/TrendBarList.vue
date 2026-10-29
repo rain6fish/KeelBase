@@ -33,7 +33,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { AuditByDayBucket } from '@/types/audit'
 
-/** E-2 按日趋势：纯 CSS 5 段堆叠条（executed/approved/rejected/blocked/errors），无图表库 */
+/** E-2 按日趋势：纯 CSS 6 段堆叠条（executed/approved/rejected/blocked/refused/errors），无图表库 */
 const props = defineProps<{ days: AuditByDayBucket[] }>()
 
 const { t } = useI18n()
@@ -43,15 +43,16 @@ const segments = [
   { key: 'approved', color: 'var(--el-color-success)', label: 'secActionApproved' },
   { key: 'rejected', color: 'var(--el-color-warning)', label: 'secActionRejected' },
   { key: 'blocked', color: 'var(--el-color-danger)', label: 'secActionBlocked' },
+  { key: 'refused', color: '#e6a23c', label: 'secActionRefused' },
   { key: 'errors', color: '#b91c1c', label: 'secActionErrors' },
 ] as const
 
 const maxDaily = computed(() =>
-  Math.max(1, ...props.days.map((d) => d.executed + d.approved + d.rejected + d.blocked + d.errors)),
+  Math.max(1, ...props.days.map((d) => dailyTotal(d))),
 )
 
 function dailyTotal(d: AuditByDayBucket): number {
-  return d.executed + d.approved + d.rejected + d.blocked + d.errors
+  return d.executed + d.approved + d.rejected + d.blocked + d.refused + d.errors
 }
 
 function pct(v: number): number {
