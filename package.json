@@ -31,6 +31,7 @@
   },
   "scripts": {
     "preflight": "node scripts/keelbase-doctor.mjs --env",
+    "prereqs": "node scripts/prereqs.mjs",
     "cli:test": "node --test \"scripts/*.test.mjs\"",
     "review:ocr": "node scripts/ocr-release-review.mjs",
     "spec:check": "node scripts/check-business-specs.mjs",
