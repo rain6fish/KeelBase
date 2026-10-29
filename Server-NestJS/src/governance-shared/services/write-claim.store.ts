@@ -87,6 +87,15 @@ export class WriteClaimStore {
       const existing = await repo.findOne({ where: { idempotencyKey: key } });
       if (!existing) return { won: false, status: 'unreadable' };
       if (existing.status === WRITE_CLAIM_STATUS.RELEASED) {
+        // A re-claim that carries a new authorization replaces the ref on the same conditional
+        // update, so the claim points at the attempt that actually executed — that ref is the only
+        // precise key the explanation surface has for "who approved this". An absent ref leaves the
+        // stored value alone: on a retry it means "this caller did not supply one", not "there was
+        // no authorization".
+        //
+        // 带新授权的重占位在同一条条件更新上替换引用，使占位行指向**实际执行**的那次尝试 —— 解释面要说
+        // 「谁批准了这次」只能靠这个键。未提供引用则保留原值：重试时它只表示「这个调用方没有提供」，
+        // 不表示「没有授权」。
         const res = await repo.update(
           { id: existing.id, status: WRITE_CLAIM_STATUS.RELEASED },
           {
@@ -95,6 +104,7 @@ export class WriteClaimStore {
             settledAt: null,
             releaseReason: null,
             attempts: existing.attempts + 1,
+            ...(ctx.authorizationRef ? { authorizationRef: ctx.authorizationRef } : {}),
           },
         );
         if (res?.affected === 0) {

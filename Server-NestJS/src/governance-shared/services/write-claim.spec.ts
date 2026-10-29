@@ -2,8 +2,11 @@
 
 import { DataSource } from 'typeorm';
 import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
+import { AiAuditLog } from '../../governance-shared/entities/ai-audit-log.entity';
+import { AiConfirmationRequest } from '../../governance-shared/entities/ai-confirmation-request.entity';
 import { AiWriteClaim, WRITE_CLAIM_STATUS } from '../entities/ai-write-claim.entity';
 import { AiToolEffectsService } from './ai-tool-effects.service';
+import { AuditEvidenceService } from './audit-evidence.service';
 import { ToolExecutionService } from '../../ai/tools/tool-execution.service';
 
 /**
@@ -74,7 +77,7 @@ describe('ACT-5/6 切片1：本地写 claim → execute → settle', () => {
     ds = new DataSource({
       type: 'better-sqlite3',
       database: ':memory:',
-      entities: [AiToolSideEffect, AiWriteClaim],
+      entities: [AiToolSideEffect, AiWriteClaim, AiAuditLog, AiConfirmationRequest],
       synchronize: true,
     });
     await ds.initialize();
@@ -380,6 +383,150 @@ describe('ACT-5/6 切片1：本地写 claim → execute → settle', () => {
       // 而不是给一个空数组让人读成「没有卡住的写」。
       const notAsked = (await effects.list({})) as unknown as Record<string, unknown>;
       expect('staleClaims' in notAsked).toBe(false);
+    });
+  });
+
+  describe('AW-11 B1：RELEASED 重占位时更新 authorization_ref，解释面因此指对批准人', () => {
+    /**
+     * The claim's `authorizationRef` is the **only** precise key between an action and who approved
+     * it: the interpretation surface (`AuditEvidenceService.getInterpretation`) resolves the
+     * confirmation through it, and an audit row carries no confirmation id of its own. So when a
+     * failed attempt is released and a retry is authorized by a **different** confirmation, the ref
+     * must move to the attempt that actually executed — otherwise the page names a person who never
+     * authorized this execution.
+     *
+     * 占位行的 `authorizationRef` 是一次动作与「谁批准」之间**唯一精确**的键：解释面
+     * （`AuditEvidenceService.getInterpretation`）靠它找到确认行，而审计行本身不带确认 id。故当失败的
+     * 那次被释放、重试由**另一次**确认放行时，引用必须跟到**实际执行**的那次 —— 否则页面上写的是一个
+     * 从没管过这次执行的人。
+     */
+    const confirmations = () => ds.getRepository(AiConfirmationRequest);
+
+    const seedConfirmation = (token: string, approverId: string) =>
+      confirmations().save(
+        confirmations().create({
+          token,
+          toolName: CTX.toolName,
+          args: JSON.stringify(CTX.args),
+          operatorId: CTX.userId,
+          conversationId: CTX.conversationId,
+          riskLevel: 'R3',
+          status: 'approved',
+          kind: 'single',
+          approverId,
+          decidedAt: new Date(),
+        }),
+      );
+
+    const seedReleased = (authorizationRef?: string) =>
+      claims().save(
+        claims().create({
+          idempotencyKey: key(),
+          userId: CTX.userId,
+          conversationId: CTX.conversationId,
+          toolName: CTX.toolName,
+          argsHash: 'h',
+          status: WRITE_CLAIM_STATUS.RELEASED,
+          claimedAt: new Date(),
+          attempts: 1,
+          authorizationRef,
+        }),
+      );
+
+    /** The explanation surface, over the same database the claim was written to. */
+    const interpretationOf = () =>
+      new AuditEvidenceService(
+        ds.getRepository(AiAuditLog),
+        ds.getRepository(AiToolSideEffect),
+        {} as any, // auditChain — not read by getInterpretation
+        { forFacts: jest.fn() } as any, // coverage — `/4` only
+        undefined, // cacheService
+        undefined, // authorizationExplainer
+        undefined, // agentService
+        undefined, // operationAudit
+        undefined, // governancePolicy
+        claims(), // claimsRepo
+        confirmations(), // confirmationsRepo
+      );
+
+    it('带新授权 ⇒ 指向**实际执行**的那一次，attempts 仍 +1', async () => {
+      await seedReleased('tok-old');
+
+      const res = await effects.claimWrite({ ...CTX, authorizationRef: 'tok-new' });
+
+      expect(res.won).toBe(true);
+      const row = await claims().findOne({ where: { idempotencyKey: key() } });
+      expect(row?.status).toBe(WRITE_CLAIM_STATUS.CLAIMED);
+      expect(row?.attempts).toBe(2);
+      expect(row?.authorizationRef).toBe('tok-new');
+    });
+
+    it('不带授权 ⇒ **保留**原值（「调用方没给」不等于「没有授权」）', async () => {
+      await seedReleased('tok-old');
+
+      const res = await effects.claimWrite({ ...CTX });
+
+      expect(res.won).toBe(true);
+      const row = await claims().findOne({ where: { idempotencyKey: key() } });
+      expect(row?.attempts).toBe(2);
+      expect(row?.authorizationRef).toBe('tok-old');
+    });
+
+    it('归属：tok-A 放行失败 → tok-B 放行成功 ⇒ 解释面的批准人是 tok-B 那位', async () => {
+      await seedConfirmation('tok-A', 'approver-a');
+      await seedConfirmation('tok-B', 'approver-b');
+
+      // Attempt 1 — authorized by tok-A, the local write throws ⇒ claim released.
+      executeMock.mockRejectedValueOnce(new Error('db write failed'));
+      await expect(
+        exec.executeWrite(CTX.toolName, CTX.args, CTX.userId, CTX.conversationId, undefined, {
+          authorizationRef: 'tok-A',
+        }),
+      ).rejects.toThrow('db write failed');
+      expect((await claims().findOne({ where: { idempotencyKey: key() } }))?.status).toBe(
+        WRITE_CLAIM_STATUS.RELEASED,
+      );
+
+      // Attempt 2 — authorized by tok-B, it executes.
+      executeMock.mockResolvedValueOnce({ success: true, data: { id: 7 } });
+      const second = await exec.executeWrite(
+        CTX.toolName,
+        CTX.args,
+        CTX.userId,
+        CTX.conversationId,
+        undefined,
+        { authorizationRef: 'tok-B' },
+      );
+      expect(second.success).toBe(true);
+
+      // The audit row (what `ai.service` writes on the success branch) and its link to the claim.
+      const auditRepo = ds.getRepository(AiAuditLog);
+      const audit = await auditRepo.save(
+        auditRepo.create({
+          userId: CTX.userId,
+          conversationId: CTX.conversationId,
+          action: 'tool_call',
+          detail: `${CTX.toolName}(${JSON.stringify(CTX.args)})`,
+          isError: false,
+        }),
+      );
+      await effects.attachAuditRow(
+        {
+          userId: CTX.userId,
+          conversationId: CTX.conversationId,
+          toolName: CTX.toolName,
+          argsJson: JSON.stringify(CTX.args),
+        },
+        audit.id,
+      );
+
+      const res = await interpretationOf().getInterpretation(audit.id);
+
+      // The token, then the attribution it stands for: `approver-a` approved the attempt that
+      // failed and never touched the one that landed.
+      // 先是 token，再是它代表的归属：`approver-a` 批准的是失败的那次，从没管过真正落库的那次。
+      expect(res.approval?.token).toBe('tok-B');
+      expect(res.approval?.approverId).toBe('approver-b');
     });
   });
 });
