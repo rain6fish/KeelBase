@@ -13,7 +13,7 @@
  * - `isError`：未执行（deny / 待批）恒为真；有结果时按结果判，且 **R4 待批不算失败**
  *   （否则单次审批被计 approved + blocked + errors 三重误报）
  * - `businessEvent` / `evidence`：**只有真正执行过（有结果）才派生**——deny 行不含这两列
- * - `authorization`：放行快照（成功且实际放行）或 deny reasons 的 JSON，由调用方判断该给哪个
+ * - `authorization`：放行快照（成功执行 / 被扣下等人 / 没发生的那两种）或 deny reasons 的 JSON，由调用方判断该给哪个
  * - `source`：B 路径代理写标 bridge（四处一致）
  */
 import type { AuditEntry } from '../../governance-shared/services/audit.service';
@@ -38,6 +38,23 @@ export interface ToolCallAuditInput {
   authorization?: string;
   /** R4 待批：已提交人工审批不算失败（此区分当前只有流式路径有） */
   pendingApproval?: boolean;
+  /**
+   * How a confirmation ended **without an execution** — a person declined it, or the window closed
+   * with no decision. Callers pass the decision; the words are decided here, once.
+   *
+   * The second word, `not_executed`, was added to the frozen vocabulary on 2026-10-28 (contract
+   * v1.15.0, `ai-audit-log-outcome-v2-vector.json`): until then `legalByAction.tool_call` had no way
+   * to say "nothing ran", and the row had to borrow `failed` — which says an attempt happened and
+   * broke. Writing it before the contract changed would have produced rows a conforming consumer must
+   * reject, so the order was: contract first, then this.
+   *
+   * 确认以「**没有执行**」收场的两种情形：有人拒绝，或窗口到期无人裁决。调用方给的是裁决，词由这里一处定。
+   *
+   * 第二个词 `not_executed` 于 2026-10-28 进冻结词表（契约 v1.15.0，`ai-audit-log-outcome-v2-vector.json`）：
+   * 在那之前 `legalByAction.tool_call` 说不出「一次都没跑」，这一行只能借 `failed` —— 而那个词说的是
+   * 「试过、坏了」。契约改之前就写它，等于产出符合契约的消费方**必须拒绝**的行；故顺序是契约先行。
+   */
+  unconfirmed?: 'declined' | 'timeout';
   /**
    * §22.19 AU-2: the handle that groups every row of one delegate/plan turn — written on the turn's
    * `tool_call` rows and on its conversation-level row alike, so the whole turn is one query away.
@@ -87,6 +104,21 @@ export function toolCallOutcome(result: { success: boolean }): string {
   return result.success ? 'executed' : 'failed';
 }
 
+/**
+ * Bound for the machine-shaped arguments column, and the reason it is absent rather than cut: a
+ * half-JSON value answers nothing and pretends to be parseable. `detail` truncates freely because
+ * prose survives a cut; a column meant to be parsed does not.
+ *
+ * 参数列的上限，以及「超出就留空、不截断」的理由：半截 JSON 什么也答不出，却假装自己可解析。
+ * `detail` 可以随便截 —— 散文挨一刀还是散文；一列准备被解析的值不行。
+ */
+export const TOOL_ARGS_COLUMN_MAX = 8000;
+
+export function boundedToolArgs(json: string | undefined | null): string | undefined {
+  if (!json) return undefined;
+  return json.length <= TOOL_ARGS_COLUMN_MAX ? json : undefined;
+}
+
 export function buildToolCallAudit(input: ToolCallAuditInput): AuditEntry {
   const { result } = input;
   // Order matters: the R4 path hands over both a `result` (a placeholder failure saying "submitted for
@@ -96,16 +128,26 @@ export function buildToolCallAudit(input: ToolCallAuditInput): AuditEntry {
   // `pendingApproval`，而「在等人」是 `pending`，绝不是 `failed`。
   const outcome = input.pendingApproval
     ? 'pending'
-    : result
-      ? toolCallOutcome(result)
-      : input.deniedBy?.includes('risk_policy')
-        ? 'blocked'
-        : 'refused';
+    : input.unconfirmed
+      ? // Neither word claims an attempt happened: `declined` names who ended it, `not_executed` says
+        // the window closed with nobody deciding.
+        // 两个词都不声称尝试过：`declined` 点名是谁结束的，`not_executed` 说窗口到期无人裁决。
+        input.unconfirmed === 'declined'
+        ? 'declined'
+        : 'not_executed'
+      : result
+        ? toolCallOutcome(result)
+        : input.deniedBy?.includes('risk_policy')
+          ? 'blocked'
+          : 'refused';
   return {
     userId: input.userId,
     conversationId: input.conversationId,
     action: 'tool_call',
     detail: `${input.toolName}(${input.argsJson})`,
+    // P0-19: the same arguments, machine-shaped — "what was done" without parsing `detail`.
+    // P0-19：同一份参数，机器可读 —— 不解析 `detail` 也能答「做了什么」。
+    toolArgs: boundedToolArgs(input.argsJson),
     outcome,
     tool: input.toolName,
     isError: result ? !result.success && !input.pendingApproval : true,

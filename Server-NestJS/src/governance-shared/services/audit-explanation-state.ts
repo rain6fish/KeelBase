@@ -4,7 +4,7 @@
  * The ONE state an operator is shown for a single AI action.
  *
  * <p><b>Why it exists.</b> Three different enums describe an AI action today, on three different rows:
- * the audit row's `outcome` (executed / pending / blocked / refused / declined / failed …), the
+ * the audit row's `outcome` (executed / pending / blocked / refused / declined / failed / not_executed …), the
  * confirmation request's `status` (pending / approved / declined / timeout …), and the side effect's
  * `revokeStatus` (revoked / compensating / revoke_failed). A reader who is handed all three has to
  * decide for themselves which one wins — and the three mistakes that follow are the ones this project
@@ -18,8 +18,10 @@
  * `revoke_failed` (a compensation that ran and failed), and a great many actions simply executed, or
  * were refused before anything happened. Dropping those three would force them into a neighbouring
  * bucket — which is the conflation this whole surface exists to stop. The five are kept **as named**;
- * `compensation_failed`, `executed` and `rejected` join them. That discrepancy is recorded on the
- * roadmap row rather than silently resolved here.
+ * `compensation_failed`, `executed` and `rejected` join them, and `not_executed` joins on 2026-10-28
+ * for the shape the audit vocabulary stopped calling `failed` (a confirmation window that closed with
+ * no decision; contract v1.15.0). That discrepancy is recorded on the roadmap row rather than
+ * silently resolved here.
  *
  * <p><b>Order decides, and the order is chronological.</b> A later fact wins over an earlier one: an
  * action still waiting for a human has not happened yet, so that answer comes first; an action that
@@ -29,7 +31,7 @@
  * 一次 AI 行为**给操作者看的那一个状态**。
  *
  * <p><b>为什么有它。</b>今天有三套枚举在描述一次 AI 行为，长在**三张不同的行**上：审计行的
- * `outcome`（executed / pending / blocked / refused / declined / failed …）、确认请求的 `status`
+ * `outcome`（executed / pending / blocked / refused / declined / failed / not_executed …）、确认请求的 `status`
  * （pending / approved / declined / timeout …）、副作用行的 `revokeStatus`（revoked /
  * compensating / revoke_failed）。把三个一起交出去，读者就得自己决定**谁说了算**——而随之而来的
  * 三种误读，正是本项目反复写警告的那三种：哈希链验得过**不等于**每个动作都被记下；撤销**被请求过**
@@ -40,7 +42,8 @@
  * 补偿成功 / 结果未知，并称其**互斥且穷尽**。互斥成立，**穷尽不成立**，数据如此回答：`revoke_status`
  * 带着 `revoke_failed`（补偿跑了、失败了），而大量动作就是**执行成功**或**在被拒时什么都没发生**。
  * 把这三个丢掉，它们就会被塞进邻居的桶里——而那正是这个面存在的理由。**五态照名保留**，
- * `compensation_failed` / `executed` / `rejected` 与之并列。这处出入**记在 roadmap 行上**，
+ * `compensation_failed` / `executed` / `rejected` 与之并列；2026-10-28 起 `not_executed` 也加入，
+ * 对应审计词表不再叫 `failed` 的那种形状（确认窗口到期、无人裁决）。这处出入**记在 roadmap 行上**，
  * 不在这里悄悄抹平。
  *
  * <p><b>顺序即判断，而顺序是时间序。</b>后发生的事实压过先发生的：还在等人批准的动作**尚未发生**，
@@ -58,6 +61,7 @@ export type ExplanationState =
   | 'compensating'
   | 'executed'
   | 'failed'
+  | 'not_executed'
   | 'rejected'
   | 'result_unknown';
 
@@ -68,6 +72,7 @@ export const EXPLANATION_STATES: readonly ExplanationState[] = [
   'compensation_succeeded',
   'result_unknown',
   'compensating',
+  'not_executed',
   'failed',
   'rejected',
   'executed',
@@ -122,6 +127,13 @@ export function explainState(input: ExplanationStateInput): ExplanationState {
       ? 'result_unknown'
       : 'compensating';
   }
+  // A named "nothing ran" beats the bare `isError` fallback: that word is a specific fact (the window
+  // closed with no decision), while `isError` is the shape rows had before `outcome` existed. A
+  // timeout row is still `isError`, so the fallback would win if it were consulted first.
+  //
+  // 具名的「没发生」压过 `isError` 这条兜底：那个词是具体事实（窗口到期无人裁决），而 `isError` 只是
+  // `outcome` 列出现之前那些行的形状。超时行 `isError` 仍为真，兜底若排在前面就会赢。
+  if (input.outcome === 'not_executed') return 'not_executed';
   if (input.outcome === 'failed' || input.isError) return 'failed';
   if (input.outcome && REJECTED_OUTCOMES.has(input.outcome)) return 'rejected';
   return 'executed';

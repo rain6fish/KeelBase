@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { buildToolCallAudit, confirmationOutcome } from './tool-call-audit';
+import { boundedToolArgs, buildToolCallAudit, confirmationOutcome, TOOL_ARGS_COLUMN_MAX } from './tool-call-audit';
 
 /**
  * `tool_call` 审计行组装单测（阶段 3 第十二刀新增——此前四处内联字面量**没有直接覆盖**，
@@ -41,7 +41,7 @@ describe('buildToolCallAudit（tool_call 审计行）', () => {
     });
     expect(definedKeys(row)).toEqual([
       'action', 'authorization', 'businessEvent', 'completionTokens', 'conversationId',
-      'detail', 'isError', 'outcome', 'promptTokens', 'provider', 'tool', 'userId',
+      'detail', 'isError', 'outcome', 'promptTokens', 'provider', 'tool', 'toolArgs', 'userId',
     ]);
   });
 
@@ -81,8 +81,18 @@ describe('buildToolCallAudit（tool_call 审计行）', () => {
     // deny 行的有值键集：比成功行少 businessEvent/两列 tokens（这正是四处必须同形的原因）
     expect(definedKeys(row)).toEqual([
       'action', 'authorization', 'conversationId', 'detail', 'errorMessage',
-      'isError', 'outcome', 'provider', 'tool', 'userId',
+      'isError', 'outcome', 'provider', 'tool', 'toolArgs', 'userId',
     ]);
+  });
+
+  it('P0-19：「做了什么」落在自己的列上（原文参数串原样，不重新序列化）', () => {
+    const row = buildToolCallAudit({ ...base, result: { success: true } });
+    expect(row.toolArgs).toBe('{"title":"评审"}');
+    // 半截 JSON 什么也答不出，还会假装可解析 —— 超限**留空**，不截断
+    const huge = JSON.stringify({ blob: 'x'.repeat(TOOL_ARGS_COLUMN_MAX) });
+    expect(buildToolCallAudit({ ...base, argsJson: huge, result: { success: true } }).toolArgs).toBeUndefined();
+    expect(boundedToolArgs('')).toBeUndefined();
+    expect(boundedToolArgs(undefined)).toBeUndefined();
   });
 
   it('C-3：结果码按形状取值 —— 两种执行、待批优先于失败、两道闸分得开、工具名原样透传', () => {

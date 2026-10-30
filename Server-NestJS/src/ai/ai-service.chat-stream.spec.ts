@@ -7,7 +7,7 @@ import { StreamChunk } from './interfaces/llm-provider.interface';
 import { AuthorizationDeniedError } from './interfaces/tool.interface';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { aiService, confirmationStore, installAiServiceTestbed, mockAuditService, mockConversationService, mockProvider, mockProviderFactory, mockTool, mockToolGate, mockToolRegistry, presentation, toolExecution, wiredSchema } from '../../test/ai-service.testbed';
+import { aiService, confirmationStore, installAiServiceTestbed, mockAuditService, mockConversationService, mockProvider, mockProviderFactory, mockTool, mockToolGate, mockToolRegistry, presentation, r4Approval, toolExecution, wiredSchema } from '../../test/ai-service.testbed';
 
 beforeEach(installAiServiceTestbed);
 
@@ -758,15 +758,105 @@ beforeEach(installAiServiceTestbed);
       for await (const c of stream) chunks.push(c);
       expect(chunks[chunks.length - 1].type).toBe('done');
 
-      // FIX-A 回归：拒绝/未执行的写工具 tool_call 审计行不带「放行快照」——
-      // 否则 isError+authorization 非空会被 A-8 denied 视图与 blocked 聚合误判为越权/阻断
+      // 2026-10-28：拒绝的那一行**不再冒充失败** —— 它有自己的词（`declined`）。它同时带放行依据，
+      // 回答「凭什么允许它走到确认这一步」；A-8 已按**形状**判别（数组=拒绝理由 / 对象=放行快照），
+      // 故 isError 行上带放行快照不会被读成越权。
+      // Since 2026-10-28 the declined row no longer passes for a failure — it has its own word. It also
+      // carries the allow basis ("why was it allowed to reach the confirmation step"), which is safe
+      // because A-8 now judges by shape.
       const declinedAudit = (mockAuditService.log as jest.Mock).mock.calls.find(
         (c: any[]) => c[0].action === 'tool_call' && c[0].detail?.startsWith('create_event'),
       );
       expect(declinedAudit).toBeDefined();
       expect(declinedAudit![0].isError).toBe(true);
       expect(declinedAudit![0].errorMessage).toBe('User declined the operation');
-      expect(declinedAudit![0].authorization).toBeUndefined();
+      expect(declinedAudit![0].outcome).toBe('declined');
+      expect(declinedAudit![0].authorization).toBeDefined();
+      expect(JSON.parse(declinedAudit![0].authorization)).toMatchObject({ allowed: true, tool: 'create_event' });
+    });
+
+    it('2026-10-28 放宽：R4 待批的 tool_call 行带放行依据（凭什么允许它走到确认这一步）', async () => {
+      async function* mockStreamWithWriteTool() {
+        yield {
+          type: 'tool_call' as const,
+          toolCall: {
+            index: 0,
+            id: 'call_1',
+            name: 'create_event',
+            arguments: '{"title":"评审","startTime":"S","endTime":"E"}',
+          },
+        };
+      }
+      async function* mockStreamAfterPending() {
+        yield { type: 'text' as const, content: '已提交人工审批' };
+        yield { type: 'done' as const };
+      }
+      mockProvider.stream
+        .mockReturnValueOnce(mockStreamWithWriteTool())
+        .mockReturnValueOnce(mockStreamAfterPending());
+
+      mockToolRegistry.requiresConfirmation.mockReturnValue(true);
+      mockToolRegistry.getTool.mockReturnValue(mockTool({ requiresConfirmation: true }));
+      // 升到审批档：requiresApproval 走 riskLevelFor → riskLevel（治理策略未挂时看风险级）
+      mockToolRegistry.riskLevel.mockReturnValue('R4');
+      jest.spyOn(r4Approval, 'createR4ApprovalRequest').mockResolvedValue({ token: 'r4-token', id: 1 });
+
+      for await (const _ of aiService.chatStream('1', { message: 'create an event' })) {
+        // drain
+      }
+
+      const pendingRow = (mockAuditService.log as jest.Mock).mock.calls
+        .map((c) => c[0])
+        .find((e: any) => e.action === 'tool_call' && e.detail?.startsWith('create_event'));
+      expect(pendingRow).toBeDefined();
+      // 结局仍是「在等人」，不是失败 —— 正是放宽后仍不算拒绝的那一档
+      expect(pendingRow.outcome).toBe('pending');
+      expect(pendingRow.isError).toBe(false);
+      expect(pendingRow.authorization).toBeDefined();
+      expect(JSON.parse(pendingRow.authorization)).toMatchObject({ allowed: true, tool: 'create_event' });
+    });
+
+    it('2026-10-28：超时行说「没发生」（not_executed）并带放行依据', async () => {
+      async function* mockStreamWithWriteTool() {
+        yield {
+          type: 'tool_call' as const,
+          toolCall: {
+            index: 0,
+            id: 'call_1',
+            name: 'create_event',
+            arguments: '{"title":"评审","startTime":"S","endTime":"E"}',
+          },
+        };
+      }
+      async function* mockStreamAfterTimeout() {
+        yield { type: 'text' as const, content: '超时未确认' };
+        yield { type: 'done' as const };
+      }
+      mockProvider.stream
+        .mockReturnValueOnce(mockStreamWithWriteTool())
+        .mockReturnValueOnce(mockStreamAfterTimeout());
+      mockToolRegistry.requiresConfirmation.mockReturnValue(true);
+      mockToolRegistry.getTool.mockReturnValue(mockTool({ requiresConfirmation: true }));
+      jest.spyOn(confirmationStore, 'create').mockResolvedValue({
+        token: 'timeout-token',
+        decision: Promise.resolve({ outcome: 'timeout' } as never),
+      });
+
+      for await (const _ of aiService.chatStream('1', { message: 'create an event' })) {
+        // drain
+      }
+
+      const row = (mockAuditService.log as jest.Mock).mock.calls
+        .map((c) => c[0])
+        .find((e: any) => e.action === 'tool_call' && e.detail?.startsWith('create_event'));
+      expect(row).toBeDefined();
+      // 契约 v1.15.0（ai-audit-log-outcome-v2-vector.json）才有这个词：确认窗口到期、无人裁决
+      // 是「没发生」，不是「跑过、坏了」。
+      expect(row.outcome).toBe('not_executed');
+      expect(mockToolRegistry.execute).not.toHaveBeenCalled();
+      // 依据在：凭什么允许它走到确认这一步
+      expect(row.authorization).toBeDefined();
+      expect(JSON.parse(row.authorization)).toMatchObject({ allowed: true, tool: 'create_event' });
     });
 
     it('ACT-3：勾选「不再询问」只免**那一次调用** —— 同工具换参数仍须确认', async () => {

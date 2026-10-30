@@ -60,8 +60,8 @@ Expose the existing AI tools (registered in ToolRegistry: query_events / create_
 
 - **读工具**（无需确认）→ 权限门控通过后直接执行，返回 `CallToolResult`（text JSON）。
   **Read tools** (no confirmation) → execute after permission gate, return `CallToolResult` (text JSON).
-- **写工具**（requiresConfirmation）→ **不自动执行**，返回需确认提示，由 MCP 客户端处理。
-  **Write tools** (requiresConfirmation) → **not auto-executed**, return a confirmation-required notice for the MCP client to handle.
+- **写工具**（requiresConfirmation）→ **不自动执行**；落一条可持久裁决的 artifact，并把 **token** 随结果返给客户端（`_meta.keelbase.confirmationToken`），由 MCP 客户端拿去裁决。
+  **Write tools** (requiresConfirmation) → **not auto-executed**; a durable artifact is parked and its **token** returned with the result (`_meta.keelbase.confirmationToken`) for the MCP client to decide.
 - 权限/确认失败 → JSON-RPC 错误（-32603）或需确认结果。
   Permission/confirmation failure → JSON-RPC error (-32603) or confirmation-required result.
 
@@ -82,7 +82,8 @@ No new tables. MCP calls execute read tools via `AiService.executeToolForExterna
 2. **身份**：工具以 JWT 用户身份执行（userId 传入），数据隔离沿用所有权规则。
    **Identity**: tools execute as the JWT user (userId passed in); data isolation follows existing ownership rules.
 3. **写工具安全**：MCP v1 不自动执行写工具——无交互确认通道时返回需确认信号，防止绕过确认的无感写操作。
-   **Write-tool safety**: MCP v1 never auto-executes write tools — without an interactive confirmation channel it returns a confirmation-required signal, preventing silent writes that bypass confirmation.
+   被扣下的调用**留一条可裁决的 artifact 并回传 token**，两档分开：确认档（R3）落 `ai_confirmation_requests` 行，由**请求人本人**在 Action Center 离线裁决（`POST /ai/my/confirmations/:token/decide`）；审批档（R4）落审批请求，由**第二个人**裁决（`POST /ai/confirmations/:token/approve-by`）——请求人不得自批。裁决通过后经同一条写管道执行（门控复查 + 幂等 + 副作用登记）。建 artifact 失败时退回「只说需确认、不给 token」的旧行为，并记 warn 日志。
+   **Write-tool safety**: MCP v1 never auto-executes write tools — without an interactive confirmation channel it returns a confirmation-required signal, preventing silent writes that bypass confirmation. A held call **parks a decidable artifact and returns its token**, in two tiers: a confirmation-tier (R3) tool parks an `ai_confirmation_requests` row the **requester** decides out of band (`POST /ai/my/confirmations/:token/decide`); an approval-tier (R4) tool parks an approval request a **second person** decides (`POST /ai/confirmations/:token/approve-by`) — the requester may not self-approve. An approved artifact then runs through the same write pipeline (gate re-check + idempotency + side-effect recording). If parking fails, the door degrades to the old "requires confirmation, no token" answer and logs a warning.
 4. **审计**：每次 `tools/call` 落审计（provider=mcp 区分来源），HS-11 哈希链自动生效。T5 跨入口一致——**授权拒绝（AuthorizationDeniedError）也写审计行**：`isError=true` + `errorMessage` 拒绝文案 + `authorization=JSON(reasons)`（结构化检查清单，对齐 REST/SSE deny 分支 ai.service），detail 标 `— authorization denied`；**确认门控（未执行）行**在 detail 标 `— requiresConfirmation, not executed`，可与普通读/成功写辨识。username 快照 D2-1c（非 actor 路径显式带出）。
    **Audit**: every `tools/call` is audited (provider=mcp to distinguish source); the HS-11 hash chain applies automatically. Cross-entry consistent (T5) — an **authorization denial (`AuthorizationDeniedError`) also writes an audit row**: `isError=true` + `errorMessage` denial text + `authorization=JSON(reasons)` (structured checklist, aligned with the REST/SSE deny branches in ai.service), with `detail` marked `— authorization denied`; a **confirmation-gated (not executed) row** is marked in `detail` with `— requiresConfirmation, not executed` to distinguish it from plain reads / successful writes. Username is snapshotted (D2-1c — non-actor path, set explicitly).
 5. **错误码**：`-32601` 未知方法，`-32603` 内部/权限/确认异常。

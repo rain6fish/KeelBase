@@ -108,6 +108,55 @@ if (!denied) {
 - `authorization-explainer.service.spec`：单次取策略产出 checks + `policy.revision`；禁用工具仍带版本；无治理 → 不附 policy
 - `audit.service.spec`：快照带 `policy.revision` → `getChain` 的 `allowed.policy` 透出；无版本历史行形态不变（向后兼容）
 
+## 5.6 写入时机（2026-10-28 放宽：被扣下等人的行也写）
+
+原口径是「**仅当工具实际放行并成功执行**时写」，其余一律不写。P0-19 ② 的读数暴露出其中一档被误伤：
+**被扣下等人**的行（`outcome=pending`、`isError=false` —— R4 待批、MCP 出口的写工具）同样有「凭什么允许它走到
+确认这一步」这个事实，却因为这个口径读不出来。
+
+现口径（三档）：
+
+| 行的形状（`outcome`） | 写不写 | 理由 |
+|---|---|---|
+| 实际放行且执行成功（`executed`） | **写** | 回答「凭什么允许它跑」 |
+| 被扣下等人（`pending`） | **写** | 回答「凭什么允许它走到确认这一步」 |
+| **没发生**：有人拒绝（`declined`）、窗口到期无人裁决（`not_executed`） | **写** | 同一个问题：凭什么允许它**走到裁决**（只是裁决没有来，或是否） |
+| 被门拒绝（`blocked` / `refused`） | 不写（带 deny reasons 数组） | 那一列在这里的语义是「拒绝理由」，不是「放行依据」 |
+| 执行失败（`failed`） | 暂不写 | 故事是那次失败；本项只覆盖「没发生」这一类 |
+
+**为什么放宽是安全的（判据，可复核）**：可能误读这一列的三个读取方，现在都**按形状**判别 ——
+A-8 denied 视图（`audit-query.service.ts`：`is_error` **且** `authorization` 以 `[` 开头 = 拒绝理由数组；
+2026-10-28 起由「非空」改为按形状）、`blocked` 计数（`audit-evidence.service.ts`：按 `outcome === 'blocked'` 计，
+不看本列）、决策轨迹的 checks 解析（`decision-trace.service.ts`：`parseChecks` 只认 JSON **数组**，
+放行快照是对象 ⇒ 返回 undefined，与从前一致）。
+
+**同一轮的口径更正**：被人工拒绝的 `tool_call` 行改写 `declined`；**确认窗口到期、无人裁决**的行改写
+`not_executed` —— 两者都不再冒充 `failed`。后者是**契约先行**的结果：TS 侧第一次这么写时，冻结词表
+`ai-audit-log-outcome-v1-vector.json` 的 `legalByAction.tool_call` 里没有这个值（且把「超时」归在 `failed`
+名下），那样的行是符合契约的消费方**必须拒绝**的，故撤回；随后契约按加性规则发布 **v1.15.0**
+（`ai-audit-log-row` v7 + `ai-audit-log-outcome-v2-vector.json`，v1 向量一字未动），代码才跟上。
+
+**没有放宽的地方**：R4 执行器（`r4-approval.service.ts`）仍只在成功时写 —— 它的非成功形状是**执行失败**。
+
+**Write timing (2026-10-28): held rows carry the basis too.** The rule used to be "only when the tool was
+really allowed and really ran". P0-19 ② showed one shape was caught by it: a row **held for a person**
+(`outcome=pending`, `isError=false` — R4 awaiting approval, the MCP export's write tools) has the very fact
+"why was it allowed to reach the confirmation step", and the old rule made it unreadable. The rule is now
+four-way: written for a successful allowed execution, written for a held row, written for a row that
+**never ran** (`not_executed` / `declined` — the window closed with no decision, or a person said no),
+and still not written for a row the gate refused (that column means deny reasons there) or for an
+execution that failed. The relaxation is safe because the three readers that motivated the original
+rule now all judge by **shape**: the A-8 view (2026-10-28: `is_error` **and** an authorization starting
+with `[`), the `blocked` counter (by `outcome`), and the decision trace's array-only `parseChecks`.
+
+**Same round, vocabulary:** a declined `tool_call` row writes `declined`; a row whose window closed with
+no decision writes `not_executed`. Neither borrows `failed` any more. The second one landed **contract
+first**: writing it against the then-current vocabulary would have produced rows a conforming consumer
+must reject (`legalByAction.tool_call` had no word for "nothing ran"), so it was reverted, the contract
+published it additively as **v1.15.0** (`ai-audit-log-row` v7 + `ai-audit-log-outcome-v2-vector.json`,
+the v1 vector untouched), and only then did the code follow. The R4 executor keeps the narrower
+condition — its non-success shape is a failure.
+
 ## 6. 相关
 
 - [security-showcase.spec.md](security-showcase.spec.md) — A2 对抗性证明（运行时边界演示）

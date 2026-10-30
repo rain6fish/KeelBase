@@ -26,8 +26,10 @@ describe('R4ApprovalService（R4 双人审批域）', () => {
     repo?: unknown,
     users?: unknown,
     audit: { log: jest.Mock } = mockAuditService,
+    explainer?: unknown,
+    gate?: unknown,
   ): R4ApprovalService =>
-    new R4ApprovalService(toolExecution, audit as any, repo as any, users as any);
+    new R4ApprovalService(toolExecution, audit as any, repo as any, users as any, explainer as any, gate as any);
 
   beforeEach(() => {
     mockToolRegistry = {
@@ -414,6 +416,69 @@ describe('R4ApprovalService（R4 双人审批域）', () => {
         ok: false,
         message: 'not supported',
       });
+    });
+  });
+
+  /**
+   * The P0-19 ② gap (2026-10-28): the R4 executor builds its `tool_call` row by hand, so it has to
+   * name the attribution column and the allow basis itself — every neighbouring row has them, only
+   * this one does not. These two assertions pin the filled-in shape; both were red before the fix.
+   *
+   * P0-19 ② 的读数缺口（2026-10-28）：R4 执行器**自己拼**它那条 `tool_call` 行，故它得自己点名
+   * 归因列与放行依据 —— 相邻各行都有，只有这一行没有。这两条断言钉住填上之后的形状，
+   * 在补齐之前都是红的。
+   */
+  describe('P0-19 ② 读数缺口：执行行自己拼行，得自己点名两列', () => {
+    const executedRow = (extra: Record<string, unknown> = {}) => ({
+      token: 't-p019',
+      operatorId: '1',
+      status: 'approved',
+      toolName: 'create_event',
+      args: '{"title":"x"}',
+      conversationId: 'c',
+      approverId: '9',
+      decidedAt: new Date(),
+      executionClaimedAt: null,
+      executedAt: null,
+      executionError: null,
+      ...extra,
+    });
+
+    const reasons = {
+      tool: 'create_event',
+      riskLevel: 'R3',
+      riskStrategy: 'confirmation',
+      requiresConfirmation: true,
+      checks: [{ name: 'tool_enabled', ok: true }],
+    };
+
+    it('「谁做的」：执行行带 operator 的 username 快照（D2-1c）', async () => {
+      const users = { findOne: jest.fn().mockResolvedValue({ username: 'alice' }) };
+      r4 = makeService(undefined, users);
+      mockToolRegistry.execute.mockResolvedValue({ success: true, data: { id: 5 } });
+
+      await r4.executeApprovedTool(executedRow() as never, 'note');
+
+      expect(users.findOne).toHaveBeenCalledWith(1, true);
+      expect(mockAuditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: '1', username: 'alice' }),
+      );
+    });
+
+    it('「为何允许」：成功执行落放行快照，失败不落（与「仅实际放行且成功才写」同一条规则）', async () => {
+      const explainer = { getAuthorizationReasons: jest.fn().mockResolvedValue(reasons) };
+      r4 = makeService(undefined, { findOne: jest.fn().mockResolvedValue({ username: 'alice' }) }, mockAuditService, explainer);
+
+      mockToolRegistry.execute.mockResolvedValueOnce({ success: true, data: { id: 6 } });
+      await r4.executeApprovedTool(executedRow() as never, 'note');
+      const ok = mockAuditService.log.mock.calls.at(-1)![0] as { authorization?: string };
+      expect(ok.authorization).toBeDefined();
+      expect(JSON.parse(ok.authorization!)).toMatchObject({ allowed: true, tool: 'create_event' });
+
+      mockToolRegistry.execute.mockResolvedValueOnce({ success: false, error: '目标系统不可达' });
+      await r4.executeApprovedTool(executedRow({ token: 't-p019-fail' }) as never, 'note');
+      const failed = mockAuditService.log.mock.calls.at(-1)![0] as { authorization?: string };
+      expect(failed.authorization).toBeUndefined();
     });
   });
 });

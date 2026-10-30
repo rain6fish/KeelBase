@@ -96,12 +96,14 @@ describe('AuditQueryService（从 AuditService 拆出的查询域）', () => {
       );
     });
 
-    it('A-8：getLogs denied 过滤（越权/阻断 = is_error true + authorization 非空）', async () => {
+    it('A-8：getLogs denied 过滤（越权/阻断 = is_error true + **拒绝理由数组**；放行快照对象不算）', async () => {
       const qb = mockQueryBuilder();
       await service.getLogs({ denied: 'true' });
       expect(qb.andWhere).toHaveBeenCalledWith('log.is_error = :deniedIsErr', { deniedIsErr: true });
+      // 按形状：拒绝理由是数组（以 `[` 开头），放行快照是对象（以 `{` 开头）—— 「没发生」的行
+      // 现在也带放行快照，按非空判别会把它们读成越权。
       expect(qb.andWhere).toHaveBeenCalledWith(
-        "log.authorization IS NOT NULL AND log.authorization <> ''",
+        "log.authorization IS NOT NULL AND substr(log.authorization, 1, 1) = '['",
       );
     });
 
