@@ -60,14 +60,19 @@ Two new admin verification endpoints:
 响应 / Response:
 
 ```json
-{ "valid": true, "checked": 1250, "tableRows": 1253 }
+{
+  "valid": true, "checked": 1250, "tableRows": 1253, "brokenIndex": null,
+  "tableIds":    { "min": 1, "max": 1253, "count": 1253, "digest": "432269c98df04544" },
+  "verifiedIds": { "min": 1, "max": 1253, "count": 1250, "digest": "8b23b93a16760cdb" },
+  "unverifiedIds": { "min": 4, "max": 9, "count": 3, "digest": "9659d12b5246cd7c", "ids": [4, 5, 9], "truncated": false }
+}
 ```
 
 `valid=false` 时带 `brokenIndex`（1 起断链位置）。`valid=false` carries `brokenIndex` (1-based position of the break).
 
-`checked` counts the rows **already in the chain**; `tableRows` counts the table. The difference is the rows verification never looked at (pre-migration rows and rows inserted directly by tools), so a verification rate quoted from `checked` alone has a denominator the reader cannot see. Both numbers travel together for that reason (v2 of `audit-chain-verification`).
+**Counts alone cannot be audited.** `checked` and `tableRows` are both read from one table, so their agreement is free — it says nothing about whether a reader can reach every row. v3 publishes the two populations as fingerprints a third party can recompute: `sha256(ids sorted ascending, comma-joined)`, first 16 hex. Enumerate what you can see, fingerprint it the same way, compare. `unverifiedIds` names the difference down to capped row ids (200, with `count`/`digest` exact), so a mismatch is diagnosable rather than merely red.
 
-`checked` 数的是**已入链**的行，`tableRows` 数的是表里的行。两者之差就是校验**从没看过的**那些行（迁移前的历史行、工具直插的行）—— 故只引用 `checked` 的验证率带着一个读者看不见的分母。两个数之所以一起出门，就是这个原因（`audit-chain-verification` v2）。
+**只有计数，第三方核不了。** `checked` 与 `tableRows` 都从同一张表读出，两者一致是免费的 —— 它对「读者是否够得到每一行」一个字也说明不了。v3 把两个人口公布成读者可重算的指纹：`sha256(升序 id 逗号连接)` 取前 16 位十六进制。把看得到的行枚举出来、用同一方式取指纹、再比对。`unverifiedIds` 把差额点名到 id（封顶 200，`count`/`digest` 保持精确），于是不符可诊断，而不只是变红。
 
 ---
 

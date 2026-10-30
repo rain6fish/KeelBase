@@ -475,22 +475,23 @@ describe('AuditEvidenceService（报表 / 链校验 / 证据装配）', () => {
         const props = propsOf(relPath);
         expect(Object.keys(obj).filter((k) => !props.includes(k))).toEqual([]);
       };
-      noExtra(await service.verifyChain(), 'schemas/v2/audit-chain-verification.schema.json');
+      noExtra(await service.verifyChain(), 'schemas/v3/audit-chain-verification.schema.json');
       // 聚合响应已由 AuditStatsService 产出（阶段 3 拆分）——契约校验跟着响应走，断言不变
       noExtra(await statsService.getAllStats(), 'schemas/v2/audit-usage-stats.schema.json');
       noExtra(await statsService.getCostBreakdown(), 'schemas/v1/audit-cost-breakdown.schema.json');
-      noExtra(await service.getActionReport(), 'schemas/v2/audit-action-report.schema.json');
+      noExtra(await service.getActionReport(), 'schemas/v3/audit-action-report.schema.json');
     });
 
   describe('getActionReport（§10 P1 合规证据包）', () => {
     it('聚合 执行/批准/拒绝/阻断 + 副作用 + 哈希链', async () => {
       logRepo.find.mockResolvedValue(rows([
-        { id: 1, userId: '1', action: 'tool_call', detail: 'create_followup_task({"customerId":1})', isError: false, createdAt: new Date() },
-        { id: 2, userId: '1', action: 'tool_confirmation', detail: 'create_followup_task() → approve', isError: false, createdAt: new Date() },
-        { id: 3, userId: '1', action: 'tool_confirmation', detail: 'x() → decline', isError: true, errorMessage: 'User declined the operation', createdAt: new Date() },
+        // 夹具带 `hash`：写入方总会写它，而没有 hash 的行不计入 `verifiedIds`（见 id-set.ts）。
+        { id: 1, userId: '1', hash: 'h1', action: 'tool_call', detail: 'create_followup_task({"customerId":1})', isError: false, createdAt: new Date() },
+        { id: 2, userId: '1', hash: 'h2', action: 'tool_confirmation', detail: 'create_followup_task() → approve', isError: false, createdAt: new Date() },
+        { id: 3, userId: '1', hash: 'h3', action: 'tool_confirmation', detail: 'x() → decline', isError: true, errorMessage: 'User declined the operation', createdAt: new Date() },
         // 一行靠它的**结构化理由**说自己是 blocked。此前这条夹具只在 `errorMessage` 里写「blocked」，
         // 而旧读法是按那句话里的词判的 —— `C-3` 拆掉的正是那种读法，故这里补上真实行会带的 reasons。
-        { id: 4, userId: '1', action: 'tool_call', detail: 'query_customers({})', isError: true, errorMessage: 'Tool "query_evil" is blocked (risk level R5)', authorization: '[{"name":"risk_policy"}]', createdAt: new Date() },
+        { id: 4, userId: '1', hash: 'h4', action: 'tool_call', detail: 'query_customers({})', isError: true, errorMessage: 'Tool "query_evil" is blocked (risk level R5)', authorization: '[{"name":"risk_policy"}]', createdAt: new Date() },
       ]));
       effectsRepo.count.mockResolvedValue(2);
       chain.verifyChain.mockReturnValue({ valid: true, checked: 4 });
@@ -506,7 +507,11 @@ describe('AuditEvidenceService（报表 / 链校验 / 证据装配）', () => {
         errors: 2,
         effects: 2,
       });
-      expect(report.hashChain).toEqual({ valid: true, checked: 4, brokenIndex: null, tableRows: 4 });
+      expect(report.hashChain).toMatchObject({ valid: true, checked: 4, brokenIndex: null, tableRows: 4 });
+      // 成员性：表内 4 行、4 行都入链、差额为空 —— 计数与集合在这里是同一件事。
+      expect(report.hashChain.tableIds).toMatchObject({ min: 1, max: 4, count: 4 });
+      expect(report.hashChain.verifiedIds.count).toBe(4);
+      expect(report.hashChain.unverifiedIds).toMatchObject({ count: 0, ids: [], truncated: false });
       // 明细样本：从 detail 提取工具名 + 阻断原因可见
       expect(report.samples[0].toolName).toBe('create_followup_task');
       expect(report.samples[3].toolName).toBe('query_customers');
@@ -582,8 +587,29 @@ describe('AuditEvidenceService（报表 / 链校验 / 证据装配）', () => {
 
       expect(result.checked).toBe(2);
       expect(result.tableRows).toBe(3);
+      // 成员性：两个人口各有指纹，差额被**点名**到 id，而不只是「3 - 2 = 1」。
+      expect(result.tableIds).toMatchObject({ min: 1, max: 3, count: 3 });
+      expect(result.verifiedIds).toMatchObject({ min: 1, max: 2, count: 2 });
+      expect(result.unverifiedIds).toMatchObject({ count: 1, ids: [3], truncated: false });
+      expect(result.tableIds.digest).not.toBe(result.verifiedIds.digest);
       // 未入链的那一行确实没有进链校验 —— 分母之差不是摆设
       expect((chain.verifyChain as jest.Mock).mock.calls[0][0]).toHaveLength(2);
+    });
+
+    // 反证用：把 `unaccounted` 删掉，这条用例就红 —— 那一行会与「从未写入」无法区分。
+    it('落在作用域内却一桶不进的工具行，被 unaccounted 点名并给出原因', async () => {
+      logRepo.find.mockResolvedValue(rows([
+        // R4 转人工审批：isError=false、outcome=pending ⇒ 五个桶都不入，也不是 error。
+        { id: 7, userId: '1', hash: 'h7', action: 'tool_confirmation', detail: 'create_project_with_tasks({"name":"x"}) → pending_approval', isError: false, createdAt: new Date('2026-09-02T10:00:00Z') },
+      ]));
+      effectsRepo.count.mockResolvedValue(0);
+      chain.verifyChain.mockReturnValue({ valid: true, checked: 1 });
+
+      const report = await service.getActionReport();
+
+      expect(report.unaccounted).toMatchObject({ count: 1, ids: [7], truncated: false, reasons: { pending: 1 } });
+      // 它确实没有进任何一个计数 —— 这正是要点名它的理由
+      expect(report.summary).toMatchObject({ executed: 0, approved: 0, rejected: 0, blocked: 0, refused: 0, errors: 0 });
     });
 
     it('无日志时全零 + 哈希链 checked 0', async () => {
@@ -593,7 +619,8 @@ describe('AuditEvidenceService（报表 / 链校验 / 证据装配）', () => {
 
       const report = await service.getActionReport();
       expect(report.summary.executed).toBe(0);
-      expect(report.hashChain).toEqual({ valid: true, checked: 0, brokenIndex: null, tableRows: 0 });
+      expect(report.hashChain).toMatchObject({ valid: true, checked: 0, brokenIndex: null, tableRows: 0 });
+      expect(report.hashChain.tableIds).toMatchObject({ min: null, max: null, count: 0 });
       expect(report.samples).toEqual([]);
       expect(report.byDay).toEqual([]);
     });

@@ -780,11 +780,11 @@ npm run migration:run
 | PUT | /api/v1/events/:id | Yes | 本人或同组织或管理员 | 更新事件 |
 | DELETE | /api/v1/events/:id | Yes | 本人或同组织或管理员 | 删除事件 |
 | GET | /api/v1/audit/logs | Yes (ADMIN) | — | AI 审计日志（可按 userId / orgId / feedback=thumbs_down 过滤，ORG-5 组织维度） |
-| GET | /api/v1/audit/verify | Yes (ADMIN) | — | AI 审计哈希链完整性校验（HS-11）：`checked` 只数已入链的行，`tableRows` 是表内行数（差额即从未参与校验的行） |
+| GET | /api/v1/audit/verify | Yes (ADMIN) | — | AI 审计哈希链完整性校验（HS-11）：除 `checked`/`tableRows` 外，公布**成员性指纹** `tableIds`/`verifiedIds`（sha256 前 16 hex，读者可自算）与差额 `unverifiedIds`（带 id，封顶 200） |
 | GET | /api/v1/audit/stats | Yes (ADMIN) | — | 全局 AI 用量统计 |
 | GET | /api/v1/audit/coverage | Yes | 管理员或审计读者 | 审计覆盖声明：口径 + 已知缺口（AW-3，默认最近 30 天；结论由服务按事实算出） |
 | GET | /api/v1/audit/cost | Yes (ADMIN) | — | AI 成本看板：按用户×模型×意图聚合 tokens（AI-21） |
-| GET | /api/v1/audit/action-report | Yes (ADMIN) | — | AI Action Report 合规证据包（§10 P1）：执行/批准/拒绝/阻断/被治理拒绝 + 副作用计数 + 按日趋势 byDay + 审计哈希链 verify（含表内行数），可按 userId/since/limit |
+| GET | /api/v1/audit/action-report | Yes (ADMIN) | — | AI Action Report 合规证据包（§10 P1）：执行/批准/拒绝/阻断/被治理拒绝 + 副作用计数 + 按日趋势 byDay + 审计哈希链 verify（含成员性指纹与未入链 id）+ `unaccounted`（一桶不进的工具行），可按 userId/since/limit |
 | POST | /api/v1/audit/feedback | Yes | 本人 | 对话反馈：对某次对话点赞/点踩 + 原因（AI-18） |
 | POST | /api/v1/feedback | Yes | 本人 | 应用内反馈：建议/问题/好评 → 通知管理员（G-1） |
 | GET | /api/v1/audit/operations/logs | Yes (ADMIN) | — | 操作审计日志（写操作，可按 userId 过滤） |

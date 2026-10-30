@@ -58,7 +58,28 @@ import {
 import { OrgService } from '../../org/org.service';
 import { AuditByDayBucket, byDayAggregation } from './by-day';
 import { resolveOutcome } from './audit-outcome';
+import { IdListing, IdSetSummary, capIds, idsMissingFrom, summarizeIds } from './id-set';
 import { Sm2SignatureBlock, buildSm2Block, sm2ConfigFromEnv } from '../../common/crypto/sm2';
+
+/** What a chain verdict carries about **which rows** it was about, not only how many. */
+export interface ChainVerificationSummary {
+  valid: boolean;
+  checked: number;
+  brokenIndex: number | null;
+  tableRows: number;
+  /** Every row in the table. / 表内的每一行。 */
+  tableIds: IdSetSummary;
+  /** The rows the chain walk actually read (`hash` non-null). / 链校验真正读过的行。 */
+  verifiedIds: IdSetSummary;
+  /** Table rows the walk never saw, named to the cap. / 校验从没看过的表内行，点名到上限。 */
+  unverifiedIds: IdSetSummary & IdListing;
+}
+
+/** Rows in scope that no counter claimed, named to the cap, with why. */
+export interface UnaccountedRows extends IdSetSummary, IdListing {
+  /** Reason → how many rows it accounts for. / 原因 → 该原因下的行数。 */
+  reasons: Record<string, number>;
+}
 
 export interface ActionReport {
   period: { since: string | null; to: string };
@@ -75,16 +96,32 @@ export interface ActionReport {
   /** B3 时间趋势：按 UTC 日聚合执行/批准/拒绝/阻断/被治理拒绝/错误（升序），合规报告可看趋势 */
   byDay: AuditByDayBucket[];
   /**
-   * `checked` counts the rows **already in the chain**; `tableRows` counts the table. The two differ
-   * wherever a row has no `hash` (rows written before `AddAuditHashChain`, and rows inserted directly
-   * by tools): those are never verified, so a verification rate over `checked` alone has a denominator
-   * the reader cannot see.
+   * **Membership, not only counts.** `checked` and `tableRows` are both read from one table, so their
+   * agreement is free; a reader can only audit what they can recompute. `verifiedIds` and `tableIds`
+   * fingerprint the two populations (see `id-set.ts`), and `unverifiedIds` names the difference down
+   * to capped row ids — so a third party can enumerate, fingerprint, and compare instead of trusting
+   * two numbers that were produced by the same writer.
    *
-   * `checked` 数的是**已入链**的行，`tableRows` 数的是表里的行。两者之差就是 `hash` 为空的那些行
-   * （`AddAuditHashChain` 之前写下的、以及工具直插的）—— 它们从不参与校验，故只看 `checked` 的验证率
-   * 有一个读者看不见的分母。
+   * The counts stay because existing readers use them; they are derived from the same sets here, not
+   * computed a second time.
+   *
+   * **成员性，不只是计数。** `checked` 与 `tableRows` 都从同一张表读出，两者相等是免费的；读者只
+   * 核得了自己能重算的东西。`verifiedIds` / `tableIds` 给两个人口取指纹（见 `id-set.ts`），
+   * `unverifiedIds` 把差额点名到 id（封顶）—— 于是第三方可以枚举、取指纹、比对，而不必相信两个
+   * 由同一个写入方产出的数。计数保留是因为已有读者在用；它们在本处由同一组集合派生，不另算一遍。
    */
-  hashChain: { valid: boolean; checked: number; brokenIndex: number | null; tableRows: number };
+  hashChain: ChainVerificationSummary;
+  /**
+   * Rows this report had in scope and put in **no bucket at all**: not executed / approved / rejected /
+   * blocked / refused, and not in `errors` either. They exist, the request succeeds, and they are
+   * otherwise indistinguishable from rows that were never written — the read-side analogue of a refusal
+   * that leaves no artifact.
+   *
+   * 本报表取到作用域内、却**一桶都不进**的行：既不是执行 / 批准 / 拒绝 / 阻断 / 被拒，也不在
+   * `errors` 里。它们确实存在，请求也确实成功，除此之外与「从未写入的行」无法区分 —— 正是读侧那次
+   * 「拒绝没有留下痕迹」的对偶。
+   */
+  unaccounted: UnaccountedRows;
   samples: Array<{
     id: number;
     action: string;
@@ -274,11 +311,11 @@ export class AuditEvidenceService {
   ) {}
 
   /** HS-11：沿 id 升序校验审计哈希链完整性。返回含逐行链明细（切片，供 E-2 哈希链可视化）。60s 缓存（消除 action-report 二次全表扫描）。 */
-  async verifyChain(): Promise<ChainVerification & { chain: AuditChainNode[]; tableRows: number }> {
+  async verifyChain(): Promise<ChainVerificationSummary & { chain: AuditChainNode[] }> {
     // AW-5：键带数据库身份 —— 否则一个库的结论会被当另一个库的答案发出（见 cache-keys.ts）。
     // AW-5: the key carries the database identity — otherwise one database's verdict is served for another.
     const cacheKey = auditVerifyCacheKey(this.dataSource);
-    const cached = await this.cacheService?.get<ChainVerification & { chain: AuditChainNode[]; tableRows: number }>(cacheKey);
+    const cached = await this.cacheService?.get<ChainVerificationSummary & { chain: AuditChainNode[] }>(cacheKey);
     if (cached) return cached;
     // 只取**已入链**的行：`hash` 为 null 的行从未入链（AddAuditHashChain 迁移前的历史行；
     // 以及测试/工具直插的行）。让它们参与校验会让 genesis 检查在**第 1 行**即失败
@@ -288,10 +325,23 @@ export class AuditEvidenceService {
     const all = await this.logRepo.find({ order: { id: 'ASC' } });
     const rows = all.filter((r) => r.hash);
     const result = this.auditChain.verifyChain(rows, (row) => buildPayload(row));
-    // `tableRows` rides along so the rate and its denominator travel together: the rows left out of
-    // the chain are counted here rather than silently dropped.
-    // `tableRows` 随结果一起出门，于是验证率与它的分母同行 —— 未入链的行在这里被数出来，而不是悄悄丢掉。
-    const detailed = { ...result, chain: this._chainSlice(rows, result), tableRows: all.length };
+    // Membership travels with the verdict: the two populations get a fingerprint a reader can
+    // recompute, and the rows the walk never saw are named instead of folded into a subtraction.
+    // 成员性随结论一起出门：两个人口各带一个读者可重算的指纹，校验从没看过的行被**点名**，而不是
+    // 藏在一个减法里。
+    const allIds = all.map((r) => r.id);
+    const verifiedIds = rows.map((r) => r.id);
+    const unverified = idsMissingFrom(allIds, new Set(verifiedIds));
+    const detailed: ChainVerificationSummary & { chain: AuditChainNode[] } = {
+      valid: result.valid,
+      checked: result.checked,
+      brokenIndex: result.brokenIndex ?? null,
+      tableRows: all.length,
+      tableIds: summarizeIds(allIds),
+      verifiedIds: summarizeIds(verifiedIds),
+      unverifiedIds: { ...summarizeIds(unverified), ...capIds(unverified) },
+      chain: this._chainSlice(rows, result),
+    };
     await this.cacheService?.set(cacheKey, detailed, 60_000);
     return detailed;
   }
@@ -373,6 +423,8 @@ export class AuditEvidenceService {
     let refused = 0;
     let errors = 0;
     const byAction = new Map<string, number>();
+    const unaccountedIds: number[] = [];
+    const unaccountedReasons = new Map<string, number>();
     for (const l of logs) {
       byAction.set(l.action, (byAction.get(l.action) ?? 0) + 1);
       if (l.isError) { errors++; }
@@ -395,6 +447,25 @@ export class AuditEvidenceService {
       } else if (l.action === 'tool_confirmation') {
         if (outcome === 'approved') { approved++; }
         else if (outcome === 'declined') { rejected++; }
+      }
+      // A tool row that landed in no bucket and is not an error either: present in the scope, absent
+      // from every number. Named here, because the alternative is that it reads exactly like a row
+      // nobody ever wrote.
+      // 落在作用域内、却一桶不进、又不是 error 的工具行：它在范围里，却从每一个数里消失。这里点名，
+      // 否则它读起来与「从未写入的行」一模一样。
+      if (l.action === 'tool_call' || l.action === 'tool_confirmation') {
+        const counted =
+          l.isError ||
+          outcome === 'executed' ||
+          outcome === 'blocked' ||
+          outcome === 'refused' ||
+          outcome === 'approved' ||
+          outcome === 'declined';
+        if (!counted) {
+          unaccountedIds.push(l.id);
+          const reason = outcome ?? 'outcome_underivable';
+          unaccountedReasons.set(reason, (unaccountedReasons.get(reason) ?? 0) + 1);
+        }
       }
     }
     // B3 时间趋势：按 UTC 日聚 5 段（与 getAllStats 共享 _byDayAggregation，避免重复聚合逻辑）
@@ -449,6 +520,14 @@ export class AuditEvidenceService {
         checked: chain.checked,
         brokenIndex: chain.brokenIndex ?? null,
         tableRows: chain.tableRows,
+        tableIds: chain.tableIds,
+        verifiedIds: chain.verifiedIds,
+        unverifiedIds: chain.unverifiedIds,
+      },
+      unaccounted: {
+        ...summarizeIds(unaccountedIds),
+        ...capIds(unaccountedIds),
+        reasons: Object.fromEntries([...unaccountedReasons.entries()].sort((a, b) => a[0].localeCompare(b[0]))),
       },
       samples,
       effectDiffs,

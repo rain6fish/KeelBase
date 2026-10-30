@@ -1282,6 +1282,8 @@ const en: ZhDict = {
   secActionRefused: 'Refused by governance',
   secActionErrors: 'Errors',
   secActionEffects: 'Revocable effects',
+  secActionUnaccounted: 'Unaccounted tool rows',
+  secChainUnverified: 'Unverified rows',
   secActionChain: 'Hash chain',
   secActionByType: 'By action type',
   secTrendTitle: 'Daily trend',
