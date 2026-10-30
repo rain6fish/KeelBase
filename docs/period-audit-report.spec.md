@@ -47,10 +47,10 @@
 |---|---|---|
 | **结论 / Verdict** | 可否独立验证 | 报告顶部：`hashChain.valid` + `signature` 验签结果 → `PASS（链完整 + 签名有效）` / `FAIL（断链 @ 行 N）`；`format` 徽标 |
 | **封面 / Cover** | 何时 | `period.since/to`、`exportedAt`、`format`、`generator`、包指纹（`chain` 行数 + 末行 hash 摘要） |
-| **期间摘要 / Period Summary** | 何时·结果 | `report.summary{executed,approved,rejected,blocked,errors,effects}` 计数卡 + `byDay` 趋势（UTC 日）|
+| **期间摘要 / Period Summary** | 何时·结果 | `report.summary{executed,approved,rejected,blocked,refused,errors,effects}` 计数卡 + `byDay` 趋势（UTC 日）|
 | **动作构成 / By Action** | 做了什么 | `byAction[{action,count}]` 表 |
 | **逐条动作索引 / Action Index** | 谁·做了什么·为什么 | `compliance[]`（+ `samples[]`）逐条：`id / action / toolName / businessEvent / summary.sentence / identityChain（谁）/ isError` + **链接 → D-2 单动作报告**（含该动作的授权依据/凭何允许/离线验证）|
-| **链行清单 / Chain Manifest** | 可否独立验证 | `chain[]`：逐行 `seq/id/prevHash/hash`；`hashChain{checked,brokenIndex}` 结果；`signature` 覆盖范围声明 |
+| **链行清单 / Chain Manifest** | 可否独立验证 | `chain[]`：逐行 `seq/id/prevHash/hash`；`hashChain{checked,tableRows,brokenIndex}` 结果（`tableRows` 是表内行数，`checked` 只数已入链的行）；`signature` 覆盖范围声明 |
 | **验证步骤 / How to verify yourself** | 可否独立验证 | 常量模板：`node verify-evidence.mjs <export.json> --key …`（整包重算）+ 逐条动作的 D-2 报告离线验；预期输出 |
 | **诚实边界 / Honest Limits** | — | 固定声明块（§4，**含"明细为样本"**）|
 

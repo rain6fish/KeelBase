@@ -156,6 +156,7 @@ export interface AuditByDayBucket {
   approved: number
   rejected: number
   blocked: number
+  refused: number
   errors: number
 }
 
@@ -200,14 +201,18 @@ export interface ActionReport {
     executed: number
     approved: number
     rejected: number
+    /** 风险策略拦下 —— 没有到过裁决 */
     blocked: number
+    /** 到过裁决并被治理 / 授权闸拒绝 */
+    refused: number
     errors: number
     effects: number
   }
   byAction: Array<{ action: string; count: number }>
-  /** B3 时间趋势：按日聚合执行/批准/拒绝/阻断/错误（升序） */
+  /** B3 时间趋势：按日聚合执行/批准/拒绝/阻断/被拒/错误（升序） */
   byDay: AuditByDayBucket[]
-  hashChain: { valid: boolean; checked: number; brokenIndex: number | null }
+  /** `checked` 只数已入链的行；`tableRows` 是表内行数，差额即从未参与校验的行 */
+  hashChain: { valid: boolean; checked: number; brokenIndex: number | null; tableRows: number }
   samples: Array<{
     id: number
     action: string

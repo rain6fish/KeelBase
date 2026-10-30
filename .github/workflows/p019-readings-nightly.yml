@@ -1,0 +1,94 @@
+# P0-19 ② readings — nightly, alert only.
+#
+# This workflow runs `npm run measure:p019`, which takes the two readings (Action Recoverability and
+# Lifecycle Coverage, per event class per door), compares them against the baseline pinned at
+# `Server-NestJS/test/p019-readings.baseline.json`, and exits non-zero when a reading has moved.
+#
+# It is deliberately NOT a job in `ci.yml`, and deliberately not triggered by push or pull request:
+#
+#   * It is a **baseline** check, not a regression check. Any change that on purpose touches a column
+#     the readings depend on reddens it until someone re-pins the baseline with
+#     `npm run measure:p019 -- --update`. That is the point of the check — but it is a red that needs
+#     a person to read and answer ("is this the change you meant?"), so it must not sit in the path of
+#     a merge.
+#   * A failing scheduled run still notifies (GitHub mails the repository owner), so "alert only" is
+#     real: nothing is gated, and nothing is silent.
+#
+# Decided 2026-10-28: run nightly and observe for two weeks; whether it becomes a blocking job is a
+# separate decision to be taken afterwards. If it is promoted, the change is to move this job into
+# `ci.yml` behind the `pull_request` trigger — the body below does not change.
+#
+# No secrets and no services: `test/test-env.ts` writes the `.env.test` the e2e harness reads, with
+# fixed test keys and `CACHE_ENABLED`/`QUEUE_ENABLED` off, so no Redis, no PostgreSQL, no model key,
+# and no repository secret is involved. The sqlite it builds is per-process under `os.tmpdir()`, and
+# the runner is discarded afterwards.
+
+# P0-19 ② 读数 —— 每夜跑，只告警。
+#
+# 本 workflow 跑 `npm run measure:p019`：取两维读数（Action Recoverability 与 Lifecycle Coverage，
+# 按门、按事件类），与钉在 `Server-NestJS/test/p019-readings.baseline.json` 的基线比对，读数动了就非零退出。
+#
+# 它**有意**不是 `ci.yml` 里的一个 job，也**有意**不由 push / pull request 触发：
+#
+#   * 它是**基线**闸，不是回归闸。任何**有意**改动只要碰到读数依赖的列，它就会红，直到有人用
+#     `npm run measure:p019 -- --update` 重新钉基线。这正是它的用处 —— 但那是一种**需要人读、需要人答**
+#     （「这是你要的改动吗？」）的红，所以它不能待在合并路径上。
+#   * 定时跑失败照样会通知（GitHub 会邮件通知仓库所有者），所以「只告警」是真的：既不拦任何东西，
+#     也不哑掉。
+#
+# 2026-10-28 定：先每夜跑、观察两周；要不要变成阻断式是之后单独的决定。若升格，改动就是把本 job
+# 搬进 `ci.yml` 并挂到 `pull_request` 上 —— 下面的 job 本体不用变。
+#
+# 不需要任何 secret、不需要任何服务：`test/test-env.ts` 会写出 e2e 读的 `.env.test`（固定测试密钥，
+# `CACHE_ENABLED` / `QUEUE_ENABLED` 关），故无 Redis、无 PostgreSQL、无模型 key、也不需要仓库密钥。
+# 它建的 sqlite 是每进程一份、在 `os.tmpdir()` 下，runner 跑完即弃。
+
+name: P0-19 readings (nightly)
+
+on:
+  schedule:
+    # 03:17 Asia/Shanghai (19:17 UTC the previous day). Off the top of the hour on purpose: the :00
+    # mark is where every other scheduled job on the planet lands.
+    # 03:17（北京时间；UTC 前一天 19:17）。有意避开整点 —— 整点是全世界的定时任务一起挤的地方。
+    - cron: '17 19 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: p019-readings-nightly
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  readings:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: Server-NestJS
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: true
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: Server-NestJS/package-lock.json
+      - run: npm ci
+      - name: 取两维读数并与基线比对 / take the readings and compare against the baseline
+        run: npm run measure:p019
+      # The gate already prints which class and which dimension moved. This step lifts that into a
+      # single annotation, so the notification names the problem without anyone opening the log.
+      #
+      # 闸本身已经点名是哪一类、哪一维。这一步把它提升成一条 annotation，于是通知里就写着问题是什么，
+      # 不必有人去翻日志。
+      - name: 失败时点名 / name the reason on the run page
+        if: failure()
+        run: |
+          echo "::error title=P0-19 readings moved::npm run measure:p019 exited non-zero. Either a column the readings depend on stopped being written (the failure this check exists for), or an intended change needs the baseline re-pinned: npm run measure:p019 -- --update. See the step log for the door, class and dimension."
+          echo "::error title=读数动了::npm run measure:p019 非零退出。要么是读数依赖的某一列不再被写了（这正是本闸存在的理由），要么是有意改动需要重新钉基线：npm run measure:p019 -- --update。门、类、维见该步日志。"

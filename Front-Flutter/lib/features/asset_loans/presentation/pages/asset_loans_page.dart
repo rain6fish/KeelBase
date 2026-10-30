@@ -72,7 +72,7 @@ class _AssetLoansPageState extends State<AssetLoansPage> {
           ),
 
           CupertinoTextField(
-            placeholder: '${l10n} (ISO 8601)',
+            placeholder: '${l10n.asset_loansFieldDueDate} (ISO 8601)',
             controller: _dueDateCtrl,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           ),

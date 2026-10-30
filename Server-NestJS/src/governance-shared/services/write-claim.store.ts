@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Logger } from '@nestjs/common';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
+import { AiAuditLog } from '../../governance-shared/entities/ai-audit-log.entity';
 import { AiWriteClaim, WRITE_CLAIM_STATUS } from '../entities/ai-write-claim.entity';
 import { argsHash, buildKey } from './effect-shared';
 import type { WriteToolContext } from './tool-effects.types';
@@ -28,6 +29,16 @@ export class WriteClaimStore {
   constructor(
     private readonly effectsRepo: Repository<AiToolSideEffect>,
     private readonly claimsRepo?: Repository<AiWriteClaim>,
+    /**
+     * AW-11: the connection used to write the audit row's forward edge (`write_claim_id`) in the
+     * **same transaction** as the claim's `audit_row_id`. Absent (hand-built test assemblies) ⇒ the
+     * claim side is still written exactly as before, and the audit side is skipped rather than
+     * written non-atomically.
+     *
+     * AW-11：用于把审计行的正向边（`write_claim_id`）与占位行的 `audit_row_id` 写在**同一事务**里的连接。
+     * 缺席（手工装配的单测）⇒ 占位侧仍按原样写，审计侧则跳过 —— 而不是非原子地只写一半。
+     */
+    private readonly dataSource?: DataSource,
   ) {}
 
   /**
@@ -87,6 +98,15 @@ export class WriteClaimStore {
       const existing = await repo.findOne({ where: { idempotencyKey: key } });
       if (!existing) return { won: false, status: 'unreadable' };
       if (existing.status === WRITE_CLAIM_STATUS.RELEASED) {
+        // A re-claim that carries a new authorization replaces the ref on the same conditional
+        // update, so the claim points at the attempt that actually executed — that ref is the only
+        // precise key the explanation surface has for "who approved this". An absent ref leaves the
+        // stored value alone: on a retry it means "this caller did not supply one", not "there was
+        // no authorization".
+        //
+        // 带新授权的重占位在同一条条件更新上替换引用，使占位行指向**实际执行**的那次尝试 —— 解释面要说
+        // 「谁批准了这次」只能靠这个键。未提供引用则保留原值：重试时它只表示「这个调用方没有提供」，
+        // 不表示「没有授权」。
         const res = await repo.update(
           { id: existing.id, status: WRITE_CLAIM_STATUS.RELEASED },
           {
@@ -95,6 +115,7 @@ export class WriteClaimStore {
             settledAt: null,
             releaseReason: null,
             attempts: existing.attempts + 1,
+            ...(ctx.authorizationRef ? { authorizationRef: ctx.authorizationRef } : {}),
           },
         );
         if (res?.affected === 0) {
@@ -161,8 +182,39 @@ export class WriteClaimStore {
       toolName: ref.toolName,
       args,
     });
+    // AW-11: write both sides of the pair — the claim's `audit_row_id` and the audit row's
+    // `write_claim_id` — in one transaction, so a reader can walk forward from the audit row and a
+    // failure leaves both sides untouched. Without a claim there is nothing to link: we return
+    // without writing the audit side, and a missing audit row rolls the claim side back.
+    //
+    // AW-11：一次事务写这对引用的两侧 —— 占位行的 `audit_row_id` 与审计行的 `write_claim_id` ——
+    // 使读者能从审计行正向走，且失败时两侧都不落。没有占位行就没有可链之处：不写审计侧即返回；
+    // 审计行不存在则把占位侧一并回滚。
     try {
-      await repo.update({ idempotencyKey: key }, { auditRowId });
+      if (this.dataSource) {
+        await this.dataSource.transaction(async (manager) => {
+          const claimRepo = manager.getRepository(AiWriteClaim);
+          const auditRepo = manager.getRepository(AiAuditLog);
+          const claim = await claimRepo.findOne({ where: { idempotencyKey: key } });
+          // No claim (degraded wiring / proxy write / pre-claim rows) ⇒ silently skip, as before.
+          // 没有占位行（降级接线 / 代理写 / 占位表之前的数据）⇒ 如旧静默跳过。
+          if (!claim) return;
+          const claimWrite = await claimRepo.update({ id: claim.id }, { auditRowId });
+          if (!claimWrite.affected) return;
+          const auditWrite = await auditRepo.update({ id: auditRowId }, { writeClaimId: claim.id });
+          if (!auditWrite.affected) {
+            // Throw inside the transaction so the claim side is rolled back as well.
+            // 在事务内抛出，使占位侧也一并回滚。
+            throw new Error(`audit row ${auditRowId} not found`);
+          }
+        });
+      } else {
+        // Degraded assembly: no connection for an atomic pair, so keep the pre-AW-11 behaviour
+        // (claim side only) rather than writing a one-sided audit edge.
+        // 降级装配：没有可做原子成对的连接，故保留 AW-11 之前的行为（只写占位侧），
+        // 而不是写一条单边的审计边。
+        await repo.update({ idempotencyKey: key }, { auditRowId });
+      }
     } catch (err) {
       this.logger.warn(
         `[AiToolEffects] ACT-5 attach audit row failed (key ${key}): ${(err as Error).message}`,

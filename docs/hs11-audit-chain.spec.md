@@ -60,10 +60,14 @@ Two new admin verification endpoints:
 响应 / Response:
 
 ```json
-{ "valid": true, "checked": 1250 }
+{ "valid": true, "checked": 1250, "tableRows": 1253 }
 ```
 
 `valid=false` 时带 `brokenIndex`（1 起断链位置）。`valid=false` carries `brokenIndex` (1-based position of the break).
+
+`checked` counts the rows **already in the chain**; `tableRows` counts the table. The difference is the rows verification never looked at (pre-migration rows and rows inserted directly by tools), so a verification rate quoted from `checked` alone has a denominator the reader cannot see. Both numbers travel together for that reason (v2 of `audit-chain-verification`).
+
+`checked` 数的是**已入链**的行，`tableRows` 数的是表里的行。两者之差就是校验**从没看过的**那些行（迁移前的历史行、工具直插的行）—— 故只引用 `checked` 的验证率带着一个读者看不见的分母。两个数之所以一起出门，就是这个原因（`audit-chain-verification` v2）。
 
 ---
 
@@ -79,6 +83,8 @@ Two new admin verification endpoints:
    **Integrity**: editing a business field breaks this record's hash; editing a hash breaks the next record's prevHash; delete/reorder breaks prevHash continuity.
 5. **兼容**：既有历史记录 hash/prev_hash 为 NULL（迁移不反填），verify 会把首条 NULL 前的记录跳过？——不：首条 NULL 视为起点（genesis），其后若出现 hash NULL 即断链。历史记录（迁移前）整段 hash 为 NULL，verify 从第一条有 hash 的记录作为新起点校验后续。见 §6 局限。
    **Compatibility**: existing legacy records have NULL hash/prev_hash (migration does not backfill); verify treats the first hashed record as the new chain start. Legacy segment (pre-migration) is NULL-hashed and skipped as chain start. See §6 limitations.
+   These skipped rows are **not** silently dropped from the response: they are the gap between `tableRows` and `checked`, so a reader can see how much of the table the verdict is about.
+   这些被跳过的行**不会**从响应里悄悄消失：它们就是 `tableRows` 与 `checked` 的差额，读者由此看得出这个结论覆盖了表里的多少。
 6. **降级**：无密钥（ENCRYPTION_KEY 与 JWT_SECRET 均缺）时用固定 dev 密钥，仅开发环境可达；生产必配 JWT_SECRET。
    **Degradation**: with no key (both ENCRYPTION_KEY and JWT_SECRET absent), a fixed dev key is used — reachable only in dev; production must set JWT_SECRET.
 

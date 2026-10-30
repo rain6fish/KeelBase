@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { AuditEvidenceService } from './audit-evidence.service';
 import { AuditStatsService } from './audit-stats.service';
-import { deriveOutcome, deriveTool, BackfillRow } from '../../ai/audit/audit-outcome';
+import { deriveOutcome, deriveTool, BackfillRow } from './audit-outcome';
 
 /**
  * AW-3：`/4` 的 `coverage` 段由 `CoverageService` 装配。本 spec 关心的不是它怎么算（那是
@@ -465,21 +465,21 @@ describe('AuditEvidenceService（报表 / 链校验 / 证据装配）', () => {
       (chain.verifyChain as jest.Mock).mockReturnValue({ valid: true, checked: 0 });
       (logRepo.find as jest.Mock).mockResolvedValue([]);
       const statsService = new AuditStatsService(logRepo as never, undefined);
-      const propsOf = (name: string) =>
+      const propsOf = (relPath: string) =>
         Object.keys(
-          (JSON.parse(readFileSync(resolve(__dirname, `../../../specs/protocol/schemas/v1/${name}`), 'utf8')) as {
+          (JSON.parse(readFileSync(resolve(__dirname, `../../../specs/protocol/${relPath}`), 'utf8')) as {
             properties: Record<string, unknown>;
           }).properties,
         );
-      const noExtra = (obj: Record<string, unknown>, name: string) => {
-        const props = propsOf(name);
+      const noExtra = (obj: Record<string, unknown>, relPath: string) => {
+        const props = propsOf(relPath);
         expect(Object.keys(obj).filter((k) => !props.includes(k))).toEqual([]);
       };
-      noExtra(await service.verifyChain(), 'audit-chain-verification.schema.json');
+      noExtra(await service.verifyChain(), 'schemas/v2/audit-chain-verification.schema.json');
       // 聚合响应已由 AuditStatsService 产出（阶段 3 拆分）——契约校验跟着响应走，断言不变
-      noExtra(await statsService.getAllStats(), 'audit-usage-stats.schema.json');
-      noExtra(await statsService.getCostBreakdown(), 'audit-cost-breakdown.schema.json');
-      noExtra(await service.getActionReport(), 'audit-action-report.schema.json');
+      noExtra(await statsService.getAllStats(), 'schemas/v2/audit-usage-stats.schema.json');
+      noExtra(await statsService.getCostBreakdown(), 'schemas/v1/audit-cost-breakdown.schema.json');
+      noExtra(await service.getActionReport(), 'schemas/v2/audit-action-report.schema.json');
     });
 
   describe('getActionReport（§10 P1 合规证据包）', () => {
@@ -502,17 +502,18 @@ describe('AuditEvidenceService（报表 / 链校验 / 证据装配）', () => {
         approved: 1,
         rejected: 1,
         blocked: 1,
+        refused: 0,
         errors: 2,
         effects: 2,
       });
-      expect(report.hashChain).toEqual({ valid: true, checked: 4, brokenIndex: null });
+      expect(report.hashChain).toEqual({ valid: true, checked: 4, brokenIndex: null, tableRows: 4 });
       // 明细样本：从 detail 提取工具名 + 阻断原因可见
       expect(report.samples[0].toolName).toBe('create_followup_task');
       expect(report.samples[3].toolName).toBe('query_customers');
       expect(report.samples[3].errorMessage).toContain('blocked (risk level R5)');
       // B3：同日日志聚合到单个 byDay 桶（计数与 summary 对齐）
       expect(report.byDay).toHaveLength(1);
-      expect(report.byDay[0]).toMatchObject({ executed: 1, approved: 1, rejected: 1, blocked: 1, errors: 2 });
+      expect(report.byDay[0]).toMatchObject({ executed: 1, approved: 1, rejected: 1, blocked: 1, refused: 0, errors: 2 });
     });
 
     // R4 转人工审批：isError=false（还没被拒）但 detail 是 pending_approval ⇒ **两格都不进** ——
@@ -534,7 +535,9 @@ describe('AuditEvidenceService（报表 / 链校验 / 证据装配）', () => {
     it('byDay 按 UTC 日聚合（多日升序，阻断/错误分别入桶）', async () => {
       logRepo.find.mockResolvedValue(rows([
         { id: 1, userId: '1', action: 'tool_call', detail: 'create_x()', isError: false, createdAt: new Date('2026-08-20T10:00:00Z') },
-        { id: 2, userId: '1', action: 'tool_call', detail: 'query_y({})', isError: true, errorMessage: 'blocked (risk level R5)', createdAt: new Date('2026-08-20T11:00:00Z') },
+        // 阻断行必须带**结构化的理由**：旧读法靠 `errorMessage` 里那个词，`by-day` 改读 `outcome` 列后，
+        // 没有 `authorization` 的行推不出结局，只算 error —— 而写入方从不会发出那种行。
+        { id: 2, userId: '1', action: 'tool_call', detail: 'query_y({})', isError: true, errorMessage: 'blocked (risk level R5)', authorization: '[{"name":"risk_policy"}]', createdAt: new Date('2026-08-20T11:00:00Z') },
         { id: 3, userId: '1', action: 'tool_call', detail: 'create_z()', isError: false, createdAt: new Date('2026-08-21T09:00:00Z') },
       ]));
       effectsRepo.count.mockResolvedValue(0);
@@ -543,9 +546,44 @@ describe('AuditEvidenceService（报表 / 链校验 / 证据装配）', () => {
       const report = await service.getActionReport();
 
       expect(report.byDay).toEqual([
-        { date: '2026-08-20', executed: 1, approved: 0, rejected: 0, blocked: 1, errors: 1 },
-        { date: '2026-08-21', executed: 1, approved: 0, rejected: 0, blocked: 0, errors: 0 },
+        { date: '2026-08-20', executed: 1, approved: 0, rejected: 0, blocked: 1, refused: 0, errors: 1 },
+        { date: '2026-08-21', executed: 1, approved: 0, rejected: 0, blocked: 0, refused: 0, errors: 0 },
       ]);
+    });
+
+    // 反证用：把 `refused` 拿掉（并回 errors 一桶），这条用例就红。
+    it('治理/授权拒绝计入 refused —— 不再与执行失败共用 errors 那一格', async () => {
+      logRepo.find.mockResolvedValue(rows([
+        {
+          id: 1, userId: '1', action: 'tool_call', detail: 'delete_customer({"id":7})', isError: true,
+          errorMessage: 'Tool "delete_customer" is not enabled',
+          authorization: '[{"name":"tool_enabled"}]', createdAt: new Date('2026-09-01T10:00:00Z'),
+        },
+      ]));
+      effectsRepo.count.mockResolvedValue(0);
+      chain.verifyChain.mockReturnValue({ valid: true, checked: 1 });
+
+      const report = await service.getActionReport();
+
+      expect(report.summary).toMatchObject({ executed: 0, blocked: 0, refused: 1, errors: 1 });
+      expect(report.byDay[0]).toMatchObject({ executed: 0, blocked: 0, refused: 1, errors: 1 });
+    });
+
+    // 反证用：把 `tableRows` 改回 `checked`，这条用例就红。
+    it('verifyChain 的 tableRows 数全部行，checked 只数已入链的行', async () => {
+      logRepo.find.mockResolvedValue([
+        { id: 1, prevHash: null, hash: 'h1', createdAt: new Date(), action: 'chat', detail: null, isError: false },
+        { id: 2, prevHash: 'h1', hash: 'h2', createdAt: new Date(), action: 'chat', detail: null, isError: false },
+        { id: 3, prevHash: null, hash: null, createdAt: new Date(), action: 'chat', detail: null, isError: false },
+      ]);
+      (chain.verifyChain as jest.Mock).mockReturnValue({ valid: true, checked: 2 });
+
+      const result = await service.verifyChain();
+
+      expect(result.checked).toBe(2);
+      expect(result.tableRows).toBe(3);
+      // 未入链的那一行确实没有进链校验 —— 分母之差不是摆设
+      expect((chain.verifyChain as jest.Mock).mock.calls[0][0]).toHaveLength(2);
     });
 
     it('无日志时全零 + 哈希链 checked 0', async () => {
@@ -555,7 +593,7 @@ describe('AuditEvidenceService（报表 / 链校验 / 证据装配）', () => {
 
       const report = await service.getActionReport();
       expect(report.summary.executed).toBe(0);
-      expect(report.hashChain).toEqual({ valid: true, checked: 0, brokenIndex: null });
+      expect(report.hashChain).toEqual({ valid: true, checked: 0, brokenIndex: null, tableRows: 0 });
       expect(report.samples).toEqual([]);
       expect(report.byDay).toEqual([]);
     });

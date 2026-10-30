@@ -13,20 +13,23 @@
 
 ```bash
 git clone --recurse-submodules https://github.com/rain6fish/KeelBase.git && cd KeelBase
-cd Server-NestJS && cp .env.example .env && npm install
-cd .. && git clone --depth 1 https://github.com/rain6fish/KeelBase4J.git ../KeelBase4J  # sibling repo — step 6's check:java-vectors reads it
-cd Web-Admin-Vue && npm install                                                        # step 8 builds the admin bundle
-cd ..                                                                                  # back to the repo root — every step below uses repo-root-relative paths
+npm run prereqs        # the rest of this step, as one idempotent command (see the bullets)
 # leave the LLM API keys empty in .env → the runtime falls back to the deterministic demo provider
 ```
 
-- **This block ends at the repo root on purpose.** §1's paths (`.keelbase/…`, `specs/…`, `scripts/…`) are relative to the
-  clone's root; a shell that runs the block top-to-bottom otherwise finishes inside `Web-Admin-Vue` and §1 dies with
-  `Cannot find module …/Web-Admin-Vue/scripts/generator/business-spec.mjs`.
+- **`npm run prereqs` fills in every prerequisite the checks declare, and nothing else**: the contract submodule at the
+  commit this checkout pins, `Server-NestJS` and `Web-Admin-Vue` dependencies, `Server-NestJS/.env` copied from
+  `.env.example` when absent (an existing `.env` is never overwritten), and the sibling Java checkout cloned when it is
+  not there. It builds nothing and runs no test. Measured on a bare clone: `check:all` **24/29 before, 29/29 after**.
+- **It is idempotent and self-reporting.** A second run prints `nothing to do` and exits 0. A step it cannot complete
+  stops the run and says which one, why, and what to run by hand — so a failure here is a prerequisite problem, not a
+  broken tree.
+- **The command never changes directory.** It finishes in the clone's root, so every step below can use
+  repo-root-relative paths (`.keelbase/…`, `specs/…`, `scripts/…`). Doing these installs by hand instead is how §1 used
+  to die with `Cannot find module …/Web-Admin-Vue/scripts/generator/business-spec.mjs`.
 - Node **>= 22** (`Server-NestJS/package.json` → `engines`); the versions below were read on node 24.
-- `--recurse-submodules` is not optional: `Server-NestJS/specs/protocol` is a submodule.
-- **The sibling `../KeelBase4J` clone is not optional either.** Step 6's `check:java-vectors` compares this repo's protocol vectors against the Java repo's read-only snapshot, and it resolves that repo at `../KeelBase4J` (or `$KEELBASE_JAVA_REPO`). Without the sibling, `check:all` comes back **one gate short of all-green** (only `check:java-vectors` red; the gate count itself grows with the repo) — and that red is the missing prerequisite, not your delivery.
-- **Install `Web-Admin-Vue`'s dependencies here too**: step 8's `deploy/demo.sh` builds the admin bundle as its first step and fails there without them.
+- `--recurse-submodules` on the clone is now belt-and-braces: `prereqs` does the same initialisation. (`Server-NestJS/specs/protocol` is a submodule, and it must sit on **the pinned commit**, not merely exist — a checkout of the wrong commit quietly changes what `check:protocol-vectors` is comparing.)
+- **The sibling `../KeelBase4J` clone is not optional.** `prereqs` clones it (`--depth 1`) when it is absent, reuses the copy you already have, and honours `$KEELBASE_JAVA_REPO`. Step 6's `check:java-vectors` compares this repo's protocol vectors against it and `check:coverage-gaps` compares its gate-coverage file; without the sibling both come back red — and that red is the missing prerequisite, not your delivery.
 - No LLM key needed anywhere below; the demo provider drives the write tool from explicit `field=value` tokens.
 - **Why step 5 exports secrets that steps 7–8 don't:** `.env.example` already carries usable `JWT_SECRET` / `JWT_REFRESH_SECRET` / `ENCRYPTION_KEY` values and leaves `ENCRYPTION_HMAC_KEY` empty **by design** (it falls back). Step 5 exports its own four so the migration run does not depend on whatever is in your `.env`; the runtime steps need nothing beyond the file.
 - **Docker** (or a reachable PostgreSQL) is needed for one action only: `migration:consistency:pg` in step 5, which starts a throwaway `pgvector/pgvector:pg17` container.
@@ -48,7 +51,9 @@ Criterion: both `exit 0`; the report lists **2 unmapped items** — the two busi
 node scripts/keelbase-init.mjs --spec specs/asset-loans.json --force
 # … and --force has just overwritten the hand-written layer from step 3. Put it back NOW — the next
 # steps (4, 6, 7) check exactly those rules, so a tree left overwritten makes them fail.
-git checkout -- Server-NestJS/src/asset_loans/
+# Restore the WHOLE tree, not just the module directory: `--force` also rewrites a few files
+# outside it (see the paragraph after this block), and step 6 refuses a dirty tree.
+git checkout -- .
 git status --porcelain        # → no output
 ```
 
@@ -60,7 +65,7 @@ file — **including the hand-written layer**. In this reproduction path the lay
 module (§10) there is no `--force` and nothing to restore: generate **once**, hand-write after, never
 regenerate — and if you ever must, `git checkout` only helps if you committed the hand-written layer first.
 
-After a `--force` run, `git status --porcelain` lists **two** paths: `asset_loans.service.ts` / `asset_loans.service.spec.ts` — the hand-written layer. It does **not** list `src/asset_loans/.keelbase-provenance.json`: the generator now writes that file idempotently on its identity, so an unchanged spec leaves its recorded `generatedAt` untouched. "Which files went dirty" therefore tells you the hand-written layer, and nothing else.
+After a `--force` run, `git status --porcelain` lists **two** paths — `asset_loans.service.ts` / `asset_loans.service.spec.ts`, the hand-written layer — and nothing else: the committed sample is already what this generator emits, so the provenance stays byte-identical on a re-run and no emitted file changes. (A tree whose sample was written by an older keelbase shows more: the provenance's `generatorVersion` / `generatedAt`, the two front-end pages, and `create-asset_loans.tool.ts` when its `status` predates the DTO's type default. Those belong to the generator, not to you — commit nothing at this step, and do not hand-fix them: regenerate with the current generator, which is what puts the sample back in step.) When the sample is in step, "which files went dirty" tells you exactly the hand-written layer.
 
 ### 3. Layer the declared hand-written rules
 
@@ -153,7 +158,7 @@ curl -sf http://localhost:3111/api/v1/health >/dev/null \
   || { echo "health never turned 200 in 90s — last log lines:"; tail -n 20 /tmp/_rt.log; }
 cd ..
 MODULE=asset_loans MARKER_FIELD=assetTag TITLE_MARKER=AI-verify-001 \
-  TRIGGER_MSG='创建一笔资产借用 assetName=投影仪 assetTag=AI-verify-001 dueDate=2026-11-10' \
+  TRIGGER_MSG='创建一笔资产借用 assetName=投影仪 assetTag=AI-verify-001 dueDate=2026-11-10 status=active' \
   BASE_URL=http://localhost:3111/api/v1 node scripts/verify-generated-module.mjs
 ```
 
@@ -170,9 +175,14 @@ delivery and is not one.
 Stop the server once this step is done — started as `npm run start:dev &` it can leave the port
 listening, and a leftover listener makes the *next* run fail for a reason unrelated to your delivery
 (`netstat -ano | grep :3111`, then kill that PID). **Under `--watch` the listener is not the only
-process**: `nest start --watch` keeps a parent watchdog that can respawn the child, so kill the tree,
-not just the PID (`taskkill //PID <pid> //T //F`, or match the command lines against your own clone
-path) — otherwise the port reappears a minute later.
+process**: `nest start --watch` keeps a watchdog above the listener, so `taskkill //PID <listener-pid>
+//T //F` kills only the listener — the watchdog survives and rebuilds on your next content change
+under `src/`, bringing the port back on a fresh PID within seconds (measured 2026-10-28: left alone
+for 150 s the port stays dead, but one content change and it is listening again 5 s later; a bare
+`touch` does not count). The watchdog is not the listener's direct parent either — the chain is
+listener → `cmd.exe /d /s /c "node …\dist\main"` → `nest start --watch`, i.e. two hops up. Walk
+`ParentProcessId` from the netstat PID and kill the watch process itself, or match `start --watch` in
+the command lines against your own clone path — otherwise the port returns the moment you edit a file.
 
 Then hit the hand-written rules over HTTP (login as `alex`, then four POSTs to `/api/v1/asset_loans`):
 
@@ -325,22 +335,25 @@ never the counts.
 
 ```bash
 git clone --recurse-submodules https://github.com/rain6fish/KeelBase.git && cd KeelBase
-cd Server-NestJS && cp .env.example .env && npm install
-cd .. && git clone --depth 1 https://github.com/rain6fish/KeelBase4J.git ../KeelBase4J  # 兄弟仓 —— 第 6 步的 check:java-vectors 要读它
-cd Web-Admin-Vue && npm install                                                        # 第 8 步要构建管理台产物
-cd ..                                                                                  # 回到仓库根 —— 下面每一步用的都是相对仓库根的路径
+npm run prereqs        # 这一步剩下的全部，一条幂等命令（说明见下面各条）
 # .env 里 LLM 的 API key 留空 → 运行时会回落到确定性演示 Provider
 ```
 
-- **这个代码块刻意停在仓库根。** §1 的路径（`.keelbase/…`、`specs/…`、`scripts/…`）都相对克隆出来的根目录；
-  一个从上到下顺序执行的 shell 否则会停在 `Web-Admin-Vue`，§1 随即以
+- **`npm run prereqs` 只补各道检查自己声明过的前提**：契约 submodule 落在本检出的 pin 那个提交上、`Server-NestJS`
+  与 `Web-Admin-Vue` 的依赖、`Server-NestJS/.env`（缺失时从 `.env.example` 拷，已存在则**从不覆盖**）、
+  同级 Java 检出（不在时克隆）。不构建、不跑测试。空检出实测：`check:all` **补前 24/29，补后 29/29**。
+- **幂等、且会自述。** 第二次运行打印 `nothing to do` 并 exit 0。某一步做不到就停下，说清是哪一步、为什么、
+  以及要手工跑什么 —— 所以这里的失败是**前提**的问题，不是树坏了。
+- **这条命令不切换目录。** 它结束时仍在克隆的根目录，于是下面每一步都能用相对仓库根的路径（`.keelbase/…`、
+  `specs/…`、`scripts/…`）。改成手工装依赖，§1 会以
   `Cannot find module …/Web-Admin-Vue/scripts/generator/business-spec.mjs` 挂掉。
 - Node **>= 22**（`Server-NestJS/package.json` 的 `engines`）；下面那些版本号是在 node 24 上读的。
-- `--recurse-submodules` 不是可选项：`Server-NestJS/specs/protocol` 是一个 submodule。
-- **兄弟仓 `../KeelBase4J` 也不是可选项。** 第 6 步的 `check:java-vectors` 拿本仓的协议向量与该 Java 仓的只读快照比对，
-  而它按 `../KeelBase4J`（或 `$KEELBASE_JAVA_REPO`）找那个仓。缺了兄弟仓，`check:all` 会**差一道门才全绿**（只有
-  `check:java-vectors` 红；门的条数本身也随仓库增长）—— 那道红是**前置没备齐**，不是你的交付有问题。
-- **`Web-Admin-Vue` 的依赖也在这里装**：第 8 步的 `deploy/demo.sh` 第一步就是构建管理台产物，缺依赖会卡在第一步。
+- 克隆时的 `--recurse-submodules` 现在是双保险：`prereqs` 做同一件初始化。（`Server-NestJS/specs/protocol` 是
+  submodule，而且必须落在 **pin 的那个提交**上，不是「有就行」—— 检出成别的提交会悄悄改变
+  `check:protocol-vectors` 到底在比什么。）
+- **兄弟仓 `../KeelBase4J` 不是可选项。** `prereqs` 在它缺席时克隆（`--depth 1`）、已有时复用，并认
+  `$KEELBASE_JAVA_REPO`。第 6 步的 `check:java-vectors` 拿本仓的协议向量与它比对，`check:coverage-gaps` 比对它的
+  门禁覆盖文件；缺了兄弟仓这两道都会红 —— 那道红是**前置没备齐**，不是你的交付有问题。
 - 下面全程**不需要** LLM key；演示 Provider 靠显式 `field=value` 令牌驱动写工具。
 - **为什么第 5 步 export 密钥、第 7–8 步不 export：** `.env.example` 里 `JWT_SECRET` / `JWT_REFRESH_SECRET` /
   `ENCRYPTION_KEY` 本就带着可用值，而 `ENCRYPTION_HMAC_KEY` **按设计留空**（它有回退）。第 5 步 export 自己那四个，
@@ -365,7 +378,9 @@ node scripts/generator/business-spec.mjs --in .keelbase/business-spec/asset-loan
 node scripts/keelbase-init.mjs --spec specs/asset-loans.json --force
 # ……而 --force 刚刚把第 3 步那层手写规则覆盖掉了。**现在**就放回去 ——
 # 后面第 4、6、7 步核的正是那几条规则，树停在「被覆盖」状态会让它们全都不通过。
-git checkout -- Server-NestJS/src/asset_loans/
+# 还原的是**整棵树**，不只是模块目录：`--force` 还会重写模块目录之外的几个文件（见本块之后的说明），
+# 而第 6 步拒绝脏工作树。
+git checkout -- .
 git status --porcelain        # → 无输出
 ```
 
@@ -377,10 +392,12 @@ git status --porcelain        # → 无输出
 **新模块**（§10）没有 `--force`、也没有要还原的东西：**只生成一次**，随后再手写，**不要重生成** ——
 万一确需重生成，`git checkout` 也只在你**先提交过**那层手写之后才管用。
 
-跑完一次 `--force`，`git status --porcelain` 会列出**两**条路径：`asset_loans.service.ts` /
-`asset_loans.service.spec.ts` —— 手写层。它**不再**列出 `src/asset_loans/.keelbase-provenance.json`：生成器
-现已按身份幂等写该文件，spec 未变时其中记录的 `generatedAt` 原样保留。故「哪些文件变脏」告诉你的就是手写层，
-别无其它。
+跑完一次 `--force`，`git status --porcelain` 只会列出**两**条路径 —— `asset_loans.service.ts` /
+`asset_loans.service.spec.ts`，即手写层 —— 别的都不动：已提交的样例本来就是当前生成器写出来的，
+所以 provenance 再跑一次逐字节不变，也没有任何生成文件被改写。（若样例是较旧 keelbase 写的，还会多出：
+provenance 的 `generatorVersion` / `generatedAt`、两个前端页面，以及 `status` 还没跟上 DTO 类型默认时的
+`create-asset_loans.tool.ts`。这些属于**生成器**、不属于你 —— 这一步一条都不要提交，也别手工去改：
+用当前生成器重跑，样例才回到同一版本。）样例处在同一版本时，「哪些文件变脏」才是手写层的确切答案。
 
 ### 3. 叠加**声明为手写**的规则
 
@@ -462,7 +479,7 @@ curl -sf http://localhost:3111/api/v1/health >/dev/null \
   || { echo "health 90s 内没转 200 —— 日志尾部："; tail -n 20 /tmp/_rt.log; }
 cd ..
 MODULE=asset_loans MARKER_FIELD=assetTag TITLE_MARKER=AI-verify-001 \
-  TRIGGER_MSG='创建一笔资产借用 assetName=投影仪 assetTag=AI-verify-001 dueDate=2026-11-10' \
+  TRIGGER_MSG='创建一笔资产借用 assetName=投影仪 assetTag=AI-verify-001 dueDate=2026-11-10 status=active' \
   BASE_URL=http://localhost:3111/api/v1 node scripts/verify-generated-module.mjs
 ```
 
@@ -476,8 +493,12 @@ MODULE=asset_loans MARKER_FIELD=assetTag TITLE_MARKER=AI-verify-001 \
 
 这一步做完就把服务停掉 —— 用 `npm run start:dev &` 起的那种可能把端口留着监听，残留的监听会让**下一次**运行
 因为与你的交付毫不相干的原因失败（`netstat -ano | grep :3111`，然后杀掉那个 PID）。**`--watch` 下监听者不是唯一
-的进程**：`nest start --watch` 还留着一个父看门进程，它会把子进程再拉起来 ⇒ **要杀的是那棵树，不是那个 PID**
-（`taskkill //PID <pid> //T //F`，或按命令行匹配你自己的克隆路径）；只杀 PID 的话，端口过一分钟又会冒出来。
+的进程**：`nest start --watch` 在监听者之上还留着一个看门进程，所以 `taskkill //PID <监听者 pid> //T //F`
+只杀掉监听者、看门的那个还在；它会在你**下一次改 `src/` 里的文件内容**时重建，并把端口换个新 PID 拉起来 ——
+几秒之内就回来（2026-10-28 实测：静置 150 秒端口一直是空的，改一次内容后 5 秒内又在监听；只 `touch` 不算）。
+它也不是监听者的**直接父进程** —— 链是 监听者 → `cmd.exe /d /s /c "node …\dist\main"` → `nest start --watch`，
+即**上两跳**。正确做法：从 netstat 拿到的 PID 沿 `ParentProcessId` 往上找到那个看门进程再杀，
+或按命令行匹配 `start --watch` 并对照你自己的克隆路径，把那些根进程杀掉 —— 否则你一编辑文件，端口就回来。
 
 再在 HTTP 边界上打那两条手写规则（以 `alex` 登录，然后对 `/api/v1/asset_loans` 发四个 POST）：
 

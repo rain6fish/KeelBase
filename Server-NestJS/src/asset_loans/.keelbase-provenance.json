@@ -2,8 +2,8 @@
   "schema": 1,
   "module": "asset_loans",
   "generator": "keelbase",
-  "generatorVersion": "1.1.0",
+  "generatorVersion": "1.2.0",
   "protocol": "1.1",
   "source": "spec:specs/asset-loans.json",
-  "generatedAt": "2026-10-15T10:31:33.061Z"
+  "generatedAt": "2026-10-28T05:26:04.986Z"
 }

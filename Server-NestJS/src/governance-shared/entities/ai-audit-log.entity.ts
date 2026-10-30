@@ -109,6 +109,22 @@ export class AiAuditLog {
   @Column({ type: 'varchar', length: 64, nullable: true, name: 'tool' })
   tool?: string | null;
 
+  /**
+   * AW-11: the write claim this row triggered, so a reader can walk **forward** from the most
+   * authoritative row type — audit → claim → effect / confirmation — instead of only backwards.
+   * Written in the same transaction as the claim's `audit_row_id` (see `WriteClaimStore.attachAuditRow`),
+   * and only on a successful execution. `null` is an honest state: rows written before this column
+   * existed, and rows that never had a claim (denied / pending / read-only), stay unlinked — no
+   * guessing by tool name plus time. Off-chain annotation column — **not part of the hash payload**.
+   *
+   * AW-11：本行触发的那条占位行，使读者能从最权威的行类型**正向**走 —— 审计 → 占位 → 副作用 / 确认 ——
+   * 而不只是反着走。与占位行的 `audit_row_id` 在**同一事务**写入（见 `WriteClaimStore.attachAuditRow`），
+   * 且只在执行成功时写。`null` 是**如实**状态：本列之前写下的行，以及从来没有占位行的行
+   * （拒绝 / 待批 / 只读），都保持不链 —— 不按工具名加时间猜。链外注解列 —— **不入 hash payload**。
+   */
+  @Column({ type: 'integer', nullable: true, name: 'write_claim_id' })
+  writeClaimId?: number | null;
+
   @Column({ nullable: true, name: 'prompt_tokens' })
   promptTokens?: number;
 
