@@ -668,7 +668,7 @@ npm run migration:run
 | `npm run start:sidecar` | 启动治理 sidecar（AI 网关审计代理，零代码接入，端口 SIDECAR_PORT 默认 3200） |
 | `npm run build` | 编译 |
 | `npm test` | 单元测试 |
-| `npm run test:e2e` | 端到端测试（NODE_ENV=test，套件分 4 片跑——规避单进程长跑硬崩；某片崩则自动重试） |
+| `npm run test:e2e` | 端到端测试（NODE_ENV=test，套件分 4 片跑——规避单进程长跑硬崩；某片崩则自动重试，重试前打印该片的退出码/信号/耗时/最后 20 行输出） |
 | `npm run test:e2e:cov` | e2e 覆盖率（同样分 4 片跑，各片独立收集后合并成一份 lcov） |
 | `npm run test:cov` | 测试覆盖率（门槛：statements≥86 / branches≥72 / functions≥81 / lines≥86，以 `Server-NestJS/jest.config.ts` 为准）+ `check-security-coverage.mjs` 安全模块分档门控（auth/casl/operation-audit/ai-tools/governance/headless statements≥85） |
 | `npm run lint` | 代码检查 |
