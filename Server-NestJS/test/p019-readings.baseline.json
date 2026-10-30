@@ -13,6 +13,7 @@
           "what": true,
           "why-allowed": true,
           "who-approved": null,
+          "who-approved-second": null,
           "result": true,
           "how-proved": true
         },
@@ -21,6 +22,7 @@
           "what": "ai_audit_logs.tool + ai_audit_logs.tool_args",
           "why-allowed": "ai_audit_logs.authorization",
           "who-approved": "ai_confirmation_requests.status + decided_at + (approver_id ?? operator_id)",
+          "who-approved-second": "ai_confirmation_requests.status + approver_id (second person only)",
           "result": "ai_audit_logs.outcome",
           "how-proved": "ai_audit_logs.hash (+ prev_hash chain)"
         }
@@ -52,6 +54,7 @@
           "what": true,
           "why-allowed": true,
           "who-approved": null,
+          "who-approved-second": null,
           "result": true,
           "how-proved": true
         },
@@ -60,6 +63,7 @@
           "what": "ai_audit_logs.tool + ai_audit_logs.tool_args",
           "why-allowed": "ai_audit_logs.authorization",
           "who-approved": "ai_confirmation_requests.status + decided_at + (approver_id ?? operator_id)",
+          "who-approved-second": "ai_confirmation_requests.status + approver_id (second person only)",
           "result": "ai_audit_logs.outcome",
           "how-proved": "ai_audit_logs.hash (+ prev_hash chain)"
         }
@@ -91,6 +95,7 @@
           "what": true,
           "why-allowed": true,
           "who-approved": false,
+          "who-approved-second": null,
           "result": true,
           "how-proved": true
         },
@@ -99,6 +104,7 @@
           "what": "ai_audit_logs.tool + ai_audit_logs.tool_args",
           "why-allowed": "ai_audit_logs.authorization",
           "who-approved": "ai_confirmation_requests.status + decided_at + (approver_id ?? operator_id)",
+          "who-approved-second": "ai_confirmation_requests.status + approver_id (second person only)",
           "result": "ai_audit_logs.outcome",
           "how-proved": "ai_audit_logs.hash (+ prev_hash chain)"
         }
@@ -130,6 +136,7 @@
           "what": true,
           "why-allowed": true,
           "who-approved": null,
+          "who-approved-second": null,
           "result": true,
           "how-proved": true
         },
@@ -138,6 +145,7 @@
           "what": "ai_audit_logs.tool + ai_audit_logs.tool_args",
           "why-allowed": "ai_audit_logs.authorization",
           "who-approved": "ai_confirmation_requests.status + decided_at + (approver_id ?? operator_id)",
+          "who-approved-second": "ai_confirmation_requests.status + approver_id (second person only)",
           "result": "ai_audit_logs.outcome",
           "how-proved": "ai_audit_logs.hash (+ prev_hash chain)"
         }
@@ -162,13 +170,14 @@
       "door": "r4",
       "klass": "r4-approved",
       "ar": {
-        "numerator": 6,
-        "denominator": 6,
+        "numerator": 7,
+        "denominator": 7,
         "detail": {
           "who": true,
           "what": true,
           "why-allowed": true,
           "who-approved": true,
+          "who-approved-second": true,
           "result": true,
           "how-proved": true
         },
@@ -177,6 +186,7 @@
           "what": "ai_audit_logs.tool + ai_confirmation_requests.args",
           "why-allowed": "ai_audit_logs.authorization",
           "who-approved": "ai_confirmation_requests.status + decided_at + (approver_id ?? operator_id)",
+          "who-approved-second": "ai_confirmation_requests.status + approver_id (second person only)",
           "result": "ai_audit_logs.outcome",
           "how-proved": "ai_audit_logs.hash (+ prev_hash chain)"
         }
@@ -208,6 +218,7 @@
           "what": true,
           "why-allowed": true,
           "who-approved": true,
+          "who-approved-second": null,
           "result": true,
           "how-proved": true
         },
@@ -216,6 +227,7 @@
           "what": "ai_audit_logs.tool + ai_audit_logs.tool_args",
           "why-allowed": "ai_audit_logs.authorization",
           "who-approved": "ai_confirmation_requests.status + decided_at + (approver_id ?? operator_id)",
+          "who-approved-second": "ai_confirmation_requests.status + approver_id (second person only)",
           "result": "ai_audit_logs.outcome",
           "how-proved": "ai_audit_logs.hash (+ prev_hash chain)"
         }
@@ -247,6 +259,7 @@
           "what": true,
           "why-allowed": true,
           "who-approved": false,
+          "who-approved-second": null,
           "result": true,
           "how-proved": true
         },
@@ -255,6 +268,7 @@
           "what": "ai_audit_logs.tool + ai_audit_logs.tool_args",
           "why-allowed": "ai_audit_logs.authorization",
           "who-approved": "ai_confirmation_requests.status + decided_at + (approver_id ?? operator_id)",
+          "who-approved-second": "ai_confirmation_requests.status + approver_id (second person only)",
           "result": "ai_audit_logs.outcome",
           "how-proved": "ai_audit_logs.hash (+ prev_hash chain)"
         }

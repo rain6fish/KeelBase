@@ -21,7 +21,10 @@
  *   - Action Recoverability (AR) — of the six questions the product's own language asks
  *     (who did it / what was done / why it was allowed / who approved / what came of it / how it is
  *     proved), how many are answerable from **structured columns alone**, without parsing free text.
- *     Denominator per class = questions that apply to that class.
+ *     Denominator per class = questions that apply to that class. Since 2026-10-30 there is a
+ *     **seventh** question, `who-approved-second`, asked only of classes that require a second
+ *     person: widening `who-approved` to the decider (operator or approver) made a missing
+ *     `approver_id` invisible there, so the second-person credential now has its own count.
  *   - Lifecycle Coverage (LC) — of the stages the class **should** leave a durable trace of, how many
  *     actually have one. Denominator per class = stages required for that class.
  *
@@ -39,6 +42,10 @@
  *
  * 「可还原」的口径是**只读结构化列、不解析自由文本** —— 这正是 C-3 要消掉的那件事：
  * 若一个事实只能从 `detail` / `error_message` 这类散文里读出来，它**不算**可还原。
+ *
+ * 2026-10-30 起有**第七问** `who-approved-second`，只问那些**需要第二个人**的类：把 `who-approved`
+ * 放宽到「裁决人」（操作人或审批人）之后，`approver_id` 掉了在那里已经看不出来，所以第二人凭据
+ * 现在自己有了一格计数。
  */
 
 import { INestApplication } from '@nestjs/common';
@@ -158,8 +165,25 @@ async function readSlice(ds: DataSource, auditFloorId: number, confFloorId = 0, 
   return { audits, confirmations, effects };
 }
 
-/** The six questions, in the product's own words (P0-20 §六问). */
-const AR_QUESTIONS = ['who', 'what', 'why-allowed', 'who-approved', 'result', 'how-proved'] as const;
+/**
+ * The six questions, in the product's own words (P0-20 §六问), plus one the product's language does
+ * not ask but governance does: `who-approved-second` — was there a **second person**, the credential
+ * R4's two-person approval turns on. It is asked only of classes that require one, so it enters no
+ * other class's denominator.
+ *
+ * 产品自己语言里的六问（P0-20 §六问），加一问产品语言不问、治理要问的：`who-approved-second` ——
+ * 有没有**第二个人**，也就是 R4 双人审批赖以判定的那份凭据。只对需要双人审批的类提问，故不进别的类
+ * 的分母。
+ */
+const AR_QUESTIONS = [
+  'who',
+  'what',
+  'why-allowed',
+  'who-approved',
+  'who-approved-second',
+  'result',
+  'how-proved',
+] as const;
 type ArQuestion = (typeof AR_QUESTIONS)[number];
 
 /**
@@ -196,7 +220,25 @@ interface ArAnswer {
   from: string;
 }
 
-function answerAr(slice: Slice): { asked: boolean; answers: Record<ArQuestion, ArAnswer> } {
+/**
+ * Which classes must have a **second person** approve. Only R4 does: the other classes ask the
+ * operator to confirm their own action, which is a decision but not a second approval. Anything not
+ * listed here answers `null` to `who-approved-second` and drops out of that class's denominator.
+ *
+ * 哪些类必须有**第二个人**批准。只有 R4：其余各类是操作人确认自己的动作，那是裁决，但不是第二人
+ * 批准。没列在这里的类对 `who-approved-second` 答 `null`，不进该类分母。
+ */
+const SECOND_APPROVER_REQUIRED: Record<ClassKind, boolean> = {
+  success: false,
+  blocked: false,
+  timeout: false,
+  'mcp-blocked': false,
+  'mcp-held': false,
+  'mcp-read': false,
+  'r4-approved': true,
+};
+
+function answerAr(klass: ClassKind, slice: Slice): { asked: boolean; answers: Record<ArQuestion, ArAnswer> } {
   const toolRow = finalToolRow(slice);
   const conf = slice.confirmations[0];
   const eff = slice.effects[0];
@@ -283,6 +325,29 @@ function answerAr(slice: Slice): { asked: boolean; answers: Record<ArQuestion, A
             )
           : null,
         from: 'ai_confirmation_requests.status + decided_at + (approver_id ?? operator_id)',
+      },
+      'who-approved-second': {
+        // The same predicate the execution point uses — `ConfirmationStore.isSecondPersonApproval`
+        // answers `status === 'approved' && approverId != null`, and `ToolGate` refuses the run when
+        // it answers false. Measuring the gate's own condition (rather than a near-miss) is the point:
+        // if this reading goes to 0, a class that requires a second person is running without the
+        // credential the gate wants.
+        //
+        // `null` for every class that does not require one, so the question enters no other
+        // denominator — asking "was there a second person" of a self-confirmed R3 action would be
+        // charging the record for a stage the event never had.
+        //
+        // 与执行点**同一个**谓词：`ConfirmationStore.isSecondPersonApproval` 答的是
+        // `status === 'approved' && approverId != null`，`ToolGate` 在它为假时拒绝执行。量闸自己那条
+        // 条件（而不是一个近似值）才是要害：这一读若掉到 0，就是某个要求双人的类正在没有闸要的那份凭据
+        // 的情况下跑。
+        //
+        // 不需要第二人的类一律答 `null`，故这一问不进它们的分母 —— 对一个自批的 R3 动作问「有没有第二
+        // 个人」，是在罚记录一个它从未有过的阶段。
+        value: SECOND_APPROVER_REQUIRED[klass]
+          ? Boolean(conf?.status === 'approved' && conf?.approverId)
+          : null,
+        from: 'ai_confirmation_requests.status + approver_id (second person only)',
       },
       result: {
         value: Boolean(toolRow?.outcome),
@@ -410,7 +475,7 @@ interface Reading {
 }
 
 function readingsFor(klass: ClassKind, slice: Slice): Reading {
-  const ar = answerAr(slice);
+  const ar = answerAr(klass, slice);
   const applicable = AR_QUESTIONS.filter((q) => ar.answers[q].value !== null);
   const arNum = applicable.filter((q) => ar.answers[q].value === true).length;
 
@@ -711,12 +776,12 @@ describe('P0-19 ② readings — Action Recoverability × Lifecycle Coverage, th
     expect(timeoutNoConfirmation.lc.present).toBe(readingsFor('timeout', slices.timeout!).lc.present - 1);
     expect(timeoutNoConfirmation.lc.detail['confirmation-asked']).toBe(false);
 
-    // (b) Blank the decider: "who approved" must fall. Since 2026-10-30 the predicate reads
+    // (c) Blank the decider: "who approved" must fall. Since 2026-10-30 the predicate reads
     // `approver_id ?? operator_id`, so removing **both** is what makes it unanswerable — setting
     // `approver_id` alone no longer moves this reading, because the operator already names the
     // decider. Asserting the fall keeps the widened predicate falsifiable instead of always-true.
     //
-    // (b) 抹掉裁决人：「谁批准」必须掉。2026-10-30 起谓词读 `approver_id ?? operator_id`，所以要使它
+    // (c) 抹掉裁决人：「谁批准」必须掉。2026-10-30 起谓词读 `approver_id ?? operator_id`，所以要使它
     // 答不出，得把**两个都**抹掉 —— 只设 `approver_id` 已经不移动这一读了，因为操作人本就点着裁决人。
     // 断言它会掉，是为了让放宽后的谓词仍然可证伪，而不是恒真。
     expect(readingsFor('success', success).ar.detail['who-approved']).toBe(true);
@@ -726,11 +791,11 @@ describe('P0-19 ② readings — Action Recoverability × Lifecycle Coverage, th
     };
     expect(readingsFor('success', withoutDecider).ar.detail['who-approved']).toBe(false);
 
-    // (c) The status test: a row that ended `timeout` is **not** an approval even when it carries a
+    // (d) The status test: a row that ended `timeout` is **not** an approval even when it carries a
     // decider — `expireStale` writes `decided_at` on it. Without this clause the reading would call
     // an expired hold "approved", which is the one way the widened predicate could lie.
     //
-    // (c) 状态判断：收场为 `timeout` 的行**不是**批准，即使它带着裁决人 —— `expireStale` 会给它写
+    // (d) 状态判断：收场为 `timeout` 的行**不是**批准，即使它带着裁决人 —— `expireStale` 会给它写
     // `decided_at`。没有这一条，读数会把一个到期的等待读成「已批准」，那正是放宽后的谓词唯一会撒谎
     // 的方式。
     const timeout = slices.timeout!;
@@ -740,6 +805,24 @@ describe('P0-19 ② readings — Action Recoverability × Lifecycle Coverage, th
     };
     expect(readingsFor('timeout', timeout).ar.detail['who-approved']).toBe(false);
     expect(readingsFor('timeout', timedOutWithDecider).ar.detail['who-approved']).toBe(false);
+
+    // (e) The second-person question is the one that **must** fall when `approver_id` alone goes away,
+    // and this is exactly the case widening `who-approved` made invisible: `who-approved` still
+    // answers true through the operator, so only `who-approved-second` reports the missing credential.
+    //
+    // (e) 第二人那一问，正是在 `approver_id` 单独消失时**必须**掉的那一格 —— 而这恰恰是放宽
+    // `who-approved` 之后看不见的那种情况：`who-approved` 由操作人顶着仍答 true，只有
+    // `who-approved-second` 报出凭据没了。
+    const r4 = slices['r4-approved']!;
+    expect(readingsFor('r4-approved', r4).ar.detail['who-approved-second']).toBe(true);
+    const r4NoApprover: Slice = {
+      ...r4,
+      confirmations: r4.confirmations.map((c) => ({ ...c, approverId: undefined })),
+    };
+    const r4NoApproverReading = readingsFor('r4-approved', r4NoApprover);
+    expect(r4NoApproverReading.ar.detail['who-approved-second']).toBe(false);
+    expect(r4NoApproverReading.ar.detail['who-approved']).toBe(true); // the operator still names a decider
+    expect(r4NoApproverReading.ar.numerator).toBe(readingsFor('r4-approved', r4).ar.numerator - 1);
   });
 });
 
