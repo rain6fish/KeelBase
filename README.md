@@ -238,7 +238,7 @@ The core is UI-framework-agnostic; Flutter / Vue / React are Renderers ([archite
 
 ---
 
-<!-- BEGIN keelbase-family:en sha256:553edd65ddeac1995e55f8e80cc50aa154960df63bf60e5dda1827b16eac8578 -->
+<!-- BEGIN keelbase-family:en sha256:92e82fd34f0a15d22b119841121b79f97caa1bfb8f5d77dcdcf73002c9257be0 -->
 ## 🧬 The KeelBase family
 
 <p align="center">
@@ -276,6 +276,9 @@ Docker) · make an existing Java system AI-capable:
 [`KeelBase-java-starter`](https://github.com/rain6fish/KeelBase-java-starter) · you already run yudao:
 [`KeelBase-YuDao`](https://github.com/rain6fish/KeelBase-YuDao) · implement the protocol:
 [`keelbase-contract`](https://github.com/rain6fish/keelbase-contract).
+
+**Read the series** — the long-form essays behind these decisions, on AI execution governance and
+AI audit evidence: [keelbase.hashnode.dev](https://keelbase.hashnode.dev/).
 
 Which contract version each runtime answers for is maintained **once**, in the main repository — see
 [Compatibility](https://github.com/rain6fish/KeelBase#-compatibility). It is not duplicated here.

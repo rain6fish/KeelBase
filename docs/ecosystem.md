@@ -47,7 +47,7 @@ KeelBase 不是几个并列的产品，而是**一套协议 + 多个实现 + 多
 
 ---
 
-<!-- BEGIN keelbase-family:en sha256:553edd65ddeac1995e55f8e80cc50aa154960df63bf60e5dda1827b16eac8578 -->
+<!-- BEGIN keelbase-family:en sha256:92e82fd34f0a15d22b119841121b79f97caa1bfb8f5d77dcdcf73002c9257be0 -->
 ## 🧬 The KeelBase family
 
 <p align="center">
@@ -86,11 +86,14 @@ Docker) · make an existing Java system AI-capable:
 [`KeelBase-YuDao`](https://github.com/rain6fish/KeelBase-YuDao) · implement the protocol:
 [`keelbase-contract`](https://github.com/rain6fish/keelbase-contract).
 
+**Read the series** — the long-form essays behind these decisions, on AI execution governance and
+AI audit evidence: [keelbase.hashnode.dev](https://keelbase.hashnode.dev/).
+
 Which contract version each runtime answers for is maintained **once**, in the main repository — see
 [Compatibility](https://github.com/rain6fish/KeelBase#-compatibility). It is not duplicated here.
 <!-- END keelbase-family:en -->
 
-<!-- BEGIN keelbase-family:zh sha256:cc21dacd4382cad1e520b0f2b43fe47b25146bddf82f13bf64eb12b7cc6a16f2 -->
+<!-- BEGIN keelbase-family:zh sha256:7870abdc3207482b1d3d1a8f7018f0479182ac0d42b052cd6496d3be34f4eba1 -->
 ## 🧬 KeelBase 家族
 
 <p align="center">
@@ -127,6 +130,9 @@ Docker）· 想让存量 Java 系统具备 AI 能力：
 [`KeelBase-java-starter`](https://github.com/rain6fish/KeelBase-java-starter) · 你已经在用芋道：
 [`KeelBase-YuDao`](https://github.com/rain6fish/KeelBase-YuDao) · 想实现这个协议：
 [`keelbase-contract`](https://github.com/rain6fish/keelbase-contract)。
+
+**系列长文** —— 这些决定背后的长文，分「AI 执行治理」「AI 审计证据」两条线：
+[OSChina 文集](https://my.oschina.net/u/4166179/blog)。
 
 每个 runtime 对着哪一版契约应答，**只在主仓维护一处**——见
 [兼容矩阵](https://github.com/rain6fish/KeelBase/blob/main/README.zh-CN.md#-兼容矩阵)。此处不重复。

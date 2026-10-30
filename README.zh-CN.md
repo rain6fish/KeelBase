@@ -231,7 +231,7 @@ node scripts/keelbase-init.mjs --spec specs/invoices.json
 
 ---
 
-<!-- BEGIN keelbase-family:zh sha256:cc21dacd4382cad1e520b0f2b43fe47b25146bddf82f13bf64eb12b7cc6a16f2 -->
+<!-- BEGIN keelbase-family:zh sha256:7870abdc3207482b1d3d1a8f7018f0479182ac0d42b052cd6496d3be34f4eba1 -->
 ## 🧬 KeelBase 家族
 
 <p align="center">
@@ -268,6 +268,9 @@ Docker）· 想让存量 Java 系统具备 AI 能力：
 [`KeelBase-java-starter`](https://github.com/rain6fish/KeelBase-java-starter) · 你已经在用芋道：
 [`KeelBase-YuDao`](https://github.com/rain6fish/KeelBase-YuDao) · 想实现这个协议：
 [`keelbase-contract`](https://github.com/rain6fish/keelbase-contract)。
+
+**系列长文** —— 这些决定背后的长文，分「AI 执行治理」「AI 审计证据」两条线：
+[OSChina 文集](https://my.oschina.net/u/4166179/blog)。
 
 每个 runtime 对着哪一版契约应答，**只在主仓维护一处**——见
 [兼容矩阵](https://github.com/rain6fish/KeelBase/blob/main/README.zh-CN.md#-兼容矩阵)。此处不重复。

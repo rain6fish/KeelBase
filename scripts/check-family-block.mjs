@@ -66,6 +66,17 @@ for (const file of CANDIDATES) {
         ? `${file}：标记行缺 sha256 戳，需跑一次同步 / region present but unstamped — run the sync script`
         : `${file}：找不到「KeelBase 家族」标记区 / no family-block region found`,
     );
+  } else {
+    // A malformed BEGIN (bad stamp, mismatched END tag, extra spacing) is invisible to REGION_RE.
+    // Count the raw markers so one well-formed region next to a broken one cannot hide the break.
+    // 格式坏掉的 BEGIN（戳不对、END 标签不匹配、多余空格）匹配不上 REGION_RE；数一遍原始标记，
+    // 免得一个正常区域把旁边坏掉的那个盖住。
+    const declared = text.split(BEGIN).length - 1;
+    if (declared !== found) {
+      failures.push(
+        `${file}：${declared - found} 个标记区无法解析（戳格式或 END 标签不匹配）/ unparseable region(s)`,
+      );
+    }
   }
 }
 
