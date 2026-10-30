@@ -49,8 +49,11 @@ describe('ACT-5/6 切片1：本地写 claim → execute → settle', () => {
       destinationOf: () => 'local',
     };
     const externalTools = { current: undefined };
-    // 位置式装配：`claimsRepo` 在构造器**末尾**（第 11 位），故中间位补 undefined ——
-    // 这正是把它放末尾的原因（既有 39 处位置式装配不受扰动）。
+    // Positional assembly: `dataSource` is the 7th argument and `claimsRepo` the last (11th), so the
+    // other middle slots are undefined. `dataSource` must be supplied: AW-11's paired audit/claim edge
+    // write needs it for the transaction (without it only the claim side is written).
+    // 位置式装配：`dataSource` 在第 7 位、`claimsRepo` 在构造器**末尾**（第 11 位），故其余中间位补 undefined。
+    // 其中 `dataSource` 必给：AW-11 的「审计行正/反向边成对写」靠它开事务（缺它则只写占位侧）。
     effects = new AiToolEffectsService(
       ds.getRepository(AiToolSideEffect),
       undefined,
@@ -58,7 +61,7 @@ describe('ACT-5/6 切片1：本地写 claim → execute → settle', () => {
       undefined,
       undefined,
       undefined,
-      undefined,
+      ds,
       undefined,
       undefined,
       undefined,
@@ -255,6 +258,74 @@ describe('ACT-5/6 切片1：本地写 claim → execute → settle', () => {
     expect(withAuth?.authorizationRef).toBe('tok-1');
     // 没有授权参与 ⇒ `null` 是**答案**（没有审批，也就没有窗口），不是「未知」
     expect(auto?.authorizationRef ?? null).toBeNull();
+  });
+
+  describe('AW-11 形状 A：审计行 → 占位行的正向边（成对写）', () => {
+    const REF = {
+      userId: CTX.userId,
+      conversationId: CTX.conversationId,
+      toolName: CTX.toolName,
+      argsJson: JSON.stringify(CTX.args),
+    };
+
+    const seedClaim = (): Promise<AiWriteClaim> =>
+      claims().save(
+        claims().create({
+          idempotencyKey: key(),
+          userId: CTX.userId,
+          conversationId: CTX.conversationId,
+          toolName: CTX.toolName,
+          argsHash: 'h',
+          status: WRITE_CLAIM_STATUS.SETTLED,
+          claimedAt: new Date(),
+          attempts: 1,
+        }),
+      );
+
+    const seedAudit = (): Promise<AiAuditLog> => {
+      const repo = ds.getRepository(AiAuditLog);
+      return repo.save(
+        repo.create({
+          userId: CTX.userId,
+          conversationId: CTX.conversationId,
+          action: 'tool_call',
+          isError: false,
+        }),
+      );
+    };
+
+    it('claim.audit_row_id 与 audit.write_claim_id 成对写入', async () => {
+      const claim = await seedClaim();
+      const audit = await seedAudit();
+
+      await effects.attachAuditRow(REF, audit.id);
+
+      expect((await claims().findOne({ where: { id: claim.id } }))?.auditRowId).toBe(audit.id);
+      const linkedAudit = await ds.getRepository(AiAuditLog).findOne({ where: { id: audit.id } });
+      // The forward edge: from the audit row one reaches **this** claim (not one guessed by tool name + time).
+      // 正向边：从审计行出发能走到**这条**占位行（不是靠工具名 + 时间猜出来的）。
+      expect(linkedAudit?.writeClaimId).toBe(claim.id);
+    });
+
+    it('没有占位行 ⇒ 审计侧**不写**（宁可少一条链接，也不挂错行）', async () => {
+      const audit = await seedAudit();
+
+      await effects.attachAuditRow(REF, audit.id);
+
+      const untouched = await ds.getRepository(AiAuditLog).findOne({ where: { id: audit.id } });
+      expect(untouched?.writeClaimId ?? null).toBeNull();
+      expect(await claims().count()).toBe(0);
+    });
+
+    it('事务性：审计行不存在 ⇒ 占位侧回滚（两侧都保持 null，不留半条边）', async () => {
+      const claim = await seedClaim();
+
+      // A non-existent audit row id throws inside the transaction, so the claim side rolls back.
+      // 不存在的审计行 id ⇒ 事务内抛出并回滚。
+      await effects.attachAuditRow(REF, 999_999);
+
+      expect((await claims().findOne({ where: { id: claim.id } }))?.auditRowId ?? null).toBeNull();
+    });
   });
 
   describe('ACT-6 第 2 片：外部写也认领，失败**留 `claimed`** 待对账', () => {

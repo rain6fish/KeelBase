@@ -127,7 +127,11 @@ export class AiToolEffectsService {
     // Built in the constructor body so the signature stays put. Exactly one instance: registration and
     // revocation share it, or the single-writer path ends up with two serialization queues.
     this.chain = new EffectChainWriter(this.effectsRepo, this.auditChain, this.dataSource);
-    this.claims = new WriteClaimStore(this.effectsRepo, this.claimsRepo);
+    // AW-11: the connection goes to the claim store too, so the audit row's forward edge is written
+    // in the same transaction as the claim's `audit_row_id`; without it the store writes claim-side only.
+    // AW-11：连接一并交给占位行 store —— 审计行的正向边（`write_claim_id`）要与占位行的
+    // `audit_row_id` 在同一事务里写；缺连接时 store 退回只写占位侧。
+    this.claims = new WriteClaimStore(this.effectsRepo, this.claimsRepo, this.dataSource);
     this.comparability = new EffectComparabilityStore(this.comparabilityRepo, this.snapshotCaptor);
     // 争议侧回写撤销态列时走**服务上那一处** `_patchRevoke`（撤销侧也在用，单一实现）——
     // 以回调注入而不是各写一份：两条路写同一列，正是本仓反复修的那类缺陷的成因。

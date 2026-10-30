@@ -2,7 +2,7 @@
 
 import { DataSource, QueryRunner } from 'typeorm';
 import { BackfillAiAuditOutcomeAndTool1839000000000 } from '../1839000000000-BackfillAiAuditOutcomeAndTool';
-import { deriveOutcome, deriveTool, BackfillRow } from '../../ai/audit/audit-outcome';
+import { deriveOutcome, deriveTool, BackfillRow } from '../../governance-shared/services/audit-outcome';
 
 /**
  * **本文件必须留在 `src/migrations/__tests__/`**：迁移 glob 是**非递归**的，只有放进子目录才能既与

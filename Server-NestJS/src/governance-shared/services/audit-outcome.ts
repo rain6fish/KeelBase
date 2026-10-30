@@ -14,6 +14,11 @@
  * They are also shared with the specs, which build fixture rows through them, so a fixture cannot
  * state a shape no writer could produce.
  *
+ * Home is this module rather than `src/ai/audit`: three domains need the rules (the backfill migration,
+ * the report and the statistics), and `check:governance-imports` (S4-H4-C) forbids a governance module
+ * from reaching into `src/ai` at runtime. Moving the helper is what that gate asks for; importing it
+ * across the boundary would have been recorded as a new coupling.
+ *
  * 一行**历史**审计行的 `outcome` 与 `tool` 本会是什么，从这样一行已经带着的三个值推出来。
  *
  * 它们住在自己这个模块里、而**不在用它们的那个迁移文件里**，理由值得写下来：TypeORM 按迁移 glob
@@ -22,14 +27,25 @@
  * `Cannot read properties of undefined (reading 'action')`），没有安静地过去。
  *
  * 它们也与 spec 共用：夹具行经它们构造，故夹具**说不出**写入方写不出的形状。
+ *
+ * 归属是本模块而不是 `src/ai/audit`：三处都要用这两条规则（回填迁移、报表域、统计域），而
+ * `check:governance-imports`（S4-H4-C）禁止治理模块在运行时伸进 `src/ai`。闸要的就是把助手搬过来；
+ * 跨边界去 import 它，会被记成一条新增耦合。
  */
 
-/** The row shape the two rules read. Only what they actually look at. */
+/**
+ * The row shape the two rules read. Only what they actually look at, and every field the entity
+ * types as optional stays optional here — the read path hands over `AiAuditLog` rows, and a rule
+ * that demands `null` where a column may be `undefined` cannot accept its own writer's output.
+ *
+ * 两条规则所读的行形状。只列它们真看的字段，且**实体里可选的字段在这里也可选** —— 读侧递给它们的是
+ * `AiAuditLog` 行，而一条要求 `null`、实际列可能 `undefined` 的规则，接受不了自己写入方的产出。
+ */
 export interface BackfillRow {
   action: string;
-  detail: string | null;
-  isError: boolean | number | null;
-  authorization: string | null;
+  detail?: string | null;
+  isError?: boolean | number | null;
+  authorization?: string | null;
 }
 
 /** `name(args)`, `name(args) → outcome`, or `Tool: name` — the shapes `detail` can take. */
@@ -73,6 +89,20 @@ export function deriveOutcome(row: BackfillRow): string | null {
   if (row.action === 'effect_revoke') return 'revoked';
 
   return null;
+}
+
+/**
+ * The outcome a row **has**: the column when it was written, and the derived word for rows that
+ * predate it. Every counter that reads an outcome goes through this, so a report cannot count the
+ * present one way and the history another — the two halves of one payload disagreeing about the same
+ * row is exactly what this exists to prevent.
+ *
+ * 一行**实际带着**的结局：写了列就用列，早于该列的行用推导出来的词。凡是读结局的计数都经过这里，
+ * 于是同一份报表不会对当下用一套口径、对历史用另一套 —— 同一份载荷的两半对同一行给出不同的答案，
+ * 正是这个函数要防的那件事。
+ */
+export function resolveOutcome(row: BackfillRow & { outcome?: string | null }): string | null {
+  return row.outcome ?? deriveOutcome(row);
 }
 
 /**

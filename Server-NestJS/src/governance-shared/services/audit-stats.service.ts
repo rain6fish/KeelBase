@@ -102,6 +102,10 @@ export class AuditStatsService {
         detail: true,
         authorization: true,
         errorMessage: true,
+        // `byDay` buckets read the `outcome` column. Leave it out and the aggregation silently falls
+        // back to deriving the word, which is the reading the report domain already left behind.
+        // `byDay` 按 `outcome` 列分桶。不选它，聚合就悄悄退回到推导，而那份读法正是报表域已经放下的。
+        outcome: true,
       },
     });
 
