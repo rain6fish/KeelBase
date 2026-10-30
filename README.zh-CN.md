@@ -10,6 +10,8 @@
 
 **KeelBase DNA** —— *AI Generates. Architecture Constrains. Runtime Governs. Tests Verify. Humans Decide.*（AI 生成，架构约束，运行时治理，测试验证，人来决断。）业务边界由**运行时**强制，而非提示词；Agent 的**能力 ≠ 它的权限**；信任靠**可运行的验证**证明、不靠声称；重要动作**可恢复**。完整工程哲学见 [docs/keelbase-dna.md](docs/keelbase-dna.md)。
 
+**系列长文** —— 这些决定背后的长文，分「AI 执行治理」「AI 审计证据」两条线：[OSChina 文集](https://my.oschina.net/u/4166179/blog)。
+
 ---
 
 ## 🚀 60 秒体验

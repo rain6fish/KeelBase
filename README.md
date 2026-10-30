@@ -17,6 +17,8 @@
 
 **The KeelBase DNA** — *AI Generates. Architecture Constrains. Runtime Governs. Tests Verify. Humans Decide.* Business boundaries are enforced by the **Runtime**, not prompts; an Agent's **capability ≠ its authority**; trust is **proven by runnable verification**, not claimed; important actions are **recoverable**. Full engineering philosophy: [docs/keelbase-dna.md](docs/keelbase-dna.md).
 
+**Articles** — the long-form essays behind these decisions, on AI execution governance and AI audit evidence: [keelbase.hashnode.dev](https://keelbase.hashnode.dev/).
+
 ---
 
 ## 🚀 Try in 60 Seconds
