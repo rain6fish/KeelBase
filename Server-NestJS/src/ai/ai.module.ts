@@ -584,6 +584,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
           settingsService,
           governancePolicy,
           contentSafety,
+          toolEffectsService,
         );
       },
       inject: [ConfigService, EventsService, UsersService, OrgService, OrgDirectoryService, ConversationService, AuditService, AiDailyUsageService, ToolGateService, ToolExecutionService, R4ApprovalService, ToolPresentationService, ToolExposureService, KnowledgeService, CaslAbilityFactory, TodosService, LeaveRequestsService, InventoryMovementsService, AssetLoansService, PointsLedgersService, PointRecordsService, PostsService, TagsService, SuppliersService, NotesService, BooksService, ReportsService, FollowupPlansService, ContractsService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, AiToolEffectsService, GovernancePolicyService, CrmService, CrmAnalyticsService, PmService, ApprovalService, DelegationTokenService, ContentSafetyService, ToolRegistry, AuthorizationExplainerService],
