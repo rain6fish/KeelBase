@@ -245,8 +245,44 @@ function answerAr(slice: Slice): { asked: boolean; answers: Record<ArQuestion, A
         //
         // 没有问过确认就没有「谁批准」可言（把不存在的阶段算进分母是在罚记录）。但**待批行**
         // （超时）是适用的，它答「无人裁决」。
-        value: asked ? Boolean(conf?.approverId && conf?.decidedAt) : null,
-        from: 'ai_confirmation_requests.approver_id + decided_at',
+        //
+        // ⚠ **Predicate change, 2026-10-30** — this used to read `approver_id` alone, and that
+        // column does not mean "who decided". It is the **second person** credential R4's two-person
+        // approval turns on (`ConfirmationStore.isSecondPersonApproval`, consulted at the execution
+        // point by `ToolGate.assertApprovalRequirementHolds`), and the in-stream and out-of-band
+        // decision paths deliberately leave it null: a person confirming their own R3 action lands
+        // `approved` too, but is not a second approver. So the old predicate reported a **false
+        // negative** — it said "who approved" was unanswerable for a self-confirmed action even
+        // though the record names the decider exactly (`operator_id` + `decided_at`). Widening it
+        // does not touch the writer, and must not: writing `approver_id` where a person confirms
+        // their own action would satisfy the second-person gate for every self-approval, which is a
+        // way around it.
+        //
+        // The status test is what keeps "nobody decided" answered as **nobody**: `expireStale` writes
+        // `decided_at` on a row that timed out, so `decided_at` alone would call an expired hold
+        // approved. A class that ended in `timeout` still answers false — that is its answer, not a
+        // missing fact.
+        //
+        // ⚠ **谓词变更（2026-10-30）** —— 此前只读 `approver_id`，而那一列的意思不是「谁裁决」。
+        // 它是 R4 双人审批赖以判定的**第二个人**凭据（`isSecondPersonApproval`，执行点
+        // `assertApprovalRequirementHolds` 会查），而对话内与离线裁决两条路**有意留空**：本人确认
+        // 自己的 R3 动作同样落 `approved`，但不是第二审批人。所以旧谓词报的是**假阴性** —— 自批的
+        // 动作它答不出「谁批准」，尽管记录精确地点着裁决人（`operator_id` + `decided_at`）。放宽这一问
+        // **不碰写入端**，而且不能碰：在本人自批处写 `approver_id`，会让每一次自批都满足第二人判定，
+        // 那就是绕过它的一条路。
+        //
+        // 状态判断是为了让「无人裁决」仍然答成**没人**：`expireStale` 会给超时行也写 `decided_at`，
+        // 只看它会把一个到期的等待当成已批准。收场为 `timeout` 的类照样答 false —— 那是它的答案，
+        // 不是缺一个事实。
+        value: asked
+          ? Boolean(
+              conf &&
+                (conf.status === 'approved' || conf.status === 'declined') &&
+                conf.decidedAt &&
+                (conf.approverId ?? conf.operatorId),
+            )
+          : null,
+        from: 'ai_confirmation_requests.status + decided_at + (approver_id ?? operator_id)',
       },
       result: {
         value: Boolean(toolRow?.outcome),
@@ -654,7 +690,7 @@ describe('P0-19 ② readings — Action Recoverability × Lifecycle Coverage, th
       audits: success.audits.map((a) => (a.action === 'tool_call' ? { ...a, outcome: null } : a)),
     };
     const afterDrop = readingsFor('success', withoutOutcome);
-    expect(afterDrop.ar.numerator).toBe(4); // 5 → 4
+    expect(afterDrop.ar.numerator).toBe(5); // 6 → 5
     // Two stages fall, not one: `execution` is reachable only through `outcome` as well, because
     // `ai_confirmation_requests.executed_at` stays null on this path even though the tool did run.
     // That coupling is a finding of its own, and this assertion pins it.
@@ -675,26 +711,35 @@ describe('P0-19 ② readings — Action Recoverability × Lifecycle Coverage, th
     expect(timeoutNoConfirmation.lc.present).toBe(readingsFor('timeout', slices.timeout!).lc.present - 1);
     expect(timeoutNoConfirmation.lc.detail['confirmation-asked']).toBe(false);
 
-    const withApprover: Slice = {
-      ...success,
-      confirmations: success.confirmations.map((c) => ({ ...c, approverId: '91001' })),
-    };
-    const afterApprove = readingsFor('success', withApprover);
-    expect(afterApprove.ar.detail['who-approved']).toBe(true);
-    expect(afterApprove.ar.numerator).toBe(6); // 5 → 6
-
-    // (c) The R4 door is the one where "who approved" is genuinely answered. Blank the approver and
-    // the reading must fall — otherwise the 5/6 measured there would mean nothing.
+    // (b) Blank the decider: "who approved" must fall. Since 2026-10-30 the predicate reads
+    // `approver_id ?? operator_id`, so removing **both** is what makes it unanswerable — setting
+    // `approver_id` alone no longer moves this reading, because the operator already names the
+    // decider. Asserting the fall keeps the widened predicate falsifiable instead of always-true.
     //
-    // (c) R4 那扇门才是「谁批准」真答得出的一扇。把审批人抹掉、读数必须跟着掉 —— 否则那边测出的
-    // 5/6 什么也没说明。数值见下。
-    const r4 = slices['r4-approved']!;
-    const r4NoApprover: Slice = {
-      ...r4,
-      confirmations: r4.confirmations.map((c) => ({ ...c, approverId: undefined })),
+    // (b) 抹掉裁决人：「谁批准」必须掉。2026-10-30 起谓词读 `approver_id ?? operator_id`，所以要使它
+    // 答不出，得把**两个都**抹掉 —— 只设 `approver_id` 已经不移动这一读了，因为操作人本就点着裁决人。
+    // 断言它会掉，是为了让放宽后的谓词仍然可证伪，而不是恒真。
+    expect(readingsFor('success', success).ar.detail['who-approved']).toBe(true);
+    const withoutDecider: Slice = {
+      ...success,
+      confirmations: success.confirmations.map((c) => ({ ...c, approverId: undefined, operatorId: '' })),
     };
-    expect(readingsFor('r4-approved', r4).ar.detail['who-approved']).toBe(true);
-    expect(readingsFor('r4-approved', r4NoApprover).ar.detail['who-approved']).toBe(false);
+    expect(readingsFor('success', withoutDecider).ar.detail['who-approved']).toBe(false);
+
+    // (c) The status test: a row that ended `timeout` is **not** an approval even when it carries a
+    // decider — `expireStale` writes `decided_at` on it. Without this clause the reading would call
+    // an expired hold "approved", which is the one way the widened predicate could lie.
+    //
+    // (c) 状态判断：收场为 `timeout` 的行**不是**批准，即使它带着裁决人 —— `expireStale` 会给它写
+    // `decided_at`。没有这一条，读数会把一个到期的等待读成「已批准」，那正是放宽后的谓词唯一会撒谎
+    // 的方式。
+    const timeout = slices.timeout!;
+    const timedOutWithDecider: Slice = {
+      ...timeout,
+      confirmations: timeout.confirmations.map((c) => ({ ...c, approverId: '91001' })),
+    };
+    expect(readingsFor('timeout', timeout).ar.detail['who-approved']).toBe(false);
+    expect(readingsFor('timeout', timedOutWithDecider).ar.detail['who-approved']).toBe(false);
   });
 });
 

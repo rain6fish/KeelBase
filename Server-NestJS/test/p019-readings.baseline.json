@@ -20,7 +20,7 @@
           "who": "ai_audit_logs.user_id + username",
           "what": "ai_audit_logs.tool + ai_audit_logs.tool_args",
           "why-allowed": "ai_audit_logs.authorization",
-          "who-approved": "ai_confirmation_requests.approver_id + decided_at",
+          "who-approved": "ai_confirmation_requests.status + decided_at + (approver_id ?? operator_id)",
           "result": "ai_audit_logs.outcome",
           "how-proved": "ai_audit_logs.hash (+ prev_hash chain)"
         }
@@ -59,7 +59,7 @@
           "who": "ai_audit_logs.user_id + username",
           "what": "ai_audit_logs.tool + ai_audit_logs.tool_args",
           "why-allowed": "ai_audit_logs.authorization",
-          "who-approved": "ai_confirmation_requests.approver_id + decided_at",
+          "who-approved": "ai_confirmation_requests.status + decided_at + (approver_id ?? operator_id)",
           "result": "ai_audit_logs.outcome",
           "how-proved": "ai_audit_logs.hash (+ prev_hash chain)"
         }
@@ -98,7 +98,7 @@
           "who": "ai_audit_logs.user_id + username",
           "what": "ai_audit_logs.tool + ai_audit_logs.tool_args",
           "why-allowed": "ai_audit_logs.authorization",
-          "who-approved": "ai_confirmation_requests.approver_id + decided_at",
+          "who-approved": "ai_confirmation_requests.status + decided_at + (approver_id ?? operator_id)",
           "result": "ai_audit_logs.outcome",
           "how-proved": "ai_audit_logs.hash (+ prev_hash chain)"
         }
@@ -137,7 +137,7 @@
           "who": "ai_audit_logs.user_id + username",
           "what": "ai_audit_logs.tool + ai_audit_logs.tool_args",
           "why-allowed": "ai_audit_logs.authorization",
-          "who-approved": "ai_confirmation_requests.approver_id + decided_at",
+          "who-approved": "ai_confirmation_requests.status + decided_at + (approver_id ?? operator_id)",
           "result": "ai_audit_logs.outcome",
           "how-proved": "ai_audit_logs.hash (+ prev_hash chain)"
         }
@@ -176,7 +176,7 @@
           "who": "ai_audit_logs.user_id + username",
           "what": "ai_audit_logs.tool + ai_confirmation_requests.args",
           "why-allowed": "ai_audit_logs.authorization",
-          "who-approved": "ai_confirmation_requests.approver_id + decided_at",
+          "who-approved": "ai_confirmation_requests.status + decided_at + (approver_id ?? operator_id)",
           "result": "ai_audit_logs.outcome",
           "how-proved": "ai_audit_logs.hash (+ prev_hash chain)"
         }
@@ -201,13 +201,13 @@
       "door": "chat",
       "klass": "success",
       "ar": {
-        "numerator": 5,
+        "numerator": 6,
         "denominator": 6,
         "detail": {
           "who": true,
           "what": true,
           "why-allowed": true,
-          "who-approved": false,
+          "who-approved": true,
           "result": true,
           "how-proved": true
         },
@@ -215,7 +215,7 @@
           "who": "ai_audit_logs.user_id + username",
           "what": "ai_audit_logs.tool + ai_audit_logs.tool_args",
           "why-allowed": "ai_audit_logs.authorization",
-          "who-approved": "ai_confirmation_requests.approver_id + decided_at",
+          "who-approved": "ai_confirmation_requests.status + decided_at + (approver_id ?? operator_id)",
           "result": "ai_audit_logs.outcome",
           "how-proved": "ai_audit_logs.hash (+ prev_hash chain)"
         }
@@ -254,7 +254,7 @@
           "who": "ai_audit_logs.user_id + username",
           "what": "ai_audit_logs.tool + ai_audit_logs.tool_args",
           "why-allowed": "ai_audit_logs.authorization",
-          "who-approved": "ai_confirmation_requests.approver_id + decided_at",
+          "who-approved": "ai_confirmation_requests.status + decided_at + (approver_id ?? operator_id)",
           "result": "ai_audit_logs.outcome",
           "how-proved": "ai_audit_logs.hash (+ prev_hash chain)"
         }
