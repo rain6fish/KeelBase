@@ -158,13 +158,6 @@
               <div class="text-h6">{{ actionReport.summary.effects }}</div>
               <div class="text-caption text-medium-emphasis">{{ t('secActionEffects') }}</div>
             </el-card>
-            <!-- 存在、请求成功、却从每个数里消失的行：宁可显示一个刺眼的数，也不能让它读成「没有」 -->
-            <el-card shadow="never" class="flex-1" style="min-width: 140px">
-              <div class="text-h6" :class="{ 'text-warning': actionReport.unaccounted.count > 0 }">
-                {{ actionReport.unaccounted.count }}
-              </div>
-              <div class="text-caption text-medium-emphasis">{{ t('secActionUnaccounted') }}</div>
-            </el-card>
             <el-card shadow="never" class="flex-1" style="min-width: 160px">
               <div class="d-flex align-center ga-1">
                 <StatusChip
@@ -174,9 +167,6 @@
               </div>
               <div class="text-caption text-medium-emphasis mt-1">
                 {{ t('secActionChain') }} ({{ actionReport.hashChain.checked }} / {{ actionReport.hashChain.tableRows }})
-              </div>
-              <div v-if="actionReport.hashChain.unverifiedIds.count > 0" class="text-caption text-warning">
-                {{ t('secChainUnverified') }}: {{ actionReport.hashChain.unverifiedIds.count }}
               </div>
             </el-card>
           </div>

@@ -296,7 +296,7 @@ first release rather than assembled when someone asks.
 |---|---|---|
 | `KeelBase` (TypeScript) | `v1.2.0` | **v1.12.0** — bound as a submodule |
 | `KeelBase` (TypeScript) | `v1.1.0` | **v1.6.0** — bound as a submodule |
-| `KeelBase` (TypeScript) | `main`, **unreleased** | **v1.15.0** — bound as a submodule |
+| `KeelBase` (TypeScript) | `main`, **unreleased** | **v1.16.0** — bound as a submodule |
 | `KeelBase` (TypeScript) | `v1.0.11`, superseded | **v1.0.1** — carried in-tree; that release predates the contract repository |
 | [`KeelBase4J`](https://github.com/rain6fish/KeelBase4J) (Java) | `v0.1.0` | **v1.1.0** — vendored snapshot, taken from the contract repository |
 

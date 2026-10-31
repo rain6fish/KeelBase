@@ -1279,8 +1279,6 @@ const zh = {
   secActionRefused: '治理/授权拒绝',
   secActionErrors: '错误',
   secActionEffects: '可撤销副作用',
-  secActionUnaccounted: '未归类工具行',
-  secChainUnverified: '未入链行',
   secActionChain: '哈希链校验',
   secActionByType: '按类型分布',
   secTrendTitle: '按日趋势',

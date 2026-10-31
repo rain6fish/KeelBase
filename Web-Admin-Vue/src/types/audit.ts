@@ -186,37 +186,11 @@ export interface HashNode {
   broken?: boolean
 }
 
-/**
- * 一个 id 集合的指纹：`count` 之外还给读者一个能自己重算的值。
- * sha256(升序 id 以 "," 连接) 取前 16 位十六进制 —— 读者枚举到的集合与这里的摘要不符，
- * 就说明「公开读面交出来的」与「写入方数过的」不是同一批行。
- */
-export interface IdSetSummary {
-  min: number | null
-  max: number | null
-  count: number
-  digest: string
-}
-
-/** 差额清单：`ids` 封顶（200），`count` 与 `digest` 保持精确。 */
-export interface IdListing extends IdSetSummary {
-  ids: number[]
-  truncated: boolean
-}
-
-/** 一次链结论覆盖了**哪些**行，而不只是多少行。 */
-export interface ChainVerificationSummary {
+/** HS-11 审计哈希链校验结果（含逐行链切片） */
+export interface ChainVerifyResult {
   valid: boolean
   checked: number
-  brokenIndex: number | null
-  tableRows: number
-  tableIds: IdSetSummary
-  verifiedIds: IdSetSummary
-  unverifiedIds: IdListing
-}
-
-/** HS-11 审计哈希链校验结果（含逐行链切片 + 成员性指纹） */
-export interface ChainVerifyResult extends ChainVerificationSummary {
+  brokenIndex?: number | null
   chain: HashNode[]
 }
 
@@ -237,10 +211,8 @@ export interface ActionReport {
   byAction: Array<{ action: string; count: number }>
   /** B3 时间趋势：按日聚合执行/批准/拒绝/阻断/被拒/错误（升序） */
   byDay: AuditByDayBucket[]
-  /** `checked` 只数已入链的行；两个 id 集指纹让读者能自己去核，而不是相信一对计数 */
-  hashChain: ChainVerificationSummary
-  /** 在范围里却一桶不进的工具行：它们存在、请求成功，且从每个数里消失 */
-  unaccounted: IdListing & { reasons: Record<string, number> }
+  /** `checked` 只数已入链的行；`tableRows` 是表内行数，差额即从未参与校验的行 */
+  hashChain: { valid: boolean; checked: number; brokenIndex: number | null; tableRows: number }
   samples: Array<{
     id: number
     action: string
