@@ -45,31 +45,37 @@ manifest 旧于当前 CLI 时，`keelbase doctor` 会报出并建议重跑 `keel
 
 | Line / 版本线 | Status / 状态 | Release trigger / 发布触发 |
 |---|---|---|
-| `1.2.x` | **Current — actively maintained / 当前维护线** | Continuous incremental releases / 持续增量发布 |
-| `1.1.x` | **Superseded / 已被取代** — superseded by 1.2.0 / 已被 1.2.0 取代 | Upgrade to `1.2.x` / 升级到 `1.2.x` |
-| `1.0.x` | **Superseded / 已被取代** — superseded by 1.1.0 / 已被 1.1.0 取代 | Upgrade to `1.2.x` / 升级到 `1.2.x` |
+| `1.3.x` | **Current — actively maintained / 当前维护线** | Continuous incremental releases / 持续增量发布 |
+| `1.2.x` | **Superseded / 已被取代** — superseded by 1.3.0 / 已被 1.3.0 取代 | Upgrade to `1.3.x` / 升级到 `1.3.x` |
+| `1.1.x` | **Superseded / 已被取代** — superseded by 1.2.0 / 已被 1.2.0 取代 | Upgrade to `1.3.x` / 升级到 `1.3.x` |
+| `1.0.x` | **Superseded / 已被取代** — superseded by 1.1.0 / 已被 1.1.0 取代 | Upgrade to `1.3.x` / 升级到 `1.3.x` |
 | `2.x` | Future / 未来 | Breaking changes, when accumulated / 破坏性变更累积后 |
 
-### Current: 1.2.x — Governance Surface edition / 当前：1.2.x 治理面版
+### Current: 1.3.x — Accountable Evidence edition / 当前：1.3.x 可核证据版
 
-The current line is the Governance Surface edition, first released on 2026-10-18. It makes authorization
-readable as a surface — capability lists, decision explanations and a data-permission boundary view —
-merges one AI action's audit, confirmation and effect rows into one timeline and one status, and gives
-every refusal the same structured "why and what next" guidance. The `main` branch is the development line;
-each tagged release is a stable snapshot that passes the full CI and test suite.
+The current line is the Accountable Evidence edition, first released on 2026-10-31. It makes the audit
+record accountable from both ends: an audit row links to the write claim that produced it and a
+reachability reading says how many rows cannot be traced to one, a refused call gets its own counter, and
+the explanation face names the authorization that actually let the write run. The readings instrument
+takes seven action classes on one command and runs nightly in CI, alerting only. The contract is pinned
+at **v1.16.0**. The `main` branch is the development line; each tagged release is a stable snapshot that
+passes the full CI and test suite.
 
-当前版本线是治理面版，首发于 2026-10-18。它把授权变成可读的面 —— 能力清单、决策依据与数据权限边界视图；
-把一次 AI 动作的审计、确认与副作用三行并成一条时间线与一个状态；并让每一种拒绝都带同一套结构化的
-「为什么 + 下一步」。`main` 分支为开发线，每个打了 tag 的版本都是通过完整 CI 与测试套件的稳定快照。
+当前版本线是可核证据版，首发于 2026-10-31。它让审计记录两端都可核：审计行挂回产生它的那条写占位，
+并有一条可达性读数说明有多少行追不到写占位；被拒的调用有自己的计数；解释面点名真正放行这次写入的
+那次授权。读数仪器用一条命令取七类动作的读数，每夜在 CI 里跑、只告警。契约钉在 **v1.16.0**。
+`main` 分支为开发线，每个打了 tag 的版本都是通过完整 CI 与测试套件的稳定快照。
 
-### Superseded: 1.1.x and 1.0.x / 已被取代：1.1.x 与 1.0.x
+### Superseded: 1.2.x, 1.1.x and 1.0.x / 已被取代：1.2.x、1.1.x 与 1.0.x
 
-v1.2.0 superseded the 1.1.x line on 2026-10-18, and v1.1.0 superseded 1.0.x on 2026-10-05. No further
-`1.1.x` or `1.0.x` releases are planned: fixes and security updates land on `main` and ship in the next
-`1.2.x` release. Upgrading to the current line is the supported path.
+v1.3.0 superseded the 1.2.x line on 2026-10-31; v1.2.0 superseded 1.1.x on 2026-10-18, and v1.1.0
+superseded 1.0.x on 2026-10-05. No further `1.2.x`, `1.1.x` or `1.0.x` releases are planned: fixes and
+security updates land on `main` and ship in the next `1.3.x` release. Upgrading to the current line is the
+supported path.
 
-1.2.0 于 2026-10-18 取代 1.1.x 线，1.1.0 于 2026-10-05 取代 1.0.x 线。不再计划发布 `1.1.x` 或 `1.0.x`
-版本：修复与安全更新落在 `main`，随下一个 `1.2.x` 版本发布。升级到当前版本线是受支持的路径。
+1.3.0 于 2026-10-31 取代 1.2.x 线；1.2.0 于 2026-10-18 取代 1.1.x 线，1.1.0 于 2026-10-05 取代 1.0.x 线。
+不再计划发布 `1.2.x`、`1.1.x` 或 `1.0.x` 版本：修复与安全更新落在 `main`，随下一个 `1.3.x` 版本发布。
+升级到当前版本线是受支持的路径。
 
 ## Release process / 发版流程
 

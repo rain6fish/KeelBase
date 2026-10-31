@@ -4,6 +4,125 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 本文件记录 KeelBase 所有值得关注的变更。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.3.0] - 2026-10-31
+
+**v1.3.0 — The Accountable Evidence Release: every write traceable, every reading named / 可核证据版：每一次写入追得回，每一个读数有名字**
+
+### Highlights
+
+- **The audit trail accounts for itself from both ends.** An audit row now declares the write claim
+  that produced it, a refused call gets its own counter instead of hiding among the executions, and
+  chain verification reports the denominator it counted against. `npm run measure:reachability` is the
+  reader for the other direction: it answers "which row types cannot be reached from an audit row?"
+  over a pinned window and row cap, printing the coverage caveat — the column was added without a
+  backfill — before the numbers.
+
+- **The explanation face names the authorization that actually ran.** When a released claim is taken
+  again, it now updates its authorization reference; "who approved this write" no longer points at the
+  attempt that failed before the one that succeeded.
+
+- **A call that never ran stops being called a failure.** The outcome vocabulary gains `not_executed`
+  for a `tool_call` whose confirmation window closed with no decision (contract **v1.15.0**, a new
+  vector beside the frozen one). A held MCP call parks a decidable artifact, a held row carries the
+  basis that put it on hold, and a call's arguments get their own column without entering the hash
+  payload.
+
+- **The readings are an instrument, not a habit.** Seven event classes are measured on one command
+  against a baseline pinned in the repository, and the nightly workflow runs that same command in CI —
+  alert only, no secret, no service, with a two-week observation window before anyone decides whether
+  it blocks.
+
+- **The audit reader's scope is declared rather than implied.** The reader takes rows through a field
+  whitelist and an organisation/period scope, the four aggregate surfaces narrow to the reader's
+  organisation, and the operations audit read face admits the audit reader and joins its navigation.
+
+- **Gates that cannot verify now fail closed.** The contract gate reddens when it cannot resolve the
+  submodule pin, the cross-repo gate compares schemas and not only vectors, entity columns are checked
+  against migrations and not only tables, and the semantic single-source guard sees uncommitted work.
+
+- **The contract moves to v1.15.0 and v1.16.0.** `not_executed` joins the outcome vocabulary, the
+  action report names the gate that refused, and chain verification brings its denominator; the
+  membership output that was not ready was parked rather than shipped, and the pin went back to the
+  released tag.
+
+### Also
+
+- The governance read and write plane moves into a shared module — seven entities, the audit write
+  plane, the read side, the side-effect revoker and the controllers — with an import ratchet and a
+  parity test over both DataSources.
+- Console: a first-run trust setup wizard; the AI execution trace rendered as a node/edge decision
+  graph with each effect's real status; the operations audit page joins the auditor's navigation and
+  states why a write was allowed.
+- Templates: an OA approval vertical (leave requests) and an inventory vertical
+  (purchase-sales-stock).
+- Cold run: step 0 is one idempotent command that fills every gate prerequisite; the restore step
+  covers the whole tree; stopping the dev server is described by what actually brings the port back.
+- The e2e shard harness attributes a shard that dies without a jest summary — exit code, signal,
+  elapsed time and its last output — instead of reporting a bare red; `ws-realtime` loads `.env.test`
+  like the other suites.
+- The readings gate separates five exit codes, names how the child process ended, and retries only a
+  run that produced no jest summary.
+- Frontend: Flutter and Taro state guards stale async responses; Taro's i18n gaps are closed and its
+  locale key aligned with Flutter; `TARO_APP_*` is defined at build time so H5 boots without a bare
+  `process`; avatars and stored upload references are re-signed on read.
+- Generator and CLI: a generated query tool honours the filter it declares, AI tool parameters share
+  the DTO's required defaults, and `--list-tools` shows the risk tier a pre-import tool would carry.
+- Dependencies: the two high advisories on the production tree are cleared.
+- Repository hygiene: a branch keeps its archive only through a lightweight `archive/<date>/<branch>`
+  tag, and is retired once its content is in `main`, no worktree holds it, and that tag exists.
+
+Full details: [v1.3.0 release](https://github.com/rain6fish/KeelBase/releases/tag/v1.3.0)
+
+**中文**
+
+### 亮点
+
+- **审计轨迹两端都交代得清。** 审计行现在声明产生它的那条写占位；被拒的调用有自己的计数，而不是混在
+  执行里；链校验报出它据以计数的分母。另一个方向由 `npm run measure:reachability` 回答：在钉住的
+  时间窗与条数上限内，哪些 row type 从审计行出发走不到 —— 覆盖口径（该列落地时**不回填**）打在数字
+  之前。
+
+- **解释面点名真正放行的那次授权。** 释放后的占位再被领取时，现在会一并更新它的授权引用；
+  「这次写入是谁批的」不再指向前一次失败的那份授权。
+
+- **一次都没跑的调用，不再被叫作失败。** 结局词表新增 `not_executed`，用于确认窗口到期、无人裁决的
+  `tool_call`（契约 **v1.15.0**，新向量与冻结的旧向量并列）。被扣下的 MCP 调用留下可裁决的凭据，
+  被扣下的行带上「凭什么扣下」的依据，调用参数单独成列且不进 hash payload。
+
+- **读数是一件仪器，不是一种自觉。** 七类事件用一条命令取读数，与仓里钉住的基线比对；每夜的
+  workflow 在 CI 里跑同一条命令 —— 只告警、无密钥、无服务，先观察两周，再由人决定它是否阻塞。
+
+- **审计读者的范围是声明出来的，不是默认推出来的。** 读者按字段白名单与组织/期间范围取行，四个聚合面
+  按读者所属组织收窄，操作审计读面接纳审计读者并进入它的导航。
+
+- **核验不了的门禁判红。** 契约闸在解析不出 submodule pin 时判红；跨仓闸比 schema，不只比向量；
+  实体列要对得上迁移，不只对表；语义单源闸看得见未提交的改动。
+
+- **契约升到 v1.15.0 与 v1.16.0。** `not_executed` 进入结局词表；报表点名拒绝它的那道闸；链校验带上
+  分母。尚未就绪的成员性产出被撤下而不是带病发布，pin 回到已发布的 tag。
+
+### 其它
+
+- 治理的读面与写面搬进共享模块 —— 七个实体、审计写入面、读侧、副作用撤销器与各控制器 ——
+  配一道 import 棘轮，以及一个比对两侧 DataSource 的对账测试。
+- 管理台：首次信任配置向导；AI 执行轨迹渲染成节点/边的决策图，每个副作用带真实状态；操作审计页进入
+  审计读者的导航，并写明这次写凭什么被允许。
+- 模板：新增 OA 审批垂直模板（请假申请）与进销存垂直模板（采销存）。
+- 冷跑：第 0 步收敛成一条幂等命令，补齐全部门禁前提；还原那一步覆盖整棵树；停 dev server 那一步改成
+  如实描述端口由什么拉回来。
+- e2e 分片在没产出 jest 汇总行时打印退出码、信号、耗时与末段输出，而不是只报一个红；`ws-realtime`
+  与其余套件一样加载 `.env.test`。
+- 读数闸拆成五态退出码，点名子进程是怎么结束的，只对「没产出 jest 汇总行」的那次重跑。
+- 前端：Flutter 与 Taro 的状态回填挡住过期的异步响应；Taro 的 i18n 缺口补齐、locale 键与 Flutter
+  对齐；`TARO_APP_*` 在构建期定义，H5 不再因裸 `process` 起不来；头像与存量的上传引用在读侧重签。
+- 生成器与 CLI：生成的查询工具兑现它声明的过滤；AI 工具参数与 DTO 共用 required 默认值；
+  `--list-tools` 显示接入前工具会落在哪一档风险。
+- 依赖：生产依赖树上的两个 high 公告已清掉。
+- 分支留档：一条分支的留档就是一枚轻量 `archive/<日期>/<分支>` tag —— 内容已在 `main`、无 worktree
+  持有、tag 在位，三条都成立才撤分支。
+
+完整详情：[v1.3.0 发布](https://gitee.com/rain6fish/KeelBase/releases/tag/v1.3.0)
+
 ## [1.2.0] - 2026-10-18
 
 **v1.2.0 — The Governance Surface Release: decision evidence, one timeline, and a boundary you can read / 治理面版：决策证据、单一时间线，以及读得懂的边界**
