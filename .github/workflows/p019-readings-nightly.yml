@@ -90,5 +90,5 @@ jobs:
       - name: 失败时点名 / name the reason on the run page
         if: failure()
         run: |
-          echo "::error title=P0-19 readings moved::npm run measure:p019 exited non-zero. Either a column the readings depend on stopped being written (the failure this check exists for), or an intended change needs the baseline re-pinned: npm run measure:p019 -- --update. See the step log for the door, class and dimension."
-          echo "::error title=读数动了::npm run measure:p019 非零退出。要么是读数依赖的某一列不再被写了（这正是本闸存在的理由），要么是有意改动需要重新钉基线：npm run measure:p019 -- --update。门、类、维见该步日志。"
+          echo "::error title=P0-19 readings moved::npm run measure:p019 exited non-zero. Read the code: 1 = a reading moved (a column the readings depend on stopped being written, or an intended change needs the baseline re-pinned with npm run measure:p019 -- --update); 2 = the instrument produced no reading at all (how the child ended is named in the step log); 3 = a reading was taken but there is no usable baseline; 4 = the readings match but the instrument's own self-check failed. Door, class and dimension are in the step log."
+          echo "::error title=读数动了::npm run measure:p019 非零退出。先看退出码：1 = 读数动了（读数依赖的某一列不再被写了，或有意改动需要重新钉基线：npm run measure:p019 -- --update）；2 = 仪器根本没产出读数（子进程是怎么结束的，该步日志会点名）；3 = 取到读数但没有可用的基线；4 = 读数一致但仪器自带的自检失败。门、类、维见该步日志。"
