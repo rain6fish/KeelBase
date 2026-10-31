@@ -2,7 +2,7 @@
   "schema": 1,
   "module": "books",
   "generator": "keelbase",
-  "generatorVersion": "1.2.0",
+  "generatorVersion": "1.3.0",
   "protocol": "1.1",
   "source": "spec:specs/books.json",
   "generatedAt": "2026-10-17T21:29:07.284Z"
