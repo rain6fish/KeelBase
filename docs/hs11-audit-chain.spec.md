@@ -77,6 +77,8 @@ Two new admin verification endpoints:
    **Chain algorithm**: `hash = HMAC-SHA256(hmacKey, prevHash|canonicalJSON(payload))`. `hmacKey = sha256('keelbase:audit-chain:v1' + (ENCRYPTION_KEY || JWT_SECRET))` — domain-separated key; an attacker without the key cannot forge a valid chain.
 2. **canonical payload**：字段按名排序、undefined 剔除、JSON 序列化；写入与校验共用同一 `_payload`，保证两端一致。`createdAt`/`id` 不入 payload（createdAt 由 DB 生成），链式顺序由 `prevHash` 绑定。
    **Canonical payload**: fields sorted by name, undefined stripped, JSON-serialized; write and verify share the same `_payload` for consistency. `createdAt`/`id` are excluded (createdAt is DB-generated); chain order is bound by `prevHash`.
+2a. **顺序语义（必须声明，不能留给读者猜）**：`id` 是**分配序**（自增，写入方分配时取得），链按 `id ASC` 构建与校验，故 `prevHash` 见证的是**分配序**。分配序**不等于提交序**：并发下先分配的行可能后提交。本仓**不记录提交序**，因此「分配序与提交序是否一致」在本仓**不可检出** —— 这是一条限制，不是一个已核对的相等关系。对外引用「链的顺序」时须同时说这句，否则它读起来像一次可自证的全序。
+   **Ordering semantics (declared, not left to the reader)**: `id` is **allocation order** (assigned when the writer allocates it), and the chain is built and verified in `id ASC`, so `prevHash` witnesses allocation order. Allocation order is **not** commit order: under concurrency a row allocated first may commit later. This repository **does not record commit order**, so "did allocation order match commit order" is **not detectable here** — a limitation, not a verified equality. Any external statement about "the chain's order" must carry that sentence, or it reads as a self-proving total order.
 3. **校验**：沿 id 升序遍历，重算每条 `hash` 并核对 `prevHash` 连续性；任一不匹配即断链。
    **Verification**: walk by ascending id, recompute each `hash` and check `prevHash` continuity; any mismatch is a break.
 4. **完整性**：改业务字段 → 本条 hash 不匹配；改 hash → 下条 prevHash 不匹配；删/换序 → prevHash 连续性断裂。
