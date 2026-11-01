@@ -34,6 +34,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { collectImportStatements, stripComments } from './lib/import-statements.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SRC = path.join(ROOT, 'Server-NestJS', 'src');
@@ -138,15 +139,6 @@ function listTsFiles(dir) {
   return out;
 }
 
-/**
- * Drop block comments and whole-line `//` comments so a commented-out import is not counted. A trailing
- * `//` comment after real code is left alone (we only need the quoted specifier).
- * 去掉块注释与整行 `//` 注释，避免把注释掉的 import 算进来；代码行尾的 `//` 保留（只需要引号里的说明符）。
- */
-function stripComments(source) {
-  return source.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '));
-}
-
 const toPosix = (p) => p.split(path.sep).join('/');
 
 if (!fs.existsSync(GOVERNANCE)) {
@@ -182,22 +174,18 @@ for (const name of fs.readdirSync(CONFIG).sort()) {
 
 const current = [];
 for (const { file, rel } of scanTargets) {
-  const stripped = stripComments(fs.readFileSync(file, 'utf8')).split(/\r?\n/);
-  stripped.forEach((rawLine, index) => {
-    const line = rawLine.trim();
-    if (line === '' || line.startsWith('//')) return;
-    // Only statements that pull something in: import/export ... from '...', bare import '...', dynamic
-    // import('...'), require('...').
-    // 只看「把东西拉进来」的语句：import/export ... from、裸 import、动态 import()、require()。
-    if (!/\b(import|export|require)\b/.test(line)) return;
-    const specifiers = [...line.matchAll(/['"](\.[^'"]*)['"]/g)].map((m) => m[1]);
-    for (const specifier of specifiers) {
-      const resolved = path.resolve(path.dirname(file), specifier);
-      if (resolved === AI || resolved.startsWith(AI + path.sep)) {
-        current.push({ file: rel, line: index + 1, statement: line, specifier });
-      }
+  // Statement-level, not line-level: a Prettier-folded import puts `import` and the specifier on
+  // different lines, and the old per-line regex passed it silently (`check-governance-imports.test.mjs`
+  // pins the folded shape).
+  // 语句级而非逐行：Prettier 折行后 `import` 与说明符不在同一行，旧的逐行正则会静默放行
+  //（`check-governance-imports.test.mjs` 钉住了这个折行形状）。
+  for (const { line, statement, specifier } of collectImportStatements(fs.readFileSync(file, 'utf8'))) {
+    if (!specifier.startsWith('.')) continue;
+    const resolved = path.resolve(path.dirname(file), specifier);
+    if (resolved === AI || resolved.startsWith(AI + path.sep)) {
+      current.push({ file: rel, line, statement, specifier });
     }
-  });
+  }
 }
 
 const keyOf = (e) => `${e.file} :: ${e.statement}`;

@@ -7,9 +7,10 @@ import { OperationAuditService } from './operation-audit.service';
 import { OperationAuditInterceptor } from './operation-audit.interceptor';
 import { OperationAuditLog } from './operation-audit-log.entity';
 import { AuditChainModule } from '../common/audit-chain/audit-chain.module';
+import { OrgModule } from '../org/org.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([OperationAuditLog]), AuditChainModule],
+  imports: [TypeOrmModule.forFeature([OperationAuditLog]), AuditChainModule, OrgModule],
   controllers: [OperationAuditController],
   providers: [OperationAuditService, OperationAuditInterceptor],
   exports: [OperationAuditService],

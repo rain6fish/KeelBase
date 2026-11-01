@@ -40,6 +40,40 @@ describe('LeaveRequestsService', () => {
     expect(result.userId).toBe(5);
   });
 
+  it('create 一律写 pending —— 客户端夹带 status 也不生效', async () => {
+    // The DTO no longer accepts `status`; this keeps the invariant if the DTO ever changes again.
+    // DTO 已不接受 `status`；这一行让不变量在 DTO 再变时仍然成立。
+    mockRepo.create.mockReturnValue({ id: 1, userId: 5, status: 'pending' });
+
+    await service.create({ requestNo: 'r-1', status: 'approved' } as any, 5);
+
+    expect(mockRepo.create).toHaveBeenCalledWith(expect.objectContaining({ status: 'pending', userId: 5 }));
+  });
+
+  it('非管理员不能改审批状态（自批被拒）', async () => {
+    mockRepo.findOne.mockResolvedValue({ id: 1, userId: 5, version: 1 });
+    // Can read (so the row is found), cannot manage all (so approval is not theirs).
+    // 能读（找得到行），不能 manage all（审批不归他）。
+    const readerAbility = { cannot: (action: string) => action === 'manage' } as any;
+
+    await expect(
+      service.update(1, { version: 1, status: 'approved' } as UpdateLeaveRequestDto, readerAbility),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it('管理员可以改审批状态', async () => {
+    mockRepo.findOne.mockResolvedValue({ id: 1, userId: 5, version: 1 });
+    mockRepo.update.mockResolvedValue({ affected: 1 });
+    const adminAbility = { cannot: () => false } as any;
+
+    await service.update(1, { version: 1, status: 'approved' } as UpdateLeaveRequestDto, adminAbility);
+
+    expect(mockRepo.update).toHaveBeenCalledWith(
+      { id: 1, version: 1 },
+      expect.objectContaining({ status: 'approved' }),
+    );
+  });
+
   it('returns only user leave_requests', async () => {
     mockRepo.find.mockResolvedValue([{ id: 1 }]);
 

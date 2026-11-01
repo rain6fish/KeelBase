@@ -4,6 +4,8 @@ import { Controller, Get, Query, ParseIntPipe, DefaultValuePipe } from '@nestjs/
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { OperationAuditService } from './operation-audit.service';
 import { CheckPolicies } from '../common/casl/check-policies.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 
 /**
  * Every read here is gated on `can('read', 'OperationAudit')` rather than the blanket
@@ -40,23 +42,34 @@ export class OperationAuditController {
   async logs(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
-    @Query('userId') userId?: string,
-    @Query('since') since?: string,
+    @Query('userId') userId: string | undefined,
+    @Query('since') since: string | undefined,
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.auditService.getLogs(page, limit, userId ? Number(userId) : undefined, since ? new Date(since) : undefined);
+    return this.auditService.getLogs(
+      page,
+      limit,
+      userId ? Number(userId) : undefined,
+      since ? new Date(since) : undefined,
+      { userId: user.sub, role: user.role },
+    );
   }
 
   @Get('verify')
   @CheckPolicies((ability) => ability.can('read', 'OperationAudit'))
   @ApiOperation({ summary: 'HS-11 操作审计哈希链完整性校验（admin / 审计读者）' })
   async verify() {
+    // Deliberately whole-chain: a chain verified over a subset is a false verdict. The answer is a
+    // verdict and a count, not row payload — nothing here discloses another organisation's rows.
+    // 有意保持全链：只取一部分验出来的链是假结论。这里返回的是结论与计数，不是行载荷 ——
+    // 不披露其他组织的行内容。
     return this.auditService.verifyChain();
   }
 
   @Get('stats')
   @CheckPolicies((ability) => ability.can('read', 'OperationAudit'))
   @ApiOperation({ summary: '操作审计统计（按 action 分组，admin / 审计读者）' })
-  async stats() {
-    return this.auditService.getStats();
+  async stats(@CurrentUser() user: JwtPayload) {
+    return this.auditService.getStats(undefined, { userId: user.sub, role: user.role });
   }
 }

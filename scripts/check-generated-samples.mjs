@@ -58,6 +58,16 @@ const EXEMPT = new Map([
   ['posts', '生成后**手工扩展**（GROWTH-2 社交功能 + 三个实体）⇒ 重生成会毁掉它，见 roadmap'],
   ['followup_plans', '生成后**手工扩展**（`utcDay` / `utcWeekOf` 日期区间读取）⇒ 重生成会毁掉它，见 roadmap'],
   ['asset_loans', '生成后**手工扩展**（Rule 1 同一资产编号未归还期间不得再登记 · Rule 2 计划归还日须在未来 30 天内 —— Business Spec 的 `unmapped[]` 项）⇒ 重生成会毁掉它，见 docs/manual/delivery-recipe.md'],
+  // Vertical templates are generator output made into a runnable product: the OA approval vertical
+  // adds approval semantics (create is always `pending`, only an admin moves the state) and a form
+  // that matches the server DTO; the inventory vertical adds the same DTO-complete form. A plain
+  // regeneration would drop both — the generator's generic add bar sends one field, which the server
+  // rejects. Moving these into the template is follow-up work; until then the sample is hand-held.
+  // 垂直模板是「生成物 + 产品化」：OA 审批加入审批语义（创建一律 `pending`、仅管理员可改）与按服务端
+  // DTO 补齐的表单；进销存同样是 DTO 完整表单。直接重生成会把两者抹掉 —— 生成器的通用新增栏只发一个
+  // 字段，服务端必然拒绝。把这两项移进模板是后续工作；在此之前样本由手工维护。
+  ['leave_requests', '生成后**手工扩展**（OA 审批垂直模板：创建强制 pending、审批仅管理员可改；Taro/Flutter 表单按后端 DTO 必填项补齐）⇒ 重生成会毁掉它，见 handoff/release-1.3.0-review.md'],
+  ['inventory_movements', '生成后**手工扩展**（进销存垂直模板：Taro 表单按后端 DTO 必填项补齐）⇒ 重生成会毁掉它，见 handoff/release-1.3.0-review.md'],
 ]);
 
 /**

@@ -3,8 +3,10 @@
   &__header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
   &__title { font-size: 20px; font-weight: 600; }
   &__count { font-size: 13px; color: #999; }
+  &__form { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
   &__input-bar { display: flex; gap: 8px; margin-bottom: 12px; }
   &__input { flex: 1; border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px 12px; font-size: 14px; }
+  &__picker { border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px 12px; font-size: 14px; }
   &__add { background: #16a34a; color: #fff; border-radius: 8px; font-size: 14px; }
   &__hint, &__error { font-size: 13px; color: #999; }
   &__error { color: #dc2626; }

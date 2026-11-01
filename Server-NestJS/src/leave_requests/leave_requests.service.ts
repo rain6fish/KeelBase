@@ -23,6 +23,11 @@ export class LeaveRequestsService {
   async create(dto: CreateLeaveRequestDto, userId: number): Promise<LeaveRequest> {
     const entity = this.leave_requestsRepository.create({
       ...dto,
+      // Creation always starts pending, whatever the caller hoped — the DTO no longer accepts a
+      // status at all, and this line keeps the invariant true even if that changes.
+      // 创建一律从 pending 起步，不论调用方期望什么 —— DTO 已不再接受 status，这一行让不变量在
+      // DTO 再变时仍然成立。
+      status: 'pending',
       userId,
     });
     return this.leave_requestsRepository.save(entity);
@@ -64,6 +69,13 @@ export class LeaveRequestsService {
   async update(id: number, dto: UpdateLeaveRequestDto, ability: AppAbility): Promise<LeaveRequest> {
     const entity = await this.findOne(id, ability);
     const { version, ...fields } = dto;
+    // Approval is not an owner's edit. Without this, the owner (or any caller who can update the
+    // row) could PATCH `status: "approved"` — the same self-approval the create path now refuses.
+    // 审批不是本人可做的编辑。没有这一行，本人（或任何能更新该行的人）可以 PATCH
+    // `status: "approved"` —— 与创建路径现在拒绝的是同一次自批。
+    if (fields.status !== undefined && ability.cannot('manage', 'all')) {
+      throw new ForbiddenException('审批状态只能由管理员修改');
+    }
     // The conditional update is the **only** arbiter: the row is written only while it is still at
     // the version the caller read, so two writers cannot both succeed.
     //

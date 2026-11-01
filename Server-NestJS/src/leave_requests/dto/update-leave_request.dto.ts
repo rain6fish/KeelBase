@@ -1,10 +1,23 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { PartialType } from '@nestjs/swagger';
-import { IsInt, Min } from 'class-validator';
+import { ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import { IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
 import { CreateLeaveRequestDto } from './create-leave_request.dto';
 
 export class UpdateLeaveRequestDto extends PartialType(CreateLeaveRequestDto) {
+  /**
+   * The approval state. Accepted here (not on create) so an administrator can approve or reject;
+   * the service refuses the change for anyone else — otherwise a requester approves their own row.
+   *
+   * 审批状态。在更新（而非创建）时可传，供管理员批准或驳回；服务端对其他人一律拒绝 ——
+   * 否则申请人就能给自己批。
+   */
+  @ApiPropertyOptional({ description: 'status', enum: ['pending', 'approved', 'rejected'] })
+  @IsString()
+  @IsOptional()
+  @IsIn(['pending', 'approved', 'rejected'])
+  status?: string;
+
   /**
    * The version the caller read. Required, and that is the point: were it optional an update could
    * omit it, the check would run against the row the service just loaded, and it would pass every

@@ -383,6 +383,20 @@ export class OrgService {
     return { orgId: member.orgId, deptId: member.deptId ?? null };
   }
 
+  /**
+   * Whether the user belongs to the organisation — **any** membership, not only the earliest one.
+   * The audit list scopes rows with `userId IN (SELECT user_id FROM org_members WHERE org_id = …)`,
+   * so the by-id check must ask the same question; asking `getUserOrgContext` there would judge a
+   * multi-organisation user by their earliest membership only and disagree with the list.
+   *
+   * 用户是否属于该组织 —— **任一**成员关系，而不只是最早的那一条。审计列表用
+   * `userId IN (SELECT user_id FROM org_members WHERE org_id = …)` 收窄；按 id 判范围必须问同一个
+   * 问题；在那里问 `getUserOrgContext` 只会按最早加入的组织判多组织用户，与列表结论不一致。
+   */
+  async isMemberOfOrg(userId: number, orgId: number): Promise<boolean> {
+    return (await this.membersRepo.count({ where: { userId, orgId } })) > 0;
+  }
+
   async listDeptSubtreeIds(orgId: number, deptId: number): Promise<number[]> {
     const rows = await this.deptsRepo
       .createQueryBuilder('d')

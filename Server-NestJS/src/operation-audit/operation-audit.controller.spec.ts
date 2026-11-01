@@ -43,12 +43,13 @@ describe('OperationAuditController', () => {
   });
 
   it('日志列表委托 service（参数解析）', async () => {
+    const reader = { sub: 5, role: UserRole.USER } as JwtPayload;
     auditService.getLogs.mockResolvedValue({ items: [], total: 0 });
-    await expect(controller.logs(1, 20, '5', '2026-08-01T00:00:00Z')).resolves.toEqual({ items: [], total: 0 });
-    expect(auditService.getLogs).toHaveBeenCalledWith(1, 20, 5, new Date('2026-08-01T00:00:00Z'));
+    await expect(controller.logs(1, 20, '5', '2026-08-01T00:00:00Z', reader)).resolves.toEqual({ items: [], total: 0 });
+    expect(auditService.getLogs).toHaveBeenCalledWith(1, 20, 5, new Date('2026-08-01T00:00:00Z'), { userId: 5, role: UserRole.USER });
 
-    await controller.logs(2, 10, undefined, undefined);
-    expect(auditService.getLogs).toHaveBeenLastCalledWith(2, 10, undefined, undefined);
+    await controller.logs(2, 10, undefined, undefined, reader);
+    expect(auditService.getLogs).toHaveBeenLastCalledWith(2, 10, undefined, undefined, { userId: 5, role: UserRole.USER });
   });
 
   it('哈希链校验委托 service', async () => {
@@ -58,9 +59,10 @@ describe('OperationAuditController', () => {
   });
 
   it('统计委托 service', async () => {
+    const reader = { sub: 5, role: UserRole.USER } as JwtPayload;
     auditService.getStats.mockResolvedValue({ create_event: 3 });
-    await expect(controller.stats()).resolves.toEqual({ create_event: 3 });
-    expect(auditService.getStats).toHaveBeenCalled();
+    await expect(controller.stats(reader)).resolves.toEqual({ create_event: 3 });
+    expect(auditService.getStats).toHaveBeenCalledWith(undefined, { userId: 5, role: UserRole.USER });
   });
 
   // The three reads widened by this change. `logs` is the listing, `verify` recomputes the hash chain

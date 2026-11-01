@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, QueryRunner, Repository, MoreThanOrEqual } from 'typeorm';
+import { DataSource, MoreThanOrEqual, QueryRunner, Repository, SelectQueryBuilder } from 'typeorm';
 import { OperationAuditLog } from './operation-audit-log.entity';
 import { buildOperationPayload } from './payload';
 import {
@@ -11,6 +11,13 @@ import {
 } from '../common/audit-chain/audit-chain.service';
 import { paginated } from '../common/dto/paginated';
 import { requestContext } from '../common/request-context';
+import { OrgService } from '../org/org.service';
+import {
+  applyAuditScopeToWhere,
+  auditScopeSql,
+  resolveAuditReaderScope,
+  type AuditReaderContext,
+} from '../governance-shared/services/audit-reader-scope';
 
 export interface OperationAuditEntry {
   userId?: number | null;
@@ -57,6 +64,11 @@ export class OperationAuditService {
     private readonly auditChain: AuditChainService,
     @InjectDataSource()
     private readonly dataSource: DataSource,
+    // Optional so a trimmed unit-test assembly keeps working; a missing OrgService resolves the
+    // reader to their own rows (never to "see all"), the same fail-closed fallback the AI audit uses.
+    // 可选的：裁剪过的单测装配照常工作；缺 OrgService 时读者退回本人行（绝不是「看全部」），
+    // 与 AI 审计同一条 fail-closed 退路。
+    @Optional() private readonly orgService?: OrgService,
   ) {}
 
   /**
@@ -206,22 +218,43 @@ export class OperationAuditService {
     limit = 20,
     userId?: number,
     since?: Date,
+    reader?: AuditReaderContext,
   ): Promise<{ items: Array<OperationAuditLog & { username?: string | null }>; total: number; page: number; limit: number }> {
     // CR-19 同款钳制：limit 1-100 防一次拉全量审计表
     page = Math.max(page, 1);
     limit = Math.min(Math.max(limit, 1), 100);
-    const qb = this.logRepo
-      .createQueryBuilder('log')
-      .leftJoin('users', 'u', 'u.id = log.userId')
-      .addSelect('u.username', 'username')
-      .orderBy('log.createdAt', 'DESC')
-      .skip((page - 1) * limit)
-      .take(limit);
-    if (userId) qb.where('log.userId = :userId', { userId });
-    if (since) qb.andWhere('log.createdAt >= :since', { since });
-
-    const rows = await qb.getRawMany();
-    const total = await this.logRepo.count({ where: since ? (userId ? { userId, createdAt: MoreThanOrEqual(since) } : { createdAt: MoreThanOrEqual(since) }) : userId ? { userId } : {} });
+    // An auditor reads their organisation's rows; a request `userId` can only narrow that further.
+    // 审计读者读本组织的行；请求侧的 `userId` 只能在此基础上再收紧。
+    const scope = await resolveAuditReaderScope(reader, this.orgService);
+    const applyFilters = (qb: SelectQueryBuilder<OperationAuditLog>): SelectQueryBuilder<OperationAuditLog> => {
+      if (userId) qb.where('log.userId = :userId', { userId });
+      if (since) qb.andWhere('log.createdAt >= :since', { since });
+      const scoped = auditScopeSql(scope);
+      if (scoped) qb.andWhere(scoped.sql, scoped.params);
+      return qb;
+    };
+    const rows = await applyFilters(
+      this.logRepo
+        .createQueryBuilder('log')
+        .leftJoin('users', 'u', 'u.id = log.userId')
+        .addSelect('u.username', 'username')
+        .orderBy('log.createdAt', 'DESC')
+        .skip((page - 1) * limit)
+        .take(limit),
+    ).getRawMany();
+    // The count uses the repository API with the same scope merged in (`applyAuditScopeToWhere`),
+    // so both paths ask one question in two shapes — the same split the AI audit list already uses.
+    // 计数走仓储 API，范围经 `applyAuditScopeToWhere` 并入 —— 两条路径用两种形状问同一个问题，
+    // 与 AI 审计列表已有的拆分一致。
+    const total = await this.logRepo.count({
+      where: applyAuditScopeToWhere(
+        {
+          ...(userId ? { userId } : {}),
+          ...(since ? { createdAt: MoreThanOrEqual(since) } : {}),
+        },
+        scope,
+      ),
+    });
     const items = rows.map((r) => ({
       id: Number(r.log_id),
       userId: r.log_user_id != null ? Number(r.log_user_id) : null,
@@ -271,7 +304,7 @@ export class OperationAuditService {
   /**
    * 按 action 分组的统计（since 起）。返回 { action: count }。
    */
-  async getStats(since?: Date): Promise<Record<string, number>> {
+  async getStats(since?: Date, reader?: AuditReaderContext): Promise<Record<string, number>> {
     const qb = this.logRepo.createQueryBuilder('log')
       .select('log.action', 'action')
       .addSelect('COUNT(*)', 'count')
@@ -279,6 +312,11 @@ export class OperationAuditService {
     if (since) {
       qb.where('log.createdAt >= :since', { since });
     }
+    // Counts are a reading of the rows, so they carry the same scope.
+    // 计数是对行的一种读数，故同样带范围。
+    const scope = await resolveAuditReaderScope(reader, this.orgService);
+    const scoped = auditScopeSql(scope);
+    if (scoped) qb.andWhere(scoped.sql, scoped.params);
     const rows = await qb.getRawMany();
     const stats: Record<string, number> = {};
     for (const row of rows) {

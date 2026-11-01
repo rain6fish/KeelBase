@@ -2,6 +2,7 @@
 
 import { createHash, createHmac } from 'crypto';
 import { NotFoundException } from '@nestjs/common';
+import { UserRole } from '../../common/entities/user.entity';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { AuditEvidenceService } from './audit-evidence.service';
@@ -806,17 +807,25 @@ describe('AuditEvidenceService（报表 / 链校验 / 证据装配）', () => {
  */
 describe('AuditEvidenceService.getInterpretation（P0-20 单事件解释面）', () => {
   function build(
-    opts: { claim?: any | null; effect?: any | null; confirmation?: any | null; opRows?: any[] } = {},
+    opts: {
+      claim?: any | null;
+      effect?: any | null;
+      confirmation?: any | null;
+      opRows?: any[];
+      conversationId?: string | null;
+      rowUserId?: string;
+      orgService?: any;
+    } = {},
   ) {
     const auditRow = row({
       id: 7,
-      userId: 'u1',
+      userId: opts.rowUserId ?? 'u1',
       username: 'alex',
       action: 'tool_call',
       detail: 'create_task({"title":"跟进"})',
       isError: false,
       authorization: null,
-      conversationId: 'c1',
+      conversationId: opts.conversationId === undefined ? 'c1' : opts.conversationId,
       businessEvent: null,
       evidence: null,
       createdAt: new Date('2026-10-16T00:00:00Z'),
@@ -857,9 +866,44 @@ describe('AuditEvidenceService.getInterpretation（P0-20 单事件解释面）',
       undefined, // governancePolicy
       claimsRepo as any,
       confirmationsRepo as any,
+      undefined, // dataSource
+      opts.orgService,
     );
-    return { service, operationAudit };
+    return { service, operationAudit, logRepo };
   }
+
+  it('无会话的审计行 ⇒ conversation 为空数组，且不去读「空谓词」的整表', async () => {
+    // A row with no conversation used to query with an empty `where`, which means every audit row —
+    // and the result was returned as `conversation` after only the anchor row was scope-checked.
+    // 无会话的行以前用空 `where` 查询，等于整张审计表；而结果只对锚点行判过范围后原样作为
+    // `conversation` 返回。
+    const { service, logRepo } = build({ conversationId: null });
+    const res = await service.getInterpretation(7);
+    expect(res.conversation).toEqual([]);
+    expect(logRepo.find).not.toHaveBeenCalled();
+  });
+
+  it('多组织行动者：按 id 判范围与列表同口径（任一成员关系，不取「最早加入」）', async () => {
+    const orgService = {
+      getUserOrgContext: jest.fn().mockResolvedValue({ orgId: 99, deptId: null }),
+      isMemberOfOrg: jest.fn().mockResolvedValue(true),
+    };
+    const { service } = build({ rowUserId: '42', orgService });
+    const res = await service.getInterpretation(7, { userId: 5, role: UserRole.USER } as any);
+    expect(orgService.isMemberOfOrg).toHaveBeenCalledWith(42, 99);
+    expect(res.row.id).toBe(7);
+  });
+
+  it('多组织行动者不在读者组织 ⇒ 404（与列表同一条谓词）', async () => {
+    const orgService = {
+      getUserOrgContext: jest.fn().mockResolvedValue({ orgId: 99, deptId: null }),
+      isMemberOfOrg: jest.fn().mockResolvedValue(false),
+    };
+    const { service } = build({ rowUserId: '42', orgService });
+    await expect(
+      service.getInterpretation(7, { userId: 5, role: UserRole.USER } as any),
+    ).rejects.toThrow(NotFoundException);
+  });
 
   it('无占位行 ⇒ 副作用/审批为空、业务那一腿为空、状态取自审计行 —— 不按会话去猜', async () => {
     const { service, operationAudit } = build();

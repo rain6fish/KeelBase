@@ -6,6 +6,7 @@ import { DataSource, getMetadataArgsStorage } from 'typeorm';
 import { OperationAuditService } from './operation-audit.service';
 import { OperationAuditLog } from './operation-audit-log.entity';
 import { AuditChainService } from '../common/audit-chain/audit-chain.service';
+import { UserRole } from '../common/entities/user.entity';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -302,6 +303,25 @@ describe('OperationAuditService', () => {
       });
     });
 
+    it('审计读者按组织收窄（列表与计数同一范围）', async () => {
+      const qb = mockQueryBuilder();
+      (service as any).orgService = {
+        getUserOrgContext: jest.fn().mockResolvedValue({ orgId: 7, deptId: null }),
+        isMemberOfOrg: jest.fn(),
+      };
+
+      await service.getLogs(1, 20, undefined, undefined, { userId: 5, role: UserRole.USER } as any);
+
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        'CAST(log.userId AS INTEGER) IN (SELECT user_id FROM org_members WHERE org_id = :readerOrgId)',
+        { readerOrgId: 7 },
+      );
+      // The count carries the same scope — a narrower list with a full count would leak the size.
+      // 计数带同一范围 —— 列表收窄、计数全量，等于把规模漏出去。
+      const countWhere = (mockRepo.count.mock.calls[0][0] as { where: Record<string, unknown> }).where;
+      expect(countWhere.userId).toBeDefined();
+    });
+
     it('maps rows with null userId/statusCode/username to null', async () => {
       mockQueryBuilder([
         { log_id: 1, log_user_id: null, log_action: 'LOGIN', log_method: 'POST', log_path: '/auth/login', log_feature_key: null, log_feature_fallback: null, log_target_id: null, log_request_body: null, log_ip: null, log_user_agent: null, log_status_code: null, log_createdAt: new Date(), username: null },
@@ -316,6 +336,25 @@ describe('OperationAuditService', () => {
   });
 
   describe('getStats', () => {
+    it('审计读者：统计同样按组织收窄', async () => {
+      (service as any).orgService = {
+        getUserOrgContext: jest.fn().mockResolvedValue({ orgId: 7, deptId: null }),
+      };
+      const qb = {
+        select: jest.fn().mockReturnThis(),
+        addSelect: jest.fn().mockReturnThis(),
+        groupBy: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getRawMany: jest.fn().mockResolvedValue([]),
+      };
+      mockRepo.createQueryBuilder.mockReturnValue(qb);
+
+      await service.getStats(undefined, { userId: 5, role: UserRole.USER } as any);
+
+      expect(qb.andWhere).toHaveBeenCalledWith(expect.stringContaining('org_members'), { readerOrgId: 7 });
+    });
+
     it('groups counts by action', async () => {
       mockRepo.createQueryBuilder.mockReturnValue({
         select: jest.fn().mockReturnThis(),

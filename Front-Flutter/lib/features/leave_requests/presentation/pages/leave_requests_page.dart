@@ -21,7 +21,6 @@ class _LeaveRequestsPageState extends State<LeaveRequestsPage> {
   final _endDateCtrl = TextEditingController();
   final _daysCtrl = TextEditingController();
   final _reasonCtrl = TextEditingController();
-  String _statusVal = 'pending';
 
 
 
@@ -98,16 +97,10 @@ class _LeaveRequestsPageState extends State<LeaveRequestsPage> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           ),
 
-          CupertinoSegmentedControl<String>(
-            groupValue: _statusVal,
-            onValueChanged: (v) => setState(() => _statusVal = v),
-            children: {
-              for (final o in ["pending","approved","rejected"]) o: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                child: Text(o),
-              ),
-            },
-          ),
+          // No approval-state control here: a requester creates a `pending` row, and only an
+          // administrator moves it. Letting the form pick "approved" made self-approval one tap away.
+          // 这里没有审批状态控件：申请人创建的是 `pending` 行，只有管理员能推动它。让表单选
+          // 「已批准」等于把自批放在一次点击之外。
             ],
           ),
           actions: [
@@ -121,7 +114,6 @@ if (_startDateCtrl.text.isNotEmpty) data['startDate'] = _startDateCtrl.text.trim
 if (_endDateCtrl.text.isNotEmpty) data['endDate'] = _endDateCtrl.text.trim();
 if (_daysCtrl.text.isNotEmpty) data['days'] = int.tryParse(_daysCtrl.text.trim());
 if (_reasonCtrl.text.isNotEmpty) data['reason'] = _reasonCtrl.text.trim();
-data['status'] = _statusVal;
                 // 一个字段都没填就不提交 —— 否则会创建一条空记录。表单不该提交「什么都没说」。
                 // Submitting an entirely empty form would create an empty row; don't.
                 if (data.isEmpty) return;

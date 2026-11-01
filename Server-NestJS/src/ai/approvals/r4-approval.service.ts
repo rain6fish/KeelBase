@@ -23,7 +23,8 @@ import { AiConfirmationRequest } from '../../governance-shared/entities/ai-confi
 import { ToolExecutionService } from '../tools/tool-execution.service';
 import { AuditService } from '../../governance-shared/services/audit.service';
 import { deriveAiBusinessEvent } from '../audit/ai-business-event';
-import { toolCallOutcome } from '../audit/tool-call-audit';
+import { boundedToolArgs, toolCallOutcome } from '../audit/tool-call-audit';
+import { AiToolEffectsService } from '../../governance-shared/services/ai-tool-effects.service';
 import { PresentationText, ToolResult } from '../interfaces/tool.interface';
 import { buildConfirmationRenderProof } from '../confirmation/confirmation-render';
 import { UsersService } from '../../users/users.service';
@@ -74,6 +75,12 @@ export class R4ApprovalService {
     // 本类自己拼行，故「为何允许」也得自己算；未注入时降级为不落快照 —— 与 MCP 出口同一容错。
     @Optional() private readonly authorizationExplainer?: AuthorizationExplainerService,
     @Optional() private readonly toolGate?: ToolGateService,
+    // AW-11's forward edge: this executor writes its own audit row, so it must also link that row
+    // to the write claim `executeWrite` created — otherwise the claim's `audit_row_id` stays null and
+    // the explanation surface has no effect to point at. Optional for trimmed test assemblies.
+    // AW-11 的正向边：本执行器自己写审计行，故也必须把该行接到 `executeWrite` 创建的写占位上 ——
+    // 否则占位的 `audit_row_id` 恒空、解释面没有副作用可指。裁剪装配里可缺省。
+    @Optional() private readonly toolEffectsService?: AiToolEffectsService,
   ) {}
 
   /**
@@ -335,12 +342,17 @@ export class R4ApprovalService {
         allowSnapshot = undefined;
       }
     }
-    await this.auditService.log({
+    const auditRow = await this.auditService.log({
       userId: req.operatorId,
       username,
       conversationId: req.conversationId,
       action: 'tool_call',
       detail: `${req.toolName}(${JSON.stringify(args)})`,
+      // P0-19's machine-shaped arguments column, on this door too — the chat path and the MCP export
+      // already write it; without it the same action loses its parseable arguments here.
+      // P0-19 的机器可读参数列，这扇门也要写 —— 对话流与 MCP 出口都已写；缺了它，同一个动作在这里
+      // 就没有可解析的参数。
+      toolArgs: boundedToolArgs(JSON.stringify(args)),
       authorization: allowSnapshot,
       isError: !result.success,
       errorMessage: result.success ? note : `${note}; execution failed: ${result.error}`,
@@ -357,6 +369,20 @@ export class R4ApprovalService {
       outcome: toolCallOutcome(result),
       tool: req.toolName,
     });
+    // Same condition as the chat path: only a call that actually ran has a claim to link. A failed
+    // execution has its claim settled/released elsewhere, and a pending one never reached this door.
+    // 与对话流同一条件：只有真正跑过的调用才有占位可挂。失败执行由别处结算/释放占位，待批的到不了这扇门。
+    if (result.success) {
+      await this.toolEffectsService?.attachAuditRow(
+        {
+          userId: req.operatorId,
+          conversationId: req.conversationId,
+          toolName: req.toolName,
+          argsJson: JSON.stringify(args),
+        },
+        auditRow.id,
+      );
+    }
     return result;
   }
 

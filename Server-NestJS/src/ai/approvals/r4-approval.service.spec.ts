@@ -293,6 +293,33 @@ describe('R4ApprovalService（R4 双人审批域）', () => {
       expect(patches.some((p) => p.executionError === null && 'executedAt' in p)).toBe(true);
     });
 
+    it('执行成功后把审计行挂到写占位（AW-11 正向边），并写机器可读参数列', async () => {
+      const repo = {
+        findOne: jest.fn().mockResolvedValue(approvedRow()),
+        update: jest.fn().mockResolvedValue({ affected: 1 }),
+      };
+      const audit = { log: jest.fn().mockResolvedValue({ id: 77 }) };
+      const toolEffects = { attachAuditRow: jest.fn().mockResolvedValue(undefined) };
+      r4 = new R4ApprovalService(
+        toolExecution,
+        audit as any,
+        repo as any,
+        undefined,
+        undefined,
+        undefined,
+        toolEffects as any,
+      );
+      mockToolRegistry.execute.mockResolvedValue({ success: true, data: { id: 5 } });
+
+      await r4.retryExecution('t-exec');
+
+      expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ toolArgs: '{"title":"x"}' }));
+      expect(toolEffects.attachAuditRow).toHaveBeenCalledWith(
+        { userId: '1', conversationId: 'c', toolName: 'create_event', argsJson: '{"title":"x"}' },
+        77,
+      );
+    });
+
     it('已成功的行不可重试（不产生第二次执行）', async () => {
       const repo = {
         findOne: jest.fn().mockResolvedValue(approvedRow({ executedAt: new Date() })),

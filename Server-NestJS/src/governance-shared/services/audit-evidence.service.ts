@@ -841,19 +841,25 @@ export class AuditEvidenceService {
     } | null;
   }> {
     const row = await this._findRowInReaderScope(id, reader);
-    const where = row.conversationId ? { conversationId: row.conversationId } : {};
-    const convRows = await this.logRepo.find({
-      where,
-      select: {
-        id: true, userId: true, username: true, action: true, detail: true,
-        businessEvent: true, evidence: true, isError: true, errorMessage: true, createdAt: true,
-        // D-3：带出授权快照 → summary.decisionNote（凭什么允许 / 为何拒绝）
-        authorization: true,
-        // C-3：叙述层与身份链按这两列读（结局码 + 工具名），不再从 `detail` 反推
-        outcome: true, tool: true,
-      },
-      order: { createdAt: 'ASC' },
-    });
+    // A row with no conversation has no conversation to return. An empty `where` means "every row",
+    // and this array is handed back as `conversation` after the scope was checked on the anchor row
+    // only — so the empty predicate would hand the reader the whole audit table.
+    // 无会话的行没有「会话」可返回。空 `where` 等于「全部行」，而这段数组会在只对锚点行判过范围后
+    // 原样作为 `conversation` 返回 —— 空谓词于是把整张审计表交给了读者。
+    const convRows = row.conversationId
+      ? await this.logRepo.find({
+          where: { conversationId: row.conversationId },
+          select: {
+            id: true, userId: true, username: true, action: true, detail: true,
+            businessEvent: true, evidence: true, isError: true, errorMessage: true, createdAt: true,
+            // D-3：带出授权快照 → summary.decisionNote（凭什么允许 / 为何拒绝）
+            authorization: true,
+            // C-3：叙述层与身份链按这两列读（结局码 + 工具名），不再从 `detail` 反推
+            outcome: true, tool: true,
+          },
+          order: { createdAt: 'ASC' },
+        })
+      : [];
     const summary = summarizeAudit(row, convRows as unknown as AuditInterpretationRow[]);
 
     // ── P0-20：把四点接到**这一行**上 ─────────────────────────────────────────
@@ -990,13 +996,18 @@ export class AuditEvidenceService {
       throw new NotFoundException('审计记录不存在');
     }
     // Non-numeric actor ids (system / bridge rows) belong to no account, hence to no organisation.
+    // Ask "is this actor a member of the reader's organisation" — any membership — because that is
+    // the predicate the list uses. `getUserOrgContext` answers a different question (earliest
+    // membership) and would 404 rows the list shows for a multi-organisation actor.
     // 非数字的行动者 id（系统 / 桥接行）不属于任何账号，因而也不属于任何组织。
+    // 这里问的是「该行动者是不是读者组织的一员」——任一成员关系——因为列表用的就是这个谓词。
+    // `getUserOrgContext` 回答的是另一个问题（最早加入的组织），对多组织行动者会把列表可见的行判成 404。
     const rowUserId = Number(row.userId);
     const member =
       this.orgService && Number.isFinite(rowUserId)
-        ? await this.orgService.getUserOrgContext(rowUserId)
-        : null;
-    if (member?.orgId === scope.orgId) return row;
+        ? await this.orgService.isMemberOfOrg(rowUserId, scope.orgId)
+        : false;
+    if (member) return row;
     throw new NotFoundException('审计记录不存在');
   }
 
