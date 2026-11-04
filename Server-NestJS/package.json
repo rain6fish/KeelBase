@@ -46,6 +46,7 @@
     "check:semantic-single-source": "node scripts/check-semantic-single-source.mjs",
     "verify:evidence": "node scripts/verify-evidence.mjs",
     "anchor:evidence": "ts-node scripts/build-evidence-anchor.ts",
+    "anchor:chain": "ts-node scripts/build-chain-anchor.ts",
     "report:period": "node scripts/render-period-report.mjs",
     "verify:trust-proof": "node scripts/verify-trust-proof.mjs",
     "verify:evidence-root": "bash scripts/verify-evidence-root.sh",

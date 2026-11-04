@@ -250,6 +250,7 @@ hashed row is by design. Any finding fails verification.
 - **包内时间 vs 时间锚**：包内 `exportedAt` 是**声明时间**（可伪造）；时间锚是**第三方可验的时间证明**。
 - **时间戳格式**：`timestamp` 一律 **RFC3339 / ISO-8601 UTC**（`2026-09-25T12:00:00.000Z`）——与 §3 `exportedAt` 一致，不引入新格式。
 - **定期根锚发布**（可选能力，实现触发后）：`anchor` 记录 = `{ period: "daily", date: "<YYYY-MM-DD>", rootDigest: "<64hex>", sm2: {…对 rootDigest 的 SM2 签名…}, tsa: { tokenUrl?: "<RFC3161 TSA>", token?: "<TimeStampToken base64>" } }`；rootDigest 取自当日每个证据包的 `root.digest`（§5）集合聚合。
+- **链尾是另一份承诺**：本锚只覆盖证据包集合，不携带链的最后一行/行数。链尾由独立对象 `audit-chain-anchor` v1 记录（`docs/hs11-audit-chain.spec.md` §6.1），不折进本锚 —— 可选字段可被生产者省略，且会改变 `rootDigest` 的含义、让已发布的锚无法复现。
 - **RFC3161 可选**：有合规 TSA 时附 `tsa.token`；无则退化为「自签时间锚 + 对外发布根锚摘要」（弱一档，仍可证「不早于某发布时间」）。
 
 ### 11.4 与现 §3 的关系 / Relationship
