@@ -206,8 +206,15 @@ export class AuditController {
     );
   }
 
+  // The export is the one audit surface that cannot be narrowed without becoming a lie: it returns
+  // the whole hashed chain together with the per-row payload an offline verifier recomputes from.
+  // An audit reader keeps the scoped `action-report` and the operations audit; exporting every
+  // organisation's payloads is an administrator action, so this door stays on `manage all`.
+  // 导出是唯一一个「收窄后就变成假话」的审计面：它返回整条已入链的记录，以及离线校验器据以重算的
+  // 逐行载荷。审计读者保留按范围收窄的 `action-report` 与操作审计；导出每个组织的载荷是管理员的
+  // 动作，故这扇门保持 `manage all`。
   @Get('action-report/export')
-  @CheckPolicies((ability) => ability.can('read', 'AuditLog'))
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
   @ApiOperation({ summary: 'D4 审计证据包导出：ActionReport + 哈希链校验 + 时间戳 + 签名（可提交审计机构）' })
   @ApiQuery({ name: 'userId', required: false, description: '按用户过滤（数字 id）' })
   @ApiQuery({ name: 'since', required: false, description: '起始时间（ISO 8601）' })
