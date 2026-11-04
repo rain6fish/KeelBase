@@ -145,8 +145,8 @@ export const NOT_COVERED = [
     commands: ['npm run cli:test'],
     npmScripts: [{ pkg: ROOT_PKG, name: 'cli:test' }],
     reason: {
-      zh: '`scripts/*.test.mjs` 的 node:test 套件，实测 **320 例 / 约 96 秒** —— 比本题全部静态门禁的合计还长。不在此门：门禁的价值在于「推之前随手可跑」；CI 的 `cli-test` job 每次推送都跑，本模块的守卫测试也在其中。',
-      en: 'The node:test suite for `scripts/*.test.mjs` — measured at **320 cases / ~96 s**, longer than every static gate here combined. Not here: the point of this gate is that it is cheap enough to run on the way to a push; CI\'s `cli-test` job runs it on every push, and the guard test for this module is one of its cases.',
+      zh: '`scripts/*.test.mjs` 的 node:test 套件，实测**约 100 秒**（写入本句时 328 例）—— 比本题全部静态门禁的合计还长。不在此门：门禁的价值在于「推之前随手可跑」；CI 的 `cli-test` job 每次推送都跑，本模块的守卫测试也在其中。',
+      en: 'The node:test suite for `scripts/*.test.mjs` — measured at **~100 s** (328 cases when this line was written), longer than every static gate here combined. Not here: the point of this gate is that it is cheap enough to run on the way to a push; CI\'s `cli-test` job runs it on every push, and the guard test for this module is one of its cases.',
     },
   },
   {
