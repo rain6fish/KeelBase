@@ -10,6 +10,12 @@ import { CoverageService } from '../../governance-shared/services/coverage.servi
 import { AuditQueryDto } from '../dto/audit-query.dto';
 import { SubmitFeedbackDto } from '../dto/submit-feedback.dto';
 import { CheckPolicies } from '../../common/casl/check-policies.decorator';
+import { ResponseOrdering } from '../../common/decorators/response-ordering.decorator';
+import {
+  AUDIT_LOG_LIST_ORDERING,
+  CHAIN_WALK_ORDERING,
+  REPORT_ROWS_ORDERING,
+} from '../services/ordering';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 import {
@@ -54,6 +60,7 @@ export class AuditController {
 
   @Get('logs')
   @CheckPolicies((ability) => ability.can('read', 'AuditLog'))
+  @ResponseOrdering(AUDIT_LOG_LIST_ORDERING)
   @ApiOperation({ summary: 'AI 审计日志（管理员 / 审计读者）' })
   @ApiQuery({ name: 'userId', required: false, description: '按用户过滤' })
   @ApiQuery({ name: 'agentId', required: false, description: '按 Agent 过滤（Agent Registry → 审计联动）' })
@@ -149,6 +156,7 @@ export class AuditController {
 
   @Get('verify')
   @CheckPolicies((ability) => ability.can('read', 'AuditLog'))
+  @ResponseOrdering(CHAIN_WALK_ORDERING)
   @ApiOperation({ summary: 'HS-11 审计哈希链完整性校验（管理员 / 审计读者）' })
   verify() {
     return this.auditEvidence.verifyChain();
@@ -176,6 +184,7 @@ export class AuditController {
 
   @Get('action-report')
   @CheckPolicies((ability) => ability.can('read', 'AuditLog'))
+  @ResponseOrdering(REPORT_ROWS_ORDERING)
   @ApiOperation({ summary: 'AI Action Report：合规证据包（执行/批准/拒绝/阻断 + 副作用 + 哈希链，管理员）' })
   @ApiQuery({ name: 'userId', required: false, description: '按用户过滤（数字 id）' })
   @ApiQuery({ name: 'since', required: false, description: '起始时间（ISO 8601）' })

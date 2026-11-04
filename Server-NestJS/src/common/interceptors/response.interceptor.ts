@@ -11,6 +11,8 @@ import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { ApiResponse } from '../interfaces/api-response.interface';
 import { RAW_RESPONSE_KEY } from '../decorators/raw.decorator';
+import { RESPONSE_ORDERING_KEY } from '../decorators/response-ordering.decorator';
+import type { OrderingDeclaration } from '../../governance-shared/services/ordering';
 
 @Injectable()
 export class ResponseInterceptor<T>
@@ -35,12 +37,20 @@ export class ResponseInterceptor<T>
     const response = ctx.getResponse();
     const httpStatus = response.statusCode;
 
+    // Declared by the read that produced the rows, carried by the response that delivers them.
+    // 由产出这些行的读声明，由交付它们的响应随身带走。
+    const ordering = this.reflector.getAllAndOverride<OrderingDeclaration | undefined>(
+      RESPONSE_ORDERING_KEY,
+      [context.getHandler(), context.getClass()],
+    );
+
     return next.handle().pipe(
       map((data) => ({
         code: httpStatus,
         message: '操作成功',
         data: data ?? null,
         timestamp: new Date().toISOString(),
+        ...(ordering ? { ordering } : {}),
       })),
     );
   }

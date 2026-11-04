@@ -259,6 +259,8 @@ URL 格式: /api/v1/{resources}   （仅名词复数，禁止动词）
 }
 ```
 
+**排序声明（可选，只出现在返回有序行的读上）**：信封带 `ordering{field, direction, controlledBy, tiebreak, attested}`，由端点上的 `@ResponseOrdering(...)` 声明、`ResponseInterceptor` 写进信封。`controlledBy` 说这个字段由接收方还是产出方提供；`tiebreak` 为 `null` 表示并列无序（分页成员随之不确定）；`attested` 说位置是否被哈希链覆盖（`createdAt` 不入 payload ⇒ `none`）。**声明必须描述查询真正执行的东西**——查不到就别声明，宁可缺也不要写一份替不存在的保证背书的说明。
+
 **跨语言序列化规则**：
 
 | 规则 | 说明 |

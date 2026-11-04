@@ -48,6 +48,7 @@ describe('AuditQueryService（从 AuditService 拆出的查询域）', () => {
         leftJoin: jest.fn().mockReturnThis(),
         addSelect: jest.fn().mockReturnThis(),
         orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),
         skip: jest.fn().mockReturnThis(),
         getRawMany: jest.fn().mockResolvedValue([rawRow]),
@@ -136,6 +137,7 @@ describe('AuditQueryService（从 AuditService 拆出的查询域）', () => {
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
         orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
         getOne: jest.fn().mockResolvedValue({ id: 5, userId: '1' }),
       };
       repo.createQueryBuilder.mockReturnValue(qb);
@@ -152,6 +154,7 @@ describe('AuditQueryService（从 AuditService 拆出的查询域）', () => {
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
         orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
         getOne: jest.fn().mockResolvedValue(null),
       };
       repo.createQueryBuilder.mockReturnValue(qb);
@@ -168,6 +171,7 @@ describe('AuditQueryService（从 AuditService 拆出的查询域）', () => {
         leftJoin: jest.fn().mockReturnThis(),
         addSelect: jest.fn().mockReturnThis(),
         orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),
         skip: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
@@ -224,6 +228,7 @@ describe('AuditQueryService（从 AuditService 拆出的查询域）', () => {
         andWhere: jest.fn().mockReturnThis(),
         addSelect: jest.fn().mockReturnThis(),
         orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),
         skip: jest.fn().mockReturnThis(),
         getRawMany: jest.fn().mockResolvedValue([]),

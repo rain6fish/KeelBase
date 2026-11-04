@@ -150,6 +150,14 @@ export class AuditQueryService {
       // D2-1c username 快照：读快照列，不再左联业务 users 表（独立治理库后无 users）
       .addSelect('log.username', 'username')
       .orderBy('log.createdAt', 'DESC')
+      // Offset paging over an unordered tie is how a row repeats on one page and vanishes from the
+      // next. `id` is unique, so the tie-break makes page membership deterministic — and the
+      // declaration carried by this response (`AUDIT_LOG_LIST_ORDERING`) states it, so a reader is not
+      // left to assume the order the query actually applies.
+      // 偏移分页遇上无序的并列，正是「一行在这一页重复、在下一页消失」的来路。`id` 唯一，加上它页成员
+      // 就确定了 —— 而本响应携带的声明（`AUDIT_LOG_LIST_ORDERING`）把这一条说出来，读者不必去猜
+      // 查询实际用的顺序。
+      .addOrderBy('log.id', 'DESC')
       .take(options.limit ?? 50)
       .skip(options.offset ?? 0);
     if (options.userId) qb.where('log.userId = :userId', { userId: options.userId });
