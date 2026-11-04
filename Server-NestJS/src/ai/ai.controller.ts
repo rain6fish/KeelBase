@@ -69,6 +69,7 @@ import { DecisionTraceService, DecisionTrace } from './trace/decision-trace.serv
 import { GovernancePolicyService } from '../governance-shared/services/governance-policy.service';
 import type { GovernancePolicy } from '../governance-shared/services/governance-policy.service';
 import { BusinessHistoryService } from './governance-bridge/business-history.service';
+import { judgeEffectIdentity } from './tool-effects/effect-identity';
 import { AuditService } from '../governance-shared/services/audit.service';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import type { AppAbility } from '../common/casl/casl-ability.factory';
@@ -758,6 +759,20 @@ export class AiController {
     const cascadeSize = effect.compensationGroup
       ? (await this.toolEffectsService.listGroup(effect.compensationGroup)).length
       : 1;
+    // REV-6: the identity verdict over every effect that claims this business action — three-valued,
+    // so a member nobody captured reads `incomparable` (with its reason) instead of the `complete` it
+    // used to inherit. Read-only: it changes no revoke conclusion.
+    //
+    // A non-admin sees only their own effects: A8's narrowing applies to this reading too, and the
+    // verdict itself must not leak another user's snapshots.
+    //
+    // REV-6：对主张这个业务动作的每条 effect 做身份判定 —— 三值，故没人捕获过的成员读作
+    // `incomparable`（带理由），而不是从前继承来的 `complete`。只读：不改任何撤销结论。
+    //
+    // 非管理员只看得到自己的 effect：A8 的收窄同样适用于本读数，判定本身也不得泄露他人的快照。
+    const identityMembers = (await this.toolEffectsService.findManyByTarget(resultType, resultId)).filter(
+      (member) => isAdmin || member.userId === String(user.sub),
+    );
     return {
       // D1 Action Detail 七段数据（Who/When/What/Result/Side Effects 后端齐备；Why 在 trace；Integrity 走哈希链 verify）
       // A-3 生命周期：targetSoftDeleted 供前端推导「已撤销」态（撤销 = 目标软删）
@@ -781,6 +796,7 @@ export class AiController {
         restored: this.toolEffectsService.isRestored(effect, target.targetSoftDeleted),
       },
       trace,
+      identity: judgeEffectIdentity(identityMembers),
     };
   }
 
