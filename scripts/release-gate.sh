@@ -71,6 +71,14 @@ else
   gate "Endpoints(文档-端点一致)" fail "声明端点缺失（文档过期或路由被删）——先修 CLAUDE.md §9 或补路由"
 fi
 
+# ── Delivery：交付验收单必须带覆盖声明（W2.3 · JV-64 乙）────────────────────────
+echo "→ [Delivery] 交付验收单 vs 覆盖声明（docs/manual/delivery-recipe.md §11）"
+if node scripts/check-delivery-coverage-statement.mjs >/dev/null 2>&1; then
+  gate "Delivery(验收单覆盖声明)" pass
+else
+  gate "Delivery(验收单覆盖声明)" fail "覆盖声明节缺失或必填项为空 —— 跑 node scripts/check-delivery-coverage-statement.mjs 看明细"
+fi
+
 # ── Trust：三旗舰 + 生成模块 e2e（越权/写确认/审计）────────────────────────────
 # 分 4 批跑：这 14 个套件放进**一次** jest 调用会命中本机已知的「单进程长跑硬崩」——
 # 进程中途无输出死亡（无 jest 汇总行），缺 PASS 行 → 闸门自身间歇假红（实测同一刀三次：
