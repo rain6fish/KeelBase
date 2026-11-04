@@ -10,6 +10,8 @@ import { createHash } from 'node:crypto';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { ConfigService } from '@nestjs/config';
+import { AuditChainService } from '../../common/audit-chain/audit-chain.service';
 import {
   EvidenceAnchor,
   aggregateRootDigest,
@@ -17,6 +19,7 @@ import {
   groupDigestsByDate,
   normalizeDigests,
   verifyAnchor,
+  verifyAnchorCoverage,
 } from './evidence-anchor';
 
 const A = 'a'.repeat(64);
@@ -141,5 +144,89 @@ describeIfOpenssl('锚产出 + 独立校验（需 openssl）', () => {
     const r = verifyAnchor({ ...anchor, count: 3 });
     expect(r.ok).toBe(false);
     expect(r.reasons.join('')).toMatch(/count/);
+  });
+
+  describe('尾部删除：锚 + 当前集合对照（红/绿）', () => {
+    // Real A→B→C chain; hashes come from the production AuditChainService, algorithm not mocked.
+    // 真实构造链 A→B→C：哈希用生产 AuditChainService 现算，不 mock 算法。
+    const svc = new AuditChainService({
+      get: (k: string) =>
+        ({ ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef' } as Record<string, string>)[k] ?? null,
+    } as unknown as ConfigService);
+    const payloads = [
+      { action: 'chat', userId: '1' },
+      { action: 'tool_call', userId: '1', tool: 'lookup_customer' },
+      { action: 'tool_call', userId: '1', tool: 'create_todo' },
+    ];
+    const h1 = svc.computeHash(null, payloads[0]);
+    const h2 = svc.computeHash(h1, payloads[1]);
+    const h3 = svc.computeHash(h2, payloads[2]);
+    const rows = [
+      { id: 1, prevHash: null as string | null, hash: h1, payload: payloads[0] },
+      { id: 2, prevHash: h1, hash: h2, payload: payloads[1] },
+      { id: 3, prevHash: h2, hash: h3, payload: payloads[2] },
+    ];
+    const payloadFor = (r: { payload: Record<string, unknown> }) => r.payload;
+    const DATE = '2026-09-18';
+
+    // Same algorithm as getEvidenceRoot: root.anchors covers the trigger ai-audit row plus one
+    // side-effect row, digest = sha256(JSON.stringify(anchors)). Deleting C leaves no trigger,
+    // so the package's root anchors change.
+    // 与 getEvidenceRoot 同一算法：root.anchors 覆盖「触发该动作的 ai-audit 行」+ 一条副作用行，
+    // digest = sha256(JSON.stringify(anchors))。C 被删时触发行为空，包根锚随之变化。
+    const packageFor = (trigger: (typeof rows)[number] | null) => {
+      const anchors = [
+        ...(trigger ? [{ kind: 'ai-audit', rowId: trigger.id, hash: trigger.hash }] : []),
+        { kind: 'side-effect', rowId: 42, hash: 'e'.repeat(64) },
+      ].sort((a, b) => `${a.kind}:${a.rowId}`.localeCompare(`${b.kind}:${b.rowId}`));
+      return {
+        exportedAt: `${DATE}T01:00:00.000Z`,
+        root: { digest: createHash('sha256').update(JSON.stringify(anchors)).digest('hex') },
+      };
+    };
+    const anchorFor = (pkgs: ReturnType<typeof packageFor>[]) =>
+      buildAnchor({ date: DATE, digests: groupDigestsByDate(pkgs).get(DATE) ?? [], sm2: cfg() });
+    const digestsFor = (pkgs: ReturnType<typeof packageFor>[]) =>
+      groupDigestsByDate(pkgs).get(DATE) ?? [];
+
+    it('绿：完整链 A→B→C + 锚 ⇒ 链、锚、集合对照都干净', () => {
+      expect(svc.verifyChain(rows, payloadFor).valid).toBe(true);
+      const anchor = anchorFor([packageFor(rows[2])]);
+      expect(verifyAnchor(anchor).ok).toBe(true);
+      expect(verifyAnchorCoverage(anchor, digestsFor([packageFor(rows[2])]))).toMatchObject({
+        ok: true,
+        missing: [],
+        extra: [],
+      });
+    });
+
+    it('红：链截成 A→B（C 被删）而锚不变 ⇒ 链与锚自身仍 PASS，集合对照检出尾部缺失', () => {
+      // The anchor is the A→B→C set; then C is deleted and the anchor stays as published.
+      // 锚定的是 A→B→C 时的集合；此后 C 被删，锚保持原样。
+      const anchor = anchorFor([packageFor(rows[2])]);
+      const truncated = rows.slice(0, 2);
+      // This is the gap: the truncated chain is still a valid prefix and the anchor itself was not
+      // changed — neither reports anything.
+      // 这一半正是缺口：截断后的链仍是合法前缀，锚自身也未被改 —— 两者都不报错。
+      expect(svc.verifyChain(truncated, payloadFor).valid).toBe(true);
+      expect(verifyAnchor(anchor).ok).toBe(true);
+      // C was the row covered by the package's root anchor: after deletion a re-export resolves no
+      // trigger (getEvidenceRoot cannot find the deleted row), so the package's anchors change and
+      // the anchored digest is absent from the current set.
+      // C 是该包根锚覆盖的触发行：C 删掉后重导时触发行为空（getEvidenceRoot 指不到已删的行），
+      // 包根锚随之变化 ⇒ 锚中的 digest 在当前集合中缺席。
+      const coverage = verifyAnchorCoverage(anchor, digestsFor([packageFor(null)]));
+      expect(coverage.ok).toBe(false);
+      expect(coverage.missing).toHaveLength(1);
+      expect(coverage.reasons.join('')).toMatch(/尾部缺失/);
+    });
+
+    it('锚记录的 digest 在当前集合中缺失 → 逐条点名（不是只给一个总判）', () => {
+      const anchor = anchorFor([packageFor(rows[2])]);
+      const coverage = verifyAnchorCoverage(anchor, []);
+      expect(coverage.ok).toBe(false);
+      expect(coverage.missing).toEqual(anchor.digests);
+      expect(coverage.reasons.join('')).toContain(anchor.digests[0].slice(0, 16));
+    });
   });
 });

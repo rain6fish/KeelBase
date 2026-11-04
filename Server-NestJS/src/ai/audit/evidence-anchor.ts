@@ -132,6 +132,70 @@ export interface AnchorVerifyResult {
   reasons: string[];
 }
 
+/** Anchor coverage result: `missing` = anchored but absent now (removed after anchoring).
+ * 锚集合对照结果：`missing` = 锚里有、当前集合没有的 digest（锚定之后被删的那些）。 */
+export interface AnchorCoverageResult extends AnchorVerifyResult {
+  missing: string[];
+  /** Present now but not anchored — produced after anchoring; not a failure.
+   * 当前集合有、锚里没有 —— 锚定之后才产生的包；本身不构成失败。 */
+  extra: string[];
+}
+
+/**
+ * Compare the anchored digest set with the current one (read-only; produces nothing, adds no schema
+ * field, changes no external behaviour).
+ *
+ * `verifyAnchor` only proves the anchor record itself was not changed (digests/rootDigest agree and
+ * the signature holds); it does not answer "is everything still there". This function answers that:
+ * an anchored digest absent from the current set is the reading left when the corresponding
+ * evidence package was deleted after anchoring — and when the deleted row is a chain row covered by
+ * that package's root anchors (e.g. the trigger ai-audit row), that is a tail deletion observable at
+ * the anchor layer.
+ *
+ * Coverage is bounded by the anchor's two conditions: only days that were anchored, and only the
+ * packages included in the aggregation. A chain row outside every anchored package stays invisible
+ * to this check; that layer needs the anchor itself to commit to the chain tail, which today's
+ * `EvidenceAnchor` record does not carry.
+ *
+ * 把锚记录的 digest 集合与**当前**集合对照（只读；不产出、不改 schema、不改对外行为）。
+ *
+ * `verifyAnchor` 只证明**锚自身**未被改（digests 与 rootDigest 自洽、签名有效）；它不回答
+ * 「锚定之后东西还在不在」。本函数补上这一问：锚中某个 digest 在当前集合里缺席，就是锚定之后
+ * 对应证据包被删的读数 —— 而当被删的那一行正是包根锚覆盖的链行时（例如触发该动作的 ai-audit 行），
+ * 这就是尾部删除在锚层留下的证据。
+ *
+ * 覆盖边界与锚的两个前提一致：只对**确实锚定过**的日子、且只对**被纳入聚合**的那些包有效。
+ * 不在任何锚定包里的链行被删，本函数看不见 —— 那一层需要锚本身承诺链尾（当前 `EvidenceAnchor`
+ * 没有该字段）。
+ */
+export function verifyAnchorCoverage(
+  anchor: EvidenceAnchor,
+  currentDigests: readonly string[],
+): AnchorCoverageResult {
+  let anchored: string[];
+  let current: string[];
+  try {
+    anchored = normalizeDigests(Array.isArray(anchor.digests) ? anchor.digests : []);
+    current = normalizeDigests(currentDigests);
+  } catch (e) {
+    return { ok: false, reasons: [`digest 集合含非法值：${(e as Error).message}`], missing: [], extra: [] };
+  }
+
+  const currentSet = new Set(current);
+  const anchoredSet = new Set(anchored);
+  const missing = anchored.filter((d) => !currentSet.has(d));
+  const extra = current.filter((d) => !anchoredSet.has(d));
+
+  const reasons: string[] = [];
+  if (missing.length > 0) {
+    reasons.push(
+      `锚记录的 ${missing.length} 个 digest 在当前集合中缺失（锚定之后证据包/尾部行被删，尾部缺失）：` +
+        missing.map((d) => `${d.slice(0, 16)}…`).join(', '),
+    );
+  }
+  return { ok: missing.length === 0, reasons, missing, extra };
+}
+
 /**
  * 独立校验一个锚记录（第三方视角，只需公钥）：
  *  1. rootDigest 可由 digests 复现（聚合算法自洽）；2. count 与集合大小一致；
