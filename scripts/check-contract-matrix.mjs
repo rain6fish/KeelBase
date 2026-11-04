@@ -76,18 +76,23 @@ try {
 } catch {
   // A checkout can hold the submodule without its tags: CI checks submodules out with `--depth=1`, so
   // every CI run lands here (`No names found, cannot describe anything`) and only the fetch below gets
-  // the tags. One best-effort fetch stays; if it fails too, the pin's version cannot be read at all —
-  // the matrix is UNVERIFIED, not satisfied, so this fails (2026-10-27: "a contract gate reddens when it
-  // cannot verify") and names the command that fixes it. Local full clones resolve the tag above and
-  // never reach this branch, so nothing here makes a network round-trip a prerequisite for green.
+  // the tags. Tags alone are not enough in that checkout — `describe` walks ancestors, and a
+  // `--depth=1` fetch brings the tagged commits without the history that connects them to the pin —
+  // so a shallow repository is unshallowed instead. One best-effort fetch stays; if it fails too, the
+  // pin's version cannot be read at all — the matrix is UNVERIFIED, not satisfied, so this fails
+  // (2026-10-27: "a contract gate reddens when it cannot verify") and names the command that fixes it.
+  // Local full clones resolve the tag above and never reach this branch, so nothing here makes a
+  // network round-trip a prerequisite for green.
   //
   // 检出里可能带着 submodule 却没有它的 tag：CI 以 `--depth=1` 取 submodule，于是**每次 CI 都走到这里**
-  // （`No names found, cannot describe anything`），只有下面这一次 fetch 能拿到 tag。尽力取一次仍不行，
-  // 就说明 pin 的版本**根本读不出来** —— 此时矩阵是**未核验**、不是「通过」，故判红（2026-10-27 裁决：
-  // 「契约门禁在无法核验时判红」）并给出修它的命令。本地完整 clone 在上一步就解析到 tag、走不到这里，
-  // 所以这里不会让「联网」成为变绿的先决条件。
+  // （`No names found, cannot describe anything`），只有下面这一次 fetch 能拿到 tag。这种检出里光有 tag
+  // 还不够 —— `describe` 要沿祖先走，而 `--depth=1` 的 fetch 只带来 tag 指向的提交、不带把它们与 pin
+  // 连起来的历史 —— 故浅仓改为 unshallow。尽力取一次仍不行，就说明 pin 的版本**根本读不出来** ——
+  // 此时矩阵是**未核验**、不是「通过」，故判红（2026-10-27 裁决：「契约门禁在无法核验时判红」）并给出
+  // 修它的命令。本地完整 clone 在上一步就解析到 tag、走不到这里，所以这里不会让「联网」成为变绿的先决条件。
   try {
-    gitIn(sub, ['fetch', '--tags', '--depth=1', 'origin']);
+    const shallow = gitIn(sub, ['rev-parse', '--is-shallow-repository']) === 'true';
+    gitIn(sub, ['fetch', '--tags', ...(shallow ? ['--unshallow'] : []), 'origin']);
     pin = resolvePin();
   } catch {
     if (subIsGitCheckout()) {
