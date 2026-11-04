@@ -40,13 +40,17 @@ const RECIPE = path.join(ROOT, 'docs/manual/delivery-recipe.md');
 
 const BLOCK = /<!--\s*delivery-acceptance-form:begin\s*-->([\s\S]*?)<!--\s*delivery-acceptance-form:end\s*-->/g;
 
-/** One `key label: value` line. The label is display text only; the key is what this gate knows. */
+/** One `key label: value` line. The label is display text only; the key is what this gate knows.
+ *  一行 `key label: value`。标签只是显示文本；本门认识的是键。 */
 const LINE = /^\s*([a-z][a-z0-9-]+)(?:\s*[^:：]*)?[:：]\s*(.*)$/;
 
 /**
  * Required fields and the values they accept. `contains` switches a field from exact-segment matching to
  * substring matching — needed only where a value itself carries a separator (`keelbase-audit-evidence/4`)
  * or a space (`no ✗`). `needsBasisWhen` names the choices that are only acceptable with a stated reason.
+ *
+ * 必填字段与其允许取值。`contains` 把字段从「按段精确匹配」切到「子串匹配」—— 只在取值本身带分隔符
+ * （`keelbase-audit-evidence/4`）或空格（`no ✗`）时才需要。`needsBasisWhen` 列出必须写明理由才可用的选择。
  */
 const FIELDS = [
   { key: 'evidence-path', values: ['乙', '甲'] },
@@ -78,7 +82,8 @@ const FIELDS = [
 const REGISTRY_KEY = 'coverage-registry';
 const CONDITIONAL_KEY = 'evidence-path-basis';
 
-/** Identifiers the prose must name for `JV-64` 乙 to be actionable, not merely asserted. */
+/** Identifiers the prose must name for `JV-64` 乙 to be actionable, not merely asserted.
+ *  正文必须点名的标识符 —— 乙案要能照着做，而不只是被声称。 */
 const REQUIRED_IDENTIFIERS = [
   '/api/v1/ai/governance/evidence-root',
   'verify-evidence.mjs',
@@ -92,7 +97,8 @@ const matches = (value, field) =>
     ? field.values.filter((v) => value.includes(v))
     : field.values.filter((v) => segments(value).includes(v));
 
-/** The text after `basis:` / `依据:` on the same line — empty means no reason was given. */
+/** The text after `basis:` / `依据:` on the same line — empty means no reason was given.
+ *  同一行 `basis:` / `依据:` 之后的文本 —— 为空即表示没给理由。 */
 const basisText = (value) => {
   const m = /(?:basis|依据)\s*[:：]\s*(.*)$/i.exec(value);
   return m ? m[1].trim() : '';
@@ -109,6 +115,9 @@ const problem = (en, zh) => ({ en, zh });
 /**
  * Checks one form body (or the whole document, in doc mode) and returns every problem found. Pure: no
  * filesystem, no process — the CLI and the tests read the same code path.
+ *
+ * 检查一份表单正文（文档模式下检查整篇文档），返回发现的全部问题。纯函数：不碰文件系统、不读进程 ——
+ * CLI 与测试走同一条代码路径。
  */
 export function checkCoverageStatement(text, { form = false } = {}) {
   const problems = [];

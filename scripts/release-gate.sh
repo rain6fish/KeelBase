@@ -72,6 +72,7 @@ else
 fi
 
 # ── Delivery：交付验收单必须带覆盖声明（W2.3 · JV-64 乙）────────────────────────
+# ── Delivery: the acceptance form must carry a coverage statement (W2.3 · JV-64 乙) ──
 echo "→ [Delivery] 交付验收单 vs 覆盖声明（docs/manual/delivery-recipe.md §11）"
 if node scripts/check-delivery-coverage-statement.mjs >/dev/null 2>&1; then
   gate "Delivery(验收单覆盖声明)" pass

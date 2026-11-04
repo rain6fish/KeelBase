@@ -38,7 +38,8 @@ const blockBodies = () =>
       .join('\n'),
   );
 
-/** Replaces one field's value line, keeping the key and its display label. */
+/** Replaces one field's value line, keeping the key and its display label.
+ *  替换某个字段的取值行，保留键与其显示标签。 */
 const fill = (body, key, value) =>
   body.replace(new RegExp(`^${key}([^:：]*)[:：].*$`, 'm'), `${key}$1: ${value}`);
 
