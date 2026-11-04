@@ -42,6 +42,7 @@ import { renderHtml } from './lib/evidence-report-html.mjs';
 import { parseArgs, keysFromFlags, langFromFlags } from './lib/cli-args.mjs';
 import { canonicalJSON } from './lib/canonical-json.mjs';
 import { evidencePackageCanonical } from './lib/evidence-package-canonical.mjs';
+import { crossCheckEvidenceRoot } from './lib/evidence-crosscheck.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -343,6 +344,9 @@ let brokenAt;
 let sigFailed = false;
 /** §11.3 根锚校验失败（包不在锚覆盖范围内 / 锚聚合不自洽）——出现即 FAIL。 */
 let anchorFailed = false;
+/** Cross-source check failed (the anchor set and the carried rows disagree) — any finding is a FAIL.
+ *  跨来源交叉校验失败（锚集合与包内携带的行各说各的）—— 出现即 FAIL。 */
+let crossFailed = false;
 
 if (!isV3) {
   const rows = ev.chain ?? [];
@@ -406,6 +410,28 @@ else {
   if (structural && digestOk) ok('证据根结构：锚非空 + hash 64hex + digest 自洽', '可检测换锚/改锚内容');
   else if (structural) ok('证据根结构：锚非空 + hash 64hex', '');
 
+  // AW-13 cross-source check: the anchor set (rows the package says it stands on) and the rows it
+  // actually carries have to agree. Until now each section was verified on its own, so a package
+  // could anchor an audit row it never carried (anchors by claim/pairing, chain rows by conversation —
+  // two key spaces) and still pass. Needs no key, so it runs in both modes.
+  //
+  // AW-13 跨来源交叉校验：锚集合（包说它立在其上的行）与包内实际携带的行必须互相对得上。
+  // 此前各段各验各的 —— 于是包可以锚定一条它从未携带的审计行（锚按占位行/配对取、链段按会话取，
+  // 两套键空间）而仍然 PASS。这一条不查密钥，故两种模式下都跑。
+  const cross = crossCheckEvidenceRoot(ev);
+  if (cross.consistent) {
+    ok('跨来源交叉校验：锚集合与包内携带的行一致', `anchors=${anchors.length} · 仅声明 0 · 仅携带 0`);
+  } else {
+    bad(
+      '跨来源交叉校验：锚集合与包内携带的行一致',
+      `仅声明 ${cross.onlyDeclared.length} 条 · 仅携带 ${cross.onlyStored.length} 条`,
+    );
+    for (const finding of [...cross.onlyDeclared, ...cross.onlyStored]) {
+      console.log(`      · ${finding.reason} — ${finding.detail}`);
+    }
+    crossFailed = true;
+  }
+
   if (keys.length === 0) {
     console.log('\n  — 未提供 --key，跳过子链内容重算与整包签名。加 --key <AUDIT_HMAC_KEY> 全量重算。');
     chainValid = structural && digestOk;
@@ -458,7 +484,7 @@ else {
 // 结论
 const passCount = cases.filter((c) => c.pass).length;
 const signatureOk = keys.length === 0 || ev.signature == null || cases.some((c) => c.name.includes('签名') && c.pass);
-const verdict = chainValid && (signatureOk || keys.length === 0) && !sigFailed && !anchorFailed ? 'PASS' : 'FAIL';
+const verdict = chainValid && (signatureOk || keys.length === 0) && !sigFailed && !anchorFailed && !crossFailed ? 'PASS' : 'FAIL';
 console.log(`\n═══ 验证结论：${verdict}（${passCount}/${cases.length} 断言通过）═══`);
 console.log(chainValid
   ? (isV3 ? `证据根完整：锚自洽` + (keys.length ? ` + ${recomputed}/${rowsCount} 子链行重算一致` : '（未做内容重算）') : `链完整：结构连续` + (keys.length ? ` + ${recomputed}/${rowsCount} 内容重算一致` : '（未做内容重算）'))

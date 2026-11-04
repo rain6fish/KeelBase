@@ -127,6 +127,42 @@
 ### 5.5 L0/L1/L2 分层对齐 / 5.5 L0/L1/L2
 L0 运行时（`/audit/verify`、`/audit/operations/verify`）仍验全链；本 v3 为 L1 离线**逐动作**证据根（定向子链 + 根锚 + 签名）。留档产物沿用 `docs/benchmark/evidence-root-<ts>.json/.md`（L2）。
 
+### 5.6 跨来源交叉校验（AW-13）/ 5.6 Cross-source consistency (AW-13)
+
+Earlier versions verified each section on its own — every row's hash, the anchor digest, the package
+signature — and never checked that the sections agree with each other. They are built from different
+key spaces: `chains.aiAudit` is read by the effect's conversation, while the `ai-audit` anchor is the
+row the write claim (or conservative pairing) attributes the action to. A package can therefore anchor
+an audit row it never carried, and every pre-existing assertion still passes.
+
+`scripts/lib/evidence-crosscheck.mjs` (`crossCheckEvidenceRoot`) compares the two readings and is
+wired into `verify-evidence.mjs` for `/3` and `/4`, in both structure-only and `--key` modes:
+
+- `onlyDeclared` — an anchor names a row the package does not carry, the carried row's hash differs,
+  or the side-effect anchor points at a row other than the packaged effect. The support exists only as
+  an assertion.
+- `onlyStored` — the package carries a side-effect row without a side-effect anchor, or a chain-section
+  row whose `hash` is not 64 hex (carried as chain evidence, but in no chain).
+
+AI-audit rows carried as conversation context and not anchored are **not** reported: the exporter
+anchors only the trigger row while `chains.aiAudit` carries the whole conversation, so an unanchored
+hashed row is by design. Any finding fails verification.
+
+早期版本把每一段**单独**校验 —— 每行 hash、锚摘要、整包签名 —— 从不检查各段之间是否相互一致。它们
+出自不同的键空间：`chains.aiAudit` 按副作用行的会话读，而 `ai-audit` 锚是占位行（或保守配对）把这次
+动作归因到的那一行。于是包可以锚定一条它从未携带过的审计行，而既有的每一条断言仍然通过。
+
+`scripts/lib/evidence-crosscheck.mjs`（`crossCheckEvidenceRoot`）对照这两份读数，并接到
+`verify-evidence.mjs` 的 `/3`、`/4` 分支，结构模式与 `--key` 模式都跑：
+
+- `onlyDeclared` —— 锚声明了一条包内没有携带的行、携带的同 id 行 hash 不同，或副作用锚指向的不是包里
+  那条副作用行。这份支撑只作为断言存在。
+- `onlyStored` —— 包携带了副作用行却没有副作用锚，或链段里有一行的 `hash` 不是 64 hex（被当作链证据
+  携带，却不在任何链里）。
+
+作为会话上下文携带、但未被锚定的 AI 审计行**不报**：导出侧只锚定触发行，而 `chains.aiAudit` 携带整个
+会话，故「有 hash 却未入锚」是按设计如此。任何一条命中即判验证失败。
+
 ---
 
 ## 6. 端点契约 / 6. Endpoint Contract
