@@ -2,6 +2,9 @@
 
 > **定位**：M1 演示 / 评审 / 集成商选型用的一站式验证清单——每条「命令 + 前置 + 报告位置」，全部可现场复现。对应产品证明项（V-2/3/4/6）与核心能力资产。
 > **Positioning**: one-stop verification checklist for M1 demos / reviews / integrator evaluation — each entry has command + prerequisite + report location, all reproducible on-site.
+>
+> **Two different things.** `npm run check:all` is the static pre-push gate (every `check:*` except the tag-only `check:tag-lineage`, plus `spec:check` and `conformance`). Every run ends with a "not covered by this gate" section naming the entries of this index that need a live backend, a real key or a long run. A green gate is **not** a pass for them; the list is single-sourced in `scripts/gate-coverage.mjs`.
+> **先分清两件事。** `npm run check:all` 是推送前的静态门（除只在 tag 推送上有意义的 `check:tag-lineage` 外的全部 `check:*`，外加 `spec:check` 与 `conformance`）。它每次运行末尾都打印「本门未覆盖」一节，点明本索引里那些需要活后端、真实 key 或长时间运行、它**没有跑**的条目。绿表**不**等于它们已过；清单的单源在 `scripts/gate-coverage.mjs`。
 
 ---
 

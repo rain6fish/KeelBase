@@ -130,6 +130,14 @@ Criterion: the instrument prints `═══ S4+S5 全链路验收：PASS ══�
 `requiresConfirmation=true` + `requireVerifiedEmail` and its unit test asserts the gate; the read tool
 has no gate; the module is wired into `ai.module`); `check:all` is **all green** (its denominator grows
 with the repo — 21 gates at this recipe's last read; judge by all-pass, not the number).
+
+**A green `check:all` is the static half only.** Every run ends with a `not covered by this gate` /
+`本门未覆盖` section: the unit suite, the e2e shards, lint, the Postgres migration consistency check and the
+LLM-driven `run-adversarial.sh`, each with its command and the reason it is not here. Those are **still to
+do**, not passed — treating the green table as their result is exactly the misreading this section exists
+to prevent (2026-10-31 CTO weekly §13). The list is single-sourced in `scripts/gate-coverage.mjs`, and
+`scripts/gate-coverage.test.mjs` fails when a verification script appears without it.
+
 The instrument **regenerates the module with `--force` before it runs anything** — that is why it needs a
 clean tree, and why it puts the touched paths back on exit. So the jest line it prints covers **the
 generator's own output**, not the delivery tree's hand-written layer: it need not equal §4's number, and a
@@ -546,6 +554,12 @@ npm run check:all
 
 判据：仪器打印 `═══ S4+S5 全链路验收：PASS ═══`（23 个文件；写工具带 `requiresConfirmation=true` +
 `requireVerifiedEmail` 且其单测断言了该门控；读工具无门控；模块已接线 `ai.module`）；`check:all` **全绿**（它的分母随仓库增长 —— 本 recipe 上次核时 21 道；判**全过**，不判数）。
+
+**全绿的 `check:all` 只是静态那一半。** 每次运行都以「本门未覆盖」一节收尾：单元套件、e2e 分片、lint、
+Postgres 迁移一致性、以及要真模型 key 的 `run-adversarial.sh`，逐条给出命令与「为什么不在这里」。这些是
+**还没做**，不是**已经过** —— 把那张绿表当成它们的结果，正是这一节要挡住的误读（2026-10-31 CTO 周会 §13）。
+清单的单源在 `scripts/gate-coverage.mjs`；冒出一个验证脚本而清单没跟上时，`scripts/gate-coverage.test.mjs` 判红。
+
 该仪器**在跑任何东西之前，先用 `--force` 把模块重新生成一遍** —— 这正是它要求干净工作树、并在退出时把本轮碰过的路径
 放回的原因。故它打印的那行用例数覆盖的是**生成器这一轮的产出**，**不是**交付树里那层手写代码：它**不必**等于 §4 那个数；
 这一步的判据是**绿**，数更小不等于少了测试。
