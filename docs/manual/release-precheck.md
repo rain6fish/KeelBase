@@ -47,6 +47,7 @@
 | 生成器/CLI | `node --test scripts/keelbase-init.test.mjs` + `node --test scripts/keelbase-plugin.test.mjs` | 全过 |
 | Gate 1 Golden Application | `./scripts/verify-golden-application.sh` | 9 项 PASS（AI CRM 一次跑通闭环 + Build + Provenance）|
 | 文档-端点一致性 | `node scripts/verify-endpoint-docs.mjs` | 声明端点（CLAUDE.md §9）全在代码中，0 条缺失 |
+| 契约成员性发版闸 | `npm run check:contract-release-gate` | pin 远端可达 · README=pin 的 tag · 由上一发布 tag 切出 · 声称的能力都有实现方（缺一样即红） |
 | Release Gate | `./scripts/release-gate.sh` | 确定性 Gate 全 PASS |
 
 ### ③ 提高测试覆盖率
