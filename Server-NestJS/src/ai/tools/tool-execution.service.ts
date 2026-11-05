@@ -192,6 +192,12 @@ export class ToolExecutionService {
     const agentId = actorContext.getStore()?.agentId;
     const claimKey = AiToolEffectsService.buildKey({ userId, conversationId, toolName, args });
     if (effects) {
+      // AW-15: freeze the decision basis on the claim row, in the same place the claim is taken.
+      // Role and policy revision are read here, at the boundary, from the gate's own sources; an
+      // unresolvable read stays `null` and readers report it as `unknown`.
+      // AW-15：把判定依据钉在占位行上，就在占位的同一处取。角色与策略 revision 在边界处从门控自己的
+      // 来源读取；解析不出来就留 `null`，读侧报 `unknown`。
+      const basis = await this.toolGate.decisionBasis(userId);
       const claim = await effects.claimWrite({
         userId,
         conversationId,
@@ -202,6 +208,8 @@ export class ToolExecutionService {
         // REV-7：这次写依据的那次授权（确认/审批 token）—— 由调用方在边界处读入，落进占位行。
         // 免确认的自动写不传（没有授权，也就没有窗口）。
         authorizationRef: opts?.authorizationRef,
+        decidedRole: basis.role,
+        policyRevision: basis.policyRevision,
       });
       if (!claim.won) {
         // 已有人持有这次执行 ⇒ **绝不重复执行**。如实报「未执行 + 为什么」——不谎报成功，也不谎报失败。

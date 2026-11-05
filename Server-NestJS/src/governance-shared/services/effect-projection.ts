@@ -202,6 +202,13 @@ export class EffectProjection {
       runId: c.runId ?? null,
       toolName: c.toolName,
       agentId: c.agentId ?? null,
+      // AW-15: the basis the decision was made on. A row written before these columns existed (or
+      // one whose identity/policy could not be resolved) has `null`, and the honest reading is
+      // `unknown` — not "no role" and not "no policy". No backfill: the stored facts cannot prove it.
+      // AW-15：当次判定所依据的角色与策略 revision。本列之前的行（或身份/策略解析不出来的行）为
+      // `null`，诚实读数就是 `unknown` —— 既不是「没有角色」也不是「没有策略」。不回填：已存事实证不了它。
+      decidedRole: c.decidedRole ?? 'unknown',
+      policyRevision: c.policyRevision ?? 'unknown',
       status: c.status,
       claimedAt: c.claimedAt.toISOString(),
       ageMinutes: Math.floor((Date.now() - c.claimedAt.getTime()) / 60_000),
