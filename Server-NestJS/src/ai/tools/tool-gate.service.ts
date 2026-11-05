@@ -207,6 +207,56 @@ export class ToolGateService {
   }
 
   /**
+   * AW-15: the basis the gate decided on — the caller's role and the effective policy revision.
+   *
+   * Both sources already live here: role comes from `UsersService` (the same live read the gate uses
+   * for role allow-lists) and revision from `GovernancePolicyService.getPolicy()` (the same value the
+   * authorization snapshot records). Resolving them at this boundary and carrying them into the
+   * claim row is what lets a record answer "under which grant" after the grant is revoked.
+   *
+   * Anything unresolvable stays `null` — the system account has no user row, and a degraded assembly
+   * may have neither service. `null` is reported as `unknown` by readers; it is never a guess.
+   *
+   * AW-15：门控判定所用的依据 —— 调用者的角色与生效中的策略 revision。
+   *
+   * 两个来源本来就住在这里：角色来自 `UsersService`（门控检查角色白名单时的同一次实时读取），
+   * revision 来自 `GovernancePolicyService.getPolicy()`（授权快照记录的同一个值）。在边界处解析并带进
+   * 占位行，才能让记录在授予被撤销之后仍回答「依据哪一份授予」。
+   *
+   * 解析不出来的一律留 `null` —— 系统账号没有用户行，降级装配也可能两个服务都缺。读侧把 `null` 报成
+   * `unknown`；它从不是猜测值。
+   */
+  async decisionBasis(
+    userId: string,
+  ): Promise<{ role: string | null; policyRevision: string | null }> {
+    let role: string | null = null;
+    if (this.usersService) {
+      try {
+        const user = await this.usersService.findOne(Number(userId));
+        role = (user?.role as string | undefined) ?? null;
+      } catch {
+        // Unknown identity (system account / non-numeric fixture id / deleted user) ⇒ no role to
+        // record. Not an error: the row's honest answer is `unknown`.
+        // 未知身份（系统账号 / 非数字夹具 id / 已删除用户）⇒ 没有可记录的角色。这不是错误：
+        // 行上的诚实答案就是 `unknown`。
+        role = null;
+      }
+    }
+
+    let policyRevision: string | null = null;
+    if (this.governancePolicy) {
+      try {
+        const policy = await this.governancePolicy.getPolicy();
+        policyRevision = policy?.revision ?? null;
+      } catch {
+        policyRevision = null;
+      }
+    }
+
+    return { role, policyRevision };
+  }
+
+  /**
    * 工具目的地（AUTHZ-1 单一源）：写落到哪个系统。外部 MCP → `mcp:<server>`；声明了 `audience` 的
    * 工具（B 路径 proxy）→ 该 audience；其余 → `local`。
    *

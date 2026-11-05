@@ -116,6 +116,11 @@ export const POSTGRES_MIGRATION_GLOBS: string[] = [
   '*AddLeaveRequests*',
   // CONF-3：确认行的渲染凭据两列（postgres 侧同样需要，否则实体要的列在 pg 上不存在）
   '*AddConfirmationRenderProof*',
+  // AW-15: the claim row's decision basis (role + policy revision) — postgres needs it too, or the
+  // entity's decided_role/policy_revision have no columns there.
+  // AW-15：占位行的判定依据（角色 + 策略 revision）—— postgres 侧同样需要，否则实体要的
+  // decided_role/policy_revision 在 pg 上不存在。
+  '*AddClaimDecisionBasis*',
 ];
 
 /** 有意排除于 postgres 的迁移（仅 sqlite；postgres 由 PostgresInitialSchema / PostgresIncrementalSchema 基线覆盖） */

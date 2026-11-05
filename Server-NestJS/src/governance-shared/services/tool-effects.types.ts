@@ -30,6 +30,22 @@ export interface WriteToolContext {
    * `authorization_ref`：窗口住在确认行上，该列是**唯一**指得回它的引用（`runId` 只覆盖 run 成员）。
    */
   authorizationRef?: string;
+  /**
+   * AW-15: the role this execution was decided with. Resolved at the boundary (the gate owns the user
+   * source) and carried here so the claim row can answer "under which grant" without re-reading it.
+   * `null`/absent = not resolvable; the row keeps `null` and readers report `unknown`.
+   *
+   * AW-15：本次执行判定所用的角色。在边界处解析（用户来源归门控所有）后带到这里，使占位行能回答
+   * 「依据哪一份授予」而无需再读一次。`null`/缺省 = 解析不出来；行上留 `null`，读侧报 `unknown`。
+   */
+  decidedRole?: string | null;
+  /**
+   * AW-15: the effective governance policy revision at decision time, from the same source the
+   * authorization snapshot uses. `null`/absent = not resolvable; readers report `unknown`.
+   *
+   * AW-15：当次判定所用的治理策略 revision，与授权快照同一来源。`null`/缺省 = 解析不出来；读侧报 `unknown`。
+   */
+  policyRevision?: string | null;
   toolName: string;
   args: Record<string, unknown>;
   /**

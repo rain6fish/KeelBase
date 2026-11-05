@@ -86,6 +86,12 @@ export class WriteClaimStore {
           agentId: ctx.agentId,
           // REV-7：这次写依据的那次授权（确认/审批 token）。缺席 = 没有授权参与（自动写）。
           authorizationRef: ctx.authorizationRef,
+          // AW-15: freeze the decision basis on the row — which role and which policy revision let
+          // this through. Unresolved stays `null` (readers say `unknown`), never a guessed value.
+          // AW-15：把判定依据钉在行上 —— 哪个角色、哪一版策略放行的。解析不出来就留 `null`
+          //（读侧报 `unknown`），绝不填猜测值。
+          decidedRole: ctx.decidedRole ?? null,
+          policyRevision: ctx.policyRevision ?? null,
           status: WRITE_CLAIM_STATUS.CLAIMED,
           claimedAt: now,
           attempts: 1,
@@ -116,6 +122,13 @@ export class WriteClaimStore {
             releaseReason: null,
             attempts: existing.attempts + 1,
             ...(ctx.authorizationRef ? { authorizationRef: ctx.authorizationRef } : {}),
+            // AW-15: the row describes the **latest attempt**, so a re-claim replaces the basis even
+            // when it could not be resolved (then `null`, which reads as `unknown`). Keeping the
+            // previous attempt's role would attribute this execution to a grant it never used.
+            // AW-15：本行描述的是**最近一次尝试**，故重占位一律替换依据 —— 即使解析不出来也替换成
+            // `null`（读作 `unknown`）。保留上一次的角色会把本次执行归到它从未使用过的授予上。
+            decidedRole: ctx.decidedRole ?? null,
+            policyRevision: ctx.policyRevision ?? null,
           },
         );
         if (res?.affected === 0) {

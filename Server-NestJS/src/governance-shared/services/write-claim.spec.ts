@@ -32,11 +32,14 @@ describe('ACT-5/6 切片1：本地写 claim → execute → settle', () => {
   let effects: AiToolEffectsService;
   let exec: ToolExecutionService;
   let executeMock: jest.Mock;
+  /** AW-15：门控解析出的判定依据（角色 + 策略 revision）。测试可逐条改写。 */
+  let decisionBasisMock: jest.Mock;
 
   const claims = () => ds.getRepository(AiWriteClaim);
   const key = () => AiToolEffectsService.buildKey(CTX);
 
   const build = (): void => {
+    decisionBasisMock = jest.fn().mockResolvedValue({ role: null, policyRevision: null });
     const toolRegistry = {
       execute: executeMock,
       getTool: () => ({ name: CTX.toolName }),
@@ -46,6 +49,8 @@ describe('ACT-5/6 切片1：本地写 claim → execute → settle', () => {
       assertWithinDeclaredScope: jest.fn().mockResolvedValue(undefined),
       // ACT-7：执行点新增的审批要求复算（闸门接口长大了，替身必须满足）
       assertApprovalRequirementHolds: jest.fn().mockResolvedValue(undefined),
+      // AW-15：占位前解析当次判定依据（替身同样必须满足新接口）
+      decisionBasis: decisionBasisMock,
       destinationOf: () => 'local',
     };
     const externalTools = { current: undefined };
@@ -228,6 +233,8 @@ describe('ACT-5/6 切片1：本地写 claim → execute → settle', () => {
         assertWithinDeclaredScope: jest.fn().mockResolvedValue(undefined),
       // ACT-7：执行点新增的审批要求复算（闸门接口长大了，替身必须满足）
       assertApprovalRequirementHolds: jest.fn().mockResolvedValue(undefined),
+        // AW-15：占位前解析当次判定依据（替身同样必须满足新接口）
+        decisionBasis: jest.fn().mockResolvedValue({ role: null, policyRevision: null }),
         destinationOf: () => 'local',
       } as any,
       { current: undefined } as any,
@@ -342,6 +349,8 @@ describe('ACT-5/6 切片1：本地写 claim → execute → settle', () => {
           assertToolAllowed: jest.fn().mockResolvedValue(undefined),
           assertWithinDeclaredScope: jest.fn().mockResolvedValue(undefined),
           assertApprovalRequirementHolds: jest.fn().mockResolvedValue(undefined),
+          // AW-15：占位前解析当次判定依据（替身同样必须满足新接口）
+          decisionBasis: jest.fn().mockResolvedValue({ role: null, policyRevision: null }),
         } as any,
         external as any,
         effects,
@@ -598,6 +607,93 @@ describe('ACT-5/6 切片1：本地写 claim → execute → settle', () => {
       // 先是 token，再是它代表的归属：`approver-a` 批准的是失败的那次，从没管过真正落库的那次。
       expect(res.approval?.token).toBe('tok-B');
       expect(res.approval?.approverId).toBe('approver-b');
+    });
+  });
+
+  describe('AW-15：占位行记下当次判定的角色与策略 revision', () => {
+    /**
+     * The reader's complaint (F-60): a claim row says **what** was authorized and **when**, but not
+     * **under which grant** — so after a role is revoked the row cannot answer "which role and which
+     * policy version let this through". These tests pin the two halves of the fix: the write side
+     * freezes the reading at decision time, and the read side reports a missing reading as `unknown`
+     * (never backfilled, never guessed).
+     *
+     * 读者反馈（F-60）：占位行说的是**授权是什么**与**何时**，却没说**依据哪一份授予** —— 于是撤权之后，
+     * 行上答不了「哪个角色、哪一版策略放行的」。这组用例钉住修复的两半：写侧冻结判定那一刻的读数；
+     * 读侧把缺失的读数报成 `unknown`（不回填、不猜）。
+     */
+    const seedStale = (extra: Record<string, unknown> = {}) =>
+      claims().save(
+        claims().create({
+          idempotencyKey: 'k-legacy',
+          userId: CTX.userId,
+          conversationId: CTX.conversationId,
+          toolName: CTX.toolName,
+          argsHash: 'h',
+          status: WRITE_CLAIM_STATUS.CLAIMED,
+          claimedAt: new Date(Date.now() - 90 * 60_000),
+          attempts: 1,
+          ...extra,
+        }),
+      );
+
+    const staleProjection = async (k: string): Promise<Record<string, unknown>> => {
+      const asked = (await effects.list({ stale: true })) as unknown as {
+        staleClaims: Array<Record<string, unknown>>;
+      };
+      return asked.staleClaims.find((c) => c.idempotencyKey === k)!;
+    };
+
+    it('执行写入时，行上带当次角色与策略 revision', async () => {
+      decisionBasisMock.mockResolvedValue({ role: 'admin', policyRevision: 'rev-frozen-1' });
+
+      await exec.executeWrite(CTX.toolName, CTX.args, CTX.userId, CTX.conversationId);
+
+      const row = await claims().findOne({ where: { idempotencyKey: key() } });
+      expect(row?.decidedRole).toBe('admin');
+      expect(row?.policyRevision).toBe('rev-frozen-1');
+    });
+
+    it('旧行（缺列）⇒ 投影报 `unknown`，不回填', async () => {
+      // 本列之前的行：两列都是 NULL —— 无法重建，只能如实说不知道
+      await seedStale();
+
+      const p = await staleProjection('k-legacy');
+      expect(p.decidedRole).toBe('unknown');
+      expect(p.policyRevision).toBe('unknown');
+    });
+
+    it('有值的行 ⇒ 投影原样读出（`unknown` 不是盖住所有行的一把伞）', async () => {
+      await seedStale({ idempotencyKey: 'k-new', decidedRole: 'admin', policyRevision: 'rev-9' });
+
+      const p = await staleProjection('k-new');
+      expect(p.decidedRole).toBe('admin');
+      expect(p.policyRevision).toBe('rev-9');
+    });
+
+    it('**反向**：释放后改角色 / 改策略、重试同一幂等键 ⇒ 行上的依据随之变化', async () => {
+      decisionBasisMock.mockResolvedValue({ role: 'admin', policyRevision: 'rev-a' });
+      executeMock.mockRejectedValueOnce(new Error('db write failed'));
+      await expect(
+        exec.executeWrite(CTX.toolName, CTX.args, CTX.userId, CTX.conversationId),
+      ).rejects.toThrow('db write failed');
+
+      const released = await claims().findOne({ where: { idempotencyKey: key() } });
+      expect(released?.status).toBe(WRITE_CLAIM_STATUS.RELEASED);
+      expect(released?.decidedRole).toBe('admin');
+      expect(released?.policyRevision).toBe('rev-a');
+
+      // 同一幂等键的第二次尝试：角色已降权、策略已换版
+      decisionBasisMock.mockResolvedValue({ role: 'user', policyRevision: 'rev-b' });
+      executeMock.mockResolvedValueOnce({ success: true, data: { id: 7 } });
+      await exec.executeWrite(CTX.toolName, CTX.args, CTX.userId, CTX.conversationId);
+
+      const settled = await claims().findOne({ where: { idempotencyKey: key() } });
+      expect(settled?.status).toBe(WRITE_CLAIM_STATUS.SETTLED);
+      expect(settled?.attempts).toBe(2);
+      // 行描述的是**最近一次尝试** —— 依据必须跟着换，不能留着上一次的授予
+      expect(settled?.decidedRole).toBe('user');
+      expect(settled?.policyRevision).toBe('rev-b');
     });
   });
 });

@@ -122,4 +122,37 @@ export class AiWriteClaim {
    */
   @Column({ type: 'varchar', length: 64, nullable: true, name: 'authorization_ref' })
   authorizationRef?: string | null;
+
+  /**
+   * AW-15: the role the decision was made with, read from the user row at claim time.
+   *
+   * The claim row could say **what** was authorized (`authorization_ref`) and **when** (`claimed_at`),
+   * but not **under which grant** — so after a role was revoked, the row could not answer "which role
+   * let this through". This column freezes that reading at decision time. `null` = not recorded (a row
+   * written before this column existed, or an identity with no role row such as the system account);
+   * readers report it as `unknown` and never backfill a guess.
+   *
+   * AW-15：当次判定所用的角色，在占位时从用户行读一次。
+   *
+   * 占位行此前能说**授权是什么**（`authorization_ref`）与**何时**（`claimed_at`），却说不出
+   * **依据哪一份授予** —— 于是撤权之后，行上答不了「当时按什么角色放行」。本列把那一刻的读数冻结下来。
+   * `null` = 没记下（本列之前的行，或系统账号这类没有角色行的身份）；读侧如实报 `unknown`，绝不回填猜测。
+   */
+  @Column({ type: 'varchar', length: 32, nullable: true, name: 'decided_role' })
+  decidedRole?: string | null;
+
+  /**
+   * AW-15: the effective governance policy revision at decision time (the content fingerprint from
+   * `policyRevisionOf`, the same source the authorization snapshot records).
+   *
+   * `null` means "not recorded", not "no policy": a row written before this column existed cannot be
+   * reconstructed, and a deployment with no policy service cannot resolve it. Readers say `unknown`.
+   *
+   * AW-15：当次判定所用的治理策略 revision（`policyRevisionOf` 的内容指纹，与授权快照同一来源）。
+   *
+   * `null` 的含义是「没记下」，**不是**「没有策略」：本列之前的行无法重建，缺策略服务的部署也解析不出来。
+   * 读侧报 `unknown`。
+   */
+  @Column({ type: 'varchar', length: 64, nullable: true, name: 'policy_revision' })
+  policyRevision?: string | null;
 }
