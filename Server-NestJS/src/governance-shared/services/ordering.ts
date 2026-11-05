@@ -109,3 +109,21 @@ export const REPORT_ROWS_ORDERING: OrderingDeclaration = {
   attested: 'none',
 };
 
+/**
+ * `GET /ai/tool-effects/claims` — the in-flight claim read. Oldest claim first, so a stuck execution
+ * rises to the top of the page. `claimedAt` is set by the service at claim time (receiver-supplied),
+ * and `id` breaks ties so the page boundary is deterministic. The position is not hash-covered —
+ * claims are not part of the audit chain — so `attested` says `none` rather than implying evidence.
+ *
+ * `GET /ai/tool-effects/claims` —— 在途占位查询。最老的占位在前，卡住的执行因此浮到首页。
+ * `claimedAt` 由服务在占位时写入（接收方提供），并列以 `id` 决序，故页边界确定。位置不受哈希链覆盖 ——
+ * 占位行不在审计链内 —— 故 `attested` 写 `none`，而不是暗示有证据。
+ */
+export const IN_FLIGHT_CLAIMS_ORDERING: OrderingDeclaration = {
+  field: 'claimedAt',
+  direction: 'asc',
+  controlledBy: 'receiver',
+  tiebreak: { field: 'id', direction: 'asc' },
+  attested: 'none',
+};
+

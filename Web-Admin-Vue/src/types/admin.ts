@@ -447,6 +447,39 @@ export interface ToolEffectsResponse {
   items: ToolEffect[]
 }
 
+/**
+ * AW-16: one write that is still `claimed` at the moment the list was read. `argsHash` is the
+ * argument fingerprint — the arguments themselves are never returned (the table does not store them).
+ * `stale` is an age reading: the row is not thereby "failed" or "succeeded".
+ *
+ * AW-16：读取那一刻仍处于 `claimed` 的一次写。`argsHash` 是参数指纹 —— 参数本体从不返回
+ * （表里也没有存）。`stale` 是年龄读数：该行并不因此被判为「失败」或「成功」。
+ */
+export interface InFlightClaim {
+  id: number
+  userId: string
+  toolName: string
+  argsHash: string
+  status: string
+  claimedAt: string
+  ageMinutes: number
+  stale: boolean
+  attempts: number
+  agentId: string | null
+  conversationId: string | null
+  runId: string | null
+  authorizationRef: string | null
+}
+
+export interface InFlightClaimsResponse {
+  items: InFlightClaim[]
+  total: number
+  limit: number
+  thresholdMinutes: number
+  /** 实际施加的行范围；短列表因此有解释 */
+  scope: 'all' | 'org' | 'own'
+}
+
 export interface OpsAlert {
   level: 'critical' | 'warning'
   title: string

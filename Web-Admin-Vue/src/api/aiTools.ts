@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { api, governanceApi } from './client'
-import type { AdminAiTool, AiAgent, AiApprovalRequest, GovernanceActionResponse, ToolEffectsResponse, BusinessHistoryResponse } from '@/types/admin'
+import type { AdminAiTool, AiAgent, AiApprovalRequest, GovernanceActionResponse, ToolEffectsResponse, InFlightClaimsResponse, BusinessHistoryResponse } from '@/types/admin'
 
 /**
  * D2-5c：治理数据端点走独立治理台（governanceApi，VITE_GOVERNANCE_URL 配置时指向治理台；
@@ -12,6 +12,23 @@ export const aiToolsApi = {
   /** 工具清单（主应用：工具注册在业务运行时） */
   tools(): Promise<AdminAiTool[]> {
     return api.get<AdminAiTool[]>('/ai/tools')
+  },
+  /**
+   * AW-16：某时刻哪些调用在途（主应用 —— 占位行写在业务库，治理库没有这些行）。
+   * 只读；返回工具名与 `args_hash`，**不回显参数明文**。
+   *
+   * AW-16: which calls are in flight (main app — claims are written to the business database, the
+   * governance database holds none of them). Read-only; tool name and `args_hash`, never arguments.
+   */
+  inFlightClaims(
+    params: { userId?: string; toolName?: string; stale?: boolean; limit?: number } = {},
+  ): Promise<InFlightClaimsResponse> {
+    return api.get<InFlightClaimsResponse>('/ai/tool-effects/claims', {
+      ...(params.userId ? { userId: params.userId } : {}),
+      ...(params.toolName ? { toolName: params.toolName } : {}),
+      ...(params.stale ? { stale: 'true' } : {}),
+      limit: params.limit ?? 100,
+    })
   },
   /** 副作用列表（治理台） */
   effects(userId?: number, page = 1, limit = 20): Promise<ToolEffectsResponse> {

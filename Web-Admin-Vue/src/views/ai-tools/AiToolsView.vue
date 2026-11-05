@@ -68,6 +68,43 @@
       <div v-else class="text-medium-emphasis">{{ t('loading') }}</div>
     </el-card>
 
+    <!-- AW-16：此刻哪些调用在途 —— 管理员与审计读者都读得到（服务端判 `read AuditLog`）。
+         「在途」= 仍是 claimed；落定/释放后即从列表消失。参数只给摘要，不回显明文。 -->
+    <PageHeader v-if="canReadClaims" :title="t('inFlightClaims')">
+      <el-button @click="loadInFlight()">
+        <template #icon><AppIcon icon="mdi-refresh" /></template>
+        {{ t('refresh') }}
+      </el-button>
+    </PageHeader>
+
+    <el-card v-if="canReadClaims" shadow="never" class="mb-4">
+      <div class="d-flex ga-3 align-center">
+        <el-input v-model="claimUserId" :placeholder="t('filterByUserId')" clearable style="max-width: 180px" />
+        <el-input v-model="claimToolName" :placeholder="t('inFlightFilterByTool')" clearable style="max-width: 220px" />
+        <el-checkbox v-model="claimStaleOnly">{{ t('inFlightOnlyStale') }}</el-checkbox>
+        <el-button type="primary" @click="loadInFlight()">
+          <template #icon><AppIcon icon="mdi-filter-variant" /></template>
+          {{ t('filter') }}
+        </el-button>
+      </div>
+      <div class="text-caption text-medium-emphasis mt-2">
+        {{ t('inFlightHint', { scope: claimScopeLabel, threshold: claimThreshold }) }}
+      </div>
+      <div class="text-caption text-medium-emphasis">
+        {{ t('inFlightCount', { shown: claims.length, total: claimTotal }) }}
+      </div>
+    </el-card>
+
+    <AppTable v-if="canReadClaims" class="in-flight-claims" :headers="claimHeaders" :items="claims" :loading="claimsLoading">
+      <template #item.argsHash="{ item }"><code class="text-caption">{{ item.argsHash }}</code></template>
+      <template #item.claimedAt="{ item }">{{ formatTime(item.claimedAt) }}</template>
+      <template #item.ageMinutes="{ item }">{{ item.ageMinutes }} {{ t('inFlightMinutes') }}</template>
+      <template #item.stale="{ item }">
+        <el-tag v-if="item.stale" size="small" type="warning" effect="light">{{ t('inFlightStale') }}</el-tag>
+        <span v-else class="text-caption text-medium-emphasis">{{ t('inFlightRunning') }}</span>
+      </template>
+    </AppTable>
+
     <PageHeader v-if="canEdit" :title="t('toolEffects')">
       <el-button @click="loadEffects()">
         <template #icon><AppIcon icon="mdi-refresh" /></template>
@@ -85,7 +122,7 @@
       </div>
     </el-card>
 
-    <AppTable v-if="canEdit" :headers="effectHeaders" :items="effects" :loading="effectsLoading" :total="effectTotal" :items-per-page="limit">
+    <AppTable v-if="canEdit" class="effects-ledger" :headers="effectHeaders" :items="effects" :loading="effectsLoading" :total="effectTotal" :items-per-page="limit">
       <template #item.resultType="{ item }">
         <StatusChip :status="item.resultType" :label-map="resultTypeMap" />
       </template>
@@ -221,15 +258,23 @@ import { aiToolsApi } from '@/api/aiTools'
 import { settingsApi } from '@/api/settings'
 import { formatTime } from '@/utils/format'
 import { revokeClassTag } from '@/utils/revokeClass'
-import type { AdminAiTool, ToolEffect } from '@/types/admin'
+import type { AdminAiTool, InFlightClaim, ToolEffect } from '@/types/admin'
 
 const { t } = useI18n()
 const snackbar = useSnackbarStore()
 const auth = useAuthStore()
 // AW-2: the auditor reads the tool inventory; the content-safety editor and the effects ledger are
 // admin-only on the server, so they do not render for it (an entry that 403s is worse than none).
+//
+// AW-16: the in-flight claim read is open to the auditor too (server judges `read AuditLog`), so that
+// section renders for `isAdmin || isAuditor` — the one part of this page it can actually read.
+//
 // AW-2：审计读者只读工具清单；内容安全编辑与副作用账本在服务端仍只给管理员，故对它不渲染。
+//
+// AW-16：在途占位查询对审计读者也开放（服务端判 `read AuditLog`），故那一节对 `isAdmin || isAuditor`
+// 渲染 —— 这是本页它真正读得到的那一部分。
 const canEdit = computed(() => auth.isAdmin)
+const canReadClaims = computed(() => auth.isAdmin || auth.isAuditor)
 
 const tools = ref<AdminAiTool[]>([])
 const effects = ref<ToolEffect[]>([])
@@ -238,6 +283,32 @@ const effectPage = ref(1)
 const limit = 20
 const effectsLoading = ref(false)
 const effectUserId = ref<number | undefined>(undefined)
+
+// AW-16：在途调用（服务端只回工具名与 args_hash；参数明文不在返回里，前端也无从显示）
+const claims = ref<InFlightClaim[]>([])
+const claimsLoading = ref(false)
+const claimTotal = ref(0)
+const claimThreshold = ref(60)
+const claimScope = ref<'all' | 'org' | 'own'>('all')
+const claimUserId = ref('')
+const claimToolName = ref('')
+const claimStaleOnly = ref(false)
+const claimScopeLabel = computed(() =>
+  claimScope.value === 'org'
+    ? t('inFlightScopeOrg')
+    : claimScope.value === 'own'
+      ? t('inFlightScopeOwn')
+      : t('inFlightScopeAll'),
+)
+const claimHeaders = computed(() => [
+  { key: 'toolName', title: t('tool') },
+  { key: 'userId', title: t('inFlightUserId') },
+  { key: 'argsHash', title: 'args_hash' },
+  { key: 'claimedAt', title: t('inFlightClaimedAt') },
+  { key: 'ageMinutes', title: t('inFlightAge') },
+  { key: 'attempts', title: t('inFlightAttempts') },
+  { key: 'stale', title: t('statusCol') },
+])
 // E-1 字段级变更审计：查看目标记录 before/after diff
 const diffTarget = ref<ToolEffect | null>(null)
 const showDiffDialog = ref(false)
@@ -386,6 +457,33 @@ async function onSaveContentSafety() {
   }
 }
 
+/**
+ * AW-16：拉一次「此刻在途」的只读快照。服务端已经决定了行范围与滞留判据，前端只做渲染 ——
+ * 这里没有第二套「哪些算在途」的规则（状态既不落定也不释放，读数不改事实）。
+ *
+ * AW-16: one read-only snapshot of "in flight right now". The server owns both the row scope and the
+ * staleness cut; the front end only renders — there is no second definition of "in flight" here, and
+ * reading changes nothing (a stale row is neither settled nor released by being looked at).
+ */
+async function loadInFlight() {
+  claimsLoading.value = true
+  try {
+    const res = await aiToolsApi.inFlightClaims({
+      userId: claimUserId.value.trim() || undefined,
+      toolName: claimToolName.value.trim() || undefined,
+      stale: claimStaleOnly.value,
+    })
+    claims.value = res.items
+    claimTotal.value = res.total
+    claimThreshold.value = res.thresholdMinutes
+    claimScope.value = res.scope
+  } catch (err) {
+    snackbar.error(err instanceof Error ? err.message : t('loadFailed'))
+  } finally {
+    claimsLoading.value = false
+  }
+}
+
 async function loadEffects(p = 1) {
   effectsLoading.value = true
   try {
@@ -453,6 +551,8 @@ async function onAcknowledgeDispute(item: ToolEffect) {
 
 onMounted(() => {
   loadTools()
+  // AW-16：在途调用与工具清单同属两者都可读的那部分；副作用账本与内容安全仍只给管理员。
+  if (canReadClaims.value) loadInFlight()
   if (!canEdit.value) return
   loadEffects()
   loadContentSafety()

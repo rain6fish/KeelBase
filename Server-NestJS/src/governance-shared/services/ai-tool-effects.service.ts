@@ -18,7 +18,7 @@ import { resolveRevokeClass, type RevokeClass } from './revoke-class';
 import { TOOL_REGISTRY } from '../di-tokens';
 import type { DeclaredSideEffect } from './effect-composition';
 import { ConfigService } from '@nestjs/config';
-import { DEFAULT_REVOKE_STALE_MINUTES } from '../../governance-core/revoke-staleness';
+import { staleThresholdMinutes } from '../../governance-core/revoke-staleness';
 import { SideEffectSnapshotCaptor } from './side-effect-snapshot-captor';
 import { buildKey, memberKey } from './effect-shared';
 import { EffectChainWriter } from './effect-chain';
@@ -297,12 +297,12 @@ export class AiToolEffectsService {
 
 
 
-  /** REV-2：陈旧阈值（分钟）——配置缺失时回落到与 Joi 默认一致的常量，避免两处各写一个数。 */
+  /**
+   * REV-2：陈旧阈值（分钟）——配置缺失时回落到与 Joi 默认一致的常量。判定本身单源在
+   * `staleThresholdMinutes`（在途占位查询用同一把尺子）。
+   */
   private _staleThresholdMinutes(): number {
-    const configured = this.configService?.get<number>('REVOKE_STALE_MINUTES');
-    return typeof configured === 'number' && Number.isFinite(configured) && configured > 0
-      ? configured
-      : DEFAULT_REVOKE_STALE_MINUTES;
+    return staleThresholdMinutes(this.configService?.get<number>('REVOKE_STALE_MINUTES'));
   }
 
   /**

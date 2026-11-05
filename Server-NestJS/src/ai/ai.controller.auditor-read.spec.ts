@@ -57,6 +57,11 @@ describe('AiController · auditor read surfaces (AW-2 second half)', () => {
     ['getTools', 'GET /ai/tools'],
     ['pendingApprovals', 'GET /ai/confirmations/pending'],
     ['decidedApprovals', 'GET /ai/confirmations/decided'],
+    // AW-16: which calls are in flight is audit work — the reader reviews executions still running,
+    // and receives a row scope no wider than the audit log it already reads. A plain user still fails.
+    // AW-16：哪些调用在途属于审计工作 —— 读者复核仍在执行的调用，拿到的行范围不比它已能读的审计日志更宽。
+    // 普通用户照旧过不去。
+    ['listInFlightClaims', 'GET /ai/tool-effects/claims'],
   ];
 
   it.each(OPENED)('%s (%s): auditor 200 / user 403 / admin 200', async (method) => {
