@@ -427,6 +427,17 @@ Semantics: a target that honours the header treats two requests carrying the sam
 
 **Status — emitted (ACT-9b).** `ProxyTool` sends `Idempotency-Key` on **write** requests. The key reaches it through a scope held for the duration of one tool execution (`src/ai/proxy/outbound-idempotency.ts`): the tool interface (`AiTool.execute`) is a hot path shared by every tool in the registry while exactly one implementation reads this value, so widening it would charge every tool for a single writer's need. Two boundaries are deliberate — **reads** do not carry it (the header is a write semantic), and a call that never went through the claim path has **no key to send**, so none is invented. **This covers the B path (`ProxyTool`) only**: outbound calls made by external MCP tools go through a different client and are out of scope here. Emitting the header is not the same as a target honouring it — that is the target's behaviour, and a target that ignores it behaves exactly as it does today.
 
+**Resolving `unknown` — the status query (AW-17).** A write whose outcome is unknown leaves the execution ledger in `claimed`, which means *unknown*: it may be running, it may have crashed, and the target may or may not have received it. When the target exposes a **read-only status query**, that ledger entry can be resolved after the fact. The query is configured per tool as `statusPath` — `[METHOD] path`, with `{key}` standing for the action key, the same convention as `revokePath` (for example `GET /contracts/status/{key}`) — and:
+
+- only `GET` is sent; any other method is refused as misconfigured and **nothing is transmitted**, so a status query can never become a second write;
+- it is sent **once**, never retried;
+- it carries the **writer's** delegation identity, not the administrator's, because the target authorises reading that user's record;
+- it concludes `executed` or `not_executed` **only** when the target answers `{"status":"executed"|"not_executed"}`; a timeout, an unreachable target, a non-2xx answer, an unrecognised body, or no query channel at all all conclude `unknown`.
+
+A real answer converges the ledger (`executed` → `settled`, `not_executed` → `released`, which re-opens retry because the target itself said nothing ran). Every attempt is recorded as evidence — when, by which query, with which conclusion — so "never asked" and "asked, got no answer" are different readings. `POST /api/v1/ai/tool-effects/claims/:id/reconcile` performs one lookup for a stale claim (administrators only; a claim still inside the staleness threshold is refused as `not_stale`, since it may be running).
+
+**Targets that cannot be asked.** Where no status query exists — no `statusPath`, or an external MCP server, which offers no such channel — the ledger **stays `unknown`** and the coverage statement declares the `target-status-unavailable` gap. That sentence is the point: **a missing recorded effect is not evidence that the write did not happen**, and the package says so about itself instead of leaving the reader to assume it.
+
 **中文**
 
 KeelBase 代工具对**外部目标**执行写时，请求**携带** `Idempotency-Key: <action key>`。
@@ -438,6 +449,17 @@ KeelBase 代工具对**外部目标**执行写时，请求**携带** `Idempotenc
 **降级**：对不认这个头的目标，KeelBase **无从判断**超时的那次写是否落了地。这类结果记为 **unknown**，且**不盲目重试** —— 由人来对账。往任何一边猜都比直说更糟：「成功了」会掩盖一次可能没发生的写，「失败了」则会招来第二次、可能把第一次重复一遍。
 
 **状态 —— 已发出（ACT-9b）**：`ProxyTool` 在**写**请求上发送 `Idempotency-Key`。键通过一个**一次工具执行期间**的作用域送到它手上（`src/ai/proxy/outbound-idempotency.ts`）—— 工具接口（`AiTool.execute`）是注册表里**每一个**工具共用的热路径，而读这个值的只有**一个**实现；为一个写出方加宽它，等于让所有工具替它付账。两条边界是有意的：**读**请求不带（这个头是写语义），**没走过认领路径**的调用**没有键可发**，故不发明一个。**只覆盖 B 路径（`ProxyTool`）**：外部 MCP 工具的出站调用走另一个客户端，不在本项范围内。发出这个头**不等于**目标会认它 —— 那取决于目标，而忽略它的目标行为与今天完全一致。
+
+**消解 `unknown` —— 状态查询（AW-17）**：结局未知的写会让执行占位留在 `claimed`，其含义就是**未知** —— 它可能仍在跑、可能崩溃了、目标也可能收到也可能没收到。当目标提供**只读状态查询**时，这条账可以事后消解。查询按工具配置为 `statusPath` —— `[METHOD] path`、`{key}` 代表 action key，与 `revokePath` 同一约定（例如 `GET /contracts/status/{key}`）—— 并且：
+
+- **只发 `GET`**；配成别的方法一律按 misconfigured 拒绝、**一个字节都不发**，故状态查询不可能变成第二次写；
+- **只发一次**，不重试；
+- 携带**写入者**的委托身份，不是管理员的 —— 目标按那个用户的权限放行读；
+- 只有目标答 `{"status":"executed"|"not_executed"}` 时才判 `executed` / `not_executed`；超时、不可达、非 2xx、认不出的响应体、乃至根本没有查询通道，结论都是 `unknown`。
+
+真答案会让账收敛（`executed` → `settled`，`not_executed` → `released`，后者重开重试之门，因为是目标自己说没跑）。每次尝试都留下证据 —— 何时、按哪个查询、结论是什么 —— 于是「从没问过」与「问了没答案」是两个读数。`POST /api/v1/ai/tool-effects/claims/:id/reconcile` 对一条陈旧占位执行一次查询（仅管理员；仍在陈旧阈值内的占位按 `not_stale` 拒绝，因为它可能正在跑）。
+
+**问不到的目标**：没有状态查询时 —— 没配 `statusPath`，或是外部 MCP server（那条路径不提供这种通道）—— 账**保持 `unknown`**，覆盖声明带上 `target-status-unavailable` 缺口。那句话才是要点：**没有记录下来的副作用，不是「这次写没发生」的证据**；包自己把这件事说出来，而不是留给读者去假设。
 
 ---
 

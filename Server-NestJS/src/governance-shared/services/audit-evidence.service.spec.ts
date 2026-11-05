@@ -18,6 +18,11 @@ import { deriveOutcome, deriveTool, BackfillRow } from './audit-outcome';
  * canonical** — so a fixed stub is all this needs.
  */
 const coverageStub = () => ({
+  // AW-17: the deployment fact the `/4` statement now has to carry. Fixed here, because this spec
+  // pins that the section is present and signed — not how the fact is derived.
+  // AW-17：`/4` 声明现在要带的部署事实。这里固定它，因为本 spec 钉的是「这一段在、且进了签名」，
+  // 而不是这条事实怎么算出来。
+  hasWriteTargetWithoutStatusQuery: jest.fn(async () => false),
   forFacts: jest.fn((input: { kind: string; subjectRef: string | null }) => ({
     registryRevision: 'test-rev',
     scope: {

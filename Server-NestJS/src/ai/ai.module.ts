@@ -14,6 +14,8 @@ import { AuthModule } from '../auth/auth.module';
 import { DelegationTokenService } from '../auth/delegation-token.service';
 import { ProxyToolRegistryService } from './proxy/proxy-tool.service';
 import { ProxyToolRevokerService } from './proxy/proxy-revoker.service';
+import { ProxyTargetStatusProbe } from './proxy/target-status';
+import { OutboundTargetFactsProvider } from './proxy/outbound-target-facts';
 import { EventsModule } from '../events/events.module';
 import { UsersModule } from '../users/users.module';
 import { TodosModule } from '../todos/todos.module';
@@ -78,6 +80,9 @@ import { AiAuditModule } from './audit/ai-audit.module';
 import { MetricsModule } from '../metrics/metrics.module';
 import { ExternalToolRegistry } from './tools/external-tool-registry';
 import { TOOL_REGISTRY, AUTHORIZATION_EXPLAINER } from '../governance-shared/di-tokens';
+import { OUTBOUND_TARGET_FACTS } from '../governance-shared/outbound-target-facts';
+import { TARGET_STATUS_PROBE } from '../governance-shared/services/tool-effects.types';
+import { TargetStatusLookupRow } from '../governance-shared/entities/target-status-lookup.entity';
 import { AuditStatsService } from '../governance-shared/services/audit-stats.service';
 import { AuditQueryService } from '../governance-shared/services/audit-query.service';
 import { AuditEvidenceService } from '../governance-shared/services/audit-evidence.service';
@@ -246,7 +251,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     MetricsModule,
     CacheModule,
     OperationAuditModule,
-    TypeOrmModule.forFeature([AiConversation, AiMessage, AiAuditLog, AiDailyUsage, KnowledgeArticle, UserMemory, EvalCase, AiToolSideEffect, EffectComparability, AiWriteClaim, AiConfirmationRequest, AiAgent, AiGovernancePolicy, AiGovernancePolicyHistory, AiBehaviorAlert, User]),
+    TypeOrmModule.forFeature([AiConversation, AiMessage, AiAuditLog, AiDailyUsage, KnowledgeArticle, UserMemory, EvalCase, AiToolSideEffect, EffectComparability, AiWriteClaim, TargetStatusLookupRow, AiConfirmationRequest, AiAgent, AiGovernancePolicy, AiGovernancePolicyHistory, AiBehaviorAlert, User]),
   ],
   controllers: [AiController, AuditController, InsightsController, KnowledgeController, AiEvalController, AgentsController, InternalEffectsController, ExternalEffectsController, InternalApprovalsController, SecurityShowcaseController],
   providers: [
@@ -284,6 +289,15 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     // D5：共享侧不再 import AI 的类/值；这两个 token 把业务侧实例交给它。治理进程两个都不绑，
     // 可选参数保持 undefined。
     { provide: TOOL_REGISTRY, useExisting: ToolRegistry },
+    // AW-17: the read-only target-status probe (B path) and the deployment fact behind the
+    // `target-status-unavailable` coverage gap. Both stay unbound in the governance process — it has no
+    // outbound targets, and an unbound token is reported as "nothing to ask", never as "not executed".
+    // AW-17：只读目标状态探针（B 路径）与 `target-status-unavailable` 缺口背后的部署事实。两者在治理
+    // 进程都不绑 —— 它没有出站目标，而未绑定的 token 报的是「没东西可问」，绝不是「没执行」。
+    ProxyTargetStatusProbe,
+    OutboundTargetFactsProvider,
+    { provide: TARGET_STATUS_PROBE, useExisting: ProxyTargetStatusProbe },
+    { provide: OUTBOUND_TARGET_FACTS, useExisting: OutboundTargetFactsProvider },
     { provide: AUTHORIZATION_EXPLAINER, useExisting: AuthorizationExplainerService },
     // D2-1f 副作用撤销执行器：默认本地软删，独立治理控制平面可替换为远程补偿 revoker
     // useExisting: the class comes from GovernanceSharedModule, so the token is only an alias. Two

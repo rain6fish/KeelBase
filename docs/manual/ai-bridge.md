@@ -103,6 +103,8 @@ OpenAPI（含 operations + securitySchemes）
 
 **✅ 运行时撤销调用（2026-08-24）**：副作用撤销时若工具配置带 `revokePath` → `ProxyToolRevokerService`（ai.module useFactory 组装，注入 AiToolEffectsService）从已注册 ProxyTool 取 baseUrl/audience/revokePath + 签发委托 token → HTTP 调补偿端点（`{id}` 占位=副作用 resultId）。撤销结果 `{ revoked:true, external:true, compensated:true, message:'Java 端已补偿（POST /contracts/…/cancel）' }`；未配置 revokePath → `{ revoked:false, external:true, message:'…需 Java 端补偿接口' }`（诚实语义）。proxy-bridge e2e 5/5 覆盖。
 
+**✅ 目标状态查询约定（`statusPath`，AW-17）**：写工具可配 `statusPath`（如 `GET /contracts/status/{key}`），供「出站写超时、结局未知」后做一次性只读对账。约定与 `revokePath` 同构 —— `[METHOD] path`、`{key}` 占位为这次写的幂等键（就是 `Idempotency-Key` 那个值，两侧同一个键）。要点：**只发 `GET`**（配成别的方法一个字节都不发）；**只发一次**、不重试；用**写入者的**委托身份（不是管理员的）；目标须答 `{"status":"executed"|"not_executed"}`，其余任何响应（超时 / 不可达 / 非 2xx / 认不出）一律读作 `unknown`，**绝不读成「没执行」**。未配 `statusPath` 的目标：账保持 `unknown`，覆盖声明带 `target-status-unavailable` 缺口。管理员端点 `POST /api/v1/ai/tool-effects/claims/:id/reconcile`。
+
 **✅ 服务身份查询副作用状态（2026-09-02，`GET /api/v1/external/effects/:resultType/:resultId`）**：Java 接入方反向对账——查某业务动作（如 `followup/7`）的 AI 副作用是否存在 + 是否已撤销。认证 `GOVERNANCE_API_KEY`（x-api-key/Bearer，同治理台回调钥）。返回 `{ effect, target:{targetExists,targetSoftDeleted,targetTitle}, revoked, revokeHint? }`；本地实体 `revoked = targetSoftDeleted`（撤销真值在主应用，治理库无业务实体）；B 路径 `proxy_call` 主库 effect 无撤销列、撤销经 Java 补偿端点 → `revokeHint` 明示「撤销态需在 Java 侧确认」（诚实边界）。starter 侧 `KeelbaseClient.querySideEffect` 封装。
 
 ---

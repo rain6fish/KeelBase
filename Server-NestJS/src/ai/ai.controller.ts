@@ -577,6 +577,32 @@ export class AiController {
   }
 
   /**
+   * AW-17: ask the target **once**, read-only, whether a stuck external write ran, and converge the
+   * ledger on a real answer. Never re-sends the write; no answer leaves the claim `claimed` (unknown).
+   *
+   * Refusals come back by kind (`not_stale` / `not_claimable` / `not_found`), and an inconclusive query
+   * comes back as `unresolved` with `conclusion: 'unknown'` — so "we asked and it did not answer" and
+   * "we did not ask" are different readings.
+   *
+   * AW-17：向目标**只问一次**、只读，问一笔卡住的外部写跑了没有，并只在拿到真答案时收敛账。不重发写；
+   * 没有答案时占位保持 `claimed`（未知）。
+   *
+   * 拒绝按种类返回（`not_stale` / `not_claimable` / `not_found`），无结论的查询返回 `unresolved` 且
+   * `conclusion: 'unknown'` —— 于是「问了没答」与「没问」是两个读数。
+   */
+  @Post('tool-effects/claims/:id/reconcile')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({
+    summary: 'AW-17：对卡住的外部写占位做一次性只读目标状态查询（管理员；无答案则保持 unknown）',
+  })
+  async reconcileToolEffectClaim(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.toolEffectsService.reconcileClaim(id, String(user.sub));
+  }
+
+  /**
    * G-3（§internal.17 ① G-3）：副作用哈希链完整性校验（admin；历史 null 行不在链内，仅校验新链化行）。
    */
   @Get('tool-effects/verify')
