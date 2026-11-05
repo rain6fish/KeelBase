@@ -4,6 +4,103 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 本文件记录 KeelBase 所有值得关注的变更。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.3.1] - 2026-11-04
+
+**v1.3.1 — The audit reader's scope closes on every read, and every ordered read says how it was ordered / 审计读者的范围在每个读面收口，每个有序读都说清它按什么排序**
+
+### Fixed
+
+- **The evidence root no longer hands a reader the whole audit table.** A row with no
+  `conversationId` queried with an empty predicate, and that result was returned as the row's
+  `conversation` after the scope had been checked on the anchor row alone — one no-conversation id
+  read every organisation's payloads into memory. A row with no conversation now returns an empty
+  array.
+
+- **The evidence-package export is administrator-only again.** Its report half was scoped, but the
+  chain half read every hashed row and returned it with per-row payloads, and the endpoint was gated
+  on `read AuditLog` — a grant the audit reader holds. Exporting the whole chain is an administrator
+  action; the reader keeps the scoped `action-report` and the operations audit.
+
+- **The operations audit read face applies the reader's organisation scope.** The list and the
+  statistics take the same `resolveAuditReaderScope` / `applyAuditScopeToWhere` pair the AI audit
+  uses, and a request `userId` can only narrow the account scope. Chain verification stays whole on
+  purpose and answers with a verdict and a count rather than row payload — a chain checked over a
+  subset is a false verdict.
+
+- **The by-id check asks the same membership question as the list.** The scope check for a single
+  row used the account's earliest membership while lists and aggregates matched any membership, so a
+  user in two organisations could see a row in a list and get a 404 on it. The by-id path now asks
+  whether the actor is a member of the reader's organisation, any membership.
+
+- **R4 and offline decisions link their audit row to the write claim.** The R4 executor writes its
+  own audit row; it now also writes the machine-readable arguments column and calls
+  `attachAuditRow` under the same idempotency key as the chat path, so a write that went through
+  this door is reachable from its effect.
+
+- **A leave request cannot be created approved.** `status` is gone from the create DTO and the
+  service writes `pending` regardless of the caller; the update path refuses a status change unless
+  the caller is an administrator; the Flutter form no longer offers the control and the AI tool has
+  no `status` parameter. A client that still sends it gets a 400 instead of a silent approval.
+
+- **Both Taro vertical templates collect what the server requires.** The leave-request and
+  inventory-movement forms now send every required DTO field and check them before the request,
+  instead of a single `requestNo` / `documentNo` behind an `as any`; the add action no longer fails
+  by construction.
+
+- **The governance import ratchet scans statements, not lines.** A Prettier-folded
+  `import { … } from` split over two lines passed the line-based scan silently; folded imports are
+  now collected as one statement, with a regression test pinning that shape.
+
+### Changed
+
+- **Every ordered read declares the order it applied.** `@ResponseOrdering` attaches a declaration
+  and the response envelope carries `ordering{field, direction, controlledBy, tiebreak, attested}`.
+  The log list also gains `id` as its tie-break, so offset paging can no longer repeat or drop a row
+  whose timestamps tie. Contract: `api-response` v2.
+
+Full details: [v1.3.1 release](https://github.com/rain6fish/KeelBase/releases/tag/v1.3.1)
+
+**中文**
+
+### 修复
+
+- **证据根不再把整张审计表交给读者。** 没有 `conversationId` 的行此前用空谓词查询，而那段结果在只对
+  锚点行判过范围后原样作为该行的 `conversation` 返回 —— 一个无会话的 id 就能把每个组织的载荷读进
+  内存。现在无会话的行返回空数组。
+
+- **证据包导出恢复管理员专属。** 报表那一半已按范围收窄，但链那一半读取每一行已入链的记录并连同
+  逐行载荷返回，而端点判的是 `read AuditLog` —— 审计读者正持有该授予。导出整条链是管理员的动作；
+  审计读者保留按范围收窄的 `action-report` 与操作审计。
+
+- **操作审计读面带上读者的组织范围。** 列表与统计改用与 AI 审计同一对
+  `resolveAuditReaderScope` / `applyAuditScopeToWhere`，请求侧的 `userId` 只能收紧账号范围。
+  链校验仍有意保持全链，且只回答结论与计数、不返回行载荷 —— 只取一部分验出来的链是假结论。
+
+- **按 id 判范围与列表问同一个成员关系。** 单行的范围判定此前用账号「最早加入」的组织，而列表与
+  聚合按任一成员关系匹配，于是同属两个组织的用户在列表看得到、点进去却是 404。现在按 id 也问
+  「该行动者是不是读者组织的一员」—— 任一成员关系。
+
+- **R4 与离线裁决把审计行挂到写占位上。** R4 执行器自己拼审计行；现在它也写机器可读的参数列，并以与
+  对话流相同的幂等键调用 `attachAuditRow`，故经这扇门落下的写可以从它的副作用回溯到。
+
+- **请假申请不能被创建成「已批准」。** 创建 DTO 去掉了 `status`，服务端不论调用方期望什么一律写
+  `pending`；更新路径非管理员不得改状态；Flutter 表单不再提供该控件，AI 工具也没有 `status` 参数。
+  仍然传它的客户端会得到 400，而不是一次静默批准。
+
+- **Taro 两个垂直模板按服务端要求采集。** 请假与进销存表单现在发送 DTO 的每一个必填字段，并在请求前
+  先校验，而不再是藏在 `as any` 后面的单个 `requestNo` / `documentNo`；「添加」不再注定失败。
+
+- **治理 import 棘轮按语句扫描，而不是逐行。** Prettier 折成两行的 `import { … } from` 以前会被
+  逐行扫描静默放行；现在折行的 import 作为一个语句被收集，并有回归用例钉住这个形状。
+
+### 变更
+
+- **每个有序读都声明它实际用的顺序。** `@ResponseOrdering` 挂上声明，响应信封携带
+  `ordering{field, direction, controlledBy, tiebreak, attested}`。日志列表同时以 `id` 决序，
+  故偏移分页不会再让同一时间戳并列的行重复或消失。契约：`api-response` v2。
+
+完整详情：[v1.3.1 发布](https://gitee.com/rain6fish/KeelBase/releases/tag/v1.3.1)
+
 ## [1.3.0] - 2026-10-31
 
 **v1.3.0 — The Accountable Evidence Release: every write traceable, every reading named / 可核证据版：每一次写入追得回，每一个读数有名字**
