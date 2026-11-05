@@ -823,6 +823,26 @@ describe('P0-19 ② readings — Action Recoverability × Lifecycle Coverage, th
     expect(r4NoApproverReading.ar.detail['who-approved-second']).toBe(false);
     expect(r4NoApproverReading.ar.detail['who-approved']).toBe(true); // the operator still names a decider
     expect(r4NoApproverReading.ar.numerator).toBe(readingsFor('r4-approved', r4).ar.numerator - 1);
+
+    // (f) The R4 door's arguments are read from the audit row's own column, which that door's
+    // executor started writing on 2026-11-01; blanking that column must fall back to the confirmation
+    // row's `args` instead of losing the answer, because the confirmation row still writes them. The
+    // two-way pin is what separates "the reading moved to a better source" from "a source stopped
+    // being written" — the second is the failure this instrument exists for.
+    //
+    // (f) R4 这扇门的参数读自审计行自己的列（该门的执行器自 2026-11-01 起写它）；把这列抹掉，答案必须
+    // 回落到确认行的 `args`，而不是变得答不出 —— 确认行仍在写它们。这条双向钉住，正是「读数换到了更好的
+    // 来源」与「某个来源不再被写」之间的分界 —— 后者才是本仪器存在的理由。
+    expect(readingsFor('r4-approved', r4).ar.evidence['what']).toBe(
+      'ai_audit_logs.tool + ai_audit_logs.tool_args',
+    );
+    const r4WithoutArgsColumn: Slice = {
+      ...r4,
+      audits: r4.audits.map((a) => (a.action === 'tool_call' ? { ...a, toolArgs: undefined } : a)),
+    };
+    expect(readingsFor('r4-approved', r4WithoutArgsColumn).ar.evidence['what']).toBe(
+      'ai_audit_logs.tool + ai_confirmation_requests.args',
+    );
   });
 });
 

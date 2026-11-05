@@ -1,6 +1,6 @@
 {
   "$comment": "Pinned readings for `npm run measure:p019` (P0-19 ②). Written by that script with --update; do not hand-edit. A diff here is the claim that a reading moved on purpose — say why in the commit message. Values come from Server-NestJS/test/p019-readings.measure.ts.",
-  "$pinnedAt": "2026-10-30",
+  "$pinnedAt": "2026-11-05",
   "readings": [
     {
       "door": "chat",
@@ -183,7 +183,7 @@
         },
         "evidence": {
           "who": "ai_audit_logs.user_id + username",
-          "what": "ai_audit_logs.tool + ai_confirmation_requests.args",
+          "what": "ai_audit_logs.tool + ai_audit_logs.tool_args",
           "why-allowed": "ai_audit_logs.authorization",
           "who-approved": "ai_confirmation_requests.status + decided_at + (approver_id ?? operator_id)",
           "who-approved-second": "ai_confirmation_requests.status + approver_id (second person only)",
