@@ -47,7 +47,7 @@
 |---|---|---|
 | **结论 / Verdict** | 可否独立验证 | 报告顶部：`hashChain.valid` + `signature` 验签结果 → `PASS（链完整 + 签名有效）` / `FAIL（断链 @ 行 N）`；`format` 徽标 |
 | **封面 / Cover** | 何时 | `period.since/to`、`exportedAt`、`format`、`generator`、包指纹（`chain` 行数 + 末行 hash 摘要） |
-| **期间摘要 / Period Summary** | 何时·结果 | `report.summary{executed,approved,rejected,blocked,refused,errors,effects}` 计数卡 + `byDay` 趋势（UTC 日）|
+| **期间摘要 / Period Summary** | 何时·结果 | `report.summary{executed,approved,rejected,blocked,refused,errors,effects}` 计数卡 + `byDay` 趋势（UTC 日）。⚠ `errors` 与 `byDay.errors` 是**混合人群**：所有 action 的错误一并计入（含 `chat`），而其余五个桶只数工具行 —— 引用「错误在涨」时须说明这一点，或按 `byAction` 分开读 |
 | **动作构成 / By Action** | 做了什么 | `byAction[{action,count}]` 表 |
 | **逐条动作索引 / Action Index** | 谁·做了什么·为什么 | `compliance[]`（+ `samples[]`）逐条：`id / action / toolName / businessEvent / summary.sentence / identityChain（谁）/ isError` + **链接 → D-2 单动作报告**（含该动作的授权依据/凭何允许/离线验证）|
 | **链行清单 / Chain Manifest** | 可否独立验证 | `chain[]`：逐行 `seq/id/prevHash/hash`；`hashChain{checked,tableRows,brokenIndex}` 结果（`tableRows` 是表内行数，`checked` 只数已入链的行）；`signature` 覆盖范围声明 |
