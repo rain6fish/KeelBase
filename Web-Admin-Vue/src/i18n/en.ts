@@ -1589,6 +1589,8 @@ const en: ZhDict = {
     'Where the runtime is embedded in a host that owns the business write, that write and its audit row are not written in one transaction.',
   'coverageGap_host-ai-path-not-governed':
     'The host runs an AI path of its own that does not pass through the governance engine, so its tool calls are outside this view.',
+  'coverageGap_target-status-unavailable':
+    'An external write target offers no read-only status query, so a timed-out write cannot be resolved after the fact; the ledger keeps it unknown, and a missing effect row is not evidence it did not happen.',
   filterByUser: 'Filter by user',
   filterByAgent: 'Filter by agent',
   agentCol: 'Agent',

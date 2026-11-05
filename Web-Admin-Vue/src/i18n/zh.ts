@@ -1598,6 +1598,8 @@ const zh = {
     '运行时嵌在宿主里、业务写由宿主落时，那次写与它的审计行不在同一个事务',
   'coverageGap_host-ai-path-not-governed':
     '宿主自己有一条 AI 路径不走治理引擎 ⇒ 它的工具调用不在这份视图里',
+  'coverageGap_target-status-unavailable':
+    '外部写目标不提供只读状态查询，超时的写事后收敛不了；账上保持 unknown，缺一条副作用行不能当作「没发生过」的证据',
   filterByUser: '按用户过滤',
   filterByAgent: '按 Agent 过滤',
   agentCol: 'Agent',
