@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Injectable, Optional } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, IsNull, Not, Repository, type FindOptionsWhere } from 'typeorm';
 import { createHash } from 'node:crypto';
@@ -10,6 +10,7 @@ import { REVOKE_STATUS } from '../../governance-core/revoke-status';
 import { GovernancePolicyService } from '../../governance-shared/services/governance-policy.service';
 import { COVERAGE_GAPS, CoverageFacts, applicableGaps, deriveVerdict } from '../../governance-core/coverage-gaps';
 import { OrgService } from '../../org/org.service';
+import { OUTBOUND_TARGET_FACTS, type OutboundTargetFacts } from '../outbound-target-facts';
 import {
   applyAuditScopeToWhere,
   resolveAuditReaderScope,
@@ -107,7 +108,28 @@ export class CoverageService {
     // AW-2 聚合那一半：声明里的计数同样是「行」，故审计读者的声明只数它自己的组织。与其余范围助手
     // 一样可选 —— 组织服务缺席时退回读者本人行，绝不是全部。
     @Optional() private readonly orgService?: OrgService,
+    // AW-17: whether any outbound **write** target lacks a status query. Optional for the same reason
+    // as the org service — an unbound token means this process has no outbound targets to enumerate
+    // (the governance console, hand-built test assemblies), which is the honest `false`.
+    //
+    // AW-17：是否有出站**写**目标不提供状态查询。与组织服务同因可选 —— 未绑定的 token 表示本进程
+    // 没有可枚举的出站目标（治理台、手工装配的单测），那正是诚实的 `false`。
+    @Optional()
+    @Inject(OUTBOUND_TARGET_FACTS)
+    private readonly outboundFacts?: OutboundTargetFacts,
   ) {}
+
+  /**
+   * AW-17: the deployment fact behind `target-status-unavailable`. Exposed as a method rather than
+   * inlined into `forScope` because the **evidence root** also needs it, and the two must not answer
+   * from two different readings.
+   *
+   * AW-17：`target-status-unavailable` 背后的部署事实。做成方法而不是内联进 `forScope`，是因为
+   * **证据根**也要它，而两处不能给出两个读数。
+   */
+  async hasWriteTargetWithoutStatusQuery(): Promise<boolean> {
+    return this.outboundFacts ? this.outboundFacts.hasWriteTargetWithoutStatusQuery() : false;
+  }
 
   /**
    * Identifies **which version of the registry** a statement was computed against — first 12 hex of the
@@ -214,6 +236,7 @@ export class CoverageService {
       packageHasOpenDispute: openDispute > 0,
       packageHasStalledRevoke: stalledRevoke > 0,
       packageHasChatRow: chatRows > 0,
+      externalWriteTargetWithoutStatusQuery: await this.hasWriteTargetWithoutStatusQuery(),
     };
 
     // Only the sources this statement actually read — the list is "what was consulted", not "what

@@ -5,7 +5,9 @@ import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
 import { EffectComparability } from '../entities/effect-comparability.entity';
-import { AiWriteClaim } from '../entities/ai-write-claim.entity';
+import { AiWriteClaim, WRITE_CLAIM_STATUS } from '../entities/ai-write-claim.entity';
+import { TargetStatusLookupRow } from '../entities/target-status-lookup.entity';
+import { TARGET_STATUS, type TargetStatusLookup } from '../../governance-core/target-status';
 import type { ExternalRevoker } from '../../ai/proxy/proxy-revoker.service';
 import { SIDE_EFFECT_REVOKER } from '../../governance-shared/services/side-effect-revoker';
 import type { SideEffectRevoker } from '../../governance-shared/services/side-effect-revoker';
@@ -30,6 +32,8 @@ import { EffectRevoke } from './effect-revoke';
 import { EffectProjection } from './effect-projection';
 import {
   EXTERNAL_REVOKER,
+  TARGET_STATUS_PROBE,
+  type ReconcileClaimResult,
   type RevokeBatchResult,
   type RevokeClaimOutcome,
   type RevokePatch,
@@ -38,6 +42,7 @@ import {
   type SideEffectSnapshot,
   type SplitGroupFinding,
   type HostHelpers,
+  type TargetStatusProbe,
   type WriteToolContext,
 } from './tool-effects.types';
 
@@ -120,6 +125,28 @@ export class AiToolEffectsService {
     @Optional()
     @InjectRepository(EffectComparability)
     private readonly comparabilityRepo?: Repository<EffectComparability>,
+    /**
+     * AW-17: the read-only target-status probe (B path). Bound by `AiModule`; the governance process
+     * binds neither it nor the lookup repository, and both optional parameters stay undefined there.
+     * **Absent is not "not executed"** — the reconciliation reports `target-status-unavailable` and the
+     * ledger keeps `claimed`.
+     *
+     * AW-17：只读目标状态探针（B 路径）。`AiModule` 才绑；治理进程两个都不绑，可选参数保持 undefined。
+     * **缺席不等于「没执行」** —— 对账报 `target-status-unavailable`，账照样留 `claimed`。
+     */
+    @Optional()
+    @Inject(TARGET_STATUS_PROBE)
+    private readonly statusProbe?: TargetStatusProbe,
+    /**
+     * AW-17: the lookup evidence trail (one row per attempt). @Optional like the other repositories —
+     * absent in hand-built test assemblies, where the evidence is still returned but not stored.
+     *
+     * AW-17：查询证据历史（每次尝试一行）。与其他仓储一样 @Optional —— 手工装配的单测里缺席，
+     * 那时证据仍会返回，只是不落库。
+     */
+    @Optional()
+    @InjectRepository(TargetStatusLookupRow)
+    private readonly lookupsRepo?: Repository<TargetStatusLookupRow>,
   ) {
     // 拆分第三批（2026-10-11）：链写入器在**构造器体内**建立 —— 构造器签名一字未动（有二十多处位置式
     // `new AiToolEffectsService(...)` 与两个 Nest 模块依赖它）。**只此一份**：登记与撤销共用同一个它，
@@ -295,7 +322,142 @@ export class AiToolEffectsService {
     return this.claims.listStaleClaims(olderThanMs);
   }
 
+  /**
+   * AW-17: reconcile one stuck write claim by asking the target **once**, read-only, whether it ran.
+   *
+   * The ledger already says *that* this write's outcome is unknown (`claimed`). This is the one thing
+   * that was missing: a way to ask. It never re-sends the write, never retries, and never resolves an
+   * unanswered query into `not_executed` — the ledger moves only on a real answer, and otherwise stays
+   * `claimed` (`unknown`), with the attempt recorded so "never asked" and "asked, no answer" are
+   * different readings.
+   *
+   * Three guards, each for a different mistake:
+   * - **not `claimed`** ⇒ the outcome is already recorded; a query cannot improve on it.
+   * - **not stale yet** ⇒ it may still be running; settling it now would race the live call.
+   * - **no probe / no `statusPath`** ⇒ nothing to ask. Reported as `target-status-unavailable`; the
+   *   same fact the coverage statement declares as a gap.
+   *
+   * The query carries the **original writer's** identity (the claim's `userId`), not the administrator's;
+   * `lookedUpBy` records who asked.
+   *
+   * AW-17：对一条卡住的写占位做一次对账 —— 向目标**只问一次**、只读，问它到底跑了没有。
+   *
+   * 账上已经说了这笔写的结局未知（`claimed`）。此前缺的正是「能问」这一条路。它不重发写、不重试，
+   * 也绝不把没有答案的查询收敛成 `not_executed` —— 只有**真答案**才让账动，否则保持 `claimed`
+   * （即 `unknown`），并把这次尝试记下来，使「从没问过」与「问了没答案」是两个读数。
+   *
+   * 三道守卫，各防一种错：
+   * - **已不是 `claimed`** ⇒ 结局已经记下，查询改不好它。
+   * - **还没到陈旧阈值** ⇒ 可能仍在执行，此时落定会与活着的调用抢。
+   * - **没有探针 / 没有 `statusPath`** ⇒ 没东西可问。报 `target-status-unavailable`；这正是覆盖声明
+   *   要作为缺口声明的那件事。
+   *
+   * 查询携带**原写入者**的身份（占位行的 `userId`），不是管理员的；`lookedUpBy` 记下是谁发起的。
+   */
+  async reconcileClaim(claimId: number, byUserId: string): Promise<ReconcileClaimResult> {
+    const claim = this.claimsRepo ? await this.claimsRepo.findOne({ where: { id: claimId } }) : null;
+    if (!claim) {
+      // `absent` is not a claim status: there is no row. Reporting `unknown` here would read as the
+      // ledger's unknown state, which is a different thing from "no such claim".
+      // `absent` 不是占位状态：是根本没有这一行。在这里报 `unknown` 会被读成账上的未知态 —— 与
+      // 「没有这条占位」是两回事。
+      return { outcome: 'not_found', conclusion: TARGET_STATUS.UNKNOWN, claimStatus: 'absent', evidence: null };
+    }
+    if (claim.status !== WRITE_CLAIM_STATUS.CLAIMED) {
+      return {
+        outcome: 'not_claimable',
+        conclusion: TARGET_STATUS.UNKNOWN,
+        claimStatus: claim.status,
+        evidence: null,
+      };
+    }
+    const cutoff = Date.now() - this._staleThresholdMinutes() * 60_000;
+    if (claim.claimedAt.getTime() > cutoff) {
+      return {
+        outcome: 'not_stale',
+        conclusion: TARGET_STATUS.UNKNOWN,
+        claimStatus: claim.status,
+        evidence: null,
+      };
+    }
 
+    // One query, never a write. With no probe the answer is candidly "we cannot ask" — the word choice
+    // matters more than the branch: `target-status-unavailable` says the target was not consulted,
+    // where `not_executed` would claim a write did not happen.
+    // 一次查询，绝不是写。没有探针时答案是坦白的「问不到」—— 用哪个词比走哪个分支更要紧：
+    // `target-status-unavailable` 说的是没问过目标，而 `not_executed` 会断言那次写没发生。
+    const evidence = this.statusProbe
+      ? await this.statusProbe.lookup(claim.toolName, claim.idempotencyKey, claim.userId)
+      : {
+          queriedAt: new Date().toISOString(),
+          queryMethod: 'GET',
+          queryPath: '',
+          conclusion: TARGET_STATUS.UNKNOWN,
+          reason: 'target-status-unavailable' as const,
+        };
+    await this._recordLookup(claim, byUserId, evidence);
+
+    if (evidence.conclusion === TARGET_STATUS.UNKNOWN) {
+      return {
+        outcome: 'unresolved',
+        conclusion: TARGET_STATUS.UNKNOWN,
+        claimStatus: claim.status,
+        evidence,
+      };
+    }
+
+    const landed = await this.claims.reconcileClaim(claim, evidence.conclusion);
+    if (!landed) {
+      // Someone settled (or released) the same claim between our read and this write. Report them, do
+      // not overwrite: their outcome came from the execution path, ours from a query.
+      // 在我们读与写之间有人落定（或释放）了同一条占位。如实报出、**不覆盖**：他们的结局来自执行
+      // 路径，我们的来自一次查询。
+      const after = this.claimsRepo ? await this.claimsRepo.findOne({ where: { id: claimId } }) : null;
+      return {
+        outcome: 'not_claimable',
+        conclusion: evidence.conclusion,
+        claimStatus: after?.status ?? claim.status,
+        evidence,
+      };
+    }
+    return {
+      outcome: 'reconciled',
+      conclusion: evidence.conclusion,
+      claimStatus:
+        evidence.conclusion === TARGET_STATUS.EXECUTED
+          ? WRITE_CLAIM_STATUS.SETTLED
+          : WRITE_CLAIM_STATUS.RELEASED,
+      evidence,
+    };
+  }
+
+  /** AW-17：把一次查询落成证据行。落库失败只告警 —— 账的移动由目标自己的回答支撑，不由这张表。 */
+  private async _recordLookup(
+    claim: AiWriteClaim,
+    byUserId: string,
+    evidence: TargetStatusLookup,
+  ): Promise<void> {
+    const repo = this.lookupsRepo;
+    if (!repo) return;
+    try {
+      await repo.save(
+        repo.create({
+          idempotencyKey: claim.idempotencyKey,
+          toolName: claim.toolName,
+          lookedUpBy: byUserId,
+          asUserId: claim.userId,
+          queryMethod: evidence.queryMethod,
+          queryPath: evidence.queryPath,
+          conclusion: evidence.conclusion,
+          reason: evidence.reason,
+        }),
+      );
+    } catch (err) {
+      this.logger.warn(
+        `[AiToolEffects] AW-17 target-status lookup not recorded (${claim.idempotencyKey}): ${(err as Error).message}`,
+      );
+    }
+  }
 
   /**
    * REV-2：陈旧阈值（分钟）——配置缺失时回落到与 Joi 默认一致的常量。判定本身单源在

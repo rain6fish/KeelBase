@@ -66,6 +66,13 @@ export interface CoverageFacts {
   packageHasStalledRevoke: boolean;
   /** Package holds at least one chat row. / 包里至少有一条 chat 行。 */
   packageHasChatRow: boolean;
+  /**
+   * The deployment writes to at least one external target that offers **no status query**, so a
+   * timed-out write's outcome cannot be resolved after the fact (AW-17).
+   *
+   * 该部署至少写向一个**不提供状态查询**的外部目标 —— 超时的写事后收敛不了（AW-17）。
+   */
+  externalWriteTargetWithoutStatusQuery: boolean;
 }
 
 export type CoverageFact = keyof CoverageFacts;
@@ -228,6 +235,20 @@ export const COVERAGE_GAPS: readonly CoverageGap[] = [
     statement:
       'The host runs an AI path of its own that does not pass through the governance engine, so its tool calls are outside this package.',
     origin: 'D42 / D44（KeelBase4YuDao）',
+  },
+  {
+    id: 'target-status-unavailable',
+    severity: 'high',
+    affects: 'whole_deployment',
+    // `partial`, not `unknown`: we can say exactly what is missing — the target's own answer. The gap
+    // is that we cannot get it, not that we cannot name what we lack.
+    // `partial` 而不是 `unknown`：我们说得清缺的是什么 —— 目标自己的回答。缺的是「拿不到」，
+    // 不是「连缺什么都叫不出」。
+    verdictImpact: 'partial',
+    appliesWhen: [{ fact: 'externalWriteTargetWithoutStatusQuery', equals: true }],
+    statement:
+      'An external write target offers no read-only status query, so a timed-out write cannot be resolved after the fact; the ledger keeps it as unknown rather than guessing, and the absence of a recorded effect for such a write is not evidence that it did not happen.',
+    origin: 'AW-17',
   },
 ];
 

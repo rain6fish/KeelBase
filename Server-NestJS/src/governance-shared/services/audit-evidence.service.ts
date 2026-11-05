@@ -688,6 +688,11 @@ export class AuditEvidenceService {
         // `governancePolicy` 是 `@Optional`（只存在于测试/脚本的降级装配）；Nest 恒会注入。这里的回落
         // 说的是**部署默认值**，而不是凭空造一条告诫。
         ('all' as const);
+    // AW-17: a deployment fact, taken from the same method `forScope` uses — two statements about one
+    // deployment must not disagree about whether its targets can be asked.
+    // AW-17：部署事实，取自 `forScope` 用的同一个方法 —— 关于同一个部署的两份声明，不能对「目标能不能问」
+    // 给出两个答案。
+    const externalWriteTargetWithoutStatusQuery = await this.coverage.hasWriteTargetWithoutStatusQuery();
     const coverage: CoverageStatement = this.coverage.forFacts({
       kind: 'action',
       since: trigger?.createdAt ?? effect.createdAt ?? new Date(exportedAt),
@@ -726,6 +731,7 @@ export class AuditEvidenceService {
         // 仅当被打包的那条动作**就是** chat 行时为真：那才是「正文靠引用」适用于本包的时候。不是对
         // 「有没有会话」的猜测。
         packageHasChatRow: trigger?.action === 'chat',
+        externalWriteTargetWithoutStatusQuery,
       },
     });
 

@@ -35,11 +35,39 @@ export interface ProxyToolConfig {
   queryParams?: string[];
   /** Java 端补偿端点路径（相对 baseUrl）——撤销时调用（带委托身份），`{param}` 占位取自副作用 resultId；缺省无本地撤销（AI Bridge §4） */
   revokePath?: string;
+  /**
+   * AW-17: the target's **read-only status endpoint**, e.g. `GET /contracts/status/{key}`, used by a
+   * one-shot reconciliation after a write's outcome became unknown. `{key}` is the write's idempotency
+   * key — the one identity both sides already agree on. Only `GET` is accepted: a status query must not
+   * be able to write. Absent = the target cannot be asked, and the ledger stays `unknown`.
+   *
+   * Same config shape as `revokePath` (`[METHOD] path`, `{placeholder}`), for the same reason: an
+   * integrator learns one convention, not two.
+   *
+   * AW-17：目标的**只读状态端点**，如 `GET /contracts/status/{key}`，供一次写在结局未知后做一次性
+   * 对账。`{key}` 就是这次写的幂等键 —— 两侧已经认同的那一个身份。**只接受 `GET`**：状态查询不能有写
+   * 的可能。缺省 = 问不到目标，账照样留 `unknown`。
+   *
+   * 配置形状与 `revokePath` 相同（`[METHOD] path`、`{占位}`），理由相同：接入方学一套约定，不是两套。
+   */
+  statusPath?: string;
   /** KB-6：撤销能力档位显式覆盖；缺省按 method/revokePath 派生（写+revokePath→governed_external，读恒 none，写无 revokePath→none） */
   revokeClass?: RevokeClass;
 }
 
 const WRITE_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'];
+
+/**
+ * Whether a B-path method writes. Exported so the AW-17 coverage fact asks the **same** predicate the
+ * tool uses to decide "write" — a second copy would let a method be a write in one place and a read in
+ * the other, and the fact would then quietly skip a target that can go unknown.
+ *
+ * B 路径方法是否为写。导出它是为了让 AW-17 的覆盖事实问**同一个**判据 —— 抄第二份会让某个方法在一处
+ * 是写、在另一处是读，于是事实会悄悄跳过一条可能变成 unknown 的目标。
+ */
+export function isProxyWriteMethod(method: string): boolean {
+  return WRITE_METHODS.includes(method);
+}
 
 export class ProxyTool implements AiTool {
   readonly name: string;
@@ -49,6 +77,10 @@ export class ProxyTool implements AiTool {
   readonly requiresConfirmation: boolean;
   readonly revokePath?: string;
   readonly revokeClass: RevokeClass;
+  /** AW-17：目标只读状态端点（`[METHOD] path`，`{key}` 占位为幂等键）；缺省 = 问不到。 */
+  readonly statusPath?: string;
+  /** 出站方法（对账/事实派生要看「这是不是写」）。 */
+  readonly method: ProxyToolConfig['method'];
 
   constructor(
     private readonly cfg: ProxyToolConfig,
@@ -63,9 +95,11 @@ export class ProxyTool implements AiTool {
     this.name = cfg.name;
     this.description = cfg.description;
     this.parameters = cfg.parameters ?? []; // 无参端点配置缺 parameters → 默认空，防 toToolDefinition 迭代 undefined 崩溃
+    this.method = cfg.method;
     this.riskLevel = cfg.riskLevel ?? (WRITE_METHODS.includes(cfg.method) ? 'R3' : 'R1');
     this.requiresConfirmation = this.riskLevel === 'R3' || this.riskLevel === 'R4';
     this.revokePath = cfg.revokePath;
+    this.statusPath = cfg.statusPath;
     // KB-6 撤销能力档位（语义源 protocol-trust-proof-card R9）：
     // 显式覆盖优先；读恒 none；写 + revokePath → governed_external（补偿 2xx 仅"已请求"，结果以目标为准）；
     // 写无 revokePath → none（诚实：有撤销钮却只能失败即真缺陷源）。transactional 不用——REST 代理无法表达目标事务内回滚。

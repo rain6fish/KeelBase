@@ -37,6 +37,7 @@ const CLEAN: CoverageFacts = {
   packageHasOpenDispute: false,
   packageHasStalledRevoke: false,
   packageHasChatRow: false,
+  externalWriteTargetWithoutStatusQuery: false,
 };
 
 const facts = (overrides: Partial<CoverageFacts> = {}): CoverageFacts => ({ ...CLEAN, ...overrides });
@@ -123,5 +124,18 @@ describe('coverage-gaps（缺口登记表单一真源）', () => {
     // A tail deletion is undetectable: the chain cannot close this gap, only an external anchor can.
     expect(deriveVerdict(facts({ packageHasExternalAnchor: false }))).toBe('unknown');
     expect(deriveVerdict(CLEAN)).toBe('complete');
+  });
+
+  it('AW-17：有目标问不到 ⇒ 声明 target-status-unavailable，且结论是 partial（不是 unknown）', () => {
+    const ids = applicableGaps(facts({ externalWriteTargetWithoutStatusQuery: true })).map((g) => g.id);
+    expect(ids).toContain('target-status-unavailable');
+    // `partial` 而不是 `unknown`：缺的是什么说得清 —— 目标自己的回答。
+    // 把它判成 `unknown` 等于说「连缺什么都叫不出」，那比事实更糟。
+    expect(deriveVerdict(facts({ externalWriteTargetWithoutStatusQuery: true }))).toBe('partial');
+  });
+
+  it('AW-17 反向：所有目标都能问 ⇒ 这条缺口不出现（不当成常设噪音）', () => {
+    const ids = applicableGaps(facts({ externalWriteTargetWithoutStatusQuery: false })).map((g) => g.id);
+    expect(ids).not.toContain('target-status-unavailable');
   });
 });

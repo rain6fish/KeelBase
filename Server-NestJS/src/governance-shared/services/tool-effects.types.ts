@@ -18,6 +18,7 @@ import type { CapturedWrite } from '../../common/write-capture/write-capture';
 import type { DerivedReferenceCount } from '../../governance-shared/services/side-effect-revoker';
 import type { RevokeClass } from './revoke-class';
 import type { RevokeStatus } from '../../governance-core/revoke-status';
+import type { TargetStatusConclusion, TargetStatusLookup } from '../../governance-core/target-status';
 
 export interface WriteToolContext {
   userId: string;
@@ -312,4 +313,64 @@ export interface HostHelpers {
   loadTarget(type: string, id: number): Promise<{ title?: string; deletedAt?: Date | null } | null>;
   /** REV-2 陈旧阈值（投影与撤销共用）。 */
   staleThresholdMinutes(): number;
+}
+
+/**
+ * AW-17: the seam that answers "can this external target be asked, and what does it say?" — bound by
+ * `AiModule` to the B-path probe, left unbound by the governance process (it has no outbound targets).
+ *
+ * Same shape as `EXTERNAL_REVOKER`: the shared side declares the **interface**, the business side owns
+ * the implementation, and an unbound token means "nothing here can ask" — never a guess. A probe that
+ * is absent is reported as `target-status-unavailable` by the caller, not as `not_executed`.
+ *
+ * AW-17：「这个外部目标能不能问、它怎么说」的接缝 —— `AiModule` 绑到 B 路径探针，治理进程不绑
+ * （它没有出站目标）。
+ *
+ * 与 `EXTERNAL_REVOKER` 同形：共享侧声明**接口**，业务侧持有实现，token 未绑定即「这里没东西可问」
+ * —— 绝不是猜。探针缺席时，调用方报 `target-status-unavailable`，而不是 `not_executed`。
+ */
+export const TARGET_STATUS_PROBE = 'TARGET_STATUS_PROBE';
+
+export interface TargetStatusProbe {
+  /**
+   * One read-only lookup. **Never re-sends the write**, never retries, and never concludes
+   * `not_executed` from a failure to answer — a target with no query channel answers
+   * `target-status-unavailable`, which is a property of the tool, not a separate question to ask.
+   *
+   * 一次只读查询。**绝不重发写**、不重试，也绝不把「问不到」判成 `not_executed` —— 没有查询通道的目标
+   * 答 `target-status-unavailable`，那是工具的属性，不是另一个要问的问题。
+   */
+  lookup(toolName: string, actionKey: string, userId: string): Promise<TargetStatusLookup>;
+}
+
+/**
+ * What one reconciliation did. Refusals are reported by kind, for the same reason REV-11's claim does:
+ * "still running", "someone else settled it" and "no query channel" mean different things to the
+ * operator working the list, and a bare boolean would fold them together.
+ *
+ * 一次对账做了什么。拒绝**按种类**报出，理由同 REV-11 的认领：「还在跑」「别人已经落了定」「没有查询
+ * 通道」对处理这张列表的人是三回事，一个布尔会把它们揉成一个。
+ */
+export type ReconcileClaimOutcome =
+  /** The conclusion was a real answer and the claim row moved. / 结论是真答案，占位行已随之落定。 */
+  | 'reconciled'
+  /** Asked, but the target did not answer in a shape we recognise; the ledger stays unknown. / 问了，但没有可用的答案。 */
+  | 'unresolved'
+  /** Still within the staleness threshold — it may be running. / 还在阈值内，可能仍在执行。 */
+  | 'not_stale'
+  /** The claim is no longer `claimed`; its outcome is already recorded. / 已不是 `claimed`。 */
+  | 'not_claimable'
+  | 'not_found';
+
+export interface ReconcileClaimResult {
+  outcome: ReconcileClaimOutcome;
+  /** What the target said (`unknown` whenever no real answer was obtained). / 目标怎么说。 */
+  conclusion: TargetStatusConclusion;
+  /**
+   * The claim row's status **after** this call: `claimed` (the ledger's unknown), `settled`,
+   * `released`, or `absent` when there is no such row. / 本次调用之后占位行的状态。
+   */
+  claimStatus: string;
+  /** This attempt's evidence; `null` when no query was attempted. / 本次证据；没查时为 `null`。 */
+  evidence: TargetStatusLookup | null;
 }

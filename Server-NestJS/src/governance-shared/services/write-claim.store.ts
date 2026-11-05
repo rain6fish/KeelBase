@@ -165,6 +165,53 @@ export class WriteClaimStore {
   }
 
   /**
+   * AW-17: converge a claim that the target says **has** (or has not) executed.
+   *
+   * A conditional update, like every other arbitration point here: only a row that is *still* `claimed`
+   * moves, so a process that settles the same claim concurrently wins and this call reports `false`
+   * rather than overwriting a real result with a query's reading. The store records the outcome; it
+   * does not decide it — the conclusion comes from the target, and only a real answer gets here.
+   *
+   * `executed` → `settled` with `effectId` left `null`: the write happened, but the ledger has no
+   * side-effect row for it (the anchor is written only when the original call succeeded, and we do not
+   * know the target's id — inventing one would point a future revoke at the wrong record).
+   * `not_executed` → `released`, the same door a confirmed local failure uses: a retry is then
+   * allowed, because the target itself said nothing ran.
+   *
+   * @returns whether the row moved. `false` = someone else got there first (or the repository is absent).
+   *
+   * AW-17：把一条「目标说执行过 / 说没执行」的占位行收敛掉。
+   *
+   * 条件更新，与本仓其他每个仲裁点同形：只有**仍是** `claimed` 的行会动，故并发落定同一条的那个进程
+   * 占先时本次返回 `false`，而不是拿一次查询的读数覆盖一个真实结果。store 只记录结局、不决定结局
+   * —— 结论来自目标，且只有**真答案**会走到这里。
+   *
+   * `executed` → `settled`，`effectId` 留 `null`：写确实发生了，但账上没有它的副作用行（锚行只在原来那次
+   * 调用成功时写，而目标侧 id 我们并不知道 —— 编一个会让将来的撤销指错记录）。
+   * `not_executed` → `released`，与本地确认失败走同一道门：此后允许重试，因为是目标自己说没跑。
+   *
+   * @returns 这行是否真的动了。`false` = 别人先到了（或仓储缺席）。
+   */
+  async reconcileClaim(
+    claim: Pick<AiWriteClaim, 'id'>,
+    conclusion: 'executed' | 'not_executed',
+  ): Promise<boolean> {
+    const repo = this.claimsRepo;
+    if (!repo) return false;
+    const res =
+      conclusion === 'executed'
+        ? await repo.update(
+            { id: claim.id, status: WRITE_CLAIM_STATUS.CLAIMED },
+            { status: WRITE_CLAIM_STATUS.SETTLED, settledAt: new Date() },
+          )
+        : await repo.update(
+            { id: claim.id, status: WRITE_CLAIM_STATUS.CLAIMED },
+            { status: WRITE_CLAIM_STATUS.RELEASED, releaseReason: 'target_status_not_executed' },
+          );
+    return (res?.affected ?? 0) > 0;
+  }
+
+  /**
    * ACT-5（消费者①）：把这次写的**审计行**挂到占位行上 —— 证据根据此配到 effect **自己**那条触发行，
    * 不再在会话里的同名调用之间猜（ACT-2 的「不唯一就不归因」因此有了一条精确支路）。
    *

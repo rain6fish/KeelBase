@@ -121,6 +121,9 @@ export const POSTGRES_MIGRATION_GLOBS: string[] = [
   // AW-15：占位行的判定依据（角色 + 策略 revision）—— postgres 侧同样需要，否则实体要的
   // decided_role/policy_revision 在 pg 上不存在。
   '*AddClaimDecisionBasis*',
+  // AW-17：目标状态查询证据表（实体在、pg 侧也要有，否则实体↔迁移漂移）
+  // AW-17: the target-status lookup evidence table (the entity exists, so postgres needs it too).
+  '*AddTargetStatusLookups*',
 ];
 
 /** 有意排除于 postgres 的迁移（仅 sqlite；postgres 由 PostgresInitialSchema / PostgresIncrementalSchema 基线覆盖） */
