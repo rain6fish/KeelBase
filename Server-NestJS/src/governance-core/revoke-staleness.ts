@@ -16,6 +16,20 @@ import { REVOKE_STATUS, type RevokeStatus } from './revoke-status';
 /** 陈旧阈值（分钟）。可由 `REVOKE_STALE_MINUTES` 覆盖。 */
 export const DEFAULT_REVOKE_STALE_MINUTES = 60;
 
+/**
+ * Resolve the configured threshold, falling back to the constant. One definition because two surfaces
+ * now judge staleness by it — the side-effect list and the in-flight claim read — and two screens that
+ * disagree about what "stale" means are worse than one that says nothing.
+ *
+ * 解析配置的阈值，缺失/非法时回落到常量。单一定义：现在有两个面按它判陈旧 —— 副作用列表与在途占位查询 ——
+ * 而两块屏各说各的「陈旧」比一块不说话更糟。
+ */
+export function staleThresholdMinutes(configured: unknown): number {
+  return typeof configured === 'number' && Number.isFinite(configured) && configured > 0
+    ? configured
+    : DEFAULT_REVOKE_STALE_MINUTES;
+}
+
 export interface RevokeAge {
   /** 该行是否处于「已请求外部补偿·结果未知」这一未了结态。 */
   pending: boolean;

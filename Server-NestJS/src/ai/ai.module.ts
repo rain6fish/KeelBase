@@ -146,6 +146,7 @@ import { SecurityShowcaseController } from './security-showcase/security-showcas
 import { AiToolSideEffect } from '../governance-shared/entities/ai-tool-side-effect.entity';
 import { EffectComparability } from '../governance-shared/entities/effect-comparability.entity';
 import { AiWriteClaim } from '../governance-shared/entities/ai-write-claim.entity';
+import { WriteClaimQueryService } from '../governance-shared/services/write-claim-query.service';
 import { AiToolEffectsService } from '../governance-shared/services/ai-tool-effects.service';
 import { TrustSandboxService } from './trust-sandbox/trust-sandbox.service';
 import { SideEffectSnapshotCaptor } from '../governance-shared/services/side-effect-snapshot-captor';
@@ -275,6 +276,8 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     AiEvalService,
     SecurityShowcaseService,
     AiToolEffectsService,
+    // AW-16：在途占位行的只读查询面（读 `AiWriteClaim`，不改任何状态）
+    WriteClaimQueryService,
     // Trust 沙盘（internal-roadmap §internal.15 可视化 P0）：工作台一键重放 Trust 六场景
     TrustSandboxService,
     SideEffectSnapshotCaptor,

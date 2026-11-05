@@ -49,13 +49,17 @@ import { ChatRequestDto } from './dto/chat-request.dto';
 import { ConfirmDecisionDto } from './dto/confirm-decision.dto';
 import { ApproveDecisionDto } from './dto/approve-decision.dto';
 import { MyConfirmationQueryDto } from './dto/my-confirmation-query.dto';
+import { InFlightClaimQueryDto } from './dto/in-flight-claim-query.dto';
 import { RenameConversationDto } from './dto/rename-conversation.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CurrentAbility } from '../common/casl/current-ability.decorator';
 import { CheckPolicies } from '../common/casl/check-policies.decorator';
+import { ResponseOrdering } from '../common/decorators/response-ordering.decorator';
+import { IN_FLIGHT_CLAIMS_ORDERING } from '../governance-shared/services/ordering';
 import { SkipAudit } from '../operation-audit/skip-audit.decorator';
 import { FeatureFlag } from '../feature-flags/feature-flag.decorator';
 import { AiToolEffectsService } from '../governance-shared/services/ai-tool-effects.service';
+import { WriteClaimQueryService } from '../governance-shared/services/write-claim-query.service';
 import { DecisionTraceService, DecisionTrace } from './trace/decision-trace.service';
 import { GovernancePolicyService } from '../governance-shared/services/governance-policy.service';
 import type { GovernancePolicy } from '../governance-shared/services/governance-policy.service';
@@ -76,6 +80,8 @@ export class AiController {
     private readonly myConfirmationService: MyConfirmationService,
     private readonly memoriesService: MemoriesService,
     private readonly toolEffectsService: AiToolEffectsService,
+    // AW-16：在途占位行的只读查询面（与写侧 store 分开：它不改任何状态）
+    private readonly writeClaimQuery: WriteClaimQueryService,
     private readonly decisionTraceService: DecisionTraceService,
     private readonly governancePolicy: GovernancePolicyService,
     private readonly businessHistoryService: BusinessHistoryService,
@@ -552,6 +558,45 @@ export class AiController {
       limit,
       stale: stale === 'true',
     });
+  }
+
+  /**
+   * AW-16: **which calls are in flight right now** — the question that had no read surface. Users,
+   * tools and a time window narrow the list; every row is still `claimed`. `args_hash` names the
+   * arguments without disclosing them (the table never stored them), and `stale` is an age reading
+   * only: a stuck row is neither "failed" nor "succeeded".
+   *
+   * Judged `read AuditLog`, not `manage all`: reviewing executions that are still running is audit
+   * work, and the auditor has to reach it without being handed the operator's rights. Row scope is the
+   * reader's account scope (organisation, else own rows), so this read cannot show an auditor more than
+   * their audit log does; a plain user still fails.
+   *
+   * AW-16：**此刻哪些调用在途** —— 此前没有读面回答的那个问题。用户、工具与时间窗收紧清单；每行仍是
+   * `claimed`。`args_hash` 指出参数身份而不披露参数（表里从未存过），`stale` 只是年龄读数：
+   * 卡住的行既不是「失败」也不是「成功」。
+   *
+   * 判 `read AuditLog` 而非 `manage all`：复核仍在执行的调用是审计工作，审计读者必须**不必**拿到操作者
+   * 的权限就能读到它。行范围即读者的账号范围（组织，否则本人行），故这一面不会让读者看到比审计日志更多；
+   * 普通用户照旧过不去。
+   */
+  @Get('tool-effects/claims')
+  @CheckPolicies((ability) => ability.can('read', 'AuditLog'))
+  @ResponseOrdering(IN_FLIGHT_CLAIMS_ORDERING)
+  @ApiOperation({
+    summary: '在途 AI 写占位行（AW-16）：按用户/工具/时间窗列 `claimed`，带工具名与 args_hash，不回显参数',
+  })
+  listInFlightClaims(@Query() query: InFlightClaimQueryDto, @CurrentUser() user: JwtPayload) {
+    return this.writeClaimQuery.list(
+      {
+        userId: query.userId,
+        toolName: query.toolName,
+        since: query.since ? new Date(query.since) : undefined,
+        until: query.until ? new Date(query.until) : undefined,
+        staleOnly: query.stale === 'true',
+        limit: query.limit,
+      },
+      { userId: user.sub, role: user.role },
+    );
   }
 
   /**

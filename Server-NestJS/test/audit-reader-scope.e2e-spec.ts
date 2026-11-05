@@ -327,4 +327,81 @@ describe('AW-2 audit reader: field whitelist + org/period scope', () => {
       conversationId: 'conv-aw2_user_a',
     });
   });
+
+  /**
+   * AW-16 against the real wire: the in-flight claim read is open to an audit reader (200) and closed
+   * to an ordinary user (403), the reader's row scope is the same organisation rule as the audit log,
+   * the row carries the tool name and the argument digest only, and the list is a statement about the
+   * current `claimed` state — settling the claim removes it.
+   *
+   * AW-16 走真实 HTTP：在途占位查询对审计读者开放（200）、对普通用户关闭（403）；读者的行范围与
+   * 审计日志同一套组织规则；行里只有工具名与参数摘要；清单只陈述当下的 `claimed` 状态 —— 落定后即消失。
+   */
+  describe('AW-16 in-flight claims read', () => {
+    const claimsRepo = () => ds.getRepository('ai_write_claims');
+    const makeClaim = async (userId: string, key: string): Promise<{ id: number }> => {
+      const repo = claimsRepo();
+      const saved = await repo.save({
+        idempotencyKey: key,
+        userId,
+        toolName: 'send_email',
+        argsHash: 'deadbeefdeadbeef',
+        status: 'claimed',
+        claimedAt: new Date(),
+        attempts: 1,
+      });
+      return { id: (saved as unknown as { id: number }).id };
+    };
+    const readAs = (token: string) =>
+      request(app.getHttpServer())
+        .get('/api/v1/ai/tool-effects/claims')
+        .set(authHeader(token));
+
+    it('ordinary user 403; auditor 200 and sees their org only — tool name + args_hash, no arguments', async () => {
+      const mine = await makeClaim(String(userA.id), `aw16-${Date.now()}-a`);
+      const other = await makeClaim(String(userB.id), `aw16-${Date.now()}-b`);
+      try {
+        await readAs(userA.token).expect(403);
+
+        const res = await readAs(auditor.token).expect(200);
+        const body = res.body.data as {
+          items: Array<Record<string, unknown>>;
+          scope: string;
+          thresholdMinutes: number;
+        };
+        expect(body.scope).toBe('org');
+        const ids = body.items.map((r) => r.id);
+        expect(ids).toContain(mine.id);
+        expect(ids).not.toContain(other.id);
+
+        const row = body.items.find((r) => r.id === mine.id)!;
+        expect(row.toolName).toBe('send_email');
+        expect(row.argsHash).toBe('deadbeefdeadbeef');
+        expect(row.stale).toBe(false);
+        // The projection's whole field set — an argument column could not hide in it.
+        // 投影的完整字段集 —— 参数列无处可藏。
+        expect(Object.keys(row).sort()).toEqual(
+          ['ageMinutes', 'agentId', 'argsHash', 'attempts', 'authorizationRef', 'claimedAt', 'conversationId', 'id', 'runId', 'stale', 'status', 'toolName', 'userId'].sort(),
+        );
+      } finally {
+        await claimsRepo().delete(mine.id);
+        await claimsRepo().delete(other.id);
+      }
+    });
+
+    it('settling the claim removes it from the list (the list is about what is still claimed)', async () => {
+      const row = await makeClaim(String(userA.id), `aw16-${Date.now()}-c`);
+      try {
+        const before = await readAs(auditor.token).expect(200);
+        expect((before.body.data.items as Array<{ id: number }>).map((r) => r.id)).toContain(row.id);
+
+        await claimsRepo().update(row.id, { status: 'settled', settledAt: new Date() });
+
+        const after = await readAs(auditor.token).expect(200);
+        expect((after.body.data.items as Array<{ id: number }>).map((r) => r.id)).not.toContain(row.id);
+      } finally {
+        await claimsRepo().delete(row.id);
+      }
+    });
+  });
 });

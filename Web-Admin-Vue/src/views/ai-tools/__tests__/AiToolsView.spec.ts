@@ -7,11 +7,12 @@ import { createI18n } from 'vue-i18n'
 import zh from '@/i18n/zh'
 import en from '@/i18n/en'
 
-const { toolsMock, policyMock, savePolicyMock, effectsMock, revokeMock, claimMock, ackMock, errorMock, successMock, warningMock } = vi.hoisted(() => ({
+const { toolsMock, policyMock, savePolicyMock, effectsMock, inFlightMock, revokeMock, claimMock, ackMock, errorMock, successMock, warningMock } = vi.hoisted(() => ({
   toolsMock: vi.fn(),
   policyMock: vi.fn(),
   savePolicyMock: vi.fn(),
   effectsMock: vi.fn(),
+  inFlightMock: vi.fn(),
   revokeMock: vi.fn(),
   claimMock: vi.fn(),
   ackMock: vi.fn(),
@@ -26,6 +27,7 @@ vi.mock('@/api/aiTools', () => ({
     policy: policyMock,
     savePolicy: savePolicyMock,
     effects: effectsMock,
+    inFlightClaims: inFlightMock,
     revokeEffect: revokeMock,
     claimEffect: claimMock,
     acknowledgeDispute: ackMock,
@@ -59,6 +61,10 @@ const AppTableStub = defineComponent({
     '<div class="cell-title"><slot name="item.targetTitle" :item="item" /></div>' +
     '<div class="cell-status"><slot name="item.status" :item="item" /></div>' +
     '<div class="cell-actions"><slot name="item.actions" :item="item" /></div>' +
+    // AW-16 在途调用表用的三格：工具名（无插槽的默认格）、args_hash 与滞留读数
+    '<div class="cell-tool">{{ item.toolName }}</div>' +
+    '<div class="cell-hash"><slot name="item.argsHash" :item="item" /></div>' +
+    '<div class="cell-stale"><slot name="item.stale" :item="item" /></div>' +
     '</div>' +
     '</template></div>',
 })
@@ -106,10 +112,14 @@ function mountView() {
   })
 }
 
+const emptyClaims = { items: [], total: 0, limit: 100, thresholdMinutes: 60, scope: 'all' as const }
+
 beforeEach(() => {
   vi.clearAllMocks()
   authState.isAdmin = true
   authState.isAuditor = false
+  // AW-16：在途调用对管理员与审计读者都发起一次读；默认空列表，个别用例再覆盖。
+  inFlightMock.mockResolvedValue(emptyClaims)
 })
 
 describe('AiToolsView', () => {
@@ -125,18 +135,58 @@ describe('AiToolsView', () => {
     expect(effectsMock).toHaveBeenCalledWith(undefined, 1, 20)
   })
 
-  it('auditor 只读：工具清单照读，内容安全与副作用账本不渲染也不请求', async () => {
+  it('auditor 只读：工具清单与在途调用照读，内容安全与副作用账本不渲染也不请求', async () => {
     authState.isAdmin = false
+    authState.isAuditor = true
     toolsMock.mockResolvedValue([tool])
 
     const wrapper = mountView()
     await flushPromises()
 
     expect(toolsMock).toHaveBeenCalledTimes(1)
+    // AW-16：审计读者读得到「此刻在途」（服务端判 read AuditLog）
+    expect(inFlightMock).toHaveBeenCalledTimes(1)
     expect(effectsMock).not.toHaveBeenCalled()
     expect(wrapper.text()).toContain('create_event')
     expect(wrapper.text()).not.toContain('内容安全')
-    expect(wrapper.find('.app-table-stub').exists()).toBe(false)
+    expect(wrapper.find('.effects-ledger').exists()).toBe(false)
+  })
+
+  /**
+   * AW-16: the page shows which calls are in flight, with the tool name and the argument **digest**.
+   * The row carries no argument text at all — the API has none to give — and a row past the threshold
+   * is marked stale without being re-read as a failure.
+   *
+   * AW-16：页面显示此刻在途的调用，带工具名与参数**摘要**。行里没有参数文本 —— 接口也没有可给的；
+   * 超过阈值的行标为滞留，但不被改读成失败。
+   */
+  it('AW-16：在途调用列出工具名与 args_hash，滞留行标出（无参数明文）', async () => {
+    toolsMock.mockResolvedValue([tool])
+    effectsMock.mockResolvedValue({ total: 0, page: 1, limit: 20, items: [] })
+    inFlightMock.mockResolvedValue({
+      items: [
+        { id: 3, userId: '7', toolName: 'send_email', argsHash: 'deadbeefdeadbeef', status: 'claimed', claimedAt: '2026-11-05T01:00:00Z', ageMinutes: 90, stale: true, attempts: 2, agentId: null, conversationId: 'c1', runId: null, authorizationRef: 'tok-1' },
+        { id: 4, userId: '8', toolName: 'create_todo', argsHash: 'cafebabecafebabe', status: 'claimed', claimedAt: '2026-11-05T02:50:00Z', ageMinutes: 1, stale: false, attempts: 1, agentId: null, conversationId: null, runId: null, authorizationRef: null },
+      ],
+      total: 2,
+      limit: 100,
+      thresholdMinutes: 60,
+      scope: 'all',
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(inFlightMock).toHaveBeenCalledWith({ userId: undefined, toolName: undefined, stale: false })
+    const rows = wrapper.findAll('.in-flight-claims .row-stub')
+    expect(rows).toHaveLength(2)
+    expect(rows[0].text()).toContain('send_email')
+    expect(rows[0].text()).toContain('deadbeefdeadbeef')
+    expect(rows[0].text()).toContain('滞留')
+    expect(rows[1].text()).toContain('执行中')
+    expect(rows[1].text()).not.toContain('滞留')
+    // 参数明文（如收件人、标题）不可能出现在这里：接口契约里就没有这一项
+    expect(wrapper.text()).not.toContain('@example.com')
   })
 
   it('加载失败 → snackbar.error 提示', async () => {

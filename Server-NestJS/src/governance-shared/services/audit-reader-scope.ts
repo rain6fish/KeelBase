@@ -81,15 +81,19 @@ export async function resolveAuditReaderScope(
  * 由若干可能根本没有组织的路径写入（headless / 治理桥 / 流程节点），加列等于给记录补一个它从未
  * 有过的维度。
  */
-export function auditScopeSql(scope: AuditRowScope): { sql: string; params: Record<string, unknown> } | null {
+export function auditScopeSql(
+  scope: AuditRowScope,
+  /** Query-builder alias of the table that carries `userId`; defaults to the audit list's `log`. */
+  alias = 'log',
+): { sql: string; params: Record<string, unknown> } | null {
   if (!scope) return null;
   if (scope.kind === 'org') {
     return {
-      sql: 'CAST(log.userId AS INTEGER) IN (SELECT user_id FROM org_members WHERE org_id = :readerOrgId)',
+      sql: `CAST(${alias}.userId AS INTEGER) IN (SELECT user_id FROM org_members WHERE org_id = :readerOrgId)`,
       params: { readerOrgId: scope.orgId },
     };
   }
-  return { sql: 'log.userId = :readerUserId', params: { readerUserId: String(scope.userId) } };
+  return { sql: `${alias}.userId = :readerUserId`, params: { readerUserId: String(scope.userId) } };
 }
 
 /**

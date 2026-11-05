@@ -77,6 +77,7 @@ describe('AiController', () => {
       mockMyConfirmationService,
       mockMemoriesService,
       mockToolEffectsService,
+      undefined as any, // writeClaimQuery（AW-16，本文件不涉及）
       mockDecisionTraceService,
       // 其余协作者本文件不涉及（各刀拆出的域各由自己的 spec 覆盖），按位置补齐
       undefined as any, // governancePolicy
@@ -99,6 +100,7 @@ describe('AiController', () => {
         {} as any,
         {} as any,
         {} as any,
+        {} as any, // writeClaimQuery（AW-16）
         {} as any,
         undefined as any,
         undefined as any,
