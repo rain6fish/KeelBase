@@ -23,6 +23,8 @@ export class GenerateImageTool implements AiTool {
   readonly permissions = { featureFlag: 'ai' };
   /** W5 风险模型：R2 低风险写/外部动作——默认自动（无需确认），治理策略可强制确认（R2 policy 通道） */
   readonly riskLevel: ToolRiskLevel = 'R2';
+  /** AW-18: outbound HTTP to the provider's images endpoint — a cancellation cannot stop it (`no`). */
+  readonly abortable = 'no' as const;
   readonly parameters: ToolParameter[] = [
     {
       name: 'prompt',

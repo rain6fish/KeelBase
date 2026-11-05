@@ -89,6 +89,8 @@ export class CreateModuleApplyTool implements AiTool {
   readonly name = 'create_module_apply';
   readonly requiresConfirmation = true; // 写工具 ⇒ 风险级派生 R3
   readonly revokeClass = 'none'; // 文件写入不可由运行时撤销 —— 如实声明，不谎称 local_compensate
+  /** AW-18: spawns the generator as a child process; our signal cannot stop it — say `unknown`, not `yes`. */
+  readonly abortable = 'unknown' as const;
   readonly permissions = { adminOnly: true, featureFlag: 'ai' };
   readonly description =
     '真实生成业务模块（写仓库文件，不可撤销）。用法：先用 create_module 预览，把预览结果给用户看；' +

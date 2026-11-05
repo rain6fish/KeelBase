@@ -32,6 +32,8 @@ export class SummarizeCustomerTool implements AiTool {
   readonly description =
     '生成客户 360 全景摘要（AI 理解业务）：聚合客户资料/订单/跟进/风险/销售机会，生成自然语言摘要（概况/风险/在谈机会/建议下一步）。' +
     '用户问"总结/概览一下这个客户、这个客户什么情况"时使用。只读，不写数据。';
+  /** AW-18: outbound LLM generation — a cancellation cannot stop it (`no`, not `unknown`). */
+  readonly abortable = 'no' as const;
   readonly parameters: ToolParameter[] = [
     {
       name: 'customerId',

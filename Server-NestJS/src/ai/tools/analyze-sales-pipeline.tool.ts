@@ -34,6 +34,8 @@ export class AnalyzeSalesPipelineTool implements AiTool {
   readonly description =
     '分析销售管道（跨客户全部销售机会）：管道总金额 / 加权成交金额（金额×概率）/ 阶段分布 / 近 30 天快到期机会 / 已成交。' +
     '用户问"我的销售管道怎么样 / 这个月预计成交多少 / 哪些机会快到期 / 销售漏斗"时使用。只读，不写数据。';
+  /** AW-18: outbound LLM generation — a cancellation cannot stop it (`no`, not `unknown`). */
+  readonly abortable = 'no' as const;
   readonly parameters: ToolParameter[] = [];
 
   constructor(

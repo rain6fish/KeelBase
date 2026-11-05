@@ -42,6 +42,8 @@ export class CreateModuleTool implements AiTool {
     '预览创建业务模块（keelbase init dry-run，不写文件）：输入模块名/标签/字段或自然语言描述，返回将生成的模块定义、AI 工具、接线清单。确认后手动执行 node scripts/keelbase-init.mjs <参数> 真实生成。';
   readonly permissions = { adminOnly: true, featureFlag: 'ai' };
   readonly riskLevel = 'R1'; // dry-run 无副作用
+  /** AW-18: spawns the generator as a child process; our signal cannot stop it — say `unknown`, not `yes`. */
+  readonly abortable = 'unknown' as const;
   readonly parameters: ToolParameter[] = [
     { name: 'desc', type: 'string', description: '自然语言描述（如 图书管理，有书名作者价格）——LLM 提取模块/标签/字段', required: false },
     { name: 'module', type: 'string', description: '模块英文名（小写，如 posts）', required: false },

@@ -75,6 +75,15 @@ export class ProxyTool implements AiTool {
   readonly parameters: ToolParameter[];
   readonly riskLevel?: ToolRiskLevel;
   readonly requiresConfirmation: boolean;
+  /**
+   * AW-18: every proxy call is outbound HTTP, and `proxyFetch` only aborts on its own timeout — a
+   * caller's cancellation signal cannot stop it. Hence `no`: a cancelled call is `abandoned`, never
+   * `aborted`, and its outcome stays `unknown`.
+   *
+   * AW-18：代理调用都是出站 HTTP，而 `proxyFetch` 只在自己的超时上中止 —— 调用方的取消信号停不掉它。
+   * 故为 `no`：被取消的调用记 `abandoned` 而非 `aborted`，结局停在 `unknown`。
+   */
+  readonly abortable = 'no' as const;
   readonly revokePath?: string;
   readonly revokeClass: RevokeClass;
   /** AW-17：目标只读状态端点（`[METHOD] path`，`{key}` 占位为幂等键）；缺省 = 问不到。 */

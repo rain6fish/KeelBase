@@ -22,7 +22,14 @@ import { ExternalToolRegistry } from './external-tool-registry';
 import { ProxyTool } from '../proxy/proxy-tool';
 // ACT-9b：把这次写的 action key 送给出站写出方（`ProxyTool` 据此发 `Idempotency-Key`）
 import { outboundIdempotencyKey } from '../proxy/outbound-idempotency';
-import { AuthorizationDeniedError, ToolResult } from '../interfaces/tool.interface';
+import { AuthorizationDeniedError, ToolAbortability, ToolResult } from '../interfaces/tool.interface';
+// AW-18：可中止性分类与取消读数（中止的是工作，还是只有我们的等待）
+import {
+  NON_ABORTABLE_TOOL_WINDOW_MS,
+  cancellationReading,
+  cancelledToolResult,
+  resolveAbortability,
+} from './tool-abortability';
 import { AiToolEffectsService, sortKeys } from '../../governance-shared/services/ai-tool-effects.service';
 import { writeEffectTypeFor, EXTERNAL_CALL_EFFECT_TYPE } from '../tool-effects/write-effect-type';
 import { declaredEffects } from '../../governance-shared/services/effect-composition';
@@ -74,15 +81,21 @@ export class ToolExecutionService {
     name: string,
     args: Record<string, unknown>,
     userId: string,
+    opts?: { signal?: AbortSignal },
   ): Promise<ToolResult> {
-    if (this.externalTools.current?.isExternal(name)) {
-      const out = await this.externalTools.current.callTool(name, args, userId);
-      if (!out.executed) {
-        return { success: false, error: out.error ?? 'External tool call failed' };
+    const abortable = this.abortabilityOf(name);
+    const outcome = await this.runWithCancellation(abortable, opts?.signal, async () => {
+      if (this.externalTools.current?.isExternal(name)) {
+        const out = await this.externalTools.current.callTool(name, args, userId);
+        if (!out.executed) {
+          return { success: false, error: out.error ?? 'External tool call failed' };
+        }
+        return { success: true, data: out.content ?? {} };
       }
-      return { success: true, data: out.content ?? {} };
-    }
-    return this.toolRegistry.execute(name, args, userId);
+      return this.toolRegistry.execute(name, args, userId);
+    });
+    if (!outcome.done) return cancelledToolResult(name, abortable);
+    return outcome.value;
   }
 
   /**
@@ -98,7 +111,7 @@ export class ToolExecutionService {
     userId: string,
     conversationId?: string,
     runId?: string,
-    opts?: { audience?: string; authorizationRef?: string },
+    opts?: { audience?: string; authorizationRef?: string; signal?: AbortSignal },
   ): Promise<ToolResult> {
     // §HS-9「工具门控（执行前）」：门控须在**执行点**成立，而非只在发起点成立。
     // 写工具从「发起」到「执行」之间有等待窗口——R3 确认（TTL 内由本人点批准）、R4 审批（跨请求、可达小时/天级），
@@ -145,6 +158,8 @@ export class ToolExecutionService {
     await this.toolGate.assertApprovalRequirementHolds(toolName, userId, opts?.authorizationRef);
 
     const isExternalWrite = this.externalTools.current?.isExternal(toolName) ?? false;
+    // AW-18：这次写怎么接受取消 —— `yes` 才停得掉工作；`no` / `unknown` 只停我们的等待。
+    const abortable = this.abortabilityOf(toolName);
 
     // The idempotency probe runs **before** either execution path. The external branch used to
     // return first, so any replay — an LLM retry, a second decision on the same confirmation, a
@@ -225,8 +240,16 @@ export class ToolExecutionService {
 
     try {
       if (isExternalWrite) {
-        const out = await this.externalTools.current!.callTool(toolName, args, userId);
-        if (!out.executed) {
+        const out = await this.runWithCancellation(abortable, opts?.signal, () =>
+          this.externalTools.current!.callTool(toolName, args, userId),
+        );
+        if (!out.done) {
+          // AW-18：外部写永远不是 `yes`（代理是 `no`，MCP 是 `unknown`）—— 停止的只是等待。
+          // 占位留 `claimed`（= 结局未知）：不释放、不落定，也不报成功。
+          return cancelledToolResult(toolName, abortable);
+        }
+        const call = out.value;
+        if (!call.executed) {
           // ACT-6：外部写**没有执行成功**，而我们**无法知道请求是否已经到达目标** —— 超时 / 不可达 /
           // 目标非 2xx 在传输层分不开（`ProxyTool.execute` 把它们归成一段文字，`ExternalToolCall` 只回
           // 一个布尔），故这里**无可判定的证据**。占位因此**留在 `claimed`**：不释放（释放 = 允许重试 =
@@ -237,7 +260,7 @@ export class ToolExecutionService {
           return {
             success: false,
             error:
-              `${out.error ?? 'External tool call failed'}；该请求**可能已到达**目标系统，` +
+              `${call.error ?? 'External tool call failed'}；该请求**可能已到达**目标系统，` +
               `结果以目标系统为准 —— 本次不重试`,
           };
         }
@@ -251,7 +274,7 @@ export class ToolExecutionService {
         // 有意占住该键（见上）—— 那正是拦住第二次真实外部写的东西。`revokeClass` 有意钉为 `none`：
         // KeelBase 对第三方 MCP server 没有补偿通道，此行的价值是幂等与可追溯，**不是可撤销承诺**。
         if (effects) {
-          const content = (out.content ?? {}) as { id?: unknown };
+          const content = (call.content ?? {}) as { id?: unknown };
           const anchor = await effects.record(
             { userId, conversationId, runId, toolName, args, revokeClass: 'none' },
             EXTERNAL_CALL_EFFECT_TYPE,
@@ -259,20 +282,36 @@ export class ToolExecutionService {
           );
           await effects.settleClaim(claimKey, anchor.id);
         }
-        return { success: true, data: out.content ?? {} };
+        return { success: true, data: call.content ?? {} };
       }
 
       if (!effects) {
         // 降级装配（无账本）：照旧直接执行 —— 没有账本也就没有占位可言，逐字保持拆分前的行为。
-        return this.toolRegistry.execute(toolName, args, userId);
+        const outcome = await this.runWithCancellation(abortable, opts?.signal, () =>
+          this.toolRegistry.execute(toolName, args, userId),
+        );
+        if (!outcome.done) return cancelledToolResult(toolName, abortable);
+        return outcome.value;
       }
 
       // ACT-9b：这次写的 action key 就在手上 —— 与本地账本是**同一个键**（`claimKey`）。把它放进作用域，
       // 出站写出方（`ProxyTool`；代理写就从这里往下执行）据此发 `Idempotency-Key`。用作用域而不是加形参
       // 的理由（工具接口是热接口、只有这一个实现读它）见 `outbound-idempotency.ts`。
-      const { result, effectId } = await outboundIdempotencyKey.run(claimKey, () =>
-        this._executeLocalWrite(toolName, args, userId, conversationId, runId, agentId),
+      const outcome = await this.runWithCancellation(abortable, opts?.signal, () =>
+        outboundIdempotencyKey.run(claimKey, () =>
+          this._executeLocalWrite(toolName, args, userId, conversationId, runId, agentId),
+        ),
       );
+      if (!outcome.done) {
+        // AW-18：`aborted`（yes）⇒ 工作已停、事务未提交 ⇒ 释放占位，重试仍然可用（与 execute_failed 同口径）。
+        // `abandoned`（no/unknown）⇒ 只停了等待、工作可能仍在跑 ⇒ 占位留 `claimed`（结局未知）：
+        // 释放等于允许重试，也就等于邀请一次可能重复的写。
+        if (cancellationReading(abortable) === 'aborted') {
+          await effects.releaseClaim(claimKey, 'aborted');
+        }
+        return cancelledToolResult(toolName, abortable);
+      }
+      const { result, effectId } = outcome.value;
       await effects.settleClaim(claimKey, effectId);
       return result;
     } catch (err) {
@@ -434,5 +473,76 @@ export class ToolExecutionService {
    *  path must use one predicate, or the card and the registered row would disagree. */
   isExternalTool(toolName: string): boolean {
     return this.externalTools.current?.isExternal(toolName) ?? false;
+  }
+
+  /**
+   * AW-18: a tool's abortability as the executor must treat it. External MCP tools are outside our
+   * control and stay `unknown`; an unresolvable name is `unknown` too — never `yes`.
+   *
+   * AW-18：执行器必须怎么对待这个工具的可中止性。外部 MCP 工具的行为不在我们手里，一律 `unknown`；
+   * 查不到的工具名同样 `unknown` —— 绝不会是 `yes`。
+   */
+  private abortabilityOf(toolName: string): ToolAbortability {
+    if (this.isExternalTool(toolName)) return 'unknown';
+    try {
+      return resolveAbortability(this.toolRegistry.getTool(toolName));
+    } catch {
+      return 'unknown';
+    }
+  }
+
+  /**
+   * AW-18: run `work` under the abortability contract.
+   *
+   * - A `yes` tool stops with the caller's signal, so we stop waiting with it and the ledger may say
+   *   `aborted`.
+   * - A `no` / `unknown` tool keeps running regardless: the signal (and the forced window) stops only
+   *   our wait. The call is then `abandoned`, and the promise is left alone — we attach a swallow so
+   *   its eventual rejection cannot surface as an unhandled one, but we do not settle the claim from
+   *   it, because whatever it does after we stopped looking is exactly what we do not know.
+   * - A `no` / `unknown` call is additionally bounded by `NON_ABORTABLE_TOOL_WINDOW_MS`, so a hung
+   *   call cannot hold the turn forever.
+   *
+   * AW-18：在可中止性契约下运行 `work`。
+   *
+   * - `yes` 的工具会随调用方的信号停下，我们也随之停止等待，账上可以记 `aborted`。
+   * - `no` / `unknown` 的工具无论如何都在跑：信号（以及强制窗口）停的只是我们的等待。这次调用记
+   *   `abandoned`，那个 promise 不再被理会 —— 挂一个吞掉错误的处理，免得它最终失败时冒成未处理拒绝；
+   *   但不拿它去落定占位，因为「我们不再看之后它做了什么」正是我们不知道的那部分。
+   * - `no` / `unknown` 的调用另受 `NON_ABORTABLE_TOOL_WINDOW_MS` 约束，挂死的调用因此占不住这一轮。
+   */
+  private async runWithCancellation<T>(
+    abortable: ToolAbortability,
+    signal: AbortSignal | undefined,
+    work: () => Promise<T>,
+  ): Promise<{ done: true; value: T } | { done: false }> {
+    // Already cancelled ⇒ do not start the work at all (nothing to abandon yet).
+    if (signal?.aborted) return { done: false };
+
+    const pending = work();
+    let timer: NodeJS.Timeout | undefined;
+    let onAbort: (() => void) | undefined;
+
+    const cancelled = new Promise<{ done: false }>((resolve) => {
+      if (signal) {
+        onAbort = () => resolve({ done: false });
+        signal.addEventListener('abort', onAbort, { once: true });
+      }
+      if (abortable !== 'yes') {
+        timer = setTimeout(() => resolve({ done: false }), NON_ABORTABLE_TOOL_WINDOW_MS);
+        timer.unref?.();
+      }
+    });
+
+    try {
+      return await Promise.race([
+        pending.then((value) => ({ done: true as const, value })),
+        cancelled,
+      ]);
+    } finally {
+      if (timer) clearTimeout(timer);
+      if (signal && onAbort) signal.removeEventListener('abort', onAbort);
+      pending.catch(() => {});
+    }
   }
 }
