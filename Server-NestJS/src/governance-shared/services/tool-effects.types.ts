@@ -20,6 +20,31 @@ import type { RevokeClass } from './revoke-class';
 import type { RevokeStatus } from '../../governance-core/revoke-status';
 import type { TargetStatusConclusion, TargetStatusLookup } from '../../governance-core/target-status';
 
+/**
+ * AW-20: what one claim attempt settled to. `won:false` is a refusal, and `reason` says **which**
+ * refusal: `operation_in_flight` is the cross-session case (the same operation identity is already
+ * held elsewhere), which the conversation-scoped key could never see. `heldBy` names the holding claim
+ * so the ledger can be looked at without guessing — it is `null` when the holder could not be read,
+ * which is not the same as "no holder".
+ *
+ * AW-20：一次占位尝试的结果。`won:false` 是拒绝，`reason` 说明是**哪一种**：`operation_in_flight`
+ * 是跨会话那一支（同一操作身份已在别处被持有），会话级的键从来看不见它。`heldBy` 指认持有者，使账
+ * 不必靠猜就能看；读不到持有者时为 `null`，这与「没有持有者」不是一回事。
+ */
+export type WriteClaimOutcome = {
+  won: boolean;
+  status?: string;
+  effectId?: number | null;
+  operationKey?: string;
+  reason?: 'operation_in_flight';
+  heldBy?: {
+    claimId: number;
+    conversationId: string | null;
+    userId: string;
+    claimedAt: Date;
+  } | null;
+};
+
 export interface WriteToolContext {
   userId: string;
   conversationId?: string;

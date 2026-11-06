@@ -49,7 +49,12 @@ describe('失败路径语料（KB-4 / FP）', () => {
         7,
       );
       expect(saved.id).toBe(9);
-      expect(repo.findOne).toHaveBeenCalledTimes(1);
+      // AW-20: `record` reads before writing (the possible-duplicate probe), so what this pins is the
+      // **one** read-back after the unique conflict — the one that produces the idempotent replay.
+      // AW-20：`record` 会先读后写（possible-duplicate 探测），故这里钉的是唯一冲突之后**恰好一次**
+      // 读回 —— 产生幂等回放的那一次。
+      const saveOrder = repo.save.mock.invocationCallOrder[0];
+      expect(repo.findOne.mock.invocationCallOrder.filter((o) => o > saveOrder)).toHaveLength(1);
     });
 
     it('postgres 唯一冲突码 23505 同样走幂等 skip', async () => {
@@ -78,7 +83,11 @@ describe('失败路径语料（KB-4 / FP）', () => {
           7,
         ),
       ).rejects.toThrow('connection refused');
-      expect(repo.findOne).not.toHaveBeenCalled();
+      // AW-20: writes are preceded by the possible-duplicate probe; a read-back **after** the failed
+      // save is the faked idempotent hit this corpus forbids.
+      // AW-20：写之前有 possible-duplicate 探测；**写失败之后**再读回才是本语料禁止的「伪装幂等命中」。
+      const saveOrder = repo.save.mock.invocationCallOrder[0];
+      expect(repo.findOne.mock.invocationCallOrder.filter((o) => o > saveOrder)).toEqual([]);
     });
   });
 

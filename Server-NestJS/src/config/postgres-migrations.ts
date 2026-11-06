@@ -124,6 +124,10 @@ export const POSTGRES_MIGRATION_GLOBS: string[] = [
   // AW-17：目标状态查询证据表（实体在、pg 侧也要有，否则实体↔迁移漂移）
   // AW-17: the target-status lookup evidence table (the entity exists, so postgres needs it too).
   '*AddTargetStatusLookups*',
+  // AW-20：操作身份列 + 在途租约部分唯一索引 + 副作用行的 possible_duplicate 标记（实体在，pg 侧也要有）
+  // AW-20: the operation identity column, its partial unique lease index, and the side effect's
+  // possible_duplicate marker (the entities exist, so postgres needs them too).
+  '*AddOperationIdentity*',
 ];
 
 /** 有意排除于 postgres 的迁移（仅 sqlite；postgres 由 PostgresInitialSchema / PostgresIncrementalSchema 基线覆盖） */

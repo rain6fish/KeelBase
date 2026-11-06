@@ -43,6 +43,7 @@ import {
   type SplitGroupFinding,
   type HostHelpers,
   type TargetStatusProbe,
+  type WriteClaimOutcome,
   type WriteToolContext,
 } from './tool-effects.types';
 
@@ -67,6 +68,7 @@ export {
   type RevokeRunBatchResult,
   type SideEffectSnapshot,
   type SplitGroupFinding,
+  type WriteClaimOutcome,
   type WriteToolContext,
 } from './tool-effects.types';
 
@@ -292,10 +294,8 @@ export class AiToolEffectsService {
     return this.claims.findExisting(key);
   }
 
-  /** ACT-5/6：为写工具执行占位（唯一约束即仲裁点）。 */
-  async claimWrite(
-    ctx: WriteToolContext,
-  ): Promise<{ won: boolean; status?: string; effectId?: number | null }> {
+  /** ACT-5/6：为写工具执行占位（唯一约束即仲裁点；AW-20 起另受跨会话操作租约约束）。 */
+  async claimWrite(ctx: WriteToolContext): Promise<WriteClaimOutcome> {
     return this.claims.claimWrite(ctx);
   }
 
