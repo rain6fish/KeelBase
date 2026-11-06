@@ -232,4 +232,118 @@ describe('AW-17 目标状态查询（只读，一次）', () => {
     expect(r.conclusion).toBe('unknown');
     expect(r.reason).toBe('target-status-unavailable');
   });
+
+  /**
+   * AW-19：允不允许去问，由工具的**声明**决定，而不是由配置碰巧长什么样。
+   *
+   * 下面三条是任务书里的反向判据：
+   * - `statusLookup: yes` 改成 `no` ⇒ **一个字节都不发**，结论停在 `unknown`；
+   * - 声明 `yes` 但目标实际不提供（这里：没有可用的状态端点）⇒ 记成缺口（`target-status-unavailable`），
+   *   **不得**报成功；
+   * - 什么都没声明 ⇒ 同样不问。
+   *
+   * AW-19: whether a query may be attempted is decided by the tool's **declaration**, not by the
+   * incidental shape of the config. Three reverse cases: `yes` → `no` sends nothing and the
+   * conclusion stays `unknown`; `yes` with nothing to ask records the gap and never reports success;
+   * a tool that declares nothing is not asked either.
+   */
+  describe('AW-19 能力声明把门（statusLookup）', () => {
+    /** A proxy tool whose config *has* a status endpoint but which declares it must not be used. */
+    class DeclaresNoStatusLookup extends ProxyTool {
+      override readonly capabilities = { statusLookup: 'no' } as const;
+    }
+
+    /** A tool that claims a status lookup the deployment never configured a channel for. */
+    class DeclaresLookupWithoutChannel extends ProxyTool {
+      override readonly capabilities = { statusLookup: 'yes' } as const;
+    }
+
+    it('**反向**：statusLookup: no（即便配了 statusPath）⇒ 不再尝试查询，结论停在 unknown', async () => {
+      const tool = new DeclaresNoStatusLookup(
+        {
+          name: 'proxy_create_contract',
+          description: '建合同',
+          method: 'POST',
+          path: '/contracts',
+          parameters: [],
+          statusPath: 'GET /contracts/status/{key}',
+        },
+        delegation as any,
+        base,
+        audience,
+      );
+      const probe = probeFor(tool as unknown as ProxyTool);
+
+      const f = stubFetch(async () => answer({ status: 'executed' }));
+      try {
+        const r = await probe.lookup('proxy_create_contract', 'key-1', 'u1');
+        expect(r.conclusion).toBe('unknown');
+        expect(r.reason).toBe('target-status-unavailable');
+      } finally {
+        f.restore();
+      }
+      // 声明说别问，就一个字节都不发 —— 不是「问了但没用」。
+      expect(f.calls).toHaveLength(0);
+      // 也不去签一张没人要用的委托 token。
+      expect(delegation.sign).not.toHaveBeenCalled();
+    });
+
+    it('声明 yes 但目标实际不提供查询 ⇒ 记缺口（unknown），绝不报成功', async () => {
+      const tool = new DeclaresLookupWithoutChannel(
+        {
+          name: 'proxy_create_contract',
+          description: '建合同',
+          method: 'POST',
+          path: '/contracts',
+          parameters: [],
+        },
+        delegation as any,
+        base,
+        audience,
+      );
+      const probe = probeFor(tool as unknown as ProxyTool);
+
+      const f = stubFetch(async () => answer({ status: 'executed' }));
+      try {
+        const r = await probe.lookup('proxy_create_contract', 'key-1', 'u1');
+        expect(r.conclusion).toBe('unknown');
+        expect(r.reason).toBe('target-status-unavailable');
+      } finally {
+        f.restore();
+      }
+      expect(f.calls).toHaveLength(0);
+    });
+
+    it('未声明（capabilities 缺席）⇒ 也读作 unknown：没有声明就不问', async () => {
+      // The constructor derives `statusLookup: 'yes'` from a configured `statusPath`, so the honest
+      // "nothing declared" tool here is one that overrides the derivation with nothing at all.
+      class DeclaresNothing extends ProxyTool {
+        override readonly capabilities = {} as const;
+      }
+      const tool = new DeclaresNothing(
+        {
+          name: 'proxy_create_contract',
+          description: '建合同',
+          method: 'POST',
+          path: '/contracts',
+          parameters: [],
+          statusPath: 'GET /contracts/status/{key}',
+        },
+        delegation as any,
+        base,
+        audience,
+      );
+      const probe = probeFor(tool as unknown as ProxyTool);
+
+      const f = stubFetch(async () => answer({ status: 'executed' }));
+      try {
+        const r = await probe.lookup('proxy_create_contract', 'key-1', 'u1');
+        expect(r.conclusion).toBe('unknown');
+        expect(r.reason).toBe('target-status-unavailable');
+      } finally {
+        f.restore();
+      }
+      expect(f.calls).toHaveLength(0);
+    });
+  });
 });

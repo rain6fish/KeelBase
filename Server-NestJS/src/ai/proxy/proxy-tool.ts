@@ -11,6 +11,7 @@
 
 import {
   AiTool,
+  ToolCapabilityDeclarations,
   ToolDefinition,
   ToolResult,
   ToolParameter,
@@ -92,6 +93,19 @@ export class ProxyTool implements AiTool {
   readonly revokeClass: RevokeClass;
   /** AW-17：目标只读状态端点（`[METHOD] path`，`{key}` 占位为幂等键）；缺省 = 问不到。 */
   readonly statusPath?: string;
+  /**
+   * AW-19: what this tool declares about its target. `statusLookup` is derived from the configured
+   * `statusPath` — a configured endpoint is the target offering a query (`yes`); no endpoint means
+   * **we** have no channel, which is not the same as the target having none, so it stays `unknown`
+   * rather than claiming `no`. `cancellation` and `dedup` are left undeclared (`unknown`): this
+   * config shape has neither a cancel endpoint nor evidence the target honours `Idempotency-Key`.
+   *
+   * AW-19：本工具对目标的声明。`statusLookup` 由配置的 `statusPath` 派生 —— 配了端点即目标提供了查询
+   * （`yes`）；没配意味着**我们**没有通道，这不等于目标没有，故留 `unknown` 而不是声称 `no`。
+   * `cancellation` 与 `dedup` 不声明（`unknown`）：这份配置形状既没有取消端点，也没有目标遵守
+   * `Idempotency-Key` 的证据。
+   */
+  readonly capabilities: ToolCapabilityDeclarations;
   /** 出站方法（对账/事实派生要看「这是不是写」）。 */
   readonly method: ProxyToolConfig['method'];
 
@@ -113,6 +127,9 @@ export class ProxyTool implements AiTool {
     this.requiresConfirmation = this.riskLevel === 'R3' || this.riskLevel === 'R4';
     this.revokePath = cfg.revokePath;
     this.statusPath = cfg.statusPath;
+    this.capabilities = {
+      statusLookup: cfg.statusPath ? 'yes' : 'unknown',
+    };
     // KB-6 撤销能力档位（语义源 protocol-trust-proof-card R9）：
     // 显式覆盖优先；读恒 none；写 + revokePath → governed_external（补偿 2xx 仅"已请求"，结果以目标为准）；
     // 写无 revokePath → none（诚实：有撤销钮却只能失败即真缺陷源）。transactional 不用——REST 代理无法表达目标事务内回滚。

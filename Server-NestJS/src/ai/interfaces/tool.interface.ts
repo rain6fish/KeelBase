@@ -218,6 +218,71 @@ export interface ConfirmationImpact {
 }
 
 /**
+ * The three-valued declaration vocabulary (`yes` / `no` / `unknown`) shared by AW-18's abortability
+ * declaration and AW-19's capability declarations. It aliases `ToolAbortability` instead of spelling
+ * the union a second time: one vocabulary, read the same way by every gate.
+ *
+ * AW-18 的可中止性声明与 AW-19 的能力声明共用的三值词表（`yes` / `no` / `unknown`）。这里取
+ * `ToolAbortability` 的别名，而不是把联合类型再拼一遍：词表只有一份，每一道闸都按同一读法读它。
+ */
+export type ToolDeclaration = ToolAbortability;
+
+/**
+ * What a tool declares about its **target** (AW-19). Absent fields read as `unknown`.
+ *
+ * - `statusLookup` — the target can answer "did you run this action key?" read-only (AW-17's probe).
+ *   Only `yes` lets the reconciliation attempt a query; `no` and `unknown` do not ask.
+ * - `cancellation` — a cancellation channel exists, so an in-flight call could be *asked* to stop.
+ *   Nothing consumes this yet: the target-side cancel endpoint is not part of the proxy config, so a
+ *   `yes` here licenses nothing until that channel exists.
+ * - `dedup` — the target honours the `Idempotency-Key` it is sent, so re-sending the same logical
+ *   call could be safe. Nothing consumes this yet either: the executor has no retry path for an
+ *   unknown external outcome (the claim stays occupied), so a `yes` does not license a retry today.
+ *
+ * 工具对其**目标**的声明（AW-19）。缺席的字段读作 `unknown`。
+ *
+ * - `statusLookup` —— 目标能只读地回答「这个 action key 你跑了吗？」（AW-17 的探针）。只有 `yes` 才让
+ *   对账去问；`no` 与 `unknown` 都不问。
+ * - `cancellation` —— 存在取消通道，在途调用因此可以**被要求**停下。目前无消费方：代理配置里没有
+ *   目标侧的取消端点，通道存在之前 `yes` 不授权任何事。
+ * - `dedup` —— 目标遵守收到的 `Idempotency-Key`，故重发同一逻辑调用可能安全。同样无消费方：执行器对
+ *   结局未知的外部调用**没有重试路径**（占位保持占用），故今天 `yes` 也不授权重试。
+ */
+export interface ToolCapabilityDeclarations {
+  statusLookup?: ToolDeclaration;
+  cancellation?: ToolDeclaration;
+  dedup?: ToolDeclaration;
+}
+
+/** The same three declarations, resolved — every field present, undeclared ones as `unknown`. */
+export interface ToolCapabilities {
+  statusLookup: ToolDeclaration;
+  cancellation: ToolDeclaration;
+  dedup: ToolDeclaration;
+}
+
+/**
+ * Resolve a tool's capability declarations, filling every absent field with `unknown`.
+ *
+ * `unknown` is **not** a weaker `yes`: every gate reads it exactly like `no`, because "we were never
+ * told" cannot license acting as though we were. A tool that wants an attempt must say `yes` itself.
+ *
+ * 解析工具的能力声明，缺席字段一律填 `unknown`。
+ *
+ * `unknown` **不是**弱一些的 `yes`：每一道闸都按 `no` 读它 —— 「没人告诉过我们」不能授权我们当作被告知过。
+ * 想要一次尝试，工具必须自己说 `yes`。
+ */
+export function resolveCapabilities(
+  tool: Pick<AiTool, 'capabilities'>,
+): ToolCapabilities {
+  return {
+    statusLookup: tool.capabilities?.statusLookup ?? 'unknown',
+    cancellation: tool.capabilities?.cancellation ?? 'unknown',
+    dedup: tool.capabilities?.dedup ?? 'unknown',
+  };
+}
+
+/**
  * 工具权限元数据（HS-2）：AI 执行工具前的门控依据。
  * 仅服务端关切，不暴露给 LLM。
  */
@@ -268,6 +333,17 @@ export interface AiTool {
    * 判定：本地进程内的读记 `yes`，其余一律 `unknown`。
    */
   readonly abortable?: ToolAbortability;
+
+  /**
+   * AW-19: what the tool declares about its target's capabilities (status lookup / cancellation /
+   * dedup), each `yes` / `no` / `unknown`; undeclared ⇒ `unknown`. Read through `resolveCapabilities`
+   * — a second reading of the same fields would drift. Only server-side; not exposed to the LLM.
+   *
+   * AW-19：工具对**目标**能力的声明（状态查询 / 取消 / 去重），各自 `yes` / `no` / `unknown`；未声明
+   * ⇒ `unknown`。一律经 `resolveCapabilities` 读取 —— 同一批字段读第二遍就会漂移。仅服务端关切，
+   * 不暴露给 LLM。
+   */
+  readonly capabilities?: ToolCapabilityDeclarations;
 
   /** 权限元数据（HS-2）：未声明则默认允许（数据隔离已由 execute 的 userId 保证） */
   readonly permissions?: ToolPermissions;

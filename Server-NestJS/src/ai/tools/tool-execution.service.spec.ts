@@ -584,4 +584,46 @@ describe('ToolExecutionService（执行域）', () => {
       );
     });
   });
+
+  /**
+   * AW-19: `dedup: yes` says the target **would** honour the idempotency key — it does not by itself
+   * license a re-send. The executor has no retry path for an unknown outcome, so the call happens
+   * once and the claim stays occupied. A declaration cannot manufacture an action the executor does
+   * not have; reading it as permission would turn "the target can dedup" into "we may duplicate".
+   *
+   * AW-19：`dedup: yes` 说的是目标**会**遵守幂等键 —— 它本身不授权一次重发。执行器对结局未知的
+   * 调用没有重试路径，故调用只发生一次、占位保持占用。声明不能凭空造出执行器没有的动作；把它读成
+   * 许可，等于把「目标能去重」变成「我们可以重复发」。
+   */
+  describe('AW-19 能力声明不扩大执行器的动作（dedup）', () => {
+    it('声明 dedup: yes 不授权一次重发 —— 失败时目标只被调一次', async () => {
+      mockToolRegistry.getTool.mockReturnValue({
+        name: 'update_ticket',
+        capabilities: { dedup: 'yes' },
+      } as any);
+      const execute = jest.fn().mockResolvedValue({ success: false, error: '目标系统错误: 500' });
+      mockToolRegistry.execute.mockImplementation(execute);
+      const effectsStub = {
+        findExisting: jest.fn().mockResolvedValue({ existing: false }),
+        claimWrite: jest.fn().mockResolvedValue({ won: true }),
+        settleClaim: jest.fn().mockResolvedValue(undefined),
+        releaseClaim: jest.fn().mockResolvedValue(undefined),
+        record: jest.fn().mockResolvedValue({ id: 1 }),
+      };
+      const svc = new ToolExecutionService(
+        mockToolRegistry as any,
+        mockToolGate,
+        externalTools,
+        effectsStub as any,
+        undefined,
+      );
+
+      const res = await svc.executeWrite('update_ticket', { status: 'done' }, 'u1', 'c1');
+
+      expect(res.success).toBe(false);
+      expect(execute).toHaveBeenCalledTimes(1);
+      // 没有释放占位 ⇒ 没有重试之门；声明只说明「重发也许安全」，不构成一次重试的许可。
+      expect(effectsStub.releaseClaim).not.toHaveBeenCalled();
+    });
+  });
 });
