@@ -275,6 +275,23 @@ export interface AiTool {
   /** 获取 LLM 可识别的工具定义（JSON Schema） */
   toToolDefinition(): ToolDefinition;
 
-  /** 执行工具 */
-  execute(args: Record<string, unknown>, userId: string): Promise<ToolResult>;
+  /**
+   * 执行工具。
+   *
+   * AW-14: `signal` is optional so the existing tools keep compiling and running unchanged — a tool
+   * that ignores it is still valid, and its cancellation is read by its `abortable` classification
+   * (a `no` / `unknown` tool is `abandoned`, never `aborted`). A tool that *can* stop should observe
+   * it: check before its first mutation / outbound call, and pass it to the I/O it owns. Returning
+   * (whether success or failure) is what "confirmed the work stopped" means to the executor.
+   *
+   * AW-14：`signal` 是可选形参，既有工具不改也能编译运行 —— 忽略它的工具依然合法，其取消读数由
+   * `abortable` 分类决定（`no` / `unknown` 的工具记 `abandoned`，绝不是 `aborted`）。**停得掉**的
+   * 工具应当观察它：在第一次写/出站调用之前检查，并把它交给自己持有的 I/O。对执行器来说，
+   * 「工具真的返回了」（无论成功还是失败）就是「已确认停下」的那个事实。
+   */
+  execute(
+    args: Record<string, unknown>,
+    userId: string,
+    signal?: AbortSignal,
+  ): Promise<ToolResult>;
 }

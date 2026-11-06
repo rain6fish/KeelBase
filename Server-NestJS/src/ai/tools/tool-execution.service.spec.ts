@@ -305,7 +305,13 @@ describe('ToolExecutionService（执行域）', () => {
       mockToolRegistry.execute.mockResolvedValue({ success: true, data: { total: 3 } });
       const res = await toolExecution.executeAgentRead('query_events', { start: 'x' }, '1');
       expect(res.success).toBe(true);
-      expect(mockToolRegistry.execute).toHaveBeenCalledWith('query_events', { start: 'x' }, '1');
+      // AW-14: the executor hands the tool the per-call cancellation signal.
+      expect(mockToolRegistry.execute).toHaveBeenCalledWith(
+        'query_events',
+        { start: 'x' },
+        '1',
+        expect.any(AbortSignal),
+      );
     });
   });
 

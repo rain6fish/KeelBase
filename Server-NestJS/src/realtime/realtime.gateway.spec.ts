@@ -4,6 +4,7 @@ import { WebSocket } from 'ws';
 import { JwtService } from '@nestjs/jwt';
 import { ModuleRef } from '@nestjs/core';
 import { FeatureFlagsService } from '../feature-flags/feature-flags.service';
+import { toolExecutionScope } from '../ai/tools/tool-cancellation';
 import { RealtimeGateway } from './realtime.gateway';
 import { RealtimeService } from './realtime.service';
 
@@ -240,6 +241,36 @@ describe('RealtimeGateway', () => {
       const types = parsed(ws.sent).map((f) => f.event);
       expect(types).toContain('ai:text');
       expect(types).not.toContain('ai:done');
+    });
+
+    it('ai:abort also aborts this turn’s tool-cancellation signal (AW-14)', async () => {
+      jwt.verifyAsync.mockResolvedValue(payload);
+      const ws = mockSocket();
+      await gateway.handleConnection(ws, { url: '/ws?token=good' } as never);
+      ws.sent.length = 0;
+
+      let seen: AbortSignal | undefined;
+      let release!: () => void;
+      const gate = new Promise<void>((r) => (release = r));
+      async function* gen() {
+        seen = toolExecutionScope.getStore()?.signal;
+        yield { type: 'text', content: 'x' };
+        await gate;
+        yield { type: 'done', conversationId: 'x' };
+      }
+      aiService.chatStream.mockReturnValue(gen());
+
+      await gateway.handleAiChatEvent(ws, { message: 'x' });
+      await wait(10);
+      expect(seen).toBeDefined();
+      expect(seen!.aborted).toBe(false);
+
+      gateway.handleAiAbort(ws);
+      // Abort reaches the executor synchronously — an in-flight tool sees it before its next step.
+      expect(seen!.aborted).toBe(true);
+
+      release();
+      await wait(20);
     });
   });
 

@@ -194,7 +194,8 @@ describe('ToolRegistry', () => {
 
       await registry.execute('query_events', args, 'user1');
 
-      expect(mockTool.execute).toHaveBeenCalledWith(args, 'user1');
+      // AW-14: the third argument is the cancellation signal, absent here.
+      expect(mockTool.execute).toHaveBeenCalledWith(args, 'user1', undefined);
     });
 
     it('should return the tool execution result', async () => {

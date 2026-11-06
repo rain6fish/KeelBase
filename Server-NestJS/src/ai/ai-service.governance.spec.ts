@@ -139,6 +139,7 @@ beforeEach(installAiServiceTestbed);
         'navigate_page',
         { page: 'events' },
         '1',
+        expect.any(AbortSignal),
       );
     });
   });

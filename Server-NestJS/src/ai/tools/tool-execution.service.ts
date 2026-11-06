@@ -24,12 +24,17 @@ import { ProxyTool } from '../proxy/proxy-tool';
 import { outboundIdempotencyKey } from '../proxy/outbound-idempotency';
 import { AuthorizationDeniedError, ToolAbortability, ToolResult } from '../interfaces/tool.interface';
 // AW-18：可中止性分类与取消读数（中止的是工作，还是只有我们的等待）
+// AW-14：取消是一个过程（requested → confirmed / unknown），结论要两件事同时成立
 import {
+  CANCELLATION_CONFIRM_WINDOW_MS,
+  CancellationState,
   NON_ABORTABLE_TOOL_WINDOW_MS,
   cancellationReading,
   cancelledToolResult,
   resolveAbortability,
 } from './tool-abortability';
+// AW-14：入口为这一轮开的取消作用域（显式 opts.signal 优先）
+import { currentToolSignal } from './tool-cancellation';
 import { AiToolEffectsService, sortKeys } from '../../governance-shared/services/ai-tool-effects.service';
 import { writeEffectTypeFor, EXTERNAL_CALL_EFFECT_TYPE } from '../tool-effects/write-effect-type';
 import { declaredEffects } from '../../governance-shared/services/effect-composition';
@@ -84,17 +89,20 @@ export class ToolExecutionService {
     opts?: { signal?: AbortSignal },
   ): Promise<ToolResult> {
     const abortable = this.abortabilityOf(name);
-    const outcome = await this.runWithCancellation(abortable, opts?.signal, async () => {
+    // AW-14：显式信号优先；调用方没给时读入口开的执行作用域。
+    const signal = opts?.signal ?? currentToolSignal();
+    const outcome = await this.runWithCancellation(abortable, signal, async (workSignal) => {
       if (this.externalTools.current?.isExternal(name)) {
+        // External MCP providers take no signal: their work is outside our reach (`unknown`).
         const out = await this.externalTools.current.callTool(name, args, userId);
         if (!out.executed) {
           return { success: false, error: out.error ?? 'External tool call failed' };
         }
         return { success: true, data: out.content ?? {} };
       }
-      return this.toolRegistry.execute(name, args, userId);
+      return this.toolRegistry.execute(name, args, userId, workSignal);
     });
-    if (!outcome.done) return cancelledToolResult(name, abortable);
+    if (!outcome.done) return cancelledToolResult(name, abortable, outcome.state);
     return outcome.value;
   }
 
@@ -160,6 +168,8 @@ export class ToolExecutionService {
     const isExternalWrite = this.externalTools.current?.isExternal(toolName) ?? false;
     // AW-18：这次写怎么接受取消 —— `yes` 才停得掉工作；`no` / `unknown` 只停我们的等待。
     const abortable = this.abortabilityOf(toolName);
+    // AW-14：显式信号优先；调用方没给时读入口开的执行作用域（WS 的 `ai:abort` 即从此进来）。
+    const signal = opts?.signal ?? currentToolSignal();
 
     // The idempotency probe runs **before** either execution path. The external branch used to
     // return first, so any replay — an LLM retry, a second decision on the same confirmation, a
@@ -240,13 +250,13 @@ export class ToolExecutionService {
 
     try {
       if (isExternalWrite) {
-        const out = await this.runWithCancellation(abortable, opts?.signal, () =>
+        const out = await this.runWithCancellation(abortable, signal, () =>
           this.externalTools.current!.callTool(toolName, args, userId),
         );
         if (!out.done) {
           // AW-18：外部写永远不是 `yes`（代理是 `no`，MCP 是 `unknown`）—— 停止的只是等待。
           // 占位留 `claimed`（= 结局未知）：不释放、不落定，也不报成功。
-          return cancelledToolResult(toolName, abortable);
+          return cancelledToolResult(toolName, abortable, out.state);
         }
         const call = out.value;
         if (!call.executed) {
@@ -287,29 +297,38 @@ export class ToolExecutionService {
 
       if (!effects) {
         // 降级装配（无账本）：照旧直接执行 —— 没有账本也就没有占位可言，逐字保持拆分前的行为。
-        const outcome = await this.runWithCancellation(abortable, opts?.signal, () =>
-          this.toolRegistry.execute(toolName, args, userId),
+        const outcome = await this.runWithCancellation(abortable, signal, (workSignal) =>
+          this.toolRegistry.execute(toolName, args, userId, workSignal),
         );
-        if (!outcome.done) return cancelledToolResult(toolName, abortable);
+        if (!outcome.done) return cancelledToolResult(toolName, abortable, outcome.state);
         return outcome.value;
       }
 
       // ACT-9b：这次写的 action key 就在手上 —— 与本地账本是**同一个键**（`claimKey`）。把它放进作用域，
       // 出站写出方（`ProxyTool`；代理写就从这里往下执行）据此发 `Idempotency-Key`。用作用域而不是加形参
       // 的理由（工具接口是热接口、只有这一个实现读它）见 `outbound-idempotency.ts`。
-      const outcome = await this.runWithCancellation(abortable, opts?.signal, () =>
+      const outcome = await this.runWithCancellation(abortable, signal, (workSignal) =>
         outboundIdempotencyKey.run(claimKey, () =>
-          this._executeLocalWrite(toolName, args, userId, conversationId, runId, agentId),
+          this._executeLocalWrite(
+            toolName,
+            args,
+            userId,
+            conversationId,
+            runId,
+            agentId,
+            workSignal,
+          ),
         ),
       );
       if (!outcome.done) {
         // AW-18：`aborted`（yes）⇒ 工作已停、事务未提交 ⇒ 释放占位，重试仍然可用（与 execute_failed 同口径）。
         // `abandoned`（no/unknown）⇒ 只停了等待、工作可能仍在跑 ⇒ 占位留 `claimed`（结局未知）：
         // 释放等于允许重试，也就等于邀请一次可能重复的写。
-        if (cancellationReading(abortable) === 'aborted') {
+        // AW-14：结论按三态重算 —— 只有 `yes` + `confirmed` 才是 `aborted`；`yes` 但未确认也只是 `abandoned`。
+        if (cancellationReading(abortable, outcome.state) === 'aborted') {
           await effects.releaseClaim(claimKey, 'aborted');
         }
-        return cancelledToolResult(toolName, abortable);
+        return cancelledToolResult(toolName, abortable, outcome.state);
       }
       const { result, effectId } = outcome.value;
       await effects.settleClaim(claimKey, effectId);
@@ -337,6 +356,7 @@ export class ToolExecutionService {
     conversationId?: string,
     runId?: string,
     agentId?: string,
+    signal?: AbortSignal,
   ): Promise<{ result: ToolResult; effectId: number | null }> {
     // 窄化：`toolEffectsService` 是 `@Optional()`，而「已装配」这个前提在方法边界上会丢。
     // 写成显式抛错而不是 `!`，免得装配真缺时变成一次难查的 undefined 调用。
@@ -348,7 +368,7 @@ export class ToolExecutionService {
     // REV-10：把工具执行**包进采集窗口** —— 只有这一段是「这次调用真正写下的东西」。
     // 窗口开在 `execute` 上、关在登记之前：登记自己写的账本行因此不在窗内（它也不是可撤业务行）。
     const { result, writes: observedWrites } = await withWriteCapture(() =>
-      this.toolRegistry.execute(toolName, args, userId),
+      this.toolRegistry.execute(toolName, args, userId, signal),
     );
     const isProxyWrite = this.isProxyTool(toolName);
     // FP-8：B 路径写即使响应空体/未知结果也记 proxy_call 副作用锚（stable proxyResultId），不假装有 data——撤销/证据可定位
@@ -492,56 +512,102 @@ export class ToolExecutionService {
   }
 
   /**
-   * AW-18: run `work` under the abortability contract.
+   * AW-14: run `work` under the cancellation contract.
    *
-   * - A `yes` tool stops with the caller's signal, so we stop waiting with it and the ledger may say
-   *   `aborted`.
-   * - A `no` / `unknown` tool keeps running regardless: the signal (and the forced window) stops only
-   *   our wait. The call is then `abandoned`, and the promise is left alone — we attach a swallow so
-   *   its eventual rejection cannot surface as an unhandled one, but we do not settle the claim from
-   *   it, because whatever it does after we stopped looking is exactly what we do not know.
-   * - A `no` / `unknown` call is additionally bounded by `NON_ABORTABLE_TOOL_WINDOW_MS`, so a hung
-   *   call cannot hold the turn forever.
+   * The caller's signal is linked to an internal controller so the tool sees a signal the executor
+   * owns: it fires on the caller's abort **and** when the bounded window elapses. What the executor
+   * reports is the *state* of that cancellation, not a guess:
    *
-   * AW-18：在可中止性契约下运行 `work`。
+   * - the work settles before any cancellation → its value, unchanged;
+   * - a cancellation is requested (`requested`) and the tool is `no` / `unknown` → `requested`: asking
+   *   cannot stop that work, so the call is `abandoned` with an unknown outcome;
+   * - a cancellation is requested and the tool is `yes` → wait `CANCELLATION_CONFIRM_WINDOW_MS` for it
+   *   to actually settle. Settling is `confirmed` (the ledger may say `aborted`); not settling is
+   *   `unknown` — a declaration that a tool *can* stop is not evidence that it did;
+   * - a `no` / `unknown` call that is not cancelled is still bounded by
+   *   `NON_ABORTABLE_TOOL_WINDOW_MS`, so a hung call cannot hold the turn forever.
    *
-   * - `yes` 的工具会随调用方的信号停下，我们也随之停止等待，账上可以记 `aborted`。
-   * - `no` / `unknown` 的工具无论如何都在跑：信号（以及强制窗口）停的只是我们的等待。这次调用记
-   *   `abandoned`，那个 promise 不再被理会 —— 挂一个吞掉错误的处理，免得它最终失败时冒成未处理拒绝；
-   *   但不拿它去落定占位，因为「我们不再看之后它做了什么」正是我们不知道的那部分。
-   * - `no` / `unknown` 的调用另受 `NON_ABORTABLE_TOOL_WINDOW_MS` 约束，挂死的调用因此占不住这一轮。
+   * The abandoned promise is left alone — a swallow keeps its eventual rejection from surfacing as an
+   * unhandled one, and it is never used to settle the claim, because what it does after we stopped
+   * looking is exactly what we do not know.
+   *
+   * AW-14：在取消契约下运行 `work`。
+   *
+   * 调用方的信号被接到执行器自己持有的控制器上 —— 工具看到的信号由执行器负责：它在调用方中止时触发，
+   * **也**在有界窗口到点时触发。执行器报告的是这次取消的**状态**，不是猜测：
+   *
+   * - 取消之前工作就返回了 → 原样返回它的值；
+   * - 取消已发出（`requested`）且工具是 `no` / `unknown` → `requested`：要求停不下那种工作，故这次
+   *   调用记 `abandoned`、结局未知；
+   * - 取消已发出且工具是 `yes` → 再等 `CANCELLATION_CONFIRM_WINDOW_MS`，看它是否**真的返回**。返回了
+   *   是 `confirmed`（账上可以记 `aborted`）；没返回是 `unknown` —— 「工具能停」是声明，不是它停了的证据；
+   * - 未被取消的 `no` / `unknown` 调用仍受 `NON_ABORTABLE_TOOL_WINDOW_MS` 约束，挂死的调用占不住这一轮。
+   *
+   * 被放弃的 promise 不再被理会 —— 挂一个吞错处理，免得它最终失败时冒成未处理拒绝；也绝不拿它去落定
+   * 占位，因为「我们不再看之后它做了什么」正是我们不知道的那部分。
    */
   private async runWithCancellation<T>(
     abortable: ToolAbortability,
-    signal: AbortSignal | undefined,
-    work: () => Promise<T>,
-  ): Promise<{ done: true; value: T } | { done: false }> {
-    // Already cancelled ⇒ do not start the work at all (nothing to abandon yet).
-    if (signal?.aborted) return { done: false };
+    callerSignal: AbortSignal | undefined,
+    work: (signal: AbortSignal) => Promise<T>,
+  ): Promise<{ done: true; value: T } | { done: false; state: CancellationState }> {
+    // Already cancelled ⇒ do not start the work at all. "Nothing is running" is not a guess, so this
+    // reads as confirmed; the classification still decides whether that may be called `aborted`.
+    if (callerSignal?.aborted) return { done: false, state: 'confirmed' };
 
-    const pending = work();
-    let timer: NodeJS.Timeout | undefined;
-    let onAbort: (() => void) | undefined;
+    const controller = new AbortController();
+    const onCallerAbort = () => controller.abort();
+    callerSignal?.addEventListener('abort', onCallerAbort, { once: true });
 
-    const cancelled = new Promise<{ done: false }>((resolve) => {
-      if (signal) {
-        onAbort = () => resolve({ done: false });
-        signal.addEventListener('abort', onAbort, { once: true });
-      }
-      if (abortable !== 'yes') {
-        timer = setTimeout(() => resolve({ done: false }), NON_ABORTABLE_TOOL_WINDOW_MS);
-        timer.unref?.();
-      }
+    let windowTimer: NodeJS.Timeout | undefined;
+    if (abortable !== 'yes') {
+      windowTimer = setTimeout(() => controller.abort(), NON_ABORTABLE_TOOL_WINDOW_MS);
+      windowTimer.unref?.();
+    }
+
+    const pending = work(controller.signal);
+    // Settlement is the fact, not the value: a tool that returns a failure stopped all the same.
+    const settled = pending.then(
+      () => 'settled' as const,
+      () => 'settled' as const,
+    );
+    const requested = new Promise<'requested'>((resolve) => {
+      if (controller.signal.aborted) resolve('requested');
+      else controller.signal.addEventListener('abort', () => resolve('requested'), { once: true });
     });
 
     try {
-      return await Promise.race([
-        pending.then((value) => ({ done: true as const, value })),
-        cancelled,
-      ]);
+      const first = await Promise.race([settled, requested]);
+      if (first === 'settled') return { done: true, value: await pending };
+
+      // The state a classification can reach after a cancellation:
+      // - `no`: asking cannot stop that work, so the request is where it ends — `requested`;
+      // - `unknown`: even a returned promise is not evidence that the work (which may live outside
+      //   this process) stopped — `unknown`;
+      // - `yes`: the tool declared it can stop, so we watch whether it actually settled.
+      //
+      // 取消之后各种分类能到达的状态：
+      // - `no`：要求停不下那种工作，请求就是终点 —— `requested`；
+      // - `unknown`：即使 promise 返回了，也不构成「工作停了」的证据（工作可能在本进程之外继续）
+      //   —— `unknown`；
+      // - `yes`：工具声明自己停得掉，于是我们观察它是否**真的返回**。
+      if (abortable === 'no') return { done: false, state: 'requested' };
+      if (abortable === 'unknown') return { done: false, state: 'unknown' };
+
+      let confirmTimer: NodeJS.Timeout | undefined;
+      const confirmationWindow = new Promise<'pending'>((resolve) => {
+        confirmTimer = setTimeout(() => resolve('pending'), CANCELLATION_CONFIRM_WINDOW_MS);
+        confirmTimer.unref?.();
+      });
+      try {
+        const after = await Promise.race([settled, confirmationWindow]);
+        return { done: false, state: after === 'settled' ? 'confirmed' : 'unknown' };
+      } finally {
+        if (confirmTimer) clearTimeout(confirmTimer);
+      }
     } finally {
-      if (timer) clearTimeout(timer);
-      if (signal && onAbort) signal.removeEventListener('abort', onAbort);
+      if (windowTimer) clearTimeout(windowTimer);
+      if (callerSignal) callerSignal.removeEventListener('abort', onCallerAbort);
       pending.catch(() => {});
     }
   }

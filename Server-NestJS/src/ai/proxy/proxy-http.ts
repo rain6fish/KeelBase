@@ -37,14 +37,26 @@ export async function proxyFetch(
   url: string,
   init: RequestInit = {},
   timeoutMs: number = getProxyTimeout(),
+  /**
+   * AW-14: the caller's cancellation. It aborts this request too; it is **not** our timeout, and must
+   * not be reported as one — "the target was slow" and "we stopped asking" are different facts.
+   *
+   * AW-14：调用方的取消。它同样中止这次请求；它**不是**我们的超时，不得被报成超时 ——
+   * 「目标太慢」与「我们不再问了」是两件不同的事实。
+   */
+  signal?: AbortSignal,
 ): Promise<Response> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   timer.unref?.();
+  const combined = signal ? AbortSignal.any([ctrl.signal, signal]) : ctrl.signal;
   try {
-    return await fetch(url, { ...init, signal: ctrl.signal });
+    return await fetch(url, { ...init, signal: combined });
   } catch (err) {
-    if ((err as Error).name === 'AbortError') throw new ProxyTimeoutError(timeoutMs);
+    if ((err as Error).name === 'AbortError') {
+      if (signal?.aborted) throw err;
+      throw new ProxyTimeoutError(timeoutMs);
+    }
     throw err;
   } finally {
     clearTimeout(timer);

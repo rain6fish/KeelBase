@@ -38,6 +38,7 @@ beforeEach(installAiServiceTestbed);
         'navigate_page',
         { page: 'settings' },
         '1',
+        expect.any(AbortSignal),
       );
       expect(mockAuditService.log).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'tool_call', tool: 'navigate_page' }),
@@ -94,6 +95,7 @@ beforeEach(installAiServiceTestbed);
         'navigate_admin_page',
         { page: 'system' },
         '0',
+        expect.any(AbortSignal),
       );
       expect(result.navigateTo).toBe('/system');
     });
@@ -281,7 +283,12 @@ beforeEach(installAiServiceTestbed);
     it('内置读工具仍走 toolRegistry', async () => {
       mockToolRegistry.execute.mockResolvedValue({ success: true, data: { total: 1 } });
       const result = await toolExecution.executeRead('query_events', {}, '1');
-      expect(mockToolRegistry.execute).toHaveBeenCalledWith('query_events', {}, '1');
+      expect(mockToolRegistry.execute).toHaveBeenCalledWith(
+        'query_events',
+        {},
+        '1',
+        expect.any(AbortSignal),
+      );
       expect(result.data).toEqual({ total: 1 });
     });
 

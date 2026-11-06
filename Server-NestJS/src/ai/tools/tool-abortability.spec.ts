@@ -14,6 +14,7 @@ import { ExternalToolRegistry } from './external-tool-registry';
 import { ToolExecutionService } from './tool-execution.service';
 import { ToolRegistry } from './tool-registry';
 import {
+  CANCELLATION_CONFIRM_WINDOW_MS,
   NON_ABORTABLE_TOOL_WINDOW_MS,
   cancellationReading,
   resolveAbortability,
@@ -99,10 +100,13 @@ describe('AW-18 分类：工具怎么接受取消', () => {
     expect(new CreateModuleApplyTool().abortable).toBe('unknown');
   });
 
-  it('取消读数：只有 yes 记 aborted，no / unknown 一律 abandoned', () => {
-    expect(cancellationReading('yes')).toBe('aborted');
-    expect(cancellationReading('no')).toBe('abandoned');
-    expect(cancellationReading('unknown')).toBe('abandoned');
+  it('取消读数：只有 yes + confirmed 记 aborted；no / unknown / 未确认一律 abandoned', () => {
+    expect(cancellationReading('yes', 'confirmed')).toBe('aborted');
+    // 要求不等于停下：yes 但只到 requested / unknown，仍然不是 aborted
+    expect(cancellationReading('yes', 'requested')).toBe('abandoned');
+    expect(cancellationReading('yes', 'unknown')).toBe('abandoned');
+    expect(cancellationReading('no', 'confirmed')).toBe('abandoned');
+    expect(cancellationReading('unknown', 'confirmed')).toBe('abandoned');
   });
 });
 
@@ -151,9 +155,18 @@ describe('AW-18 执行器：中止后的账与结论', () => {
     expect(result.error).not.toContain('aborted');
   });
 
-  it('yes 工具被中止 ⇒ aborted（工作确实停了）', async () => {
+  it('yes 工具被中止且确实返回 ⇒ aborted（取消已确认）', async () => {
     const { svc, registry } = makeService({ riskLevel: 'R1' });
-    registry.execute.mockReturnValue(hung<ToolResult>());
+    registry.execute.mockImplementation(
+      (_n: string, _a: unknown, _u: string, signal?: AbortSignal) =>
+        new Promise<ToolResult>((resolve) => {
+          signal?.addEventListener(
+            'abort',
+            () => resolve({ success: false, error: 'stopped by signal' }),
+            { once: true },
+          );
+        }),
+    );
     const ctrl = new AbortController();
     const p = svc.executeRead('query_events', {}, '1', { signal: ctrl.signal });
     await tick();
@@ -161,7 +174,29 @@ describe('AW-18 执行器：中止后的账与结论', () => {
     const result = await p;
     expect(result.success).toBe(false);
     expect(result.error).toContain('aborted');
+    expect(result.error).toContain('cancellation confirmed');
     expect(result.error).not.toContain('abandoned');
+  });
+
+  it('yes 工具被中止却不返回 ⇒ abandoned + unknown（声明不等于事实）', async () => {
+    jest.useFakeTimers();
+    try {
+      const { svc, registry } = makeService({ riskLevel: 'R1' });
+      registry.execute.mockReturnValue(hung<ToolResult>());
+      const ctrl = new AbortController();
+      const p = svc.executeRead('query_events', {}, '1', { signal: ctrl.signal });
+      await Promise.resolve();
+      ctrl.abort();
+      await jest.advanceTimersByTimeAsync(0);
+      await jest.advanceTimersByTimeAsync(CANCELLATION_CONFIRM_WINDOW_MS);
+      const result = await p;
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('abandoned');
+      expect(result.error).toContain('cancellation unknown');
+      expect(result.error).not.toContain('aborted');
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('no / unknown 受有界窗口约束：窗口到点即 abandoned，不无限挂起', async () => {
@@ -212,7 +247,17 @@ describe('AW-18 执行器：中止后的账与结论', () => {
       settleClaim: jest.fn().mockResolvedValue(undefined),
       releaseClaim,
     };
-    registry.execute.mockReturnValue(hung<ToolResult>());
+    // AW-14：`aborted` 要「真的返回」。一个忽略信号、永不返回的 yes 工具只到 unknown ⇒ abandoned。
+    registry.execute.mockImplementation(
+      (_n: string, _a: unknown, _u: string, signal?: AbortSignal) =>
+        new Promise<ToolResult>((resolve) => {
+          signal?.addEventListener(
+            'abort',
+            () => resolve({ success: false, error: 'stopped by signal' }),
+            { once: true },
+          );
+        }),
+    );
     const ctrl = new AbortController();
     const p = svc.executeWrite('some_write', { a: 1 }, '1', 'c1', undefined, {
       signal: ctrl.signal,
