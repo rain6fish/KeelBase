@@ -5,8 +5,8 @@ import { DataSource, Repository } from 'typeorm';
 import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
 import { AiAuditLog } from '../../governance-shared/entities/ai-audit-log.entity';
 import { AiWriteClaim, WRITE_CLAIM_STATUS } from '../entities/ai-write-claim.entity';
-import { argsHash, buildKey } from './effect-shared';
-import type { WriteToolContext } from './tool-effects.types';
+import { argsHash, buildKey, isUniqueViolation, operationKey } from './effect-shared';
+import type { WriteClaimOutcome, WriteToolContext } from './tool-effects.types';
 
 /**
  * ACT-5/6 执行级幂等的**占位行**：执行前认领、执行后落定、失败释放，以及崩溃残留的列出。
@@ -65,17 +65,22 @@ export class WriteClaimStore {
    */
   async claimWrite(
     ctx: WriteToolContext,
-  ): Promise<{ won: boolean; status?: string; effectId?: number | null }> {
+  ): Promise<WriteClaimOutcome> {
     // 未装配仓库（单测装配 / 降级接线）⇒ 退回旧行为。**如实标注**：此时写不重复保护**不生效**。
     // 捕获成局部：`this.x` 的窄化会被随后的调用/await 作废（TS 认为方法可能改它）。
     const repo = this.claimsRepo;
     if (!repo) return { won: true };
     const key = buildKey(ctx);
+    // AW-20: the cross-session identity, written beside the session-scoped key. Its partial unique
+    // index is the lease that stops a second session from re-sending the same operation.
+    // AW-20：跨会话身份，与会话级键并列落库。它的部分唯一索引就是拦住第二会话重发同一操作的那份租约。
+    const opKey = operationKey(ctx);
     const now = new Date();
     try {
       await repo.save(
         repo.create({
           idempotencyKey: key,
+          operationKey: opKey,
           userId: ctx.userId,
           // 这三列是 `?: string`（无 `| null`）⇒ 用 `undefined` 表示「无」。TypeORM 的 save 对
           // `undefined` 落 NULL，与直接写 `null` 等价，但不会与「无显式类型的列不允许 TS 写 null」冲突。
@@ -97,12 +102,21 @@ export class WriteClaimStore {
           attempts: 1,
         }),
       );
-      return { won: true };
-    } catch {
+      return { won: true, operationKey: opKey };
+    } catch (err) {
       // 唯一冲突（或写失败）⇒ 读回现状。**fail-closed**：读不到现状也必须返回「不执行」，
       // 绝不因为「没读到证据」就放行一次可能重复的写。
       const existing = await repo.findOne({ where: { idempotencyKey: key } });
-      if (!existing) return { won: false, status: 'unreadable' };
+      if (!existing) {
+        // No row under **our** claim key ⇒ a unique conflict here is not this session's key. AW-20:
+        // it is the operation lease — another conversation/worker holds the same operation. A
+        // non-unique failure is not evidence of a lease; it is reported as unreadable, as before.
+        // 我们自己的键下没有行 ⇒ 这里的唯一冲突不来自本会话的键。AW-20：是操作租约 —— 另一会话/worker
+        // 正持有同一次操作。非唯一冲突并不构成租约证据，按原样报 `unreadable`。
+        return isUniqueViolation(err)
+          ? this._operationHeld(repo, opKey)
+          : { won: false, status: 'unreadable' };
+      }
       if (existing.status === WRITE_CLAIM_STATUS.RELEASED) {
         // A re-claim that carries a new authorization replaces the ref on the same conditional
         // update, so the claim points at the attempt that actually executed — that ref is the only
@@ -113,32 +127,112 @@ export class WriteClaimStore {
         // 带新授权的重占位在同一条条件更新上替换引用，使占位行指向**实际执行**的那次尝试 —— 解释面要说
         // 「谁批准了这次」只能靠这个键。未提供引用则保留原值：重试时它只表示「这个调用方没有提供」，
         // 不表示「没有授权」。
-        const res = await repo.update(
-          { id: existing.id, status: WRITE_CLAIM_STATUS.RELEASED },
-          {
-            status: WRITE_CLAIM_STATUS.CLAIMED,
-            claimedAt: now,
-            settledAt: null,
-            releaseReason: null,
-            attempts: existing.attempts + 1,
-            ...(ctx.authorizationRef ? { authorizationRef: ctx.authorizationRef } : {}),
-            // AW-15: the row describes the **latest attempt**, so a re-claim replaces the basis even
-            // when it could not be resolved (then `null`, which reads as `unknown`). Keeping the
-            // previous attempt's role would attribute this execution to a grant it never used.
-            // AW-15：本行描述的是**最近一次尝试**，故重占位一律替换依据 —— 即使解析不出来也替换成
-            // `null`（读作 `unknown`）。保留上一次的角色会把本次执行归到它从未使用过的授予上。
-            decidedRole: ctx.decidedRole ?? null,
-            policyRevision: ctx.policyRevision ?? null,
-          },
-        );
+        let res: { affected?: number } | undefined;
+        try {
+          res = await repo.update(
+            { id: existing.id, status: WRITE_CLAIM_STATUS.RELEASED },
+            {
+              status: WRITE_CLAIM_STATUS.CLAIMED,
+              // A row written before AW-20 has no identity; the re-claim gives it one, so the lease
+              // covers this execution too. Same claim key ⇒ same operation, so the value cannot be
+              // anyone else's.
+              // 本列之前的行没有操作身份；重占位顺手补上，使租约覆盖这次执行。键相同 ⇒ 操作相同，
+              // 故这个值不可能是别人的。
+              operationKey: opKey,
+              claimedAt: now,
+              settledAt: null,
+              releaseReason: null,
+              attempts: existing.attempts + 1,
+              ...(ctx.authorizationRef ? { authorizationRef: ctx.authorizationRef } : {}),
+              // AW-15: the row describes the **latest attempt**, so a re-claim replaces the basis even
+              // when it could not be resolved (then `null`, which reads as `unknown`). Keeping the
+              // previous attempt's role would attribute this execution to a grant it never used.
+              // AW-15：本行描述的是**最近一次尝试**，故重占位一律替换依据 —— 即使解析不出来也替换成
+              // `null`（读作 `unknown`）。保留上一次的角色会把本次执行归到它从未使用过的授予上。
+              decidedRole: ctx.decidedRole ?? null,
+              policyRevision: ctx.policyRevision ?? null,
+            },
+          );
+        } catch (updateErr) {
+          // AW-20: the re-claim moves this row back to `claimed`, so it can collide with the lease
+          // when another session took the same operation in the meantime. Report that refusal; a row
+          // that is no longer `released` lost the race on this key, which the caller reads the same way.
+          // AW-20：重占位会把本行移回 `claimed`，若期间另一会话已接过同一操作就会撞上租约。如实报这次
+          // 拒绝；本行已不是 `released` 则是本键上输了竞争，调用方按同样的「不执行」处理。
+          const again = await repo.findOne({ where: { idempotencyKey: key } });
+          if (again && again.status !== WRITE_CLAIM_STATUS.RELEASED) {
+            return {
+              won: false,
+              status: again.status,
+              effectId: again.effectId ?? null,
+              operationKey: opKey,
+            };
+          }
+          return isUniqueViolation(updateErr)
+            ? this._operationHeld(repo, opKey)
+            : { won: false, status: 'unreadable' };
+        }
         if (res?.affected === 0) {
           const again = await repo.findOne({ where: { idempotencyKey: key } });
-          return { won: false, status: again?.status ?? 'unreadable', effectId: again?.effectId ?? null };
+          return {
+            won: false,
+            status: again?.status ?? 'unreadable',
+            effectId: again?.effectId ?? null,
+            operationKey: opKey,
+          };
         }
-        return { won: true };
+        return { won: true, operationKey: opKey };
       }
-      return { won: false, status: existing.status, effectId: existing.effectId ?? null };
+      return {
+        won: false,
+        status: existing.status,
+        effectId: existing.effectId ?? null,
+        operationKey: opKey,
+      };
     }
+  }
+
+  /**
+   * AW-20: who holds this operation right now. The holder is read back so the refusal names the claim
+   * and conversation that blocked it — a bare `won:false` would leave the caller guessing whether it
+   * collided with itself or with another session. An unreadable holder is reported as `unreadable`,
+   * never as "no holder".
+   *
+   * AW-20：此刻谁持有这次操作。读回持有者，让拒绝能指出挡路的那条占位与会话 —— 光一个 `won:false`
+   * 会让调用方分不清撞上的是自己还是另一个会话。读不到时报 `unreadable`，绝不报成「没有持有者」。
+   */
+  private async _operationHeld(
+    repo: Repository<AiWriteClaim>,
+    opKey: string,
+  ): Promise<WriteClaimOutcome> {
+    try {
+      const holder = await repo.findOne({
+        where: { operationKey: opKey, status: WRITE_CLAIM_STATUS.CLAIMED },
+      });
+      if (holder) {
+        return {
+          won: false,
+          status: holder.status,
+          reason: 'operation_in_flight',
+          operationKey: opKey,
+          heldBy: {
+            claimId: holder.id,
+            conversationId: holder.conversationId ?? null,
+            userId: holder.userId,
+            claimedAt: holder.claimedAt,
+          },
+        };
+      }
+    } catch {
+      // Fall through: the refusal stands, only the evidence is missing.
+      // 落到下面：拒绝仍然成立，只是证据缺失。
+    }
+    // The conflict was a unique one, but no holder is visible (it settled or was released between the
+    // insert and this read). That is still a refusal; without a holder there is no lease to name, so
+    // the reason stays absent rather than claiming one that can no longer be shown.
+    // 冲突确实是唯一约束，但此刻看不到持有者（在插入与这次读取之间落定或释放了）。拒绝仍然成立；
+    // 没有持有者就没有可指认的租约，故不写 reason，而不是声称一个已经无法展示的东西。
+    return { won: false, status: 'unreadable', operationKey: opKey };
   }
 
   /** 执行完成且副作用已登记（或本就不登记，如 dry-run）⇒ 落定。`effectId` 为 null 是**如实**，不是缺失。 */

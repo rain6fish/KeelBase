@@ -49,6 +49,20 @@ export class EffectRegistration {
     snapshot?: SideEffectSnapshot,
   ): Promise<AiToolSideEffect> {
     const key = buildKey(ctx);
+    const digest = argsHash(ctx);
+    // AW-20: does the ledger already hold this effect under another operation? Asked **before** the
+    // row is written, so the mark travels with the row itself instead of being a later, separate fact.
+    // The finding changes nothing about the write — it only refuses to let the second record pass as
+    // if nothing had come before it.
+    // AW-20：账上是否已在另一次操作下持有同一效果？在**写行之前**问，标记才随行一起落下，而不是事后
+    // 另记一笔。这个发现不改变这次写 —— 它只是不答应让第二条记录当作前面什么都没有。
+    const duplicate = await this._findDuplicate(ctx, resultType, resultId, digest, key);
+    if (duplicate) {
+      this.logger.warn(
+        `[AiToolEffects] possible-duplicate: ${resultType}#${resultId} (${duplicate.reason})` +
+          `——与 effect ${duplicate.of} 可能是同一效果，已标记在行上（不改判、不拒绝）`,
+      );
+    }
     const base = {
       idempotencyKey: key,
       userId: ctx.userId,
@@ -58,11 +72,16 @@ export class EffectRegistration {
       // REV-7：agent 身份随行留存（链外列），使「哪个 agent 替哪个用户写」不必 join 审计行
       agentId: ctx.agentId ?? null,
       toolName: ctx.toolName,
-      argsHash: argsHash(ctx),
+      argsHash: digest,
       resultType,
       resultId,
       beforeSnapshot: snapshot?.before ?? null,
       afterSnapshot: snapshot?.after ?? null,
+      // AW-20: `null` = no earlier row, or this row predates the column — the two are not distinguished
+      // here either (see the entity's comment); the reader must not read `null` as "checked and clean".
+      // AW-20：`null` = 没有更早的行，或该行早于本列 —— 这里同样不区分（见实体注释）；读侧不得把
+      // `null` 读成「查过、干净」。
+      possibleDuplicate: duplicate ? JSON.stringify(duplicate) : null,
       // KB-6：副作用发生时刻的撤销能力档位快照（ctx 直传优先；否则按工具注册/resultType 兜底）
       revokeClass: ctx.revokeClass ?? this.resolveSnapshotClass(ctx.toolName, resultType),
       // 单目标行不属于任何补偿组（历史语义逐字节不变）
@@ -216,6 +235,55 @@ export class EffectRegistration {
     } catch {
       return null;
     }
+  }
+
+  /**
+   * AW-20: the earlier row this write may be a second record of, if any.
+   *
+   * Two identities are compared, in this order:
+   * 1. **same operation** — same user, tool and argument digest, under a **different** idempotency key.
+   *    The operation identity is conversation-free by construction, so this is exactly "the same
+   *    operation recorded from another session". The digest stands in for the operation key here
+   *    because the row does not carry the key itself; `argsHash` is the digest the key is built from.
+   * 2. **same downstream target** — same `(resultType, resultId)` from a different operation — the
+   *    "arguments changed, the effect landed in the same place" case.
+   *
+   * A row with the **same** idempotency key is a replay, not a duplicate: it is the same invocation,
+   * and it will be returned by the unique-conflict path instead of being written again.
+   *
+   * AW-20：这次写可能是其第二次记录的那条更早的行。按此顺序比两个身份：①**同一操作**（同用户、同工具、
+   * 同参数摘要，但在**另一个**幂等键下）—— 操作身份按构造不含会话，故这正好是「同一操作从另一会话登记」；
+   * 行上不存操作键本身，用 `argsHash` 代它（它就是构造操作键的摘要）。②**同一下游目标**（同一
+   * `(resultType, resultId)` 来自另一次操作）—— 「参数变了、效果落在同一处」那一支。
+   *
+   * 幂等键**相同**的行是重放而非重复：那是同一次调用，会由唯一冲突那条路返回，不会再次写入。
+   */
+  private async _findDuplicate(
+    ctx: WriteToolContext,
+    resultType: string,
+    resultId: number,
+    digest: string,
+    key: string,
+  ): Promise<{ of: number; reason: 'same_operation_other_claim' | 'args_changed' } | null> {
+    const sameOperation = await this.effectsRepo.findOne({
+      where: { userId: ctx.userId, toolName: ctx.toolName, argsHash: digest },
+      order: { id: 'ASC' },
+    });
+    // `idempotencyKey` is required on every stored row; a row without one is a partial/hand-built
+    // fixture, and comparing `undefined !== key` would manufacture a duplicate out of nothing.
+    // `idempotencyKey` 在每一行落库数据上都必有；没有它就是残缺/手工样例，拿 `undefined !== key`
+    // 去比会凭空造出一个重复。
+    if (sameOperation?.idempotencyKey && sameOperation.idempotencyKey !== key) {
+      return { of: sameOperation.id, reason: 'same_operation_other_claim' };
+    }
+    const sameTarget = await this.effectsRepo.findOne({
+      where: { resultType, resultId },
+      order: { id: 'ASC' },
+    });
+    if (sameTarget?.idempotencyKey && sameTarget.idempotencyKey !== key) {
+      return { of: sameTarget.id, reason: 'args_changed' };
+    }
+    return null;
   }
 
   private async _saveSingle(

@@ -230,7 +230,15 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
           7,
         ),
       ).rejects.toThrow('connection refused');
-      expect(repo.findOne).not.toHaveBeenCalled();
+      // AW-20: `record` now reads before writing (the possible-duplicate probe), so the reading that
+      // matters is *after* the failed save — a read-back there would be the faked idempotent skip this
+      // test exists to forbid. Reads that precede the write are the probe, not a skip.
+      // AW-20：`record` 现在会**先读后写**（possible-duplicate 探测），故真正要断言的是**写失败之后**
+      // 不再读回 —— 那才是本用例要禁的「伪装幂等跳过」。写之前的读是探测，不是跳过。
+      const saveOrder = repo.save.mock.invocationCallOrder[0];
+      expect(
+        repo.findOne.mock.invocationCallOrder.filter((order) => order > saveOrder),
+      ).toEqual([]);
     });
   });
 

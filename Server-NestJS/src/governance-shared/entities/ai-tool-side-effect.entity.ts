@@ -324,6 +324,44 @@ export class AiToolSideEffect {
   @Column({ type: 'text', nullable: true, name: 'revoke_comparability' })
   revokeComparability?: string | null;
 
+  /**
+   * AW-20: **this row may be a second record of an effect that already exists** — a finding, not a verdict.
+   *
+   * The ledger had no way to say that a *new* write landed on ground the ledger already holds. Two cases
+   * produce that, and neither is a replay (a replay shares the idempotency key and would never get here):
+   * - `same_operation_other_claim`: the same operation identity (same user, tool and canonicalised
+   *   arguments) was recorded under a **different** idempotency key — i.e. from another conversation.
+   *   The operation is the same; whether it is one retried attempt or two legitimate authorizations is
+   *   not something the ledger can decide, so both rows stand and the second carries this mark.
+   * - `args_changed`: the arguments differ, but the downstream `(result_type, result_id)` is already
+   *   held by another row — the effect landed on the same target from a different operation.
+   *
+   * JSON `{ "of": <earlier effect row id>, "reason": "same_operation_other_claim" | "args_changed" }`.
+   * One column rather than a boolean plus a reason plus a pointer: a single fact read once, so the
+   * three can never drift apart. `null` = no earlier row was found (the ordinary case) **or** the row
+   * predates this column; the two are not distinguished and neither is backfilled with a guess.
+   *
+   * **Chain-external annotation column**, not in `_chainPayload`.
+   *
+   * AW-20：**这一行可能是账上已有同一效果的第二次记录** —— 是发现，不是判决。
+   *
+   * 账上此前说不出「一次**新的**写落到了账上已经持有的地方」。有两种情形会产生它，且都不是重放
+   *（重放共用幂等键，走不到这里）：
+   * - `same_operation_other_claim`：同一个操作身份（同用户、同工具、同规范化参数）在**另一个**幂等键下
+   *   登记过 —— 即来自另一个会话。操作是同一个；它究竟是一次重试还是两次合法授权，账上判不了，
+   *   于是两行都留着，第二行带上本标记。
+   * - `args_changed`：参数不同，但下游 `(result_type, result_id)` 已被另一行持有 —— 效果从另一次操作
+   *   落到了同一个目标上。
+   *
+   * JSON `{ "of": <更早的副作用行 id>, "reason": "same_operation_other_claim" | "args_changed" }`。
+   * 用一列而不是「布尔 + 原因 + 指针」三列：一个事实只读一处，三者不可能互相矛盾。`null` = 没找到更早的
+   * 行（寻常情形）**或**该行早于本列；两者不区分，也都不拿猜测回填。
+   *
+   * **链外注解列**，不入 `_chainPayload`。
+   */
+  @Column({ type: 'text', nullable: true, name: 'possible_duplicate' })
+  possibleDuplicate?: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 }

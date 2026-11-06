@@ -101,6 +101,47 @@ export function buildKey(ctx: WriteToolContext): string {
 }
 
 /**
+ * AW-20: the identity of **one external effect** — this user, this tool, these (canonicalised) arguments
+ * — independent of conversation, worker and single invocation. `buildKey` deliberately scopes replay to
+ * one session; this is the layer it cannot answer, and the one a retry from another session is arbitrated
+ * against. The seed is byte-identical to `proxyResultId`'s, so no existing B-path id moves.
+ *
+ * Canonicalisation is the same one `buildKey` and `proxyResultId` use (`sortKeys` stable
+ * serialisation): two spellings of one logical call produce one identity.
+ *
+ * AW-20：**操作身份** —— 这一次「用户 + 工具 + 参数」的外部效果，与会话、worker、单次调用无关。
+ *
+ * `buildKey` 把会话放进键里，回答的是「这个会话是否已经执行过这一调用」；它有意**不**能回答
+ * 「同一效果是否已经由另一个会话发起了」—— 两条路径各有各的键，谁也不比较。本函数补的就是那一层：
+ * 同一个用户用同一个工具、同一组（规范化后的）参数发起的，**是同一次操作**；谁执行、在哪个会话执行、
+ * 执行了几次调用，都不改变这个身份。
+ *
+ * 规范化与 `buildKey` / `proxyResultId` **同一口径**（`sortKeys` 稳定序列化）—— 键序不同但语义相同的
+ * 两组参数得到同一个身份。种子串与 `proxyResultId` 逐字相同，故 B 路径既有的 resultId 取值不因本次
+ * 抽取而漂移。
+ */
+export function operationKeyOf(
+  userId: string,
+  toolName: string,
+  args: Record<string, unknown>,
+): string {
+  const stable = JSON.stringify(sortKeys(args));
+  return createHash('sha256').update(`${userId}:${toolName}:${stable}`).digest('hex');
+}
+
+/**
+ * The operation identity read from a write context — the fields only; the digest lives in
+ * `operationKeyOf`.
+ *
+ * 从写上下文读取操作身份 —— 这里只取字段，摘要实现在 `operationKeyOf`。
+ */
+export function operationKey(
+  ctx: Pick<WriteToolContext, 'userId' | 'toolName' | 'args'>,
+): string {
+  return operationKeyOf(ctx.userId, ctx.toolName, ctx.args);
+}
+
+/**
  * 复合写工具组内成员幂等键（docs/cascade-compensation.spec.md §4）：基键 + 区分度。
  * 同组多行若共用基键，`idempotency_key` 唯一约束会把整组塌成一行——区分度是必需的，不是优化。
  * 用**声明下标**而非登记顺序：重试时同一成员映射到同一键（幂等语义才成立）。

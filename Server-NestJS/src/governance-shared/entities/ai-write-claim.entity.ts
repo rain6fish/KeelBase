@@ -47,6 +47,12 @@ export const WRITE_CLAIM_STATUS = {
  */
 @Entity('ai_write_claims')
 @Index(['conversationId'])
+// AW-20: one in-flight claim per operation. Partial on purpose — see `operationKey`'s comment.
+// AW-20：同一操作同时只允许一条在途占位。有意用部分索引 —— 理由见 `operationKey` 注释。
+@Index('IDX_ai_write_claims_operation_lease', ['operationKey'], {
+  unique: true,
+  where: `"status" = 'claimed' AND "operation_key" IS NOT NULL`,
+})
 export class AiWriteClaim {
   @PrimaryGeneratedColumn()
   id!: number;
@@ -54,6 +60,44 @@ export class AiWriteClaim {
   /** 与 `ai_tool_side_effects.idempotency_key` 同源同值 —— 唯一约束即仲裁点 */
   @Column({ length: 64, unique: true, name: 'idempotency_key' })
   idempotencyKey!: string;
+
+  /**
+   * AW-20: the **operation identity** — `sha256(userId:toolName:canonicalArgs)`, no conversation.
+   *
+   * `idempotency_key` answers "has *this session* already run this call"; it cannot answer "has *this
+   * operation* already been started somewhere else", because the conversation is part of the key. Same
+   * external effect launched from a second session therefore produced a second claim, and neither knew
+   * about the other. This column is the cross-session identity.
+   *
+   * The **partial unique index** below is what turns it into an arbitration point: at most one claim
+   * may be `claimed` per operation at a time, whichever conversation or worker got there first. It
+   * binds only `claimed` rows on purpose — a `settled` operation is finished, and the same parameters
+   * may legitimately be a **second, separate operation** (criterion: do not collapse the conversation
+   * dimension). Such a repeat is then recorded and flagged, never silently treated as the first.
+   *
+   * `null` on rows written before this column (and on hand-built test fixtures) ⇒ they take no part in
+   * the lease; backfilling is impossible because the original arguments are not reconstructible from
+   * the stored columns.
+   *
+   * AW-20：**操作身份** —— `sha256(userId:toolName:canonicalArgs)`，不含会话。
+   *
+   * `idempotency_key` 回答的是「**这个会话**是否已经跑过这一调用」；它答不了「**这一次操作**是否已经
+   * 在别处开始过」，因为会话就在键里。于是同一外部效果从第二个会话发起会得到第二个占位，彼此都不知情。
+   * 本列就是那个跨会话身份。
+   *
+   * 下面的**部分唯一索引**把它变成仲裁点：同一操作同时最多一条 `claimed` 行，无论哪个会话/worker 先到。
+   * 它**有意只约束 `claimed`** —— `settled` 表示这一次操作已结束，而相同参数完全可能是**另一次合法操作**
+   * （判据：不得把会话维度删掉）。此类重复会被登记并标记，绝不静默当作第一次。
+   *
+   * 本列之前的行（以及手工装配的测试样例）为 `null` ⇒ 不参与租约；无法回填 —— 原始参数不能从已落库的
+   * 列重建。
+   */
+  // An explicit `type: 'varchar'` is required: the TS side declares `| null`, and without an explicit
+  // type TypeORM infers `Object`, which the sqlite driver rejects (same as `release_reason` here).
+  // 显式 `type: 'varchar'` 是必需的：TS 侧写了 `| null`，无显式类型时 TypeORM 会推断成 `Object`
+  // 而被 sqlite 驱动拒绝（同本实体的 `release_reason` / `prev_hash` 写法）。
+  @Column({ type: 'varchar', length: 64, name: 'operation_key', nullable: true })
+  operationKey?: string | null;
 
   @Column({ name: 'user_id' })
   userId!: string;

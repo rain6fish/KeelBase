@@ -15,7 +15,6 @@
  * **行为与拆分前逐字一致**——搬迁不改逻辑（阶段 3 纪律：行为不变，测试作护栏）。
  */
 import { Injectable, Logger, Optional } from '@nestjs/common';
-import { createHash } from 'crypto';
 import { ToolRegistry } from './tool-registry';
 import { ToolGateService } from './tool-gate.service';
 import { ExternalToolRegistry } from './external-tool-registry';
@@ -35,7 +34,10 @@ import {
 } from './tool-abortability';
 // AW-14：入口为这一轮开的取消作用域（显式 opts.signal 优先）
 import { currentToolSignal } from './tool-cancellation';
-import { AiToolEffectsService, sortKeys } from '../../governance-shared/services/ai-tool-effects.service';
+import { AiToolEffectsService } from '../../governance-shared/services/ai-tool-effects.service';
+// AW-20: the operation identity — the **same** digest `proxyResultId` uses; one definition, two consumers.
+// AW-20：操作身份（与 `proxyResultId` **同一个**摘要）—— 一处定义，两处消费。
+import { operationKeyOf } from '../../governance-shared/services/effect-shared';
 import { writeEffectTypeFor, EXTERNAL_CALL_EFFECT_TYPE } from '../tool-effects/write-effect-type';
 import { declaredEffects } from '../../governance-shared/services/effect-composition';
 import { SideEffectSnapshotCaptor } from '../../governance-shared/services/side-effect-snapshot-captor';
@@ -62,11 +64,10 @@ import { withWriteCapture } from '../../common/write-capture/write-capture';
  * 把一次 effect 拆成两个身份，而幂等键（本就用 `sortKeys` 序列化）把它们当作同一件事。
  */
 function proxyResultId(userId: string, toolName: string, args: Record<string, unknown>): number {
-  const h = createHash('sha256')
-    .update(`${userId}:${toolName}:${JSON.stringify(sortKeys(args))}`)
-    .digest('hex')
-    .slice(0, 12);
-  return Number(BigInt('0x' + h));
+  // AW-20: this id is the operation identity's first 48 bits — one digest, two consumers. The seed is
+  // unchanged, so ids already written keep their meaning.
+  // AW-20：本 id 取操作身份摘要的前 48 位 —— 一个摘要、两个消费方。种子未变，故既有的 id 不漂移。
+  return Number(BigInt('0x' + operationKeyOf(userId, toolName, args).slice(0, 12)));
 }
 
 @Injectable()
@@ -239,6 +240,24 @@ export class ToolExecutionService {
       if (!claim.won) {
         // 已有人持有这次执行 ⇒ **绝不重复执行**。如实报「未执行 + 为什么」——不谎报成功，也不谎报失败。
         // 对**外部写**尤其要紧：目标系统那边发生了什么我们本来就不掌握，重发一次可能是真双写。
+        //
+        // AW-20: `operation_in_flight` is the cross-session case — the **same operation** (same user,
+        // tool and canonicalised arguments) is already in flight under another conversation/worker.
+        // The claim key could not see it (it carries the conversation); the operation lease does, and
+        // this is where a retry from a second session stops instead of becoming a second real write.
+        //
+        // AW-20：`operation_in_flight` 是跨会话那一支 —— **同一次操作**（同用户、同工具、同规范化参数）
+        // 已在另一会话/worker 中执行中。会话级幂等键看不见它（键里带着会话），操作租约看得见；这就是
+        // 第二会话的重试停下来的地方，而不是变成又一次真实外部写。
+        if (claim.reason === 'operation_in_flight') {
+          return {
+            success: false,
+            error:
+              `工具 "${toolName}" 的**同一次操作**已在另一会话中执行或尚未了结` +
+              `（同用户、同工具、同参数）——本次未执行；其结果是成功还是失败不由本次调用回答。` +
+              `若上一次并未真正发出，请先对账再重试`,
+          };
+        }
         return {
           success: false,
           error:
