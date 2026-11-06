@@ -461,6 +461,14 @@ KeelBase 代工具对**外部目标**执行写时，请求**携带** `Idempotenc
 
 **问不到的目标**：没有状态查询时 —— 没配 `statusPath`，或是外部 MCP server（那条路径不提供这种通道）—— 账**保持 `unknown`**，覆盖声明带上 `target-status-unavailable` 缺口。那句话才是要点：**没有记录下来的副作用，不是「这次写没发生」的证据**；包自己把这件事说出来，而不是留给读者去假设。
 
+**What a tool declares about its target (AW-19).** `AiTool.capabilities` carries three declarations — `statusLookup`, `cancellation`, `dedup` — each `yes` / `no` / `unknown`; an absent field is `unknown`. **`unknown` is not a weaker `yes`**: every gate reads `no` and `unknown` the same way (no attempt), because "we were never told" cannot license acting as though we were.
+
+The status query is gated on `statusLookup`: only a literal `yes` lets the reconciliation attempt a lookup. `no` and `unknown` send nothing, conclude `unknown`, and leave the `target-status-unavailable` gap — never a success. `ProxyTool` derives `statusLookup` from the configured `statusPath` (a configured endpoint is the target offering a query; no endpoint means *we* have no channel, which is not the same as the target having none, so it stays `unknown`). `cancellation` and `dedup` are declarations only today: the proxy config has no target-side cancel channel, and the executor has no retry path for an unknown external outcome, so a `yes` there licenses nothing. A test pins the second point — `dedup: yes` does not produce a re-send.
+
+**工具对目标的声明（AW-19）。** `AiTool.capabilities` 带三项声明 —— `statusLookup` / `cancellation` / `dedup` —— 各自 `yes` / `no` / `unknown`；缺席的字段是 `unknown`。**`unknown` 不是弱一些的 `yes`**：每一道闸都按 `no` 读它（不尝试），因为「没人告诉过我们」不能授权我们当作被告知过。
+
+状态查询由 `statusLookup` 把关：只有字面 `yes` 才让对账去尝试查询。`no` 与 `unknown` 一个字节都不发、结论 `unknown`，并留下 `target-status-unavailable` 缺口 —— 绝不报成功。`ProxyTool` 由配置的 `statusPath` 派生 `statusLookup`（配了端点即目标提供了查询；没配意味着**我们**没有通道，这不等于目标没有，故留 `unknown`）。`cancellation` 与 `dedup` 今天只是声明：代理配置里没有目标侧的取消通道，执行器对结局未知的外部调用也没有重试路径，故那里 `yes` 不授权任何事。第二点由测试钉住 —— `dedup: yes` 不会产生一次重发。
+
 ---
 
 ## 7. 环境变量 / 7. Environment Variables

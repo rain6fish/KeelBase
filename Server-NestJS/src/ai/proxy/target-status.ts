@@ -40,6 +40,7 @@ import { ToolRegistry } from '../tools/tool-registry';
 import { DelegationTokenService } from '../../auth/delegation-token.service';
 import { ProxyTool } from './proxy-tool';
 import { ProxyTimeoutError, proxyFetch } from './proxy-http';
+import { resolveCapabilities } from '../interfaces/tool.interface';
 import { TARGET_STATUS, type TargetStatusLookup } from '../../governance-core/target-status';
 import type { TargetStatusProbe } from '../../governance-shared/services/tool-effects.types';
 
@@ -84,7 +85,20 @@ export class ProxyTargetStatusProbe implements TargetStatusProbe {
 
   async lookup(toolName: string, actionKey: string, userId: string): Promise<TargetStatusLookup> {
     const tool = this.tool(toolName);
-    if (!tool?.statusPath) return unanswered('target-status-unavailable');
+    if (!tool) return unanswered('target-status-unavailable');
+    // AW-19: the **declaration** decides whether a query may be attempted, not the incidental shape
+    // of the config. `no` and `unknown` both mean "not licensed": an undeclared tool has told us
+    // nothing about its target, and silence cannot be read as "it supports this". The reading is the
+    // same either way — the target was not asked, and the ledger stays `unknown`.
+    // AW-19：允不允许尝试查询由**声明**决定，而不是由配置碰巧长什么样。`no` 与 `unknown` 都表示
+    // 「未获许可」：未声明的工具没有告诉我们目标的任何事，沉默不能被读成「它支持」。两种读法相同 ——
+    // 目标没被问过，账照样留 `unknown`。
+    if (resolveCapabilities(tool).statusLookup !== 'yes') {
+      return unanswered('target-status-unavailable', 'GET', tool.statusPath ?? '');
+    }
+    // Declared `yes` but with nothing configured to ask: the gap is recorded, never a success.
+    // 声明 `yes` 却没有可问的配置：记下这个缺口，绝不报成功。
+    if (!tool.statusPath) return unanswered('target-status-unavailable');
 
     // `[METHOD] path` — a missing method defaults to GET, the same reading `revokePath` gets.
     const trimmed = tool.statusPath.trim();
