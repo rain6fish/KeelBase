@@ -69,11 +69,23 @@ export class QueryEventsTool implements AiTool {
     };
   }
 
+  /**
+   * AW-14: a local read is `abortable: yes`, so it must honour the signal the executor hands it. It
+   * leaves no state behind either way; the check is what makes "the work stopped" true rather than
+   * merely declared.
+   *
+   * AW-14：本地读是 `abortable: yes`，因此必须尊重执行器交来的信号。它本来就不留状态；这道检查让
+   * 「工作已停」成为事实，而不只是声明。
+   */
   async execute(
     args: Record<string, unknown>,
     userId: string,
+    signal?: AbortSignal,
   ): Promise<ToolResult> {
     try {
+      if (signal?.aborted) {
+        return { success: false, error: '已中止（aborted）：取消已到达，未开始查询' };
+      }
       // 日期未指定时默认本月1日 ~ 今天
       const now = new Date();
       const startDate = (args.startDate as string) ?? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;

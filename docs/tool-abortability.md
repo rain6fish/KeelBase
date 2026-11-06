@@ -14,7 +14,7 @@
 
 | 取值 | 含义 | 取消后账上记 | 能否断言结局 |
 |---|---|---|---|
-| `yes` | 信号停的是**工作本身** | `aborted` | 工作已停；不断言停之前做过什么 |
+| `yes` | 信号停的是**工作本身** | `aborted`（还需取消已确认） | 工作已停；不断言停之前做过什么 |
 | `no` | 信号停不掉工作（出站调用、子进程） | `abandoned` | 不能 —— 停在 `unknown` |
 | `unknown` | 说不准工作会不会停 | `abandoned` | 不能 —— 停在 `unknown` |
 
@@ -39,8 +39,8 @@
 
 - `src/ai/tools/*.tool.ts` 中，除下表所列者：**读工具（R0/R1、无 `requiresConfirmation`）⇒ `yes`；
   写工具 ⇒ `unknown`**。
-- `src/ai/proxy/proxy-tool.ts`（B 路径代理工具）：显式 `abortable = 'no'` —— 出站 HTTP，`proxyFetch`
-  只在自己的超时上中止，调用方的信号停不掉它。
+- `src/ai/proxy/proxy-tool.ts`（B 路径代理工具）：显式 `abortable = 'no'` —— 出站 HTTP。AW-14 起
+  `proxyFetch` 会随调用方信号中止**我们这侧的请求**，但写的目标侧效果无法确认，故分类仍是 `no`。
 - 外部 MCP 工具（名字形如 `mcp_<server>_<tool>`，运行期注册）：`unknown`。
 
 例外表 / Exceptions —— 类别规则会判错的文件，逐个显式声明：
@@ -68,23 +68,28 @@ npx jest src/ai/tools/tool-abortability.spec.ts
 
 ## 4. 执行器的判据 / What the executor does with it
 
-`ToolExecutionService.executeRead / executeWrite` 接受可选的 `signal?: AbortSignal`（**不改 61 个工具的
-`execute` 签名**，那是 AW-14）：
+`ToolExecutionService.executeRead / executeWrite` 接受可选的 `signal?: AbortSignal`，调用方没给时读
+入口开的执行作用域（AW-14）。工具签名另有**可选**第三参 `execute(args, userId, signal?)`：既有工具
+不改也能编译运行，停得掉的工具应当观察它。
 
-- `yes` + 信号：停止等待，返回 `success: false`，读数 `aborted`。写路径**释放占位**（工作已停、事务未提交），
-  与 `execute_failed` 同口径，重试仍然可用。
-- `no` / `unknown` + 信号或**窗口到点**：停止等待，返回 `success: false`，读数 `abandoned`，句子明说
-  「结果未知（unknown）」。写路径**不释放占位**（占位留 `claimed` = 结局未知）：释放等于允许重试，
-  也就等于邀请一次可能重复的写。
+- `yes` + 信号：停止等待；**取消得到确认（工具真的返回）**才记 `aborted`。写路径**释放占位**（工作已停、
+  事务未提交），与 `execute_failed` 同口径，重试仍然可用。
+- `yes` + 信号但工具没返回：确认窗口到点 ⇒ `unknown` ⇒ `abandoned`。**声明「能停」不等于它停了。**
+- `no` / `unknown` + 信号或**窗口到点**：停止等待，读数 `abandoned`，句子明说「结果未知（unknown）」。
+  写路径**不释放占位**（占位留 `claimed` = 结局未知）：释放等于允许重试，也就等于邀请一次可能重复的写。
 - **有界窗口**：`no` / `unknown` 的调用最多等 `NON_ABORTABLE_TOOL_WINDOW_MS = 60_000`（60 秒）。窗口
   取值有意放宽：被放弃是一次醒目读数，只该在真的卡住时触发。外部写另有自己的 `PROXY_FETCH_TIMEOUT_MS`。
 - 中止后**从不报成功**；被放弃的那个 promise 挂一个吞错处理（不让它冒成未处理拒绝），但**不拿它去落定
   占位** —— 我们不再看之后它做了什么，那正是我们不知道的部分。
 
+取消三态（`requested` / `confirmed` / `unknown`）、`continuation warrant` 与本切片的覆盖清单见
+[docs/tool-cancellation.md](tool-cancellation.md)。
+
 ## 5. 已知边界 / Known limits
 
-- **信号尚未接进工具内部**：本项只落「分类 + 执行器判据」。把 `signal` 一路送进 `execute`、让工具真正
-  可停，是 AW-14（取消契约）。
+- **信号只接进了本切片覆盖的工具**（AW-14 第一片）：`query_events`、`create_event`、`ProxyTool`。其余
+  工具照旧忽略信号，读数仍由分类决定 —— 忽略信号的 `yes` 工具在未返回时只会到 `unknown`，不会假报
+  `aborted`。全量接入见 [docs/tool-cancellation.md](tool-cancellation.md) §4。
 - **`yes` 不含「停之前已做了什么」**：它只说工作停了。局部写的事务回滚由事务边界保证，不在本字段的
   断言里。
 - **类别规则对「新增的本地读」默认 `yes`**：新工具若会离开本进程（HTTP / SDK / 子进程），**必须**按

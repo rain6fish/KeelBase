@@ -103,11 +103,25 @@ export class CreateEventTool implements AiTool {
     };
   }
 
+  /**
+   * AW-14: the local write is classified `unknown`, so a cancellation is `abandoned` even when this
+   * tool returns — but it still checks the signal **before** the mutation, so the common case leaves
+   * nothing to be unknown about. Checking after the write would be pointless either way: the
+   * transaction has committed and there is nothing this tool can do about it.
+   *
+   * AW-14：本地写被归类为 `unknown`，因此即使这个工具返回了，取消也只记 `abandoned` —— 但它仍在
+   * **动手之前**检查信号，使常见情形没有「未知」可言。写在之后再检查没有意义：事务已提交，本工具
+   * 什么也改变不了。
+   */
   async execute(
     args: Record<string, unknown>,
     userId: string,
+    signal?: AbortSignal,
   ): Promise<ToolResult> {
     try {
+      if (signal?.aborted) {
+        return { success: false, error: '已中止（aborted）：取消已到达，未写入' };
+      }
       const dto: Record<string, unknown> = {};
       for (const key of [
         'title',

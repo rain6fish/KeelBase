@@ -13,6 +13,7 @@ import {
 import { WebSocket } from 'ws';
 import type { IncomingMessage } from 'http';
 import { AiService } from '../ai/ai.service';
+import { toolExecutionScope } from '../ai/tools/tool-cancellation';
 import { FeatureFlagsService } from '../feature-flags/feature-flags.service';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { RealtimeService } from './realtime.service';
@@ -164,6 +165,14 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
     }
 
     let finishResolve!: () => void;
+    // AW-14: `ai:abort` used to stop only the stream — a tool already executing kept running and its
+    // late write was still recorded. The turn's AbortSignal now belongs to the stream: aborting (or a
+    // socket that goes away) reaches the executor through `toolExecutionScope` and the tools that
+    // honour a signal stop before they mutate anything.
+    // AW-14：`ai:abort` 原先只停流 —— 已在执行中的工具照跑，迟到的写照样记账。现在这一轮的
+    // AbortSignal 属于这条流：中止（或 socket 断开）经 `toolExecutionScope` 到达执行器，尊重信号的
+    // 工具会在动手之前停下。
+    const controller = new AbortController();
     const stream: ActiveStream = {
       aborted: false,
       finished: new Promise<void>((resolve) => {
@@ -171,11 +180,12 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
       }),
       abort: () => {
         stream.aborted = true;
+        controller.abort();
       },
     };
     this.activeStream.set(client, stream);
 
-    void (async () => {
+    void (toolExecutionScope.run({ signal: controller.signal }, async () => {
       try {
         const aiService = this.moduleRef.get(AiService, { strict: false });
         const gen = aiService.chatStream(String(user.sub), {
@@ -199,6 +209,6 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
         this.activeStream.delete(client);
         finishResolve();
       }
-    })();
+    }));
   }
 }

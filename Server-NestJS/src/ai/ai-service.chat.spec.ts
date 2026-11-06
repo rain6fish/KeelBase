@@ -82,6 +82,8 @@ beforeEach(installAiServiceTestbed);
         'query_events',
         { startDate: '2026-07-01', endDate: '2026-07-31' },
         '1',
+        // AW-14: the executor hands the tool the per-call cancellation signal.
+        expect.any(AbortSignal),
       );
       expect(mockProvider.generate).toHaveBeenCalledTimes(2);
       expect(result.reply).toBe('You have 1 event this month: Meeting on July 15.');
@@ -619,7 +621,12 @@ beforeEach(installAiServiceTestbed);
       await aiService.chat('1', { message: '帮我安排本周' });
 
       // 工具**确实执行了**（否则「不落行」是被「压根没执行」骗过的假绿）
-      expect(mockToolRegistry.execute).toHaveBeenCalledWith('count_events_by_status', {}, '1');
+      expect(mockToolRegistry.execute).toHaveBeenCalledWith(
+        'count_events_by_status',
+        {},
+        '1',
+        expect.any(AbortSignal),
+      );
       const rows = (mockAuditService.log as jest.Mock).mock.calls.map((c) => c[0]);
       expect(rows.filter((e) => e.action === 'tool_call')).toHaveLength(0);
     });

@@ -1268,6 +1268,7 @@ beforeEach(installAiServiceTestbed);
         'navigate_page',
         { page: 'settings' },
         '1',
+        expect.any(AbortSignal),
       );
       expect(mockAuditService.log).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'tool_call', tool: 'navigate_page' }),

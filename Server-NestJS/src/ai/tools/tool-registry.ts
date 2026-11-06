@@ -108,12 +108,15 @@ export class ToolRegistry {
   }
 
   /**
-   * 执行指定工具
+   * 执行指定工具。AW-14：`signal` 原样转交工具（未声明它的工具照旧忽略）。
+   *
+   * Run the named tool. AW-14: `signal` is forwarded unchanged; tools that ignore it are unaffected.
    */
   async execute(
     name: string,
     args: Record<string, unknown>,
     userId: string,
+    signal?: AbortSignal,
   ): Promise<ToolResult> {
     const tool = this.getTool(name);
 
@@ -124,7 +127,7 @@ export class ToolRegistry {
       }
     }
 
-    return tool.execute(args, userId);
+    return tool.execute(args, userId, signal);
   }
 
   /**

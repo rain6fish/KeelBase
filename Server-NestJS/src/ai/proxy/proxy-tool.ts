@@ -76,12 +76,16 @@ export class ProxyTool implements AiTool {
   readonly riskLevel?: ToolRiskLevel;
   readonly requiresConfirmation: boolean;
   /**
-   * AW-18: every proxy call is outbound HTTP, and `proxyFetch` only aborts on its own timeout — a
-   * caller's cancellation signal cannot stop it. Hence `no`: a cancelled call is `abandoned`, never
-   * `aborted`, and its outcome stays `unknown`.
+   * AW-18: every proxy call is outbound HTTP. AW-14 hands the signal to `proxyFetch`, so a cancelled
+   * read does stop its own request — but the declaration stays `no`: for a **write**, aborting our
+   * socket says nothing about whether the target already applied it, and one tool instance serves
+   * both methods. `no` is the honest reading for the write case, and it is also the conservative one
+   * for the read case: a cancelled proxy call is `abandoned` with an unknown outcome, never `aborted`.
    *
-   * AW-18：代理调用都是出站 HTTP，而 `proxyFetch` 只在自己的超时上中止 —— 调用方的取消信号停不掉它。
-   * 故为 `no`：被取消的调用记 `abandoned` 而非 `aborted`，结局停在 `unknown`。
+   * AW-18：代理调用都是出站 HTTP。AW-14 把信号交给了 `proxyFetch`，所以被取消的**读**确实会停掉
+   * 自己的请求 —— 但声明仍是 `no`：对**写**而言，断开我们这侧的连接并不能说明目标是否已经落了库，
+   * 而同一个工具实例同时服务两类方法。`no` 对写是诚实的读法，对读也是保守的：被取消的代理调用记
+   * `abandoned`、结局未知，绝不会是 `aborted`。
    */
   readonly abortable = 'no' as const;
   readonly revokePath?: string;
@@ -136,7 +140,19 @@ export class ProxyTool implements AiTool {
     };
   }
 
-  async execute(args: Record<string, unknown>, userId: string): Promise<ToolResult> {
+  /**
+   * AW-14: the signal is handed to `proxyFetch`, which aborts the outbound request when it fires.
+   * That stops **our** work; the classification stays `no` because a write's target-side effect
+   * cannot be confirmed from here (see `abortable`).
+   *
+   * AW-14：信号交给 `proxyFetch`，触发时中止这次出站请求。被停掉的是**我们这侧**的工作；分类仍是
+   * `no`，因为写的目标侧效果无法从这里确认（见 `abortable`）。
+   */
+  async execute(
+    args: Record<string, unknown>,
+    userId: string,
+    signal?: AbortSignal,
+  ): Promise<ToolResult> {
     // 1. 路径模板 `{param}` 替换（从 args 取，URL 编码）；未提供 → 失败
     let path = this.cfg.path;
     // SSRF 防护（M0）：path 必须相对——禁止 `//` 前缀与绝对 URL 前缀（防绕过 baseUrl）
@@ -192,6 +208,7 @@ export class ProxyTool implements AiTool {
           ...(isWrite ? { body: JSON.stringify(body) } : {}),
         },
         this.timeoutMs,
+        signal,
       );
       if (!res.ok) {
         const body = await res.text().catch(() => '');
