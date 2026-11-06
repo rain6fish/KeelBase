@@ -1544,6 +1544,15 @@ const zh = {
   featureCol: '功能',
   pathCol: '路径',
   statusCol: '状态',
+  reviewCol: '复核',
+  reviewed: '已复核',
+  unreviewed: '未复核',
+  reviewReceipt: '复核回执',
+  reviewUnknown: '复核状态未知',
+  reviewAssigned: '复核：{owner} · 每 {days} 天',
+  reviewUnassigned: '复核：未指派复核人',
+  reviewUnreviewedRows: '{n} 行没有链上复核回执',
+  reviewStatusUnavailable: '复核状态取不到 —— 不代表都复核过了',
   changesLabel: '变更字段',
   wasLabel: '原为',
   // G-1 event-time authorization snapshot (`operation_audit_logs.authorization`): why this human write
@@ -1600,6 +1609,10 @@ const zh = {
     '宿主自己有一条 AI 路径不走治理引擎 ⇒ 它的工具调用不在这份视图里',
   'coverageGap_target-status-unavailable':
     '外部写目标不提供只读状态查询，超时的写事后收敛不了；账上保持 unknown，缺一条副作用行不能当作「没发生过」的证据',
+  'coverageGap_record-review-unassigned':
+    '没有配置复核人或复核频度 ⇒ 系统里没有任何人被指派去读这些记录；有记录不等于有人读过',
+  'coverageGap_record-review-unreviewed-window':
+    '这一期里有审计行没有链上的复核回执 ⇒ 无法确证有人读过它们；未复核的记录不等于已复核',
   filterByUser: '按用户过滤',
   filterByAgent: '按 Agent 过滤',
   agentCol: 'Agent',
@@ -1715,6 +1728,7 @@ const zh = {
     'ai.error': 'AI · 错误',
     'ai.contentBlocked': 'AI · 内容安全拦截',
     'ai.effectRevoke': 'AI · 撤销副作用',
+    'ai.auditReview': '审计 · 复核回执',
     'ai.tool.createFollowupTask': '创建跟进任务',
     'ai.tool.createEvent': '创建事件',
     'ai.tool.createTodo': '创建待办',

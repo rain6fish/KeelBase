@@ -2,7 +2,7 @@
 
 import { api } from './client'
 import type { Paginated } from '@/types/api'
-import type { AuditLog, UsageStats, ActionReport, ChainVerifyResult, AuditInterpretation, IdentityChain, CoverageStatement } from '@/types/audit'
+import type { AuditLog, UsageStats, ActionReport, ChainVerifyResult, AuditInterpretation, IdentityChain, CoverageStatement, AuditReviewStatus } from '@/types/audit'
 import type { OperationAuditLog } from '@/types/admin'
 
 /** D4/A-6 审计证据包导出（GET /audit/action-report/export；v2 含 compliance 合规段） */
@@ -49,6 +49,16 @@ export const auditApi = {
   /** §internal.16 A-5 跨系统身份链：Human→Agent→Tool→Action + 授权依据 */
   chain(id: number): Promise<IdentityChain> {
     return api.get(`/audit/logs/${id}/chain`)
+  },
+  /**
+   * AW-12 复核状态：谁被指派读这些记录、多久一次、哪些链位已有回执、哪些没有。
+   * 由链算出 —— 回执就是一条 `audit_review` 行。
+   *
+   * AW-12 review status: who is assigned to read these records, how often, which chain positions a
+   * receipt covers and which ones nobody has attested to. Computed from the chain.
+   */
+  reviews(): Promise<AuditReviewStatus> {
+    return api.get<AuditReviewStatus>('/audit/reviews')
   },
   /**
    * AW-3 覆盖声明：这个口径读了什么、**看不了**什么。每一条缺口都来自后端的登记表

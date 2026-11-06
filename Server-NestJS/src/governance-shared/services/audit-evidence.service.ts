@@ -17,6 +17,7 @@ import { Between, DataSource, Repository } from 'typeorm';
 import { createHash, createHmac } from 'crypto';
 import { AiAuditLog } from '../../governance-shared/entities/ai-audit-log.entity';
 import { CoverageService, type CoverageStatement } from './coverage.service';
+import { AuditReviewService } from './audit-review.service';
 import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
 // ACT-5（消费者①）：占位行 —— 证据根据此把 effect 配到**它自己**那条触发行（无则退回保守规则）
 import { AiWriteClaim } from '../entities/ai-write-claim.entity';
@@ -271,6 +272,13 @@ export class AuditEvidenceService {
      * 也守这两处。与范围助手本身一样是可选的：组织服务缺席时退回「本人行」，绝不是「全部行」。
      */
     @Optional() private readonly orgService?: OrgService,
+    /**
+     * AW-12: review coverage for the packaged action. Optional like the neighbours — absent, the
+     * package says «cannot establish» rather than «reviewed».
+     *
+     * AW-12：被打包动作的复核覆盖。与邻居一样可选 —— 缺席时包说「无法确证」，而不是「已复核」。
+     */
+    @Optional() private readonly auditReview?: AuditReviewService,
   ) {}
 
   /** HS-11：沿 id 升序校验审计哈希链完整性。返回含逐行链明细（切片，供 E-2 哈希链可视化）。60s 缓存（消除 action-report 二次全表扫描）。 */
@@ -732,6 +740,14 @@ export class AuditEvidenceService {
         // 「有没有会话」的猜测。
         packageHasChatRow: trigger?.action === 'chat',
         externalWriteTargetWithoutStatusQuery,
+        // AW-12: for a single-action package the question is that one row — is it covered by a review
+        // receipt? Absent the review service the honest answer is «cannot establish», never «reviewed».
+        // AW-12：单条动作的包问的就是**那一行** —— 有没有回执覆盖它？复核服务缺席时诚实的答案是
+        // 「无法确证」，绝不是「已复核」。
+        recordReviewConfigured: this.auditReview?.reviewConfig().configured ?? false,
+        packageHasUnreviewedRows: trigger
+          ? !(this.auditReview ? await this.auditReview.isRowCovered(trigger.id) : false)
+          : false,
       },
     });
 

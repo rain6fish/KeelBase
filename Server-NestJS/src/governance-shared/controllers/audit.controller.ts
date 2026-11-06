@@ -7,8 +7,10 @@ import { AuditStatsService } from '../../governance-shared/services/audit-stats.
 import { AuditQueryService } from '../../governance-shared/services/audit-query.service';
 import { AuditEvidenceService } from '../../governance-shared/services/audit-evidence.service';
 import { CoverageService } from '../../governance-shared/services/coverage.service';
+import { AuditReviewService } from '../../governance-shared/services/audit-review.service';
 import { AuditQueryDto } from '../dto/audit-query.dto';
 import { SubmitFeedbackDto } from '../dto/submit-feedback.dto';
+import { CreateAuditReviewDto } from '../dto/create-audit-review.dto';
 import { CheckPolicies } from '../../common/casl/check-policies.decorator';
 import { ResponseOrdering } from '../../common/decorators/response-ordering.decorator';
 import {
@@ -32,7 +34,9 @@ import {
  * ⚠ Scope: this controller judges `read AuditLog`. The auditor's other reads are widened separately,
  * one surface at a time — governance policy, tool inventory and the approval queue judge their own
  * `read` subjects in `AiController`, and operation audit judges `read OperationAudit` in its own
- * controller. Writes, approvals and executions are never part of the widening.
+ * controller. Approvals and executions are never part of the widening. The one write here is
+ * `POST /audit/reviews` (AW-12): signing a review receipt **is** the act of reading asserted, so the
+ * reader's own grant is what authorises it — an operator write would have to be someone else's.
  *
  * 这里每个读端点判的都是 `can('read', 'AuditLog')`，而不是控制台其余部分用的那条 `can('manage','all')`。
  * 理由是 `AW-2`：审计读者必须**不必是管理员**就能到这一面 —— 给他 `admin` 就等于让他同时是他本该复核
@@ -40,7 +44,8 @@ import {
  *
  * ⚠ **范围**：本控制器判 `read AuditLog`。审计读者的其余读面按**一面一面**的方式另案放宽 —— 治理策略、
  * 工具清单、审批队列在 `AiController` 各自判 `read` 主体，操作审计在自己的控制器里判 `read OperationAudit`。
- * 写、审批、执行永远不在这轮放宽之内。
+ * 审批与执行永远不在这轮放宽之内。这里唯一的写是 `POST /audit/reviews`（AW-12）：签一张复核回执**就是**
+ * 「我读过」这个断言本身，故授权它的是读者自己那条授予 —— 交给操作者去写，复核就变成了别人的事。
  */
 @ApiTags('审计')
 @ApiBearerAuth()
@@ -56,6 +61,8 @@ export class AuditController {
     private readonly auditEvidence: AuditEvidenceService,
     // AW-3 覆盖声明：把「这份口径读了什么、看不了什么」从登记表算出来
     private readonly coverage: CoverageService,
+    // AW-12 记录级复核：回执写入（链上）与复核状态读取
+    private readonly auditReview: AuditReviewService,
   ) {}
 
   @Get('logs')
@@ -128,6 +135,44 @@ export class AuditController {
       userId: query.userId,
       reader: { userId: user.sub, role: user.role },
     });
+  }
+
+  /**
+   * AW-12 review status: who is assigned to read these records, how often, which chain positions a
+   * receipt covers, and which ones nobody has attested to. Computed from the chain — a receipt is an
+   * `audit_review` row, so deleting one turns its range back into unreviewed, and forging one fails
+   * `GET /audit/verify`.
+   *
+   * Global like `verify` (a receipt is an attestation about chain positions, not personal data).
+   * `AW-12` 复核状态：谁被指派读这些记录、多久一次、哪些链位已被回执覆盖、哪些没人签过。由链算出 ——
+   * 回执就是一条 `audit_review` 行，故删一条其区间就变回未复核、伪造一条则 `GET /audit/verify` 不通过。
+   * 与 `verify` 一样取全局（回执是对链位的陈述，不是个人数据）。
+   */
+  @Get('reviews')
+  @CheckPolicies((ability) => ability.can('read', 'AuditLog'))
+  @ApiOperation({ summary: 'AW-12 记录复核状态：复核人/频度配置 + 已复核与未复核链位（管理员 / 审计读者）' })
+  getReviews() {
+    return this.auditReview.status();
+  }
+
+  /**
+   * Sign a review receipt. This is the controller's **only write**: the receipt is an audit row, and
+   * writing it is the act being attested. When `AUDIT_REVIEW_OWNER` is configured only that account
+   * may sign (the service enforces it); when it is not, any audit reader may — and the coverage
+   * statement says the deployment is unassigned.
+   *
+   * 签一张复核回执。这是本控制器**唯一的写**：回执是一条审计行，写它本身就是被见证的那个动作。
+   * 配置了 `AUDIT_REVIEW_OWNER` 时只有该账号能签（服务里强制执行）；未配置时任何审计读者都可签 —— 而
+   * 覆盖声明会说明这个部署没有指派复核人。
+   */
+  @Post('reviews')
+  @CheckPolicies((ability) => ability.can('read', 'AuditLog'))
+  @ApiOperation({ summary: 'AW-12 签复核回执（写入审计链，管理员 / 审计读者）' })
+  createReview(@CurrentUser() user: JwtPayload, @Body() dto: CreateAuditReviewDto) {
+    return this.auditReview.record(
+      { id: Number(user.sub), username: user.username },
+      { fromId: dto.fromId, throughId: dto.throughId },
+    );
   }
 
   @Get('logs/:id/interpretation')

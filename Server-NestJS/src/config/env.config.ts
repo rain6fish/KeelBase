@@ -68,6 +68,13 @@ export const envValidationSchema = Joi.object({
   // HS-11 审计链独立密钥（W4-②）：AUDIT_HMAC_KEY 与业务加密密钥分离；AUDIT_HMAC_KEY_PREVIOUS 为轮换时旧密钥（保留用于验证旧记录）
   AUDIT_HMAC_KEY: Joi.string().length(64).allow('').default(''),
   AUDIT_HMAC_KEY_PREVIOUS: Joi.string().length(64).allow('').default(''),
+  // AW-12 记录级复核：谁负责读审计记录、多久读一次。两者都配置了才算「已指派」；空 ⇒ 覆盖声明报
+  // `record-review-unassigned`（unknown）。配置了 owner 时，只有该用户名的账号能签复核回执。
+  // AW-12 record-level review: who owns reading the audit records, and how often. Both must be set to
+  // count as assigned; empty ⇒ the coverage statement reports `record-review-unassigned` (unknown).
+  // When `owner` is set, only the account with that username may sign a review receipt.
+  AUDIT_REVIEW_OWNER: Joi.string().max(64).allow('').default(''),
+  AUDIT_REVIEW_CADENCE_DAYS: Joi.number().integer().min(1).allow('').default(''),
 
   // OAuth 第三方登录
   OAUTH_ENABLED_PROVIDERS: Joi.string().allow('').default('wechat,alipay,qq'),

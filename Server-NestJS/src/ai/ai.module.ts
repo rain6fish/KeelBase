@@ -87,6 +87,7 @@ import { AuditStatsService } from '../governance-shared/services/audit-stats.ser
 import { AuditQueryService } from '../governance-shared/services/audit-query.service';
 import { AuditEvidenceService } from '../governance-shared/services/audit-evidence.service';
 import { CoverageService } from '../governance-shared/services/coverage.service';
+import { AuditReviewService } from '../governance-shared/services/audit-review.service';
 import { AiConversation } from './conversation/ai-conversation.entity';
 import { AiMessage } from './conversation/ai-message.entity';
 import { AiAuditLog } from '../governance-shared/entities/ai-audit-log.entity';
@@ -266,6 +267,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     ExternalToolRegistry,
     AuditEvidenceService,
     CoverageService,
+    AuditReviewService,
     AuditStatsService,
     AuditQueryService,
     InsightsService,

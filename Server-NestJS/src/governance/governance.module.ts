@@ -41,6 +41,7 @@ import { AuditStatsService } from '../governance-shared/services/audit-stats.ser
 import { AuditQueryService } from '../governance-shared/services/audit-query.service';
 import { AuditEvidenceService } from '../governance-shared/services/audit-evidence.service';
 import { CoverageService } from '../governance-shared/services/coverage.service';
+import { AuditReviewService } from '../governance-shared/services/audit-review.service';
 import { AiToolEffectsService } from '../governance-shared/services/ai-tool-effects.service';
 import { LocalEntityRevoker, SIDE_EFFECT_REVOKER } from '../governance-shared/services/side-effect-revoker';
 import { GovernanceApprovalService } from './governance-approval.service';
@@ -101,6 +102,7 @@ import { GovernanceCaslAbilityFactory } from './governance-casl.factory';
     AuditQueryService,
     AuditEvidenceService,
     CoverageService,
+    AuditReviewService,
     GovernanceApprovalService,
     AiToolEffectsService,
     // The revoker comes from GovernanceSharedModule (S4-H4 C Step 5); the console only binds its token

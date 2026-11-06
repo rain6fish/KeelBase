@@ -53,6 +53,14 @@
       :title="t('coverageUnavailable')"
     />
 
+    <!-- AW-12 复核状态：谁负责读、多久一次、还有多少行没有链上回执。取不到就**说出来** ——
+         一句取不到的复核状态会被读成「都读过了」，那正是这一列要防的事。 -->
+    <div v-if="reviewConfigLine || reviewStatusLoaded" class="text-caption text-medium-emphasis mb-2">
+      <template v-if="reviewConfigLine">{{ reviewConfigLine }}</template>
+      <template v-if="reviewStatus"> · {{ t('reviewUnreviewedRows', { n: reviewStatus.unreviewedRows }) }}</template>
+      <span v-else-if="reviewStatusLoaded" class="text-warning">{{ t('reviewStatusUnavailable') }}</span>
+    </div>
+
     <el-row :gutter="16" class="mb-2">
       <el-col v-for="s in statCards" :key="s.label" :xs="12" :md="6">
         <StatCard v-bind="s" />
@@ -113,6 +121,9 @@
       <template #item.action="{ item }">{{ actionLabel(item) }}</template>
       <template #item.isError="{ item }">
         <StatusChip :status="item.isError ? 'error' : 'ok'" :label-map="errorLabelMap" />
+      </template>
+      <template #item.reviewed="{ item }">
+        <el-tag :type="reviewCell(item).type" size="small">{{ reviewCell(item).label }}</el-tag>
       </template>
       <template #item.expand="{ item }">
         <el-button text size="small" @click="toggleExpand(item.id)">
@@ -395,7 +406,7 @@ import { adminApi } from '@/api/admin'
 import { downloadCsv } from '@/utils/csv'
 import { formatTime } from '@/utils/format'
 import { toolLabel, toolArgsSummary, errorLabel } from '@/utils/businessLabel'
-import type { AuditLog, UsageStats, ChainVerifyResult, AuditInterpretation, IdentityChain, CoverageStatement, ExplanationState } from '@/types/audit'
+import type { AuditLog, UsageStats, ChainVerifyResult, AuditInterpretation, IdentityChain, CoverageStatement, ExplanationState, AuditReviewStatus } from '@/types/audit'
 import type { AiConversationMeta, AiConversationMessage } from '@/types/admin'
 
 const { t, te, messages, locale } = useI18n()
@@ -414,6 +425,12 @@ const showChain = ref(false)
 // missing caveat reads as completeness, which is the one thing this feature exists to prevent.
 const coverage = ref<CoverageStatement | null>(null)
 const coverageLoaded = ref(false)
+// AW-12 复核状态：由链算出（回执是 `audit_review` 行）。单独一个 loaded 标志，理由同上 ——
+// 「取不到」不能被读成「都复核过了」。
+// AW-12 review status, computed from the chain; `reviewStatusLoaded` exists for the same reason as
+// `coverageLoaded` — a failed fetch must not read as «everything reviewed».
+const reviewStatus = ref<AuditReviewStatus | null>(null)
+const reviewStatusLoaded = ref(false)
 const loading = ref(false)
 const userId = ref('')
 const agentId = ref('')
@@ -492,8 +509,37 @@ const headers = computed(() => [
   { key: 'model', title: t('modelCol') },
   { key: 'tokens', title: t('tokenCol') },
   { key: 'isError', title: t('statusCol') },
+  { key: 'reviewed', title: t('reviewCol') },
   { key: 'expand', title: '' },
 ])
+
+/**
+ * AW-12：这一行在不在某张回执覆盖的链位区间里。**未复核一律不是绿色** —— 这一列存在的原因就是
+ * 「没读过」不能看起来像「没问题」。回执行自己显示为「回执」，不参与被复核与否的判断。
+ *
+ * AW-12: whether this row sits inside a receipt's chain-position range. **Unreviewed is never green** —
+ * the whole point of the column is that «nobody read it» must not look like «no problem». A receipt row
+ * shows as «receipt» and is not itself judged as reviewed or unreviewed.
+ */
+function reviewCell(l: AuditLog): { type: 'success' | 'warning' | 'info' | 'danger'; label: string } {
+  if (l.action === 'audit_review') return { type: 'info', label: t('reviewReceipt') }
+  if (!reviewStatus.value) return { type: 'warning', label: t('reviewUnknown') }
+  const covered = reviewStatus.value.reviewedRanges.some(
+    (r) => l.id >= r.fromId && l.id <= r.throughId,
+  )
+  return covered
+    ? { type: 'success', label: t('reviewed') }
+    : { type: 'warning', label: t('unreviewed') }
+}
+
+/** AW-12：谁负责读、多久一次 —— 配置是**显式**的，所以这里如实显示「没配置」。 */
+const reviewConfigLine = computed(() => {
+  const c = reviewStatus.value?.config
+  if (!c) return null
+  return c.configured
+    ? t('reviewAssigned', { owner: c.owner ?? '-', days: c.cadenceDays ?? '-' })
+    : t('reviewUnassigned')
+})
 
 const errorLabelMap = computed(() => ({ ok: t('ok'), error: t('error') }))
 
@@ -519,7 +565,7 @@ const abnormalCounts = computed(() => {
 async function load() {
   loading.value = true
   try {
-    const [logsRes, statsRes, verifyRes, errRes, coverageRes] = await Promise.all([
+    const [logsRes, statsRes, verifyRes, errRes, coverageRes, reviewRes] = await Promise.all([
       auditApi.logs({
         userId: userId.value || undefined,
         agentId: agentId.value || undefined,
@@ -532,6 +578,7 @@ async function load() {
       auditApi.verify().catch(() => null),
       auditApi.logs({ isError: 'true', limit: 5, since: since.value }).catch(() => [] as AuditLog[]),
       auditApi.coverage({ since: since.value }).catch(() => null),
+      auditApi.reviews().catch(() => null),
     ])
     logs.value = logsRes
     stats.value = statsRes
@@ -539,6 +586,8 @@ async function load() {
     errorLogs.value = errRes
     coverage.value = coverageRes
     coverageLoaded.value = true
+    reviewStatus.value = reviewRes
+    reviewStatusLoaded.value = true
   } catch (err) {
     snackbar.error(err instanceof Error ? err.message : t('loadFailed'))
   } finally {

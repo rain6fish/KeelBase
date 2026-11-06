@@ -38,6 +38,8 @@ const CLEAN: CoverageFacts = {
   packageHasStalledRevoke: false,
   packageHasChatRow: false,
   externalWriteTargetWithoutStatusQuery: false,
+  recordReviewConfigured: true,
+  packageHasUnreviewedRows: false,
 };
 
 const facts = (overrides: Partial<CoverageFacts> = {}): CoverageFacts => ({ ...CLEAN, ...overrides });
@@ -137,5 +139,39 @@ describe('coverage-gaps（缺口登记表单一真源）', () => {
   it('AW-17 反向：所有目标都能问 ⇒ 这条缺口不出现（不当成常设噪音）', () => {
     const ids = applicableGaps(facts({ externalWriteTargetWithoutStatusQuery: false })).map((g) => g.id);
     expect(ids).not.toContain('target-status-unavailable');
+  });
+
+  it('AW-12：没人被指派 + 有未复核行 ⇒ 两条缺口都在，结论 unknown（不得显示为绿色）', () => {
+    const ids = applicableGaps(facts({ recordReviewConfigured: false, packageHasUnreviewedRows: true })).map(
+      (g) => g.id,
+    );
+    expect(ids).toContain('record-review-unassigned');
+    expect(ids).toContain('record-review-unreviewed-window');
+    expect(deriveVerdict(facts({ recordReviewConfigured: false, packageHasUnreviewedRows: true }))).toBe(
+      'unknown',
+    );
+  });
+
+  it('AW-12：有未复核行、但复核人已配置 ⇒ 只报「这一期未复核」，不报「没人负责」', () => {
+    const ids = applicableGaps(facts({ recordReviewConfigured: true, packageHasUnreviewedRows: true })).map(
+      (g) => g.id,
+    );
+    expect(ids).toContain('record-review-unreviewed-window');
+    expect(ids).not.toContain('record-review-unassigned');
+  });
+
+  it('AW-12 反向：配置齐全且没有未复核行 ⇒ 两条都不出现（不当成常设噪音）', () => {
+    const ids = applicableGaps(facts({ recordReviewConfigured: true, packageHasUnreviewedRows: false })).map(
+      (g) => g.id,
+    );
+    expect(ids).not.toContain('record-review-unassigned');
+    expect(ids).not.toContain('record-review-unreviewed-window');
+  });
+
+  it('AW-12 空窗口：没配置复核人、但也没有行 ⇒ 不挂告诫（没有可复核的东西）', () => {
+    const ids = applicableGaps(facts({ recordReviewConfigured: false, packageHasUnreviewedRows: false })).map(
+      (g) => g.id,
+    );
+    expect(ids).not.toContain('record-review-unassigned');
   });
 });
