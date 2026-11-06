@@ -67,6 +67,20 @@ export interface ToolResult {
 }
 
 /**
+ * AW-18: what a cancellation signal can do to a running tool. Only a `yes` tool stops its **work**
+ * when the signal fires; for `no` / `unknown` a signal stops nothing but our own wait, so the ledger
+ * says `abandoned` and the outcome stays `unknown`. An undeclared tool is not silently `yes`: it is
+ * classified by the rules in `tools/tool-abortability.ts` (a local in-process read is `yes`, the
+ * rest is `unknown`), and anything leaving the process must say `no` / `unknown` itself.
+ *
+ * AW-18：取消信号能把一个正在跑的工具怎么样。只有 `yes` 的工具会在信号到来时停掉**工作本身**；
+ * `no` / `unknown` 下信号停掉的只是我们自己的等待，账上记 `abandoned`、结局停在 `unknown`。
+ * 未声明的工具不会被悄悄当成 `yes`：按 `tools/tool-abortability.ts` 的规则判定（本地进程内的读记
+ * `yes`，其余 `unknown`），而任何离开本进程的调用必须自己声明 `no` / `unknown`。
+ */
+export type ToolAbortability = 'yes' | 'no' | 'unknown';
+
+/**
  * 工具风险等级（W5 Risk-based Tool Contract，评审二 §7）。
  * 把工具执行从简单 Read/Write 升级为风险分级，对应执行策略：
  *   R0 Informational → auto；R1 Read → auto；R2 Low-risk Write → policy（治理决定）；
@@ -242,6 +256,18 @@ export interface AiTool {
    * 仅服务端关切，不暴露给 LLM。
    */
   readonly audience?: string;
+
+  /**
+   * AW-18: whether a cancellation signal can stop this tool's **work**. Server-side concern only, not
+   * exposed to the LLM. Anything that leaves this process (HTTP, SDK, child process) **must** declare
+   * `no` (the work cannot be stopped) or `unknown` (we cannot tell). Leaving it undeclared falls to
+   * the category rule: a local in-process read becomes `yes`; everything else is `unknown`.
+   *
+   * AW-18：取消信号能不能停掉这个工具的**工作**。仅服务端关切，不暴露给 LLM。任何离开本进程的调用
+   * （HTTP / SDK / 子进程）**必须**声明 `no`（工作停不掉）或 `unknown`（说不准）。不声明的按其类别
+   * 判定：本地进程内的读记 `yes`，其余一律 `unknown`。
+   */
+  readonly abortable?: ToolAbortability;
 
   /** 权限元数据（HS-2）：未声明则默认允许（数据隔离已由 execute 的 userId 保证） */
   readonly permissions?: ToolPermissions;

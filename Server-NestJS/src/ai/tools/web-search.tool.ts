@@ -20,6 +20,8 @@ export class WebSearchTool implements AiTool {
   readonly description =
     '联网搜索公开信息（新闻/知识/天气/百科等通用问题）。当用户问题涉及实时或外部信息时使用。';
   readonly permissions = { featureFlag: 'ai' };
+  /** AW-18: outbound HTTP to the search provider — a cancellation cannot stop it (`no`, not `unknown`). */
+  readonly abortable = 'no' as const;
   readonly parameters: ToolParameter[] = [
     {
       name: 'query',

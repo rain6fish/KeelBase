@@ -10,6 +10,7 @@
 import { Injectable } from '@nestjs/common';
 import {
   AiTool,
+  ToolAbortability,
   ToolDefinition,
   ToolResult,
   ToolRiskLevel,
@@ -17,6 +18,7 @@ import {
   resolveRevokeClass,
   resolveRiskLevel,
 } from '../interfaces/tool.interface';
+import { resolveAbortability } from './tool-abortability';
 
 @Injectable()
 export class ToolRegistry {
@@ -71,6 +73,18 @@ export class ToolRegistry {
    */
   riskLevel(name: string): ToolRiskLevel {
     return resolveRiskLevel(this.getTool(name));
+  }
+
+  /**
+   * AW-18: how this tool takes a cancellation — `yes` only when the work itself can be stopped.
+   * Undeclared non-reads stay `unknown`; a missing tool is `unknown` too, never `yes`.
+   *
+   * AW-18：这个工具怎么接受取消 —— 只有工作本身停得掉才是 `yes`。未声明的非读工具停在 `unknown`；
+   * 查不到的工具同样是 `unknown`，绝不是 `yes`。
+   */
+  abortability(name: string): ToolAbortability {
+    const tool = this.tools.get(name);
+    return tool ? resolveAbortability(tool) : 'unknown';
   }
 
   /**
