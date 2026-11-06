@@ -350,6 +350,7 @@ is published and what is on `main` is exactly what you need to see.
 
 - [Contributing](CONTRIBUTING.md) · [Code of Conduct](CODE_OF_CONDUCT.md) · **Apache-2.0** licensed
 - **Issues & feature requests** → [github.com/rain6fish/KeelBase/issues](https://github.com/rain6fish/KeelBase/issues)
+- **Article series** → [Series index in Discussions](https://github.com/rain6fish/KeelBase/discussions/93) — AI Execution Governance · AI Audit Evidence
 - Demo accounts: `alex/Alex@2026$Demo` (workbench / mobile) · `admin/Admin@2026$KeelBase` (Admin Console) — consistent across all environments
 
 ## Repositories
