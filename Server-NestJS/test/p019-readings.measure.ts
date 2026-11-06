@@ -46,6 +46,23 @@
  * 2026-10-30 起有**第七问** `who-approved-second`，只问那些**需要第二个人**的类：把 `who-approved`
  * 放宽到「裁决人」（操作人或审批人）之后，`approver_id` 掉了在那里已经看不出来，所以第二人凭据
  * 现在自己有了一格计数。
+ *
+ * **2026-11-06, an eighth class** — `offline-expired`, the exit the six earlier classes never covered:
+ * a confirmation whose 24-hour window ended with nobody deciding, swept to `timeout` by the hourly
+ * task. Until now that path was simply absent from the instrument, and "absent" reads as "nothing
+ * wrong" in every report it appears in. The class is driven for real (the product's own issue point
+ * and its own sweep) and pinned, and it carries `coverage: 'uncovered'` — not a zero, not a pass: the
+ * sweep leaves only `status` + `decided_at` on the confirmation row, so the basis, the outcome and the
+ * chain proof have no structured source on that path. Adding the class is what makes the gap
+ * **measured**; closing it is a separate change (an issue-time snapshot), and that change will flip
+ * this label and the numbers in one diff.
+ *
+ * **2026-11-06，第八类** —— `offline-expired`，此前六类从未覆盖的那个出口：确认的 24 小时窗口到期、
+ * 无人裁决，由每小时任务扫成 `timeout`。在此之前，这条路径在仪器里**根本不存在**，而它出现在任何一份
+ * 报告里时，「不存在」都会被读成「没问题」。这一类是真驱动（产品自己的签发点与自己的清扫）并钉住的，
+ * 且带着 `coverage: 'uncovered'` —— 不是零、也不是通过：清扫只在确认行上留 `status` 与 `decided_at`，
+ * 依据、结局、链上证明在这条路径上都**没有结构化来源**。加这一类，是把缺口变成**量过的**；补上它是另一
+ * 件事（签发时快照），那件事会把标签与数字在同一次 diff 里一起翻转。
  */
 
 import { INestApplication } from '@nestjs/common';
@@ -53,6 +70,7 @@ import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { createTestApp, registerUser, loginAs, authHeader } from './helpers';
 import { SettingsService, SETTING_KEYS } from '../src/settings/settings.service';
+import { ConfirmationStore } from '../src/ai/confirmation/confirmation.store';
 import { AiAuditLog } from '../src/governance-shared/entities/ai-audit-log.entity';
 import { AiConfirmationRequest } from '../src/governance-shared/entities/ai-confirmation-request.entity';
 import { AiToolSideEffect } from '../src/governance-shared/entities/ai-tool-side-effect.entity';
@@ -232,6 +250,7 @@ const SECOND_APPROVER_REQUIRED: Record<ClassKind, boolean> = {
   success: false,
   blocked: false,
   timeout: false,
+  'offline-expired': false,
   'mcp-blocked': false,
   'mcp-held': false,
   'mcp-read': false,
@@ -268,13 +287,31 @@ function answerAr(klass: ClassKind, slice: Slice): { asked: boolean; answers: Re
   return {
     asked,
     answers: {
+      // ⚠ **Predicate change, 2026-11-06** — both fall back to the confirmation row when there is no
+      // audit row at all. An event whose turn never completed (the process died inside the wait) leaves
+      // only that row, and it does name the operator and the tool: reporting "no who / no what" there
+      // would be a false negative of the kind this instrument already fixed once for `who-approved`.
+      // The fallback is weaker on purpose and says so in `from` — `operator_id` is an id, not the
+      // username snapshot the audit row carries. Every class that has an audit row is unaffected: the
+      // order stays audit-first, and `!toolRow` is what lets a later audit row win again the moment one
+      // is written.
+      //
+      // ⚠ **谓词变更（2026-11-06）** —— 两问在**完全没有审计行**时回落到确认行。轮次没走完（进程死在
+      // 等待窗口内）的事件只剩那一行，而它确实点着操作人与工具：在那里报「没有谁 / 没有什么」，正是本
+      // 仪器已经为 `who-approved` 修过一次的那类假阴性。回落**有意更弱**，并在 `from` 里说出来 ——
+      // `operator_id` 只是 id，不是审计行带的用户名快照。有审计行的类不受影响：顺序仍是审计行优先，
+      // 而 `!toolRow` 使「一旦写了审计行就以它为准」成立。
       who: {
-        value: Boolean(toolRow?.userId && toolRow?.username),
-        from: 'ai_audit_logs.user_id + username',
+        value: Boolean(toolRow?.userId && toolRow?.username) || Boolean(!toolRow && conf?.operatorId),
+        from: toolRow
+          ? 'ai_audit_logs.user_id + username'
+          : 'ai_confirmation_requests.operator_id (id only — no username snapshot)',
       },
       what: {
-        value: Boolean(toolRow?.tool) && Boolean(structuredArgs),
-        from: `ai_audit_logs.tool${structuredArgs ? ` + ${structuredArgs}` : ' (no structured args column)'}`,
+        value: Boolean(toolRow?.tool || conf?.toolName) && Boolean(structuredArgs),
+        from: `${toolRow?.tool ? 'ai_audit_logs.tool' : 'ai_confirmation_requests.tool_name'}${
+          structuredArgs ? ` + ${structuredArgs}` : ' (no structured args column)'
+        }`,
       },
       'why-allowed': {
         value: Boolean(toolRow?.authorization),
@@ -402,6 +439,7 @@ type ClassKind =
   | 'success'
   | 'blocked'
   | 'timeout'
+  | 'offline-expired'
   | 'mcp-blocked'
   | 'mcp-held'
   | 'mcp-read'
@@ -411,10 +449,31 @@ const ENTRY_OF: Record<ClassKind, Entry> = {
   success: 'chat',
   blocked: 'chat',
   timeout: 'chat',
+  'offline-expired': 'chat',
   'mcp-blocked': 'mcp',
   'mcp-held': 'mcp',
   'mcp-read': 'mcp',
   'r4-approved': 'r4',
+};
+
+/**
+ * Classes the instrument can **drive** but cannot **cover**.
+ *
+ * `uncovered` is not a zero and not a pass: it says the path leaves no structured source for part of
+ * what the class exists to answer, so the counts below are a statement about the record, not a
+ * verdict about the product. It is a fact about today's code, so it is written here rather than
+ * derived; closing the gap means deleting the entry and re-pinning the baseline, and that diff is the
+ * review.
+ *
+ * 仪器**能驱动**但**覆盖不到**的类。
+ *
+ * `uncovered` 既不是零、也不是通过：它说的是这条路径对「该类存在就是要回答」的那部分**没有结构化来源**，
+ * 故下面的计数是对**记录**的陈述，不是对产品的判断。它是今天代码的事实，所以写在这里而不是推出来；
+ * 补上缺口意味着删掉这一条并重钉基线，那份 diff 就是评审。
+ */
+const UNCOVERED: Partial<Record<ClassKind, string>> = {
+  'offline-expired':
+    'the sweep writes only status+decided_at on the confirmation row — no audit row, so no basis, no outcome and no chain proof; the issue-time authorization snapshot was in memory only',
 };
 
 /**
@@ -433,6 +492,14 @@ const LC_REQUIRED: Record<ClassKind, LcStage[]> = {
   success: [...LC_STAGES],
   blocked: ['turn', 'proposal', 'policy-decision', 'outcome'],
   timeout: ['turn', 'proposal', 'policy-decision', 'confirmation-asked', 'outcome'],
+  // Same denominator as `timeout` on purpose: this is the same event (a confirmation nobody
+  // decided) reached through the other exit — the 24 h window instead of the in-stream wait. Keeping
+  // the required list identical is what makes the two counts comparable, so the difference in
+  // `present` is exactly what the offline exit costs.
+  //
+  // 有意与 `timeout` 用**同一分母**：这是同一个事件（无人裁决的确认）走另一个出口 —— 24 小时窗口而
+  // 不是对话内等待。要求清单一致，两个计数才可比，`present` 的差就是离线出口的代价。
+  'offline-expired': ['turn', 'proposal', 'policy-decision', 'confirmation-asked', 'outcome'],
   'mcp-blocked': ['turn', 'proposal', 'policy-decision', 'outcome'],
   'mcp-held': ['turn', 'proposal', 'policy-decision', 'confirmation-asked', 'outcome'],
   'mcp-read': ['turn', 'proposal', 'execution', 'outcome'],
@@ -453,7 +520,18 @@ function answerLc(slice: Slice): Record<LcStage, boolean> {
     // 把两者分开，超时那一类的缺口才看得出来。
     'policy-decision': Boolean(toolRow?.authorization),
     'confirmation-asked': Boolean(conf),
-    'human-decision': Boolean(conf && conf.status !== 'pending' && conf.decidedAt),
+    // ⚠ **Predicate change, 2026-11-06** — `!== 'pending'` counted `timeout` as a human decision,
+    // because the sweep writes `decided_at` on the rows it expires. So a row nobody ever looked at
+    // reported "a person decided". The AR side already refuses this reading (`who-approved` carries
+    // the same status test, added 2026-10-30); this is the LC half catching up. Only the two human
+    // outcomes count — approved and declined — which is exactly what the confirmation-lifecycle v2
+    // value set calls a decision.
+    //
+    // ⚠ **谓词变更（2026-11-06）** —— `!== 'pending'` 把 `timeout` 也算成了人的裁决，因为清扫会给它
+    // 扫掉的行写 `decided_at`。于是**没有任何人看过**的一行会报「有人裁决了」。AR 那一侧早就拒绝这种
+    // 读法（`who-approved` 带同一个状态判断，2026-10-30 加的）；这里只是 LC 跟上。只有两种**人的**结局
+    // 算数 —— approved 与 declined，正是 confirmation-lifecycle v2 取值集里叫「裁决」的那两个。
+    'human-decision': Boolean(conf && (conf.status === 'approved' || conf.status === 'declined') && conf.decidedAt),
     execution: Boolean(conf?.executedAt) || toolRow?.outcome === 'executed' || toolRow?.outcome === 'failed',
     'side-effect': Boolean(eff && (eff.beforeSnapshot || eff.afterSnapshot)),
     outcome: Boolean(toolRow?.outcome),
@@ -465,6 +543,15 @@ interface Reading {
   klass: ClassKind;
   /** Carried into the machine line so the pinned baseline can name a door, not only a class. */
   door: Entry;
+  /**
+   * Whether the class's record set actually covers what the class asks. `uncovered` rides into the
+   * machine line and the baseline for the same reason `door` does: a reader must be able to tell
+   * "measured, and here is the number" from "driven, but the record cannot answer".
+   *
+   * 这一类的记录集是否真的覆盖了它所问的东西。`uncovered` 与 `door` 同理进机读行与基线：读者必须能
+   * 分清「量过，数字是这样」与「驱动了，但记录答不出」。
+   */
+  coverage: { status: 'measured' | 'uncovered'; reason?: string };
   ar: {
     numerator: number;
     denominator: number;
@@ -493,9 +580,12 @@ function readingsFor(klass: ClassKind, slice: Slice): Reading {
     string
   >;
 
+  const uncoveredReason = UNCOVERED[klass];
+
   return {
     klass,
     door: ENTRY_OF[klass],
+    coverage: uncoveredReason ? { status: 'uncovered', reason: uncoveredReason } : { status: 'measured' },
     ar: { numerator: arNum, denominator: applicable.length, detail, evidence },
     lc: {
       present: presentStages.length,
@@ -506,11 +596,12 @@ function readingsFor(klass: ClassKind, slice: Slice): Reading {
   };
 }
 
-describe('P0-19 ② readings — Action Recoverability × Lifecycle Coverage, three event classes', () => {
+describe('P0-19 ② readings — Action Recoverability × Lifecycle Coverage, eight event classes', () => {
   let app: INestApplication;
   let ds: DataSource;
   let port: number;
   let token: string;
+  let ownerId: string;
   let adminToken: string;
   const readings: Reading[] = [];
   const observed: Record<string, unknown> = {};
@@ -527,6 +618,8 @@ describe('P0-19 ② readings — Action Recoverability × Lifecycle Coverage, th
       nickname: 'P019Owner',
     });
     token = reg.accessToken;
+    const ownMe = await request(app.getHttpServer()).get('/api/v1/auth/me').set(authHeader(token)).expect(200);
+    ownerId = String(ownMe.body.data.id);
     ds = app.get(DataSource);
     // Bind a real socket: the SSE path streams over `fetch`, unlike the buffered supertest calls.
     await app.listen(0);
@@ -712,16 +805,92 @@ describe('P0-19 ② readings — Action Recoverability × Lifecycle Coverage, th
       .expect(200);
   });
 
-  it('⑧ 读数 — the numbers, by door and by event class', () => {
+  it('⑧ 离线窗口到期 — issued, never decided, swept by the hourly task', async () => {
+    // The seventh class measures the confirmation **in flight**; this one measures what is left when
+    // the conversation never gets its turn back. Reproduced through the product's own issue point and
+    // its own sweep — nothing here writes the row by hand:
+    //
+    //   1. `ConfirmationStore.create()` — the call `chatStreamImpl` makes before parking on the wait.
+    //      It persists `pending` and then the caller would await. **Nothing else is called**, which is
+    //      precisely what a crash inside that wait leaves behind: the `tool_call` audit row (with its
+    //      authorization snapshot and outcome) and the turn's own `chat` row are both written *after*
+    //      the wait resolves, so neither exists.
+    //   2. the in-stream timer fires with nobody deciding — it only resolves the in-memory promise,
+    //      it does not touch the DB (confirmation-lifecycle v2).
+    //   3. `expireStale(offlineTtlMs())` — the same two calls `MaintenanceTasksService
+    //      .expireStaleConfirmations` makes every hour. The window is shortened to a second, the way
+    //      the timeout class shortens the in-stream wait; the class does not depend on its length.
+    //
+    // 第七类量的是**在途**的确认；这一类量的是对话再也拿不回那一轮之后还剩什么。走的是产品自己的签发点
+    // 与自己的清扫，没有一行是手写的：① `ConfirmationStore.create()`（`chatStreamImpl` 停在等待之前
+    // 的那次调用，落 `pending`）之后**什么都不再调用** —— 这正是崩溃在等待里留下的形状：带授权快照与
+    // 结局的 `tool_call` 审计行、以及轮次自己的 `chat` 行，都是在等待解决**之后**才写的；② 对话内定时器
+    // 到期、无人裁决，它只 resolve 内存 promise、不碰 DB；③ `expireStale(offlineTtlMs())`，即
+    // `MaintenanceTasksService.expireStaleConfirmations` 每小时做的那两次调用。窗口被缩短到一秒，与
+    // 超时类缩短对话内等待同理 —— 这一类不取决于窗口多长。
+    const store = app.get(ConfirmationStore);
+    const settings = app.get(SettingsService);
+    await settings.set(SETTING_KEYS.CONFIRMATION_OFFLINE_TTL, 1, 'number');
+
+    const f = await floors();
+    const conversationId = 'p019-offline-expired';
+    const created = await store.create(
+      ownerId,
+      'create_followup_task',
+      { customerId: 1 },
+      1000,
+      conversationId,
+      undefined,
+      undefined,
+    );
+    await new Promise((r) => setTimeout(r, 1200));
+
+    const swept = await store.expireStale(await store.offlineTtlMs());
+    await settings.set(SETTING_KEYS.CONFIRMATION_OFFLINE_TTL, 86_400, 'number');
+
+    const read = await settle(ds, f, (s) =>
+      s.confirmations.some((c) => c.token === created.token && c.status === 'timeout'),
+    );
+    // Narrowed to **this** event: the id floor is how the other classes are separated on a shared
+    // door, but a `chat` row from the previous class is fire-and-forget and could land after the floor
+    // was taken. The conversation id is the event's own name, so using it cannot hide a row this event
+    // wrote — it only refuses to charge this class for another event's.
+    //
+    // 收窄到**这一次**事件：其余各类靠 id 下限在同一扇门上分开，可上一类的 `chat` 行是 fire-and-forget，
+    // 可能在下限取到之后才落。会话 id 是这次事件自己的名字，用它不会藏掉本次写的行 —— 只是不把别的
+    // 事件的行算到这一类头上。
+    const slice: Slice = {
+      audits: read.audits.filter((a) => a.conversationId === conversationId),
+      confirmations: read.confirmations.filter((c) => c.token === created.token),
+      effects: read.effects.filter((e) => e.conversationId === conversationId),
+    };
+    slices['offline-expired'] = slice;
+    readings.push(readingsFor('offline-expired', slice));
+    observed['offlineExpired'] = {
+      ...summarize(slice),
+      token: created.token,
+      swept,
+      auditRowsForThisEvent: slice.audits.length,
+      // The contrast that makes the gap legible: the in-stream timeout leaves an audit row carrying
+      // the basis; this exit leaves none, so the same question is answerable in one class and not the
+      // other. Recorded, not asserted — the assertion lives in ⑩ where the ruler is shown to move.
+      //
+      // 让缺口可读的对照：对话内超时留下带依据的审计行；这个出口一行都不留，于是同一个问题在那一类答得出、
+      // 在这一类答不出。这里只记录，断言放在 ⑩（那里要证尺子会动）。
+      inStreamTimeoutAuditRows: (slices.timeout?.audits ?? []).filter((a) => a.action === 'tool_call').length,
+    };
+  });
+
+  it('⑨ 读数 — the numbers, by door and by event class', () => {
     const pad = (s: string, n: number) => s + ' '.repeat(Math.max(0, n - s.length));
     const lines = [
       '',
       '=== P0-19 ② readings — by door, by event class ===',
-      `${pad('door', 6)} ${pad('class', 14)} ${pad('AR (structured-only)', 24)} ${pad('LC (present/required)', 24)} uncovered`,
-      '-'.repeat(96),
+      `${pad('door', 6)} ${pad('class', 14)} ${pad('AR (structured-only)', 24)} ${pad('LC (present/required)', 24)} ${pad('uncovered', 40)} coverage`,
+      '-'.repeat(120),
       ...readings.map(
         (r) =>
-          `${pad(ENTRY_OF[r.klass], 6)} ${pad(r.klass, 14)} ${pad(`${r.ar.numerator}/${r.ar.denominator}`, 24)} ${pad(`${r.lc.present}/${r.lc.required}`, 24)} ${r.lc.missing.join(',') || '-'}`,
+          `${pad(ENTRY_OF[r.klass], 6)} ${pad(r.klass, 14)} ${pad(`${r.ar.numerator}/${r.ar.denominator}`, 24)} ${pad(`${r.lc.present}/${r.lc.required}`, 24)} ${pad(r.lc.missing.join(',') || '-', 40)} ${r.coverage.status}`,
       ),
       '',
       'per-question (AR): ' +
@@ -729,11 +898,15 @@ describe('P0-19 ② readings — Action Recoverability × Lifecycle Coverage, th
       'per-stage (LC): ' +
         JSON.stringify(readings.map((r) => ({ door: ENTRY_OF[r.klass], class: r.klass, ...r.lc.detail }))),
       '',
+      ...readings
+        .filter((r) => r.coverage.status === 'uncovered')
+        .map((r) => `NOT COVERED — ${r.klass}: ${r.coverage.reason}`),
+      '',
       `MACHINE ${JSON.stringify({ readings, observed })}`,
       '',
     ];
     console.log(lines.join('\n'));
-    expect(readings).toHaveLength(7);
+    expect(readings).toHaveLength(8);
   });
 
   /**
@@ -746,7 +919,7 @@ describe('P0-19 ② readings — Action Recoverability × Lifecycle Coverage, th
    * 反向可证：所读的那一列没了，计数必须跟着掉。**掉不下来的读数不是读数**，只是长得像数字的常数。
    * 两处改动都施加在刚测出来的切片的内存副本上，不碰数据库。
    */
-  it('⑨ 反向可证 — 抹掉一列，读数必须掉；补上缺失的列，读数必须回来', () => {
+  it('⑩ 反向可证 — 抹掉一列，读数必须掉；补上缺失的列，读数必须回来', () => {
     const success = slices.success!;
 
     // (a) Drop `outcome` from the tool row: "what came of it" and the `outcome` stage must both fall.
@@ -843,6 +1016,67 @@ describe('P0-19 ② readings — Action Recoverability × Lifecycle Coverage, th
     expect(readingsFor('r4-approved', r4WithoutArgsColumn).ar.evidence['what']).toBe(
       'ai_audit_logs.tool + ai_confirmation_requests.args',
     );
+
+    // (g) The offline-expiry class is **driven but uncovered**, and both halves of that sentence have
+    // to be falsifiable or the label is decoration.
+    //
+    // First: the class is not empty. It answers `who` and `what` from the confirmation row — a class
+    // that printed 0 there would be reporting "nothing is known", which is false; the row names the
+    // operator and the tool.
+    //
+    // Second: the three cells it cannot answer are answered by the row this exit never writes. Putting
+    // that row back on an in-memory copy (the shape the chat door writes: authorization + outcome +
+    // hash) must move the counts — otherwise "uncovered" would just mean "the instrument always says
+    // no here", which is not a measurement either. What the mutation does *not* do is flip the
+    // `coverage` label: the label describes the product's path, and a mutation of a copy is not the
+    // product.
+    //
+    // (g) 离线到期这一类**驱动了但覆盖不到**，这话的两半都得可证伪，否则标签只是装饰。
+    // 其一：这一类不是空的 —— 它从确认行答出 `who` 与 `what`；在那里印 0 等于报「什么都不知道」，
+    // 而那是假的：那行点着操作人和工具。其二：它答不出的三格，正是这个出口从不写的那一行能答的。
+    // 把那一行补回内存副本（对话那扇门写的形状：authorization + outcome + hash），计数必须动 ——
+    // 否则「未覆盖」只会意味着「仪器在这里永远说不」，那也不是测量。补回**不会**翻转 `coverage`
+    // 标签：标签描述的是产品路径，而副本上的改动不是产品。
+    const offline = slices['offline-expired']!;
+    const offlineReading = readingsFor('offline-expired', offline);
+    expect(offlineReading.coverage.status).toBe('uncovered');
+    expect(offlineReading.ar.detail.who).toBe(true); // from ai_confirmation_requests.operator_id
+    expect(offlineReading.ar.detail.what).toBe(true); // from ai_confirmation_requests.tool_name + args
+    expect(offlineReading.ar.detail['why-allowed']).toBe(false);
+    expect(offlineReading.ar.detail.result).toBe(false);
+    expect(offlineReading.ar.detail['how-proved']).toBe(false);
+    expect(offlineReading.lc.present).toBe(2); // proposal + confirmation-asked
+    // The sweep writes `decided_at`; that is not a person deciding. Pinned here because the class is
+    // the only driven one where the two differ — everywhere else a non-pending row got there by
+    // someone's decision.
+    //
+    // 清扫会写 `decided_at`，那不是有人裁决。钉在这里，是因为在仪器驱动的类里只有这一类的两者不同 ——
+    // 别处一行「非 pending」都是某个人裁决出来的。
+    expect(offlineReading.lc.detail['human-decision']).toBe(false);
+
+    const withAuditRow: Slice = {
+      ...offline,
+      audits: [
+        ...offline.audits,
+        {
+          action: 'tool_call',
+          userId: ownerId,
+          username: 'p019owner',
+          tool: 'create_followup_task',
+          toolArgs: JSON.stringify({ customerId: 1 }),
+          authorization: JSON.stringify({ checks: ['tool-allowed'], riskLevel: 'R3' }),
+          outcome: 'not_executed',
+          hash: 'synthetic-for-the-reverse-proof',
+        } as unknown as AiAuditLog,
+      ],
+    };
+    const raised = readingsFor('offline-expired', withAuditRow);
+    expect(raised.ar.detail['why-allowed']).toBe(true);
+    expect(raised.ar.detail.result).toBe(true);
+    expect(raised.ar.detail['how-proved']).toBe(true);
+    expect(raised.ar.numerator).toBe(offlineReading.ar.numerator + 3);
+    expect(raised.lc.present).toBe(offlineReading.lc.present + 3); // turn + policy-decision + outcome
+    expect(raised.coverage.status).toBe('uncovered'); // the path still does not write it
   });
 });
 

@@ -5,6 +5,9 @@
     {
       "door": "chat",
       "klass": "blocked",
+      "coverage": {
+        "status": "measured"
+      },
       "ar": {
         "numerator": 5,
         "denominator": 5,
@@ -46,6 +49,9 @@
     {
       "door": "mcp",
       "klass": "mcp-blocked",
+      "coverage": {
+        "status": "measured"
+      },
       "ar": {
         "numerator": 5,
         "denominator": 5,
@@ -87,6 +93,9 @@
     {
       "door": "mcp",
       "klass": "mcp-held",
+      "coverage": {
+        "status": "measured"
+      },
       "ar": {
         "numerator": 5,
         "denominator": 6,
@@ -128,6 +137,9 @@
     {
       "door": "mcp",
       "klass": "mcp-read",
+      "coverage": {
+        "status": "measured"
+      },
       "ar": {
         "numerator": 5,
         "denominator": 5,
@@ -167,8 +179,56 @@
       }
     },
     {
+      "door": "chat",
+      "klass": "offline-expired",
+      "coverage": {
+        "status": "uncovered",
+        "reason": "the sweep writes only status+decided_at on the confirmation row — no audit row, so no basis, no outcome and no chain proof; the issue-time authorization snapshot was in memory only"
+      },
+      "ar": {
+        "numerator": 2,
+        "denominator": 6,
+        "detail": {
+          "who": true,
+          "what": true,
+          "why-allowed": false,
+          "who-approved": false,
+          "who-approved-second": null,
+          "result": false,
+          "how-proved": false
+        },
+        "evidence": {
+          "who": "ai_confirmation_requests.operator_id (id only — no username snapshot)",
+          "what": "ai_confirmation_requests.tool_name + ai_confirmation_requests.args",
+          "why-allowed": "ai_audit_logs.authorization",
+          "who-approved": "ai_confirmation_requests.status + decided_at + (approver_id ?? operator_id)",
+          "who-approved-second": "ai_confirmation_requests.status + approver_id (second person only)",
+          "result": "ai_audit_logs.outcome",
+          "how-proved": "ai_audit_logs.hash (+ prev_hash chain)"
+        }
+      },
+      "lc": {
+        "present": 2,
+        "required": 5,
+        "detail": {
+          "turn": false,
+          "proposal": true,
+          "policy-decision": false,
+          "confirmation-asked": true,
+          "human-decision": false,
+          "execution": false,
+          "side-effect": false,
+          "outcome": false,
+          "revocability": false
+        }
+      }
+    },
+    {
       "door": "r4",
       "klass": "r4-approved",
+      "coverage": {
+        "status": "measured"
+      },
       "ar": {
         "numerator": 7,
         "denominator": 7,
@@ -210,6 +270,9 @@
     {
       "door": "chat",
       "klass": "success",
+      "coverage": {
+        "status": "measured"
+      },
       "ar": {
         "numerator": 6,
         "denominator": 6,
@@ -251,6 +314,9 @@
     {
       "door": "chat",
       "klass": "timeout",
+      "coverage": {
+        "status": "measured"
+      },
       "ar": {
         "numerator": 5,
         "denominator": 6,
