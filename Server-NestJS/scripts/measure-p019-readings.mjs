@@ -39,8 +39,10 @@
  *      were not.
  *
  * What this command does **not** cover: a matching baseline is not a judgement of the product, only
- * the statement that the numbers are the ones last reviewed; it measures the seven event classes
- * the instrument drives and no others; it cannot tell whether the baseline itself was taken on a
+ * the statement that the numbers are the ones last reviewed; it measures the eight event classes
+ * the instrument drives and no others, and a class pinned as `uncovered` is named on every run
+ * (green ones included) so that a gap cannot be read as a pass; it cannot tell whether the baseline
+ * itself was taken on a
  * healthy product (`git log` on the baseline file is the only evidence of that); and it never
  * retries a *moved* reading — a mismatch is reported, not re-rolled.
  *
@@ -79,7 +81,8 @@
  *      证明「若它们不是，它会看出来」
  *
  * 这条命令**不覆盖**什么：基线一致**不是**对产品的判断，只是「数仍是上次评审过的那几个」这句话；它只
- * 量仪器驱动的那七个事件类，别的一概不量；它无法判断基线本身是否取自健康产品（那只有基线文件的
+ * 量仪器驱动的那八个事件类，别的一概不量，且钉为 `uncovered` 的类**每次**都会被点名（绿色那次也点），
+ * 好让缺口不会被读成通过；它无法判断基线本身是否取自健康产品（那只有基线文件的
  * `git log` 能作证）；它也**从不**重跑一个**动了的**读数 —— 不一致要报出来，不是再掷一次。
  *
  * 仪器自带的自检（`⑨ 反向可证`，在内存副本上抹列）在真回归时**本来就会跟着红** —— 它把健康产品上
@@ -131,6 +134,13 @@ function comparable(reading) {
   return {
     door: reading.door ?? null,
     klass: reading.klass,
+    // Pinned for the same reason `door` is: "the numbers are the ones we know" and "this class is
+    // covered at all" are two different claims, and a class silently going from `uncovered` to
+    // `measured` (or back) must show up as a diff a reviewer reads.
+    //
+    // 与 `door` 同理要钉：「数还是认识的那几个」与「这一类到底被覆盖了没有」是两句话；某类静默地从
+    // `uncovered` 变成 `measured`（或反过来），必须出现在评审看得见的 diff 里。
+    coverage: reading.coverage ?? { status: 'measured' },
     ar: {
       numerator: reading.ar.numerator,
       denominator: reading.ar.denominator,
@@ -161,6 +171,24 @@ function diffEntry(base, cur) {
   const out = [];
   if (base.door !== cur.door) {
     out.push({ scope: 'door', label: 'door', from: fmt(base.door), to: fmt(cur.door) });
+  }
+  const baseCoverage = base.coverage ?? { status: 'measured' };
+  const curCoverage = cur.coverage ?? { status: 'measured' };
+  if (baseCoverage.status !== curCoverage.status) {
+    out.push({
+      scope: 'cover',
+      label: 'coverage',
+      from: fmt(baseCoverage.status),
+      to: fmt(curCoverage.status),
+    });
+  }
+  if ((baseCoverage.reason ?? '') !== (curCoverage.reason ?? '')) {
+    out.push({
+      scope: 'cover',
+      label: 'coverage · why',
+      from: fmt(baseCoverage.reason ?? null),
+      to: fmt(curCoverage.reason ?? null),
+    });
   }
   for (const dim of ['ar', 'lc']) {
     const b = base[dim];
@@ -209,13 +237,16 @@ function printTable(readings) {
     ar: `${r.ar.numerator}/${r.ar.denominator}`,
     lc: `${r.lc.present}/${r.lc.required}`,
     uncovered: (r.lc.missing ?? []).join(',') || '-',
+    coverage: (r.coverage ?? { status: 'measured' }).status,
   }));
   console.log(
-    `${pad('door', 6)} ${pad('class', 14)} ${pad('AR (structured-only)', 22)} ${pad('LC (present/required)', 22)} uncovered`,
+    `${pad('door', 6)} ${pad('class', 14)} ${pad('AR (structured-only)', 22)} ${pad('LC (present/required)', 22)} ${pad('uncovered', 24)} coverage`,
   );
-  console.log('-'.repeat(96));
+  console.log('-'.repeat(112));
   for (const r of rows) {
-    console.log(`${pad(r.door, 6)} ${pad(r.klass, 14)} ${pad(r.ar, 22)} ${pad(r.lc, 22)} ${r.uncovered}`);
+    console.log(
+      `${pad(r.door, 6)} ${pad(r.klass, 14)} ${pad(r.ar, 22)} ${pad(r.lc, 22)} ${pad(r.uncovered, 24)} ${r.coverage}`,
+    );
   }
 }
 
@@ -405,7 +436,7 @@ if (!machine) {
       '         what is missing: the `MACHINE {...}` line, so there is nothing to compare.\n' +
       '         Nothing above is a statement about the product — the two readings were not taken.\n' +
       '         仪器没有产出读数（exit 2 —— 不是「读数动了」，也不是基线的问题）。\n' +
-      `         它怎么结束的：${howItEndedZh(run)}，耗时 ${Math.round(elapsed)}s${summary !== undefined ? `；jest 跑完了（${summary}），说明仪器跑了、但没走到打印读数的 ⑧ 步` : '，且没有 jest 汇总行 —— 进程是中途被终止或中止的，不是用例失败'}${earlierZh}\n` +
+      `         它怎么结束的：${howItEndedZh(run)}，耗时 ${Math.round(elapsed)}s${summary !== undefined ? `；jest 跑完了（${summary}），说明仪器跑了、但没走到打印读数的 ⑨ 步` : '，且没有 jest 汇总行 —— 进程是中途被终止或中止的，不是用例失败'}${earlierZh}\n` +
       '         缺什么：`MACHINE {...}` 那一行，因此没有可比对的东西。\n' +
       '         上面任何一条都不是对产品的判断 —— 两维读数根本没有取到。',
   );
@@ -509,6 +540,21 @@ if (moved.length === 0 && jestOk) {
       `${path.relative(process.cwd(), BASELINE)} (${elapsed}s` +
       `${attempts.length > 1 ? `, attempt ${attempts.length} of ${MAX_ATTEMPTS} — see the notice above` : ''})`,
   );
+  // A match is not a clean bill. Classes the instrument drives but cannot cover are named on every
+  // run, including the green one — otherwise the most common outcome (green) is exactly the state in
+  // which a gap goes unread, which is the failure this whole instrument exists to stop.
+  //
+  // 一致不等于没问题。仪器能驱动却覆盖不到的类，**每次**都要点名，绿色那次也不例外 —— 否则最常见的
+  // 结果（绿）恰恰是缺口被读漏的那个状态，而这整个仪器存在的理由就是不让它被读漏。
+  const notCovered = current.filter((r) => (r.coverage ?? {}).status === 'uncovered');
+  if (notCovered.length > 0) {
+    console.log(
+      `\n[measure:p019] NOTE — ${notCovered.length} of ${current.length} classes are NOT COVERED ` +
+        `(their numbers describe the record, not the product):`,
+    );
+    for (const r of notCovered) console.log(`         ${r.klass}: ${(r.coverage ?? {}).reason}`);
+    console.log('         注意 —— 这些类是「驱动了但覆盖不到」，它们上面的数字说的是记录，不是产品。');
+  }
   process.exit(EXIT.MATCH);
 }
 
@@ -541,7 +587,7 @@ if (!jestOk) {
       `         it would have noticed if they were not (the ⑨ step mutates in-memory copies and expects\n` +
       `         the counts to fall). See the last 40 lines below.\n` +
       `         读数与基线一致，但仪器自带的自检失败（${howItEndedZh(run)}）。\n` +
-      `         exit 4：数还是我们认识的那几个；坏掉的是「若它们不是，仪器会看出来」这件事（⑨ 步在内存副本\n` +
+      `         exit 4：数还是我们认识的那几个；坏掉的是「若它们不是，仪器会看出来」这件事（⑩ 步在内存副本\n` +
       `         上抹列，期待计数掉下来）。见下面最后 40 行输出。\n` +
       stripAnsi(output)
         .split(/\r?\n/)

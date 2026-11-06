@@ -3,7 +3,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { Repository, LessThan } from 'typeorm';
+import { Repository, LessThan, In } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { UserSession } from '../auth/user-session.entity';
 import { PhoneVerificationCode } from '../auth/phone-verification-code.entity';
@@ -12,11 +12,12 @@ import { Event } from '../events/event.entity';
 import { Todo } from '../todos/todo.entity';
 import { Notification } from '../notifications/notification.entity';
 import { NotificationsService } from '../notifications/notifications.service';
-import { ConfirmationStore } from '../ai/confirmation/confirmation.store';
+import { ConfirmationStore, ExpiredConfirmation } from '../ai/confirmation/confirmation.store';
 import { BehaviorBaselineService } from '../ai/behavior-baseline/behavior-baseline.service';
 import { AlertWebhookService } from '../alert-webhook/alert-webhook.service';
 import { AuditEvidenceService } from '../governance-shared/services/audit-evidence.service';
 import { OperationAuditService } from '../operation-audit/operation-audit.service';
+import { AuditService } from '../governance-shared/services/audit.service';
 
 /**
  * 定时任务（PL-7，@nestjs/schedule cron）。
@@ -45,19 +46,66 @@ export class MaintenanceTasksService {
     // HS-11 §22.10 债 3：两条哈希链的读侧校验（AI 审计 + 操作审计），供定期完整性巡检
     private readonly auditEvidence: AuditEvidenceService,
     private readonly operationAudit: OperationAuditService,
+    // P0-19 ⑧：到期清扫的记录写在这里 —— 它要的用户名快照只有本服务手上有 repo
+    // P0-19 ⑧: the expiry records are written here — the username snapshot they need is only
+    // reachable from this service's user repository.
+    private readonly auditService: AuditService,
   ) {}
 
   /**
    * GA：把超过**离线待办窗口**仍 `pending` 的确认转 `timeout`（confirmation-lifecycle v2）。
    * 对话内等待（60s）结束时**不再**改 DB——行的生死由这条清理决定；窗口值取自 store（单源）。
    * 每小时一次：窗口是小时级（默认 24h），无需更密。
+   *
+   * Each expiry is then written down as a structured, chained row (P0-19 ⑧). Before this, the sweep's
+   * only trace was a sentence in the log — an aggregate, free-text one — so a call whose turn never
+   * came back (the process died inside the in-stream wait) ended with nothing a reader could query:
+   * the `tool_call` row that would have said why it was allowed and how it ended is written *after*
+   * that wait. The record carries the basis parked on the confirmation row at issue time; it is never
+   * recomputed here, because recomputing would answer with today's policy.
+   *
+   * 随后把每一次到期写下来，成为一条结构化、带链的行（P0-19 ⑧）。此前这条清扫的唯一痕迹是日志里的
+   * 一句话 —— 聚合的、自由文本 —— 于是「那一轮再也拿不回来」的调用（进程死在对话内等待里）最后什么
+   * 都查不到：本该说明「凭什么放行、怎么收场」的 `tool_call` 行，是在那次等待**之后**才写的。记录里
+   * 的依据取自签发时停在确认行上的那份；这里**从不**重算，重算答的是今天的策略。
    */
   @Cron(CronExpression.EVERY_HOUR)
   async expireStaleConfirmations() {
     const ttlMs = await this.confirmationStore.offlineTtlMs();
     const expired = await this.confirmationStore.expireStale(ttlMs);
-    if (expired > 0) {
-      this.logger.log(`确认离线窗口到期：${expired} 条 pending → timeout`);
+    if (expired.length === 0) return;
+    this.logger.log(`确认离线窗口到期：${expired.length} 条 pending → timeout`);
+    await this._recordExpiries(expired);
+  }
+
+  /**
+   * One `tool_confirmation` row per expiry: `timeout` in the contract's own vocabulary, the operator's
+   * username snapshotted (the confirmations table stores only the id), the args in a machine-shaped
+   * column, and the basis when the row had one. `tool_confirmation` + `timeout` is a legal pair in
+   * `ai-audit-log-outcome-v2` — no new action value, so the vocabulary stays frozen.
+   *
+   * 每次到期写一行 `tool_confirmation`：用契约自己的词 `timeout`，带操作人的用户名快照（确认表里只有
+   * id）、机器可读的参数列，以及该行若有就带上依据。`tool_confirmation` 配 `timeout` 是
+   * `ai-audit-log-outcome-v2` 里的合法组合 —— 不新增 action 值，词表因此保持冻结。
+   */
+  private async _recordExpiries(expired: ExpiredConfirmation[]): Promise<void> {
+    const ids = [...new Set(expired.map((row) => Number(row.operatorId)).filter(Number.isFinite))];
+    const users = ids.length > 0 ? await this.usersRepo.find({ where: { id: In(ids) } }) : [];
+    const usernameById = new Map(users.map((user) => [String(user.id), user.username]));
+    for (const row of expired) {
+      await this.auditService.log({
+        userId: row.operatorId,
+        username: usernameById.get(row.operatorId),
+        conversationId: row.conversationId ?? undefined,
+        action: 'tool_confirmation',
+        detail: `${row.toolName} → timeout (offline window closed with no decision)`,
+        outcome: 'timeout',
+        tool: row.toolName,
+        toolArgs: row.args,
+        isError: true,
+        errorMessage: 'User did not respond within the offline window',
+        authorization: row.authorization ?? undefined,
+      });
     }
   }
 
