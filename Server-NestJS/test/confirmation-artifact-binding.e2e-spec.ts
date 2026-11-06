@@ -109,9 +109,12 @@ describe('确认凭证绑定（外部评审对抗组合）', () => {
     const title = `EXPIRED-${Date.now()}`;
     const token = await seedPending(userA, title);
 
-    // 把待确认行按离线窗口判 timeout（offlineTtlMs=0 → 所有早于此刻的行）
+    // P0-19 ⑧: since the sweep reports the rows it flipped (the caller records each one), the return
+    // is a list, not a count.
+    // 把待确认行按离线窗口判 timeout（offlineTtlMs=0 → 所有早于此刻的行）。P0-19 ⑧ 起返回的是被翻转
+    // 的行（调用方要逐行写记录），不再是计数。
     const expired = await store.expireStale(0);
-    expect(expired).toBeGreaterThan(0);
+    expect(expired.length).toBeGreaterThan(0);
 
     await decide(token, { decision: 'approve' }).expect(404);
     expect(await todoTitles(userA)).not.toContain(title);

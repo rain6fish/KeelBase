@@ -1282,6 +1282,12 @@ export class AiService {
                   conversationId,
                   confirmationAudience,
                   singleSummary,
+                  // P0-19 ⑧：把签发时点的依据一并停在确认行上 —— 承载它的审计行要等这次等待解决之后
+                  // 才写，而死在等待里的进程会把两者一起带走，那正是到期时无人答得出「凭什么放行」的原因。
+                  // P0-19 ⑧: park the issue-time basis on the confirmation row too — the audit row that
+                  // carries it is written only after this wait resolves, and a process that dies inside
+                  // the wait takes both away. That is why expiry had no answer to "why was it allowed".
+                  buildAllowSnapshot(tc.name, authz),
                 );
                 confirmationToken = token;
                 const singleImpact = this.presentation.writeImpact([tc.name]);
