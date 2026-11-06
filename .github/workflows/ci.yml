@@ -771,6 +771,48 @@ jobs:
           path: Server-NestJS/sbom.spdx.json
           if-no-files-found: error
 
+      # Every lockfile in the tree, not just `Server-NestJS`: the two web consoles, the Taro app and the
+      # Flutter app were never audited, so an advisory in any of them could reach `main` silently.
+      # `npm audit` above stays as-is — it asks npm's own database and is the project's existing line.
+      #
+      # The scanner is downloaded at a pinned version and checked against a pinned digest: a floating
+      # "latest" would make the gate's verdict depend on when it ran. To bump it, change both values and
+      # re-run `--update-baseline` if the new database reports findings the old one did not.
+      #
+      # 扫全仓每一份锁文件，而不只是 `Server-NestJS`：两个 Web 控制台、Taro 应用和 Flutter 应用从未被审过，
+      # 其中任何一条公告都可能悄无声息地进 `main`。上面的 `npm audit` 原样保留 —— 它查的是 npm 自己的库，
+      # 是这个项目已有的那条线。
+      #
+      # 扫描器按钉住的版本下载、并按钉住的摘要校验：用「latest」会让这道门的结论取决于它何时跑。
+      # 升级时两个值一起改；若新库报出旧库没报的发现，再跑一次 `--update-baseline`。
+      - name: Fetch osv-scanner (pinned)
+        working-directory: .
+        env:
+          OSV_SCANNER_VERSION: '2.7.0'
+          OSV_SCANNER_SHA256: '160c6253e2922e9e0a6a9771c5c4c40a4b3c6090b34a3cdd5e80c96cc2e4218b'
+        run: |
+          set -euo pipefail
+          curl -sSfL -o "$RUNNER_TEMP/osv-scanner" \
+            "https://github.com/google/osv-scanner/releases/download/v${OSV_SCANNER_VERSION}/osv-scanner_linux_amd64"
+          echo "${OSV_SCANNER_SHA256}  $RUNNER_TEMP/osv-scanner" | sha256sum -c -
+          chmod +x "$RUNNER_TEMP/osv-scanner"
+          "$RUNNER_TEMP/osv-scanner" --version
+      - name: Dependency scan (high/critical in production fails)
+        working-directory: .
+        env:
+          OSV_SCANNER: ${{ runner.temp }}/osv-scanner
+        run: node scripts/check-dependency-scan.mjs --verbose
+      # Proves the gate can still go red, green and "未核" — a gate nobody has seen fail is a gate
+      # nobody can trust. Fixtures live in the runner's temp dir; no vulnerable package enters a lockfile.
+      #
+      # 证明这道门仍然能红、能绿、能报「未核」—— 没人见它红过的门禁，也没人敢信它。
+      # 夹具建在 runner 的临时目录里，不会有带漏洞的包进任何锁文件。
+      - name: Dependency scan self-test (red / green / 未核)
+        working-directory: .
+        env:
+          OSV_SCANNER: ${{ runner.temp }}/osv-scanner
+        run: node scripts/check-dependency-scan.mjs --selftest
+
   # 1.0 Release Gate（确定性模式，§7.3 Gate 3）：Gate1 Golden + Build + Trust + Private 一次证明
   release-gate:
     runs-on: ubuntu-latest
