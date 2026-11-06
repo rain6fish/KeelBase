@@ -843,6 +843,30 @@ describe('P0-19 ② readings — Action Recoverability × Lifecycle Coverage, th
     expect(readingsFor('r4-approved', r4WithoutArgsColumn).ar.evidence['what']).toBe(
       'ai_audit_logs.tool + ai_confirmation_requests.args',
     );
+
+    // (g) The timeout class's `policy-decision` is not an inference: it is the audit row's
+    // `authorization` column, and the chat path writes the allow snapshot on the **unconfirmed**
+    // branch too — a timeout is "allowed to reach a person's desk, then nobody decided"
+    // (`ai.service.ts`, the `result.success || pendingApproval || unconfirmed` condition). The
+    // snapshot comes from the `authz` captured when the call started rather than being re-evaluated
+    // at expiry, so it is the decision-time basis, not today's policy. Blanking it must make the
+    // stage disappear and the class name it as missing; a class that stayed covered after the column
+    // went away would be reporting a stage it cannot point at.
+    //
+    // (g) 超时那一类的 `policy-decision` 不是推断：它就是审计行的 `authorization` 列，而对话路径在
+    // **未执行**那一支也写放行快照 —— 超时是「允许它走到人面前、然后无人裁决」
+    // （`ai.service.ts` 里 `result.success || pendingApproval || unconfirmed` 那个条件）。快照取自
+    // 调用开始时的 `authz`，不是到期时重算，所以它是**决策时点**的依据，不是今天的策略。把它抹掉，
+    // 该阶段必须消失、该类必须把它列为缺项；抹掉之后仍然「已覆盖」的类，等于在报一个自己指不出来的阶段。
+    const timeoutWithoutAuthz: Slice = {
+      ...timeout,
+      audits: timeout.audits.map((a) => (a.action === 'tool_call' ? { ...a, authorization: undefined } : a)),
+    };
+    const afterDropAuthz = readingsFor('timeout', timeoutWithoutAuthz);
+    expect(readingsFor('timeout', timeout).lc.detail['policy-decision']).toBe(true);
+    expect(afterDropAuthz.lc.detail['policy-decision']).toBe(false);
+    expect(afterDropAuthz.lc.missing).toContain('policy-decision');
+    expect(afterDropAuthz.lc.present).toBe(readingsFor('timeout', timeout).lc.present - 1);
   });
 });
 
