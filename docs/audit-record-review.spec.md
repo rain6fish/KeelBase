@@ -39,16 +39,12 @@ The assignment is enforced at runtime: with an owner configured, another account
 
 回执 = `ai_audit_logs` 的一条新行：
 
-- `action = 'audit_review'`（契约 `audit-payload` **v3** 拟新增的枚举值；**v3 尚未发布** —— 本落地停在 CT-6
-  决策包，契约 pin 仍为 v1.19.0；它**不是** AI 动作）；
+- `action = 'audit_review'`（契约 `audit-payload` **v3** 新增的枚举值；它**不是** AI 动作）；
 - `detail` = 规范 JSON：`{"cadenceDays":7,"fromId":1201,"kind":"audit_review","throughId":1284}`；
 - `outcome` / `tool` 恒 null（`ai-audit-log-outcome` 的 `any-other-action` 已允许）；
 - 复核人与时间 = 该行的 `userId` / `username` 快照 / `createdAt`。
 
 为什么范围写在 `detail` 而不另开列：`detail` 在 hash 载荷里，**声明本身被签住**；载荷之外的列可以被改写而不断签 —— 那正是本特性要防的事。`detail` 解析不出来的回执一律当**没有回执**（fail-closed）。
-
-The `audit_review` value is **proposed** for `audit-payload` v3, not released: this landing stops at a CT-6
-decision package and the contract pin stays v1.19.0, so the pinned schema does not yet carry the value.
 
 Why the range lives in `detail` rather than a side column: `detail` is inside the hash payload, so the **claim itself is signed**; a column outside the payload could be rewritten without breaking a signature — exactly what this feature exists to prevent. A receipt whose `detail` does not parse is treated as **no receipt** (fail-closed).
 
