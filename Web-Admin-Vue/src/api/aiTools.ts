@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { api, governanceApi } from './client'
-import type { AdminAiTool, AiAgent, AiApprovalRequest, GovernanceActionResponse, ToolEffectsResponse, InFlightClaimsResponse, BusinessHistoryResponse } from '@/types/admin'
+import type { AdminAiTool, AiAgent, AiApprovalRequest, GovernanceActionResponse, ToolEffectsResponse, InFlightClaimsResponse, BusinessHistoryResponse, ClaimLookupsResponse, ReconcileClaimResponse } from '@/types/admin'
 
 /**
  * D2-5c：治理数据端点走独立治理台（governanceApi，VITE_GOVERNANCE_URL 配置时指向治理台；
@@ -29,6 +29,21 @@ export const aiToolsApi = {
       ...(params.stale ? { stale: 'true' } : {}),
       limit: params.limit ?? 100,
     })
+  },
+  /**
+   * AW-17：对一条卡住的外部写做**一次性**只读目标状态查询 —— 不重发写、不重试。
+   * 拒绝按种类返回（`not_stale` / `not_claimable` / `not_found`）；没有答案时 `unresolved` +
+   * `conclusion: 'unknown'`，调用方据此给警示而不是成功。
+   */
+  reconcileClaim(id: number): Promise<ReconcileClaimResponse> {
+    return api.post<ReconcileClaimResponse>(`/ai/tool-effects/claims/${id}/reconcile`)
+  },
+  /**
+   * AW-17：某条占位的目标状态查询历史（最近的在前）。只读；行里没有参数明文。
+   * 范围外与不存在都回 404 —— 前者不确认「这一行存在」。
+   */
+  claimLookups(id: number): Promise<ClaimLookupsResponse> {
+    return api.get<ClaimLookupsResponse>(`/ai/tool-effects/claims/${id}/lookups`)
   },
   /** 副作用列表（治理台） */
   effects(userId?: number, page = 1, limit = 20): Promise<ToolEffectsResponse> {

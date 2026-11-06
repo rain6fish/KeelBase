@@ -259,9 +259,13 @@ async function main() {
       const accessLabels = { read: '读', write: '写' };
       console.log(`接入风险预览（${preview.total} 个工具：读 ${preview.read} / 写 ${preview.write}）：`);
       for (const row of preview.rows) {
-        const extra = proxy.tools.find((t) => t.name === row.name)?.revokePath;
+        const tool = proxy.tools.find((t) => t.name === row.name);
+        const extras = [
+          tool?.revokePath ? `撤销 ${tool.revokePath}` : null,
+          tool?.statusPath ? `状态查询 ${tool.statusPath}` : null,
+        ].filter(Boolean);
         console.log(
-          `  ${row.name.padEnd(28)} ${row.method} ${row.path}  ${accessLabels[row.access]} · ${row.riskLevel} · ${gateLabels[row.gateTier]} · ${basisLabels[row.basis]}${extra ? `（撤销 ${extra}）` : ''}`,
+          `  ${row.name.padEnd(28)} ${row.method} ${row.path}  ${accessLabels[row.access]} · ${row.riskLevel} · ${gateLabels[row.gateTier]} · ${basisLabels[row.basis]}${extras.length ? `（${extras.join('；')}）` : ''}`,
         );
       }
       console.log(

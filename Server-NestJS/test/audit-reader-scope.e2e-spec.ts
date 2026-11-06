@@ -381,8 +381,14 @@ describe('AW-2 audit reader: field whitelist + org/period scope', () => {
         // The projection's whole field set — an argument column could not hide in it.
         // 投影的完整字段集 —— 参数列无处可藏。
         expect(Object.keys(row).sort()).toEqual(
-          ['ageMinutes', 'agentId', 'argsHash', 'attempts', 'authorizationRef', 'claimedAt', 'conversationId', 'id', 'runId', 'stale', 'status', 'toolName', 'userId'].sort(),
+          ['ageMinutes', 'agentId', 'argsHash', 'attempts', 'authorizationRef', 'claimedAt', 'conversationId', 'id', 'lastLookup', 'reconcilable', 'runId', 'stale', 'status', 'toolName', 'userId'].sort(),
         );
+        // AW-17: no lookup was ever recorded ⇒ the reading is "not looked up", never "executed"; and a
+        // tool with no status query is reported as **not reconcilable** rather than offered as if it were.
+        // AW-17：从没查过 ⇒ 读数是「未查询」，绝不是「已执行」；没有状态查询的工具报**不可对账**，
+        // 而不是装作可以。
+        expect(row.lastLookup).toBeNull();
+        expect(row.reconcilable).toBe(false);
       } finally {
         await claimsRepo().delete(mine.id);
         await claimsRepo().delete(other.id);
@@ -401,6 +407,138 @@ describe('AW-2 audit reader: field whitelist + org/period scope', () => {
         expect((after.body.data.items as Array<{ id: number }>).map((r) => r.id)).not.toContain(row.id);
       } finally {
         await claimsRepo().delete(row.id);
+      }
+    });
+  });
+
+  /**
+   * AW-17 read side, against the real wire: the lookup history (evidence that a person asked the
+   * target) is readable by an audit reader and closed to an ordinary user; scope is the same
+   * organisation rule as the audit log; the rows carry the conclusion and cause, never argument
+   * plaintext. The in-flight list gains two **additive** readings: whether the target can be asked at
+   * all, and the most recent answer — with "never asked" remaining `null`.
+   *
+   * AW-17 读侧，走真实 HTTP：查询历史（「有人问过目标」的证据）审计读者可读、普通用户不可读；
+   * 范围与审计日志同一套组织规则；行里带结论与成因，绝无参数明文。在途清单加两个**加性**读数：
+   * 目标能不能问、最近一次的答案 —— 「从没问过」保持 `null`。
+   */
+  describe('AW-17 target-status lookup read', () => {
+    const claimsRepo = () => ds.getRepository('ai_write_claims');
+    const lookupsRepo = () => ds.getRepository('ai_target_status_lookups');
+
+    const makeClaim = async (userId: string, key: string): Promise<{ id: number }> => {
+      const saved = await claimsRepo().save({
+        idempotencyKey: key,
+        userId,
+        toolName: 'send_email',
+        argsHash: 'deadbeefdeadbeef',
+        status: 'claimed',
+        claimedAt: new Date(),
+        attempts: 1,
+      });
+      return { id: (saved as unknown as { id: number }).id };
+    };
+
+    const addLookup = async (key: string, userId: string, over: Record<string, unknown> = {}) =>
+      lookupsRepo().save({
+        idempotencyKey: key,
+        toolName: 'send_email',
+        lookedUpBy: String(admin.id),
+        asUserId: userId,
+        queryMethod: 'GET',
+        queryPath: `/status/${key}`,
+        conclusion: 'unknown',
+        reason: 'timeout',
+        ...over,
+      });
+
+    it('ordinary user 403; auditor 200 sees the in-scope claim history; another org’s claim is 404', async () => {
+      const stamp = Date.now();
+      const keyMine = `aw17-${stamp}-mine`;
+      const keyOther = `aw17-${stamp}-other`;
+      const mine = await makeClaim(String(userA.id), keyMine);
+      const other = await makeClaim(String(userB.id), keyOther);
+      const first = await addLookup(keyMine, String(userA.id), {
+        conclusion: 'unknown',
+        reason: 'non_2xx',
+      });
+      const second = await addLookup(keyMine, String(userA.id), {
+        conclusion: 'executed',
+        reason: null,
+        queryPath: `/status/${keyMine}?again=1`,
+      });
+      // Deterministic order: the second query is the most recent one.
+      // 顺序确定：第二次查询就是最近一次。
+      await lookupsRepo().update(first.id, { at: new Date('2026-11-01T00:00:00Z') });
+      await lookupsRepo().update(second.id, { at: new Date('2026-11-02T00:00:00Z') });
+
+      try {
+        await request(app.getHttpServer())
+          .get(`/api/v1/ai/tool-effects/claims/${mine.id}/lookups`)
+          .set(authHeader(userA.token))
+          .expect(403);
+
+        const res = await request(app.getHttpServer())
+          .get(`/api/v1/ai/tool-effects/claims/${mine.id}/lookups`)
+          .set(authHeader(auditor.token))
+          .expect(200);
+        const body = res.body.data as {
+          claimStatus: string;
+          total: number;
+          items: Array<Record<string, unknown>>;
+        };
+        expect(body.claimStatus).toBe('claimed');
+        expect(body.total).toBe(2);
+        expect(body.items[0]).toMatchObject({
+          conclusion: 'executed',
+          reason: null,
+          asUserId: String(userA.id),
+          queryMethod: 'GET',
+        });
+        expect(body.items[1]).toMatchObject({ conclusion: 'unknown', reason: 'non_2xx' });
+        // 不回显参数：这张面只有结论、成因与查询身份。
+        expect(Object.keys(body.items[0]).sort()).toEqual(
+          ['asUserId', 'at', 'conclusion', 'id', 'lookedUpBy', 'queryMethod', 'queryPath', 'reason'].sort(),
+        );
+
+        // 范围外的 claim：不存在于读者的范围里 —— 404，而不是 403（不泄露行的存在）。
+        await request(app.getHttpServer())
+          .get(`/api/v1/ai/tool-effects/claims/${other.id}/lookups`)
+          .set(authHeader(auditor.token))
+          .expect(404);
+
+        // 管理员看得到任何一条。
+        await request(app.getHttpServer())
+          .get(`/api/v1/ai/tool-effects/claims/${other.id}/lookups`)
+          .set(authHeader(admin.token))
+          .expect(200);
+      } finally {
+        await lookupsRepo().delete({ idempotencyKey: keyMine });
+        await claimsRepo().delete([mine.id, other.id]);
+      }
+    });
+
+    it('在途清单：有查询记录 ⇒ 最近一次结论与成因；无记录保持 null', async () => {
+      const stamp = Date.now();
+      const keyAsked = `aw17-${stamp}-asked`;
+      const keyNever = `aw17-${stamp}-never`;
+      const asked = await makeClaim(String(userA.id), keyAsked);
+      const never = await makeClaim(String(userA.id), keyNever);
+      await addLookup(keyAsked, String(userA.id));
+
+      try {
+        const res = await request(app.getHttpServer())
+          .get('/api/v1/ai/tool-effects/claims')
+          .set(authHeader(auditor.token))
+          .expect(200);
+        const items = (res.body.data as { items: Array<Record<string, unknown>> }).items;
+        const askedRow = items.find((r) => r.id === asked.id)!;
+        const neverRow = items.find((r) => r.id === never.id)!;
+        expect(askedRow.lastLookup).toMatchObject({ conclusion: 'unknown', reason: 'timeout' });
+        expect(neverRow.lastLookup).toBeNull();
+      } finally {
+        await lookupsRepo().delete({ idempotencyKey: keyAsked });
+        await claimsRepo().delete([asked.id, never.id]);
       }
     });
   });

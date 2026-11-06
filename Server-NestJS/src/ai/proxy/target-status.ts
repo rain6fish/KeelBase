@@ -145,6 +145,11 @@ export class ProxyTargetStatusProbe implements TargetStatusProbe {
     }
   }
 
+  /** AW-17: a property of the tool, not a query — no request leaves this method. */
+  canAsk(toolName: string): boolean {
+    return !!this.tool(toolName)?.statusPath;
+  }
+
   /** The registered tool, or `undefined` when it is not a B-path proxy tool (or no longer registered). */
   private tool(toolName: string): ProxyTool | undefined {
     try {

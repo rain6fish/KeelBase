@@ -436,6 +436,8 @@ Semantics: a target that honours the header treats two requests carrying the sam
 
 A real answer converges the ledger (`executed` → `settled`, `not_executed` → `released`, which re-opens retry because the target itself said nothing ran). Every attempt is recorded as evidence — when, by which query, with which conclusion — so "never asked" and "asked, got no answer" are different readings. `POST /api/v1/ai/tool-effects/claims/:id/reconcile` performs one lookup for a stale claim (administrators only; a claim still inside the staleness threshold is refused as `not_stale`, since it may be running).
 
+**Reading the history (AW-17, surface).** The evidence is not write-only: `GET /api/v1/ai/tool-effects/claims/:id/lookups` returns one claim's attempts newest first, with the conclusion, its cause, when it happened, who triggered it, whose identity the query carried, and the path actually requested — and no argument plaintext, because the table never stored any. It is judged `read AuditLog` and scoped like the in-flight read, so an audit reader sees their account's organisation (or their own rows) and a plain user is refused; an out-of-scope claim answers the same 404 as a missing one, because a 403 would confirm that the row exists. The in-flight list gains two additive readings per row: `reconcilable` (a status query is configured — a capability, not a promise of an answer) and `lastLookup` (the latest attempt, or `null` when nobody ever asked). The OpenAPI proxy importer maps `x-keelbase-status-path` to `statusPath`, exactly as it maps `x-keelbase-revoke-path` to `revokePath`.
+
 **Targets that cannot be asked.** Where no status query exists — no `statusPath`, or an external MCP server, which offers no such channel — the ledger **stays `unknown`** and the coverage statement declares the `target-status-unavailable` gap. That sentence is the point: **a missing recorded effect is not evidence that the write did not happen**, and the package says so about itself instead of leaving the reader to assume it.
 
 **中文**
@@ -458,6 +460,8 @@ KeelBase 代工具对**外部目标**执行写时，请求**携带** `Idempotenc
 - 只有目标答 `{"status":"executed"|"not_executed"}` 时才判 `executed` / `not_executed`；超时、不可达、非 2xx、认不出的响应体、乃至根本没有查询通道，结论都是 `unknown`。
 
 真答案会让账收敛（`executed` → `settled`，`not_executed` → `released`，后者重开重试之门，因为是目标自己说没跑）。每次尝试都留下证据 —— 何时、按哪个查询、结论是什么 —— 于是「从没问过」与「问了没答案」是两个读数。`POST /api/v1/ai/tool-effects/claims/:id/reconcile` 对一条陈旧占位执行一次查询（仅管理员；仍在陈旧阈值内的占位按 `not_stale` 拒绝，因为它可能正在跑）。
+
+**读历史（AW-17 读面）**：证据不是只写不读的：`GET /api/v1/ai/tool-effects/claims/:id/lookups` 按最近的在前返回一条占位的全部尝试，带结论、成因、时刻、发起人、查询携带的身份，以及真正请求过的路径 —— 且没有参数明文，因为表里从未存过。判 `read AuditLog`、范围同在途读面：审计读者看到账号所属组织（或本人行），普通用户被拒；范围外的占位与不存在的占位回同一个 404，因为 403 会确认这一行存在。在途清单每行加两个加性读数：`reconcilable`（配了状态查询 —— 是能力，不承诺有答案）与 `lastLookup`（最近一次尝试；从没人问过为 `null`）。OpenAPI 代理导入器把 `x-keelbase-status-path` 映射为 `statusPath`，与 `x-keelbase-revoke-path` → `revokePath` 同法。
 
 **问不到的目标**：没有状态查询时 —— 没配 `statusPath`，或是外部 MCP server（那条路径不提供这种通道）—— 账**保持 `unknown`**，覆盖声明带上 `target-status-unavailable` 缺口。那句话才是要点：**没有记录下来的副作用，不是「这次写没发生」的证据**；包自己把这件事说出来，而不是留给读者去假设。
 

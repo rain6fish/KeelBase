@@ -2,6 +2,7 @@
 
 import { DataSource } from 'typeorm';
 import { AiWriteClaim, WRITE_CLAIM_STATUS } from '../entities/ai-write-claim.entity';
+import { TargetStatusLookupRow } from '../entities/target-status-lookup.entity';
 import { UserRole } from '../../common/entities/user.entity';
 import { WriteClaimQueryService } from './write-claim-query.service';
 
@@ -21,6 +22,17 @@ describe('AW-16 在途 claim 只读查询面', () => {
   let service: WriteClaimQueryService;
 
   const repo = () => ds.getRepository(AiWriteClaim);
+  const lookups = () => ds.getRepository(TargetStatusLookupRow);
+
+  /**
+   * AW-17: a stand-in for the B-path probe. It answers only the one question the read side asks —
+   * "does this tool have a status query configured?" — because a false answer must render as
+   * "cannot ask", not as "asked and got nothing".
+   *
+   * AW-17：B 路径探针的替身。它只回答读侧要问的那一件事 ——「这个工具配了状态查询吗？」——
+   * 因为否定的答案必须渲染成「问不了」，而不是「问了没结果」。
+   */
+  let probe: { canAsk: jest.Mock };
 
   /** 只造查询面看得懂的字段；`args` 从来就不在表里（表里只有 args_hash） */
   const claim = (over: Partial<AiWriteClaim> & { idempotencyKey: string }) =>
@@ -39,15 +51,32 @@ describe('AW-16 在途 claim 只读查询面', () => {
   const build = (thresholdMinutes?: number): WriteClaimQueryService =>
     new WriteClaimQueryService(
       repo(),
+      lookups(),
       { get: (k: string) => (k === 'REVOKE_STALE_MINUTES' ? thresholdMinutes : undefined) } as never,
       orgService as never,
+      probe as never,
+    );
+
+  const lookup = (key: string, over: Partial<TargetStatusLookupRow> = {}) =>
+    lookups().save(
+      lookups().create({
+        idempotencyKey: key,
+        toolName: 'proxy_send',
+        lookedUpBy: 'admin-1',
+        asUserId: '7',
+        queryMethod: 'GET',
+        queryPath: `/actions/${key}`,
+        conclusion: 'unknown',
+        reason: 'timeout',
+        ...over,
+      }),
     );
 
   beforeEach(async () => {
     ds = new DataSource({
       type: 'better-sqlite3',
       database: ':memory:',
-      entities: [AiWriteClaim],
+      entities: [AiWriteClaim, TargetStatusLookupRow],
       synchronize: true,
     });
     await ds.initialize();
@@ -55,6 +84,9 @@ describe('AW-16 在途 claim 只读查询面', () => {
     // 使「组织快照来自账号」这条判定在真实 SQL 上成立，而不是靠替身断言。
     await ds.query('CREATE TABLE org_members (user_id integer NOT NULL, org_id integer NOT NULL)');
     orgService = undefined;
+    // Default: no tool is answerable — the honest default is "cannot ask", never "did not run".
+    // 默认：没有工具可问 —— 诚实的默认是「问不了」，绝不是「没执行」。
+    probe = { canAsk: jest.fn(() => false) };
     service = build();
   });
 
@@ -85,6 +117,8 @@ describe('AW-16 在途 claim 只读查询面', () => {
         'claimedAt',
         'conversationId',
         'id',
+        'lastLookup',
+        'reconcilable',
         'runId',
         'stale',
         'status',
@@ -198,5 +232,100 @@ describe('AW-16 在途 claim 只读查询面', () => {
     const ids = res.items.map((r) => r.id);
     expect(ids[0]).toBe(early.id);
     expect(ids.slice(1)).toEqual([...ids.slice(1)].sort((x, y) => x - y));
+  });
+
+  describe('AW-17：目标状态查询的读数（没问过 ≠ 问了没答 ≠ 执行过）', () => {
+    it('没有查询记录 ⇒ `lastLookup` 为 `null`（列表该显示「未查询」，不是「已执行」）', async () => {
+      probe.canAsk.mockImplementation((toolName: string) => toolName === 'proxy_send');
+      await claim({ idempotencyKey: 'never-asked', toolName: 'proxy_send' });
+
+      const res = await service.list({});
+
+      expect(res.items[0].lastLookup).toBeNull();
+      expect(res.items[0].reconcilable).toBe(true);
+    });
+
+    it('问了没答 ⇒ `unknown` 与成因原样保留（不升级成 `not_executed`）', async () => {
+      await claim({ idempotencyKey: 'asked', toolName: 'proxy_send' });
+      await lookup('asked', { conclusion: 'unknown', reason: 'non_2xx' });
+
+      const res = await service.list({});
+
+      expect(res.items[0].lastLookup).toMatchObject({
+        conclusion: 'unknown',
+        reason: 'non_2xx',
+        lookedUpBy: 'admin-1',
+        asUserId: '7',
+        queryMethod: 'GET',
+      });
+      expect(res.items[0].lastLookup?.at).toBeTruthy();
+    });
+
+    it('**反向**：较新的无结论查询不被较早的真答案盖住（最近一次 = 最近问的那次）', async () => {
+      await claim({ idempotencyKey: 'flip', toolName: 'proxy_send' });
+      // 先问到了「执行过」，后又问了一次但超时 —— 读者看到的是**最近**那次，即 unknown。
+      const older = await lookup('flip', { conclusion: 'executed', reason: null });
+      const newer = await lookup('flip', { conclusion: 'unknown', reason: 'timeout' });
+      await lookups().update(older.id, { at: new Date('2026-11-01T00:00:00Z') });
+      await lookups().update(newer.id, { at: new Date('2026-11-02T00:00:00Z') });
+
+      const res = await service.list({});
+
+      expect(res.items[0].lastLookup).toMatchObject({ conclusion: 'unknown', reason: 'timeout' });
+    });
+
+    it('工具没有目标状态查询 ⇒ `reconcilable: false`（「问不了」是一种读数，不是失败）', async () => {
+      await claim({ idempotencyKey: 'local', toolName: 'create_todo' });
+
+      const res = await service.list({});
+
+      expect(res.items[0].reconcilable).toBe(false);
+      expect(res.items[0].lastLookup).toBeNull();
+    });
+
+    it('历史读端点：按 at 降序返回全部查询，带发起人/被执行身份/查询路径', async () => {
+      const row = await claim({ idempotencyKey: 'hist', toolName: 'proxy_send' });
+      const first = await lookup('hist', { conclusion: 'unknown', reason: 'timeout' });
+      const second = await lookup('hist', {
+        conclusion: 'executed',
+        reason: null,
+        queryPath: '/actions/hist?probe=2',
+      });
+      await lookups().update(first.id, { at: new Date('2026-11-01T00:00:00Z') });
+      await lookups().update(second.id, { at: new Date('2026-11-02T00:00:00Z') });
+
+      const res = await service.lookupsFor(row.id, { userId: 1, role: UserRole.ADMIN });
+
+      expect(res?.claimStatus).toBe(WRITE_CLAIM_STATUS.CLAIMED);
+      expect(res?.items.map((l) => l.conclusion)).toEqual(['executed', 'unknown']);
+      expect(res?.items[0]).toMatchObject({
+        lookedUpBy: 'admin-1',
+        asUserId: '7',
+        queryPath: '/actions/hist?probe=2',
+        queryMethod: 'GET',
+      });
+      expect(res?.total).toBe(2);
+    });
+
+    it('**反向**：范围外的 claim ⇒ `null`（调用方 404，不泄露存在性）', async () => {
+      const other = await claim({ idempotencyKey: 'other', userId: '9' });
+      await lookup('other', { asUserId: '9' });
+      await ds.query('INSERT INTO org_members (user_id, org_id) VALUES (7, 5), (8, 5), (9, 6)');
+      orgService = { getUserOrgContext: jest.fn().mockResolvedValue({ orgId: 5 }) };
+      service = build();
+
+      const res = await service.lookupsFor(other.id, { userId: 7, role: UserRole.AUDITOR });
+
+      expect(res).toBeNull();
+      // 管理员仍看得到 —— 范围只收窄审计读者，不是把行藏起来。
+      const admin = await service.lookupsFor(other.id, { userId: 7, role: UserRole.ADMIN });
+      expect(admin?.total).toBe(1);
+    });
+
+    it('不存在的 claim ⇒ `null`（与「范围外」同一个答案：没有这一行）', async () => {
+      await expect(
+        service.lookupsFor(9999, { userId: 1, role: UserRole.ADMIN }),
+      ).resolves.toBeNull();
+    });
   });
 });

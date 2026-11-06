@@ -1533,6 +1533,28 @@ test('parseOpenApiProxy：x-keelbase-revoke-path → revokePath（Java 端补偿
   assert.match(t.description, /撤销/);
 });
 
+test('parseOpenApiProxy：x-keelbase-status-path → statusPath（AW-17 目标状态查询约定）', () => {
+  const r = parseOpenApiProxy({
+    paths: {
+      '/contracts': {
+        post: {
+          operationId: 'createContract',
+          'x-keelbase-status-path': 'GET /contracts/status/{key}',
+          requestBody: { content: { 'application/json': { schema: { properties: { title: { type: 'string' } } } } } },
+        },
+      },
+    },
+  }, {});
+  const t = r.tools[0];
+  assert.equal(t.statusPath, 'GET /contracts/status/{key}');
+  assert.match(t.description, /状态查询/);
+  // 没配扩展的工具保持既有形状：字段缺席（与 revokePath 同法），不是空串。
+  const plain = parseOpenApiProxy({
+    paths: { '/todos': { get: { operationId: 'listTodos' } } },
+  }, {});
+  assert.equal(plain.tools[0].statusPath, undefined);
+});
+
 test('parseOpenApiProxy：Swagger 2（in: body 参数）→ body 字段解析', () => {
   const r = parseOpenApiProxy({
     swagger: '2.0',

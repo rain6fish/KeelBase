@@ -7,7 +7,7 @@ import { createI18n } from 'vue-i18n'
 import zh from '@/i18n/zh'
 import en from '@/i18n/en'
 
-const { toolsMock, policyMock, savePolicyMock, effectsMock, inFlightMock, revokeMock, claimMock, ackMock, errorMock, successMock, warningMock } = vi.hoisted(() => ({
+const { toolsMock, policyMock, savePolicyMock, effectsMock, inFlightMock, revokeMock, claimMock, ackMock, reconcileMock, lookupsMock, errorMock, successMock, warningMock } = vi.hoisted(() => ({
   toolsMock: vi.fn(),
   policyMock: vi.fn(),
   savePolicyMock: vi.fn(),
@@ -16,6 +16,8 @@ const { toolsMock, policyMock, savePolicyMock, effectsMock, inFlightMock, revoke
   revokeMock: vi.fn(),
   claimMock: vi.fn(),
   ackMock: vi.fn(),
+  reconcileMock: vi.fn(),
+  lookupsMock: vi.fn(),
   errorMock: vi.fn(),
   successMock: vi.fn(),
   warningMock: vi.fn(),
@@ -31,6 +33,8 @@ vi.mock('@/api/aiTools', () => ({
     revokeEffect: revokeMock,
     claimEffect: claimMock,
     acknowledgeDispute: ackMock,
+    reconcileClaim: reconcileMock,
+    claimLookups: lookupsMock,
   },
 }))
 vi.mock('@/stores/snackbar', () => ({
@@ -65,6 +69,7 @@ const AppTableStub = defineComponent({
     '<div class="cell-tool">{{ item.toolName }}</div>' +
     '<div class="cell-hash"><slot name="item.argsHash" :item="item" /></div>' +
     '<div class="cell-stale"><slot name="item.stale" :item="item" /></div>' +
+    '<div class="cell-target-status"><slot name="item.targetStatus" :item="item" /></div>' +
     '</div>' +
     '</template></div>',
 })
@@ -187,6 +192,91 @@ describe('AiToolsView', () => {
     expect(rows[1].text()).not.toContain('滞留')
     // 参数明文（如收件人、标题）不可能出现在这里：接口契约里就没有这一项
     expect(wrapper.text()).not.toContain('@example.com')
+  })
+
+  /**
+   * AW-17: "never asked" must read as **never asked**, not as "executed". The target-status column
+   * therefore says so in words, and a reconcilable row offers the one-shot query button.
+   *
+   * AW-17：**「从没问过」必须读成「从没问过」**，不能读成「已执行」。故目标状态列如实写出，
+   * 可对账的行给出一次性查询按钮。
+   */
+  it('AW-17：没有查询记录 → 显示「未查询」而不是「已执行」；可对账的行有查询按钮', async () => {
+    toolsMock.mockResolvedValue([tool])
+    effectsMock.mockResolvedValue({ total: 0, page: 1, limit: 20, items: [] })
+    inFlightMock.mockResolvedValue({
+      ...emptyClaims,
+      items: [
+        { id: 5, userId: '7', toolName: 'proxy_send', argsHash: 'h', status: 'claimed', claimedAt: '2026-11-05T01:00:00Z', ageMinutes: 90, stale: true, attempts: 1, agentId: null, conversationId: null, runId: null, authorizationRef: null, reconcilable: true, lastLookup: null },
+      ],
+      total: 1,
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const row = wrapper.find('.in-flight-claims .row-stub')
+    expect(row.find('.cell-target-status').text()).toContain('未查询')
+    expect(row.find('.cell-target-status').text()).not.toContain('已执行')
+    expect(row.find('.cell-actions .reconcile-btn').exists()).toBe(true)
+  })
+
+  /**
+   * AW-17: an inconclusive lookup is **not** success. `unknown` renders in the warning tone with its
+   * cause, and the row never claims the write ran.
+   *
+   * AW-17：无结论的查询**不是**成功。`unknown` 以警示色与成因呈现，行里不会声称写执行过。
+   */
+  it('AW-17：结论 unknown → 显示未知（警示色，不是绿色/成功）', async () => {
+    toolsMock.mockResolvedValue([tool])
+    effectsMock.mockResolvedValue({ total: 0, page: 1, limit: 20, items: [] })
+    inFlightMock.mockResolvedValue({
+      ...emptyClaims,
+      items: [
+        { id: 6, userId: '7', toolName: 'proxy_send', argsHash: 'h', status: 'claimed', claimedAt: '2026-11-05T01:00:00Z', ageMinutes: 90, stale: true, attempts: 1, agentId: null, conversationId: null, runId: null, authorizationRef: null, reconcilable: true, lastLookup: { id: 1, conclusion: 'unknown', reason: 'timeout', at: '2026-11-05T02:00:00Z', queryMethod: 'GET', queryPath: '/status/k', lookedUpBy: '1', asUserId: '7' } },
+      ],
+      total: 1,
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const cell = wrapper.find('.in-flight-claims .row-stub .cell-target-status')
+    expect(cell.text()).toContain('未知')
+    expect(cell.text()).toContain('超时')
+    expect(cell.text()).not.toContain('已执行')
+    const tag = cell.find('.el-tag')
+    expect(tag.classes()).toContain('el-tag--warning')
+    expect(tag.classes()).not.toContain('el-tag--success')
+  })
+
+  /**
+   * AW-17: the button performs the existing one-shot reconcile and reports the refusal by kind. An
+   * inconclusive query is a warning, never a success toast.
+   *
+   * AW-17：按钮执行既有的「一次性对账」，拒绝按种类提示。无结论的查询是警示，绝不是成功提示。
+   */
+  it('AW-17：点查询 → 调用 reconcile；unresolved 只给警示，不报成功', async () => {
+    toolsMock.mockResolvedValue([tool])
+    effectsMock.mockResolvedValue({ total: 0, page: 1, limit: 20, items: [] })
+    inFlightMock.mockResolvedValue({
+      ...emptyClaims,
+      items: [
+        { id: 7, userId: '7', toolName: 'proxy_send', argsHash: 'h', status: 'claimed', claimedAt: '2026-11-05T01:00:00Z', ageMinutes: 90, stale: true, attempts: 1, agentId: null, conversationId: null, runId: null, authorizationRef: null, reconcilable: true, lastLookup: null },
+      ],
+      total: 1,
+    })
+    reconcileMock.mockResolvedValue({ outcome: 'unresolved', conclusion: 'unknown', claimStatus: 'claimed', evidence: null })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.find('.in-flight-claims .reconcile-btn').trigger('click')
+    await flushPromises()
+
+    expect(reconcileMock).toHaveBeenCalledWith(7)
+    expect(warningMock).toHaveBeenCalled()
+    expect(successMock).not.toHaveBeenCalled()
   })
 
   it('加载失败 → snackbar.error 提示', async () => {

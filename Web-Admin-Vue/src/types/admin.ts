@@ -469,6 +469,52 @@ export interface InFlightClaim {
   conversationId: string | null
   runId: string | null
   authorizationRef: string | null
+  /** AW-17: the target has a status query configured (a capability, not a promise of an answer). */
+  reconcilable: boolean
+  /** AW-17: the latest attempt, or `null` when nobody ever asked. / 最近一次尝试；从没问过为 null。 */
+  lastLookup: TargetStatusLookup | null
+}
+
+/**
+ * AW-17: one recorded attempt to ask the target whether a write happened. `unknown` is a real answer
+ * too — it means the target did not say, and it must never be rendered as "executed".
+ *
+ * AW-17：一次「问目标这次写到底发生了没有」的读数。`unknown` 也是一种答案 —— 它表示目标没说，
+ * 绝不能渲染成「已执行」。
+ */
+export interface TargetStatusLookup {
+  id: number
+  conclusion: 'executed' | 'not_executed' | 'unknown'
+  /** Why it is `unknown`; `null` for a real answer. / 为 `unknown` 的成因；真答案为 `null`。 */
+  reason: string | null
+  at: string
+  queryMethod: string
+  queryPath: string
+  /** Who triggered the query. / 发起查询的人。 */
+  lookedUpBy: string
+  /** Whose identity the query carried (the original writer). / 查询携带的身份（原写入者）。 */
+  asUserId: string
+}
+
+export interface ClaimLookupsResponse {
+  claimId: number
+  toolName: string
+  claimStatus: string
+  items: TargetStatusLookup[]
+  total: number
+}
+
+export interface ReconcileClaimResponse {
+  outcome: 'reconciled' | 'unresolved' | 'not_stale' | 'not_claimable' | 'not_found'
+  conclusion: 'executed' | 'not_executed' | 'unknown'
+  claimStatus: string
+  evidence: {
+    queriedAt: string
+    queryMethod: string
+    queryPath: string
+    conclusion: 'executed' | 'not_executed' | 'unknown'
+    reason: string | null
+  } | null
 }
 
 export interface InFlightClaimsResponse {
