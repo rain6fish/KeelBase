@@ -36,6 +36,10 @@ const ACTION_LABELS: Record<string, AiActionLabel> = {
   // The one value in the union that had no label, so it rendered as the raw `AI · effect_revoke`.
   // 联合类型里唯一没有标签的取值 —— 因此渲染成裸的 `AI · effect_revoke`。
   effect_revoke: { key: 'ai.effectRevoke', fallback: 'AI · Effect revoke' },
+  // AW-12: a human review receipt about rows already on the chain. Not an AI action — the label says
+  // so, because «AI · …» would read as something the assistant did.
+  // AW-12：对链上已有行的人类复核回执。不是 AI 动作 —— 标签如实说出来，因为「AI · …」会被读成助手做过的事。
+  audit_review: { key: 'ai.auditReview', fallback: 'Audit · Review receipt' },
 };
 
 /**

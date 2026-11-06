@@ -6,6 +6,7 @@ import { AuditStatsService } from '../../governance-shared/services/audit-stats.
 import { AuditQueryService } from '../../governance-shared/services/audit-query.service';
 import { AuditEvidenceService } from '../../governance-shared/services/audit-evidence.service';
 import { CoverageService } from '../../governance-shared/services/coverage.service';
+import { AuditReviewService } from '../../governance-shared/services/audit-review.service';
 import { CHECK_POLICIES_KEY } from '../../common/casl/check-policies.decorator';
 import { UserRole } from '../../common/entities/user.entity';
 
@@ -16,6 +17,7 @@ describe('AuditController', () => {
   let auditEvidence: Record<string, jest.Mock>;
   let auditService: Record<string, jest.Mock>;
   let coverage: Record<string, jest.Mock>;
+  let auditReview: Record<string, jest.Mock>;
 
   const mockUser = { sub: 1, username: 'alex' };
   // The list projection is role-aware: an admin keeps the full row, everyone else gets the whitelist.
@@ -39,12 +41,15 @@ describe('AuditController', () => {
     // AW-3 coverage statement (fifth domain): the controller only delegates, so a `forScope` stub is all
     // this needs.
     coverage = Object.fromEntries(['forScope'].map((m) => [m, jest.fn()]));
+    // AW-12 复核面：控制器只转出去（写回执 / 读状态）
+    auditReview = Object.fromEntries(['record', 'status'].map((m) => [m, jest.fn()]));
     controller = new AuditController(
       auditService as unknown as AuditService,
       auditStats as unknown as AuditStatsService,
       auditQuery as unknown as AuditQueryService,
       auditEvidence as unknown as AuditEvidenceService,
       coverage as unknown as CoverageService,
+      auditReview as unknown as AuditReviewService,
     );
   });
 
@@ -196,7 +201,7 @@ describe('AuditController', () => {
     // The title changed: since AW-2 this controller judges `read AuditLog` rather than `manage all`,
     // because an audit reader has to get in. `manage all` implies `read`, so admins are unaffected;
     // what this pins is that there IS a non-trivial handler and that it denies by default.
-    const methods = ['getLogs', 'verify', 'getStats', 'getCost', 'getActionReport', 'getCoverage'];
+    const methods = ['getLogs', 'verify', 'getStats', 'getCost', 'getActionReport', 'getCoverage', 'getReviews', 'createReview'];
     for (const m of methods) {
       const handlers = Reflect.getMetadata(
         CHECK_POLICIES_KEY,

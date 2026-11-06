@@ -73,6 +73,21 @@ export interface CoverageFacts {
    * 该部署至少写向一个**不提供状态查询**的外部目标 —— 超时的写事后收敛不了（AW-17）。
    */
   externalWriteTargetWithoutStatusQuery: boolean;
+  /**
+   * A reviewer **and** a cadence are configured (`AUDIT_REVIEW_OWNER` + `AUDIT_REVIEW_CADENCE_DAYS`),
+   * so the system assigns the reading instead of leaving it to convention (AW-12).
+   *
+   * 复核人**与**频度都已配置（`AUDIT_REVIEW_OWNER` + `AUDIT_REVIEW_CADENCE_DAYS`），即系统**指派**了这次
+   * 阅读，而不是把它留给口头约定（AW-12）。
+   */
+  recordReviewConfigured: boolean;
+  /**
+   * The package's window holds rows no review receipt on the chain covers — reading them cannot be
+   * established, so the window is not evidence that they were reviewed (AW-12).
+   *
+   * 本包的窗口里有行没有被链上的复核回执覆盖 —— 无法确证有人读过，故这一期不是「已复核」的证据（AW-12）。
+   */
+  packageHasUnreviewedRows: boolean;
 }
 
 export type CoverageFact = keyof CoverageFacts;
@@ -249,6 +264,32 @@ export const COVERAGE_GAPS: readonly CoverageGap[] = [
     statement:
       'An external write target offers no read-only status query, so a timed-out write cannot be resolved after the fact; the ledger keeps it as unknown rather than guessing, and the absence of a recorded effect for such a write is not evidence that it did not happen.',
     origin: 'AW-17',
+  },
+  {
+    id: 'record-review-unassigned',
+    severity: 'high',
+    affects: 'whole_deployment',
+    verdictImpact: 'unknown',
+    // Both conjuncts are needed: an empty window has nothing to review, so the standing caveat
+    // would be noise there. It fires only when there are rows someone should have read.
+    // 两个合取项都必要：空窗口没有可复核的东西，常设告诫在那儿只是噪音。只有存在「本该有人读」的行时才出。
+    appliesWhen: [
+      { fact: 'recordReviewConfigured', equals: false },
+      { fact: 'packageHasUnreviewedRows', equals: true },
+    ],
+    statement:
+      'No reviewer or review cadence is configured, so nothing in this system assigns anyone to read these records; the presence of rows is not evidence that anyone read them.',
+    origin: 'AW-12 / F-44 / F-47',
+  },
+  {
+    id: 'record-review-unreviewed-window',
+    severity: 'high',
+    affects: 'this_package',
+    verdictImpact: 'unknown',
+    appliesWhen: [{ fact: 'packageHasUnreviewedRows', equals: true }],
+    statement:
+      'Rows in this window have no review receipt on the audit chain, so whether anyone read them cannot be established; an unreviewed record is not a reviewed one.',
+    origin: 'AW-12 / F-47',
   },
 ];
 

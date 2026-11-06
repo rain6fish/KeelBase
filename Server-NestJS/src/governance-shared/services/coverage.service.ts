@@ -8,6 +8,7 @@ import { AiAuditLog } from '../../governance-shared/entities/ai-audit-log.entity
 import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
 import { REVOKE_STATUS } from '../../governance-core/revoke-status';
 import { GovernancePolicyService } from '../../governance-shared/services/governance-policy.service';
+import { AuditReviewService } from '../../governance-shared/services/audit-review.service';
 import { COVERAGE_GAPS, CoverageFacts, applicableGaps, deriveVerdict } from '../../governance-core/coverage-gaps';
 import { OrgService } from '../../org/org.service';
 import { OUTBOUND_TARGET_FACTS, type OutboundTargetFacts } from '../outbound-target-facts';
@@ -117,6 +118,15 @@ export class CoverageService {
     @Optional()
     @Inject(OUTBOUND_TARGET_FACTS)
     private readonly outboundFacts?: OutboundTargetFacts,
+    // AW-12: review coverage is a fact about the data, so it is counted from the data like the other
+    // `packageHas…` facts. Optional for the same reason as the two above — an unbound token means this
+    // assembly cannot answer, and the facts then take their **pessimistic** reading (see `forScope`),
+    // never a green one.
+    //
+    // AW-12：复核覆盖是关于数据的事实，故与其余 `packageHas…` 一样从数据点出来。可选的道理同上 ——
+    // 未绑定的 token 表示这次装配答不出，于是事实取**悲观**读数（见 `forScope`），绝不取绿色。
+    @Optional()
+    private readonly auditReview?: AuditReviewService,
   ) {}
 
   /**
@@ -223,6 +233,15 @@ export class CoverageService {
         this.effects.count({ where: { ...effectWhere, revokeStatus: REVOKE_STATUS.COMPENSATING } }),
       ]);
 
+    // AW-12: rows in this window no review receipt covers. When the review service is not bound this
+    // assembly cannot answer, so it falls back to «every row is unestablished» — the pessimistic
+    // reading — rather than a green «nothing unreviewed».
+    // AW-12：本窗口里没有被回执覆盖的行。复核服务未绑定时这次装配答不出，于是退回「每一行都未被确证」
+    // —— 悲观读数 —— 而不是一句绿色的「没有未复核行」。
+    const unreviewedRows = this.auditReview
+      ? await this.auditReview.unreviewedRowsInWindow({ since, until }, reader)
+      : auditRows;
+
     const facts: CoverageFacts = {
       runtime: 'ts',
       host: 'none',
@@ -237,6 +256,8 @@ export class CoverageService {
       packageHasStalledRevoke: stalledRevoke > 0,
       packageHasChatRow: chatRows > 0,
       externalWriteTargetWithoutStatusQuery: await this.hasWriteTargetWithoutStatusQuery(),
+      recordReviewConfigured: this.auditReview ? this.auditReview.reviewConfig().configured : false,
+      packageHasUnreviewedRows: unreviewedRows > 0,
     };
 
     // Only the sources this statement actually read — the list is "what was consulted", not "what

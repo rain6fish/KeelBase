@@ -143,6 +143,14 @@ const EXEMPT = [
     reason: 'run-level confirmation: one decision covers many tools, so `outcome` is answered but `tool` is omitted by design (tool = "the tool this row is about").',
   },
   {
+    file: 'Server-NestJS/src/governance-shared/services/audit-review.service.ts',
+    // `null` because the call site passes the `AUDIT_REVIEW_ACTION` constant, so the action is not a
+    // literal the scan can key by name (the gate reads text, not values).
+    // 取 `null` 是因为调用点传的是 `AUDIT_REVIEW_ACTION` 常量，扫描按文本读、认不出这个取值。
+    action: null,
+    reason: 'a human review receipt, not a tool action; the outcome vector answers null for every action outside tool_call/tool_confirmation/effect_revoke (any-other-action), so both columns stay null by contract (AW-12 / C-4).',
+  },
+  {
     file: 'Server-NestJS/src/governance/external-governance.controller.ts',
     action: null,
     reason: 'forwarding endpoint — action and fields come from the caller DTO, pinned to the frozen external-audit schema; naming outcome/tool here would need a contract bump.',

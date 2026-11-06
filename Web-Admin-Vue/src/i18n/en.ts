@@ -1537,6 +1537,15 @@ const en: ZhDict = {
   featureCol: 'Feature',
   pathCol: 'Path',
   statusCol: 'Status',
+  reviewCol: 'Review',
+  reviewed: 'Reviewed',
+  unreviewed: 'Unreviewed',
+  reviewReceipt: 'Review receipt',
+  reviewUnknown: 'Review state unknown',
+  reviewAssigned: 'Review: {owner} · every {days} days',
+  reviewUnassigned: 'Review: no reviewer assigned',
+  reviewUnreviewedRows: '{n} rows have no review receipt on the chain',
+  reviewStatusUnavailable: 'Review state unavailable — that does not mean it was reviewed',
   changesLabel: 'Changed fields',
   wasLabel: 'was',
   // G-1 event-time authorization snapshot (`operation_audit_logs.authorization`): why this human write
@@ -1591,6 +1600,10 @@ const en: ZhDict = {
     'The host runs an AI path of its own that does not pass through the governance engine, so its tool calls are outside this view.',
   'coverageGap_target-status-unavailable':
     'An external write target offers no read-only status query, so a timed-out write cannot be resolved after the fact; the ledger keeps it unknown, and a missing effect row is not evidence it did not happen.',
+  'coverageGap_record-review-unassigned':
+    'No reviewer or review cadence is configured, so nothing assigns anyone to read these records; the presence of rows is not evidence that anyone read them.',
+  'coverageGap_record-review-unreviewed-window':
+    'Rows in this window have no review receipt on the audit chain, so whether anyone read them cannot be established; an unreviewed record is not a reviewed one.',
   filterByUser: 'Filter by user',
   filterByAgent: 'Filter by agent',
   agentCol: 'Agent',
@@ -1702,6 +1715,7 @@ const en: ZhDict = {
     'ai.error': 'AI · Error',
     'ai.contentBlocked': 'AI · Content blocked',
     'ai.effectRevoke': 'AI · Effect revoke',
+    'ai.auditReview': 'Audit · Review receipt',
     'ai.tool.createFollowupTask': 'Create follow-up task',
     'ai.tool.createEvent': 'Create event',
     'ai.tool.createTodo': 'Create todo',

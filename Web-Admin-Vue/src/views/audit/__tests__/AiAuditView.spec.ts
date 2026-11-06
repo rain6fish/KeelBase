@@ -7,13 +7,14 @@ import { createI18n } from 'vue-i18n'
 import zh from '@/i18n/zh'
 import en from '@/i18n/en'
 
-const { logsMock, statsMock, verifyMock, interpretationMock, identityChainMock, coverageMock, errorMock, successMock, csvMock } = vi.hoisted(() => ({
+const { logsMock, statsMock, verifyMock, interpretationMock, identityChainMock, coverageMock, reviewsMock, errorMock, successMock, csvMock } = vi.hoisted(() => ({
   logsMock: vi.fn(),
   statsMock: vi.fn(),
   verifyMock: vi.fn(),
   interpretationMock: vi.fn(),
   identityChainMock: vi.fn(),
   coverageMock: vi.fn(),
+  reviewsMock: vi.fn(),
   errorMock: vi.fn(),
   successMock: vi.fn(),
   csvMock: vi.fn(),
@@ -27,6 +28,7 @@ vi.mock('@/api/audit', () => ({
     interpretation: interpretationMock,
     chain: identityChainMock,
     coverage: coverageMock,
+    reviews: reviewsMock,
   },
 }))
 // AU-4：会话下钻用 adminApi（元数据 + 正文）；mock 掉避免测试里出现真实网络调用
@@ -48,7 +50,7 @@ const AppTableStub = defineComponent({
   name: 'AppTable',
   props: ['headers', 'items'],
   template:
-    '<div class="app-table-stub"><template v-for="item in items" :key="item.id"><slot name="item.action" :item="item" /><slot name="item.expand" :item="item" /></template></div>',
+    '<div class="app-table-stub"><template v-for="item in items" :key="item.id"><slot name="item.action" :item="item" /><slot name="item.reviewed" :item="item" /><slot name="item.expand" :item="item" /></template></div>',
 })
 
 function mountView() {
@@ -72,6 +74,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   verifyMock.mockResolvedValue({ valid: true, checked: 0, brokenIndex: null, chain: [] })
   coverageMock.mockResolvedValue(null)
+  reviewsMock.mockResolvedValue(null)
   interpretationMock.mockResolvedValue(null)
   identityChainMock.mockResolvedValue(null)
 })
@@ -241,6 +244,43 @@ describe('AiAuditView', () => {
     expect(wrapper.text()).toContain('可能未到达外部系统')
     expect(wrapper.text()).not.toContain('compensating')
     expect(wrapper.text()).not.toContain('unacknowledged')
+    wrapper.unmount()
+  })
+
+  it('AW-12：复核列按链上回执区间判定 —— 未复核不得显示为绿色', async () => {
+    logsMock.mockResolvedValue([
+      { id: 3, action: 'tool_call', createdAt: '2026-08-20', isError: false },
+      { id: 4, action: 'audit_review', createdAt: '2026-08-20', isError: false },
+      { id: 9, action: 'tool_call', createdAt: '2026-08-20', isError: false },
+    ])
+    statsMock.mockResolvedValue({ totalTokens: 0 })
+    reviewsMock.mockResolvedValue({
+      config: { configured: true, owner: 'alice', cadenceDays: 7 },
+      reviewedRanges: [{ fromId: 1, throughId: 3 }],
+      unreviewedRows: 1,
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('已复核') // id 3 — covered by the receipt
+    expect(wrapper.text()).toContain('复核回执') // id 4 — the receipt row itself
+    expect(wrapper.text()).toContain('未复核') // id 9 — after the covered range
+    expect(wrapper.text()).toContain('复核：alice · 每 7 天')
+    wrapper.unmount()
+  })
+
+  it('AW-12：复核状态取不到 ⇒ 说「未知」，不冒充「都复核过了」', async () => {
+    logsMock.mockResolvedValue([{ id: 9, action: 'tool_call', createdAt: '2026-08-20', isError: false }])
+    statsMock.mockResolvedValue({ totalTokens: 0 })
+    reviewsMock.mockResolvedValue(null)
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('复核状态未知')
+    expect(wrapper.text()).toContain('复核状态取不到')
+    expect(wrapper.text()).not.toContain('已复核')
     wrapper.unmount()
   })
 })

@@ -451,6 +451,8 @@ ENCRYPTION_KEY=       # 敏感数据加密密钥，32 字节 hex（openssl rand 
 ENCRYPTION_HMAC_KEY=  # providerHash 派生密钥，32 字节 hex（缺省回退用 ENCRYPTION_KEY）
 AUDIT_HMAC_KEY=       # 审计哈希链独立密钥，32 字节 hex（缺省回退用 ENCRYPTION_KEY 派生）
 AUDIT_HMAC_KEY_PREVIOUS=  # 轮换时的旧密钥（可选）：留旧值于此，verify 才验得了旧记录
+AUDIT_REVIEW_OWNER=   # AW-12 记录复核责任人（用户名）：配置后只有该账号能签复核回执；留空 ⇒ 覆盖声明报 record-review-unassigned
+AUDIT_REVIEW_CADENCE_DAYS=  # AW-12 复核频度（天）；与 AUDIT_REVIEW_OWNER 同时配置才算「已指派」
 
 # 可观测性
 LOG_LEVEL=info                 # fatal | error | warn | info | debug | trace
@@ -785,6 +787,8 @@ npm run migration:run
 | GET | /api/v1/audit/verify | Yes (ADMIN) | — | AI 审计哈希链完整性校验（HS-11）：`checked` 只数已入链的行，`tableRows` 是表内行数（差额即从未参与校验的行） |
 | GET | /api/v1/audit/stats | Yes (ADMIN) | — | 全局 AI 用量统计 |
 | GET | /api/v1/audit/coverage | Yes | 管理员或审计读者 | 审计覆盖声明：口径 + 已知缺口（AW-3，默认最近 30 天；结论由服务按事实算出） |
+| GET | /api/v1/audit/reviews | Yes | 管理员或审计读者 | AW-12 记录复核状态：复核人/频度配置 + 回执清单 + 已复核/未复核链位（由链算出） |
+| POST | /api/v1/audit/reviews | Yes | 管理员或审计读者 | AW-12 签复核回执：写入审计链（`action=audit_review`，`detail` 带 fromId/throughId/cadenceDays）；配置 `AUDIT_REVIEW_OWNER` 时只有该账号可签；区间不得超过链尾 |
 | GET | /api/v1/audit/cost | Yes (ADMIN) | — | AI 成本看板：按用户×模型×意图聚合 tokens（AI-21） |
 | GET | /api/v1/audit/action-report | Yes (ADMIN) | — | AI Action Report 合规证据包（§10 P1）：执行/批准/拒绝/阻断/被治理拒绝 + 副作用计数 + 按日趋势 byDay + 审计哈希链 verify（含表内行数），可按 userId/since/limit |
 | POST | /api/v1/audit/feedback | Yes | 本人 | 对话反馈：对某次对话点赞/点踩 + 原因（AI-18） |

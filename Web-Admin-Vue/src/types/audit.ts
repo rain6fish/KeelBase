@@ -242,3 +242,32 @@ export interface CoverageStatement {
   verdict: 'complete' | 'partial' | 'unknown'
   gaps: Array<{ id: string; severity: 'high' | 'medium' | 'low'; affects: string; statement: string }>
 }
+
+/**
+ * AW-12 review status. Computed from the chain: a receipt is an `audit_review` row, so the ranges
+ * below are what the chain says was reviewed — not a stored flag that a row could carry.
+ *
+ * `AW-12` 复核状态。由链算出：回执本身就是一条 `audit_review` 行，故下面的区间是「链说读过什么」，
+ * 不是行上存着的一个标记。
+ */
+export interface AuditReviewStatus {
+  config: { configured: boolean; owner: string | null; cadenceDays: number | null }
+  maxAuditId: number | null
+  totalRows: number
+  reviewableRows: number
+  reviewedRows: number
+  unreviewedRows: number
+  reviewedRanges: Array<{ fromId: number; throughId: number }>
+  unreviewedRanges: Array<{ fromId: number; throughId: number; rows: number; firstRowAt: string | null }>
+  receipts: Array<{
+    id: number
+    reviewerId: string
+    reviewerName: string | null
+    signedAt: string
+    fromId: number
+    throughId: number
+    cadenceDays: number | null
+  }>
+  malformedReceipts: number
+  truncated: boolean
+}
