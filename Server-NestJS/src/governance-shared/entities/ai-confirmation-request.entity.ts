@@ -197,6 +197,33 @@ export class AiConfirmationRequest {
   @Column({ type: 'varchar', length: 64, nullable: true, name: 'render_version' })
   renderVersion?: string | null;
 
+  /**
+   * The **allow basis as it stood when this artifact was issued** — the same snapshot the audit row
+   * carries, kept here because that row is written *after* the wait, and a process that dies inside
+   * the wait takes it away. The confirmation row survives (it is persisted before the wait), so a
+   * basis parked on it is the only thing that can answer "why was it allowed to reach a person" for a
+   * call that never got its turn back.
+   *
+   * **Not recomputed at expiry.** Recomputing would answer with *today's* policy, which is a different
+   * question; a row minted before this column therefore stays `null`, and the expiry record says it
+   * has no basis rather than inventing one.
+   *
+   * Chain-external annotation column, like `audience` / `expiresAt` / `renderHash`: this table is in
+   * no hash chain, so existing chains and rows are untouched.
+   *
+   * 签发那一刻的**放行依据** —— 与审计行携带的是同一份快照，停在这里是因为审计行在**等待之后**才写，
+   * 而死在等待里的进程会把它一起带走。确认行本身活下来（它在等待之前就落库），于是把依据停在它上面，
+   * 是「凭什么允许它走到人面前」在「这一轮再也拿不回来」时唯一答得出来的东西。
+   *
+   * 到期时**不**重算。重算答的是**今天**的策略，那是另一个问题；故本列之前的行一律留 `null`，到期
+   * 记录如实说它没有依据，而不是编一份。
+   *
+   * 链外注解列，与 `audience` / `expiresAt` / `renderHash` 同类：本表不在任何哈希链里，故既有链与
+   * 既有行不受影响。
+   */
+  @Column({ type: 'text', nullable: true })
+  authorization?: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 }

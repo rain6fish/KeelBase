@@ -285,7 +285,7 @@ export class McpExportController {
       // 而不是给出一个谁也兑不了的 token。
       let held: HeldConfirmation | undefined;
       try {
-        held = await this._parkForConfirmation(userId, toolName, toolArgs);
+        held = await this._parkForConfirmation(userId, toolName, toolArgs, allowSnapshot);
       } catch (e) {
         this.logger.warn(`[Mcp] could not park a confirmation for ${toolName}: ${(e as Error).message}`);
       }
@@ -319,6 +319,8 @@ export class McpExportController {
     userId: string,
     toolName: string,
     args: Record<string, unknown>,
+    /** The snapshot the audit row for this call carries — the same value, not a second derivation. */
+    allowSnapshot?: string,
   ): Promise<HeldConfirmation> {
     // AUTHZ-1：目的地绑定随之落行 —— 等待窗口内目的地可被改指，执行点要拿它比对。
     const audience = this.toolGate.destinationOf(toolName);
@@ -350,6 +352,14 @@ export class McpExportController {
       undefined,
       undefined,
       audience,
+      undefined,
+      // P0-19 ⑧：这一扇门没有流内等待，行就是 artifact —— 依据停在它上面，24 小时到期时才有得说。
+      // 交给这里的是审计行用的**同一份**值，不另算一次：两份若各自算，就可能各说各话。
+      //
+      // P0-19 ⑧: this door has no in-stream wait; the row *is* the artifact — park the basis on it so
+      // the 24 h expiry has something to say. It is the **same** value the audit row uses, not a
+      // second derivation: two derivations could disagree.
+      allowSnapshot,
     );
     return { token, decidedBy: 'operator' };
   }

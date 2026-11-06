@@ -16,6 +16,7 @@ import { BehaviorBaselineService } from '../ai/behavior-baseline/behavior-baseli
 import { AlertWebhookService } from '../alert-webhook/alert-webhook.service';
 import { AuditEvidenceService } from '../governance-shared/services/audit-evidence.service';
 import { OperationAuditService } from '../operation-audit/operation-audit.service';
+import { AuditService } from '../governance-shared/services/audit.service';
 import { MaintenanceTasksService } from './maintenance-tasks.service';
 
 function mockRepo(extra: Record<string, jest.Mock> = {}) {
@@ -45,6 +46,8 @@ describe('MaintenanceTasksService', () => {
   let usersRepo: ReturnType<typeof mockRepo>;
   let notificationsRepo: ReturnType<typeof mockRepo>;
   let notificationsService: { create: jest.Mock };
+  let confirmationStore: { offlineTtlMs: jest.Mock; expireStale: jest.Mock };
+  let auditService: { log: jest.Mock };
 
   beforeEach(async () => {
     sessionsRepo = mockRepo();
@@ -54,6 +57,11 @@ describe('MaintenanceTasksService', () => {
     const todosRepo = mockRepo();
     notificationsRepo = mockRepo();
     notificationsService = { create: jest.fn().mockResolvedValue({ id: 1 }) };
+    confirmationStore = {
+      offlineTtlMs: jest.fn().mockResolvedValue(86_400_000),
+      expireStale: jest.fn().mockResolvedValue([]),
+    };
+    auditService = { log: jest.fn().mockResolvedValue({ id: 1 }) };
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -67,13 +75,9 @@ describe('MaintenanceTasksService', () => {
         { provide: NotificationsService, useValue: notificationsService },
         { provide: ConfigService, useValue: { get: jest.fn().mockReturnValue(30) } },
         // GA：离线窗口到期的确认清理要它；本文件只测其余维护任务，故给最小替身
-        {
-          provide: ConfirmationStore,
-          useValue: {
-            offlineTtlMs: jest.fn().mockResolvedValue(86_400_000),
-            expireStale: jest.fn().mockResolvedValue(0),
-          },
-        },
+        { provide: ConfirmationStore, useValue: confirmationStore },
+        // P0-19 ⑧：到期记录写在这里
+        { provide: AuditService, useValue: auditService },
         // BA 异常行为基线：本文件只测其余维护任务，故给最小替身
         { provide: BehaviorBaselineService, useValue: { scan: jest.fn().mockResolvedValue([]) } },
         { provide: AlertWebhookService, useValue: { sendAlert: jest.fn().mockResolvedValue(undefined) } },
@@ -84,6 +88,62 @@ describe('MaintenanceTasksService', () => {
     }).compile();
 
     service = moduleRef.get(MaintenanceTasksService);
+  });
+
+  /**
+   * P0-19 ⑧ — the sweep must leave a structured record, and the record must carry the **issue-time**
+   * basis rather than anything recomputed now. These three cases pin that sentence.
+   *
+   * P0-19 ⑧ —— 清扫必须留下结构化记录，且记录带的是**签发时**的依据，而不是此刻重算的任何东西。
+   * 三个用例钉住这句话。
+   */
+  describe('expireStaleConfirmations', () => {
+    const expiredRow = {
+      token: 'tok-1',
+      operatorId: '7',
+      toolName: 'create_event',
+      args: '{"title":"x"}',
+      conversationId: 'conv-1',
+      authorization: '{"allowed":true,"tool":"create_event"}',
+      decidedAt: new Date('2026-11-06T00:00:00.000Z'),
+    };
+
+    it('到期行逐条写一条 tool_confirmation 记录，带签发时依据与用户名快照', async () => {
+      confirmationStore.expireStale.mockResolvedValue([expiredRow]);
+      usersRepo.find.mockResolvedValue([{ id: 7, username: 'alex' }]);
+
+      await service.expireStaleConfirmations();
+
+      expect(auditService.log).toHaveBeenCalledTimes(1);
+      expect(auditService.log.mock.calls[0][0]).toMatchObject({
+        userId: '7',
+        username: 'alex',
+        conversationId: 'conv-1',
+        action: 'tool_confirmation',
+        outcome: 'timeout',
+        tool: 'create_event',
+        toolArgs: '{"title":"x"}',
+        authorization: '{"allowed":true,"tool":"create_event"}',
+      });
+    });
+
+    it('没有依据的行照样记录，但 authorization 缺席 —— 不重算一份', async () => {
+      confirmationStore.expireStale.mockResolvedValue([{ ...expiredRow, authorization: null }]);
+      usersRepo.find.mockResolvedValue([]);
+
+      await service.expireStaleConfirmations();
+
+      const logged = auditService.log.mock.calls[0][0] as { authorization?: string; username?: string };
+      expect(logged.authorization).toBeUndefined();
+      expect(logged.username).toBeUndefined();
+      expect(auditService.log.mock.calls[0][0]).toMatchObject({ outcome: 'timeout', tool: 'create_event' });
+    });
+
+    it('没有到期行 → 不写、不打日志', async () => {
+      await service.expireStaleConfirmations();
+
+      expect(auditService.log).not.toHaveBeenCalled();
+    });
   });
 
   describe('cleanupExpiredData', () => {

@@ -45,8 +45,8 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * 索引名：这是部分索引，TypeORM 的 `<表>_<列>` 哈希命名不适用于它；此处显式名与实体声明的一致，
  * 使 `synchronize` 与本迁移彼此吻合。
  */
-export class AddOperationIdentity1848000000000 implements MigrationInterface {
-  name = 'AddOperationIdentity1848000000000';
+export class AddOperationIdentity1849000000000 implements MigrationInterface {
+  name = 'AddOperationIdentity1849000000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     const varchar =

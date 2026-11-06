@@ -157,6 +157,33 @@ published it additively as **v1.15.0** (`ai-audit-log-row` v7 + `ai-audit-log-ou
 the v1 vector untouched), and only then did the code follow. The R4 executor keeps the narrower
 condition — its non-success shape is a failure.
 
+## 5.7 签发时副本与到期记录（2026-11-06）
+
+上表的每一行都写在 `ai_audit_logs` 上，而**那条行是在对话内等待解决之后才写的**。进程死在等待里（重启 /
+崩溃），这一轮就再也写不出它 —— 剩下的只有确认行（它在等待之前就落库）。于是那个调用最后答不出「凭什么
+允许它走到人面前」：依据、结局、链上证明全没了。
+
+两处补上（P0-19 ⑧，分支 `claude/p019-offline-1106`）：
+
+| 位置 | 做什么 |
+|---|---|
+| 签发（`ConfirmationStore.create`） | 把门给的**同一份** `buildAllowSnapshot` 快照另存到 `ai_confirmation_requests.authorization`（链外注解列，迁移 `1848000000000`）。对话门与 MCP 门都传；run 级审批的依据在成员上，暂不传 |
+| 到期（`MaintenanceTasksService.expireStaleConfirmations`） | 每小时清扫把超窗口的 `pending` 扫成 `timeout` 后，**为每一行**写一条 `action='tool_confirmation'` + `outcome='timeout'` 的审计行，带操作人用户名快照、`tool_args`，以及该行若有就带上的依据 |
+
+判据与边界：
+
+- **不重算**：到期只读签发时停在行上的那份。引入该列之前的行、以及没有依据可传的调用（run 级）留 `null`，
+  记录照写但没有依据 —— 重算答出的是**今天**的策略，那是另一个问题。
+- **不改契约**：`tool_confirmation` + `timeout` 在 `ai-audit-log-outcome-v2-vector.json` 里本就合法，没有
+  新增 action 值，词表保持冻结。
+- **不影响既有读取方**：§5.6 的三个读取方按**形状**／`outcome` 判别；本行 `outcome='timeout'`、`authorization`
+  是对象（不是 `[` 开头的数组），故 `blocked` 计数与 denied 视图都不动。
+- **仲裁点不变**：清扫改成先按窗口取候选、再**逐行条件更新**（`status='pending'`），与离线裁决并发时仍是每行
+  恰一个赢家；返回的是真正被翻转的行，供逐行写记录。
+- **读数**：P0-19 ⑧ 的第八类 `offline-expired` 从 `2/6 · 2/5 · uncovered` 变为 `5/6 · 4/5 · measured`；
+  仍缺的一阶是 `turn` —— 轮次自己的审计行在轮次末尾才写，而这个事件没走到末尾，那是那次崩溃的事实，不是
+  到期路径的缺口。
+
 ## 6. 相关
 
 - [security-showcase.spec.md](security-showcase.spec.md) — A2 对抗性证明（运行时边界演示）

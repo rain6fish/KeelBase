@@ -226,7 +226,13 @@ describe('McpExportController (HS-10)', () => {
     });
 
     // 同一份参数进 artifact（不是散文），目的地绑定随行（AUTHZ-1）
-    expect(store.create).toHaveBeenCalledWith('1', 'create_event', { title: 'x' }, undefined, undefined, 'local');
+    expect(store.create).toHaveBeenCalledTimes(1);
+    const createArgs = store.create.mock.calls[0];
+    expect(createArgs.slice(0, 6)).toEqual(['1', 'create_event', { title: 'x' }, undefined, undefined, 'local']);
+    // P0-19 ⑧：这一扇门没有流内等待，行就是 artifact —— 依据随行停在行上，24 小时到期时才有得说。
+    // P0-19 ⑧: this door has no in-stream wait; the row *is* the artifact — the basis rides on it so the
+    // 24 h expiry has something to say.
+    expect(JSON.parse(String(createArgs[7]))).toMatchObject({ allowed: true, tool: 'create_event' });
     expect(r4.createR4ApprovalRequest).not.toHaveBeenCalled();
     expect((res as any).result._meta.keelbase).toEqual({
       requiresConfirmation: true,

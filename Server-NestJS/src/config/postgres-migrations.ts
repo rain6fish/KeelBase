@@ -128,6 +128,9 @@ export const POSTGRES_MIGRATION_GLOBS: string[] = [
   // AW-20: the operation identity column, its partial unique lease index, and the side effect's
   // possible_duplicate marker (the entities exist, so postgres needs them too).
   '*AddOperationIdentity*',
+  // P0-19 ⑧：确认行的签发时放行依据（postgres 侧同样需要，否则实体要的 authorization 列在 pg 上不存在）
+  // P0-19 ⑧: the confirmation row's issue-time allow basis — postgres needs the column too.
+  '*AddConfirmationAuthorization*',
 ];
 
 /** 有意排除于 postgres 的迁移（仅 sqlite；postgres 由 PostgresInitialSchema / PostgresIncrementalSchema 基线覆盖） */

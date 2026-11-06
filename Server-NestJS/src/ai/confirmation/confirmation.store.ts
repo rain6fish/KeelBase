@@ -129,6 +129,24 @@ export interface ConfirmationResolveResult {
   trustTool?: boolean;
 }
 
+/**
+ * One row the offline sweep just flipped. Everything the caller needs to record the expiry without
+ * reading the row again — and nothing it would have to guess: `authorization` is the basis parked at
+ * issue time, `null` when there was none to park.
+ *
+ * 本次清扫刚翻转的一行。调用方据此记录这次到期而不必回读该行 —— 也没有需要它猜的东西：
+ * `authorization` 是签发时停在这里的依据，当时没有可留的就为 `null`。
+ */
+export interface ExpiredConfirmation {
+  token: string;
+  operatorId: string;
+  toolName: string;
+  args: string;
+  conversationId?: string | null;
+  authorization?: string | null;
+  decidedAt: Date;
+}
+
 @Injectable()
 export class ConfirmationStore {
   private readonly pending = new Map<string, PendingConfirmation>();
@@ -174,6 +192,15 @@ export class ConfirmationStore {
    *   trimmed assemblies) get `null` — the rendering generation is then unknown rather than guessed.
    *   `summary` = 本次确认**实际下发**的呈现文案（CONF-3）。给了就把那份渲染的哈希记进行；不给则留
    *   `null` —— 渲染代次不可考，不猜。
+   * @param authorization the **allow basis at issue time** (`buildAllowSnapshot`), parked on the row
+   *   so it survives a process that dies inside the in-stream wait — the audit row that would
+   *   normally carry it is written only after that wait. Omitted by callers that have no basis to give
+   *   (run-level approvals keep theirs with the members); the column then stays `null` and the expiry
+   *   record says so instead of recomputing.
+   *
+   *   `authorization` = **签发时点的放行依据**（`buildAllowSnapshot`），停在行上，好让死在对话内等待里
+   *   的进程不能把它一起带走 —— 平时承载它的审计行，是在那次等待**之后**才写的。没有依据可给的调用方
+   *   （run 级审批的依据在成员上）不传；该列留 `null`，到期记录如实说没有依据，而不是重算。
    */
   async create(
     userId: string,
@@ -183,6 +210,7 @@ export class ConfirmationStore {
     conversationId?: string,
     audience?: string,
     summary?: PresentationText,
+    authorization?: string,
   ): Promise<{ token: string; decision: Promise<ConfirmationResolveResult> }> {
     const token = randomUUID();
     let resolveFn!: (result: ConfirmationResolveResult) => void;
@@ -205,6 +233,7 @@ export class ConfirmationStore {
       audience,
       expiresAt,
       renderProof,
+      authorization,
     });
     const timer = this._setupTimer(token, ttlMs);
     this.pending.set(token, { token, userId, toolName, args, kind: 'single', resolve: resolveFn, timer });
@@ -264,6 +293,8 @@ export class ConfirmationStore {
     expiresAt?: Date;
     /** CONF-3：签发时渲染的哈希 + 代次（缺席 = 调用方未提供下发文案，历史口径，留 null 不猜） */
     renderProof?: ConfirmationRenderProof;
+    /** P0-19 ⑧：签发时点的放行依据（缺席 = 调用方没有依据可给，留 null 不猜） */
+    authorization?: string;
   }): Promise<void> {
     // CONF-1 可观测性：**问了几次**在这里记 —— `create` / `createRun` 的唯一共用出口。
     // 记在落库**之前**：落库失败不阻断内存确认流（见方法头），而那次询问**确实已经发生**了。
@@ -288,6 +319,8 @@ export class ConfirmationStore {
           // CONF-3：签发时的渲染凭据（链外注解列）。缺席即 null —— 只有历史行/未提供文案的调用会缺席。
           renderHash: row.renderProof?.renderHash ?? null,
           renderVersion: row.renderProof?.renderVersion ?? null,
+          // P0-19 ⑧：签发时点的放行依据（链外注解列）。缺席即 null —— 到期时据实说不存在，不重算。
+          authorization: row.authorization ?? null,
         }),
       )
       .catch((err) => {
@@ -455,16 +488,48 @@ export class ConfirmationStore {
   }
 
   /**
-   * 离线窗口到期清理（由 maintenance 定时任务调用）：把创建时间早于 `now - offlineTtlMs` 且仍 `pending`
-   * 的行转 `timeout`（复用既有终态）。返回受影响行数（观测用）。
+   * Offline-window expiry sweep (called by the maintenance task): rows created before
+   * `now - offlineTtlMs` and still `pending` become `timeout` (the existing terminal state, reused).
+   *
+   * Returns **the rows this sweep actually flipped**, not a count. A count is enough for a log line
+   * and nothing else: the caller has to record each expiry as a structured row, and a bulk update
+   * cannot say which of its candidates it won. Each row is therefore still flipped by its own
+   * **conditional** update (`status='pending'`) — the single arbitration point is unchanged, so an
+   * out-of-band decision racing the sweep still has exactly one winner per row.
+   *
+   * 离线窗口到期清扫（由维护任务调用）：创建时间早于 `now - offlineTtlMs` 且仍 `pending` 的行转
+   * `timeout`（复用既有终态）。
+   *
+   * 返回**本次真正翻转的行**，不是一个计数。计数只够打一行日志：调用方要把每次到期记成结构化行，而
+   * 一次批量更新说不出它到底赢了哪些候选。故每行仍由**各自的条件更新**（`status='pending'`）翻转 ——
+   * 唯一的仲裁点没有变，与清扫赛跑的离线裁决因此仍是每行恰好一个赢家。
    */
-  async expireStale(offlineTtlMs: number = CONFIRMATION_DEFAULT_OFFLINE_TTL_MS): Promise<number> {
+  async expireStale(
+    offlineTtlMs: number = CONFIRMATION_DEFAULT_OFFLINE_TTL_MS,
+  ): Promise<ExpiredConfirmation[]> {
     const cutoff = offlineWindowCutoff(offlineTtlMs);
-    const res = await this.reqRepo.update(
-      { status: CONFIRMATION_STATUS.PENDING, createdAt: LessThan(cutoff) },
-      { status: CONFIRMATION_STATUS.TIMEOUT, decidedAt: new Date() },
-    );
-    return res?.affected ?? 0;
+    const due = await this.reqRepo.find({
+      where: { status: CONFIRMATION_STATUS.PENDING, createdAt: LessThan(cutoff) },
+    });
+    const expired: ExpiredConfirmation[] = [];
+    for (const row of due) {
+      const decidedAt = new Date();
+      const res = await this.reqRepo.update(
+        { id: row.id, status: CONFIRMATION_STATUS.PENDING },
+        { status: CONFIRMATION_STATUS.TIMEOUT, decidedAt },
+      );
+      if (res?.affected !== 1) continue;
+      expired.push({
+        token: row.token,
+        operatorId: row.operatorId,
+        toolName: row.toolName,
+        args: row.args,
+        conversationId: row.conversationId,
+        authorization: row.authorization,
+        decidedAt,
+      });
+    }
+    return expired;
   }
 
   /**

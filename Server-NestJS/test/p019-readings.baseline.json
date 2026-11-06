@@ -1,10 +1,13 @@
 {
   "$comment": "Pinned readings for `npm run measure:p019` (P0-19 ②). Written by that script with --update; do not hand-edit. A diff here is the claim that a reading moved on purpose — say why in the commit message. Values come from Server-NestJS/test/p019-readings.measure.ts.",
-  "$pinnedAt": "2026-11-05",
+  "$pinnedAt": "2026-11-06",
   "readings": [
     {
       "door": "chat",
       "klass": "blocked",
+      "coverage": {
+        "status": "measured"
+      },
       "ar": {
         "numerator": 5,
         "denominator": 5,
@@ -46,6 +49,9 @@
     {
       "door": "mcp",
       "klass": "mcp-blocked",
+      "coverage": {
+        "status": "measured"
+      },
       "ar": {
         "numerator": 5,
         "denominator": 5,
@@ -87,6 +93,9 @@
     {
       "door": "mcp",
       "klass": "mcp-held",
+      "coverage": {
+        "status": "measured"
+      },
       "ar": {
         "numerator": 5,
         "denominator": 6,
@@ -128,6 +137,9 @@
     {
       "door": "mcp",
       "klass": "mcp-read",
+      "coverage": {
+        "status": "measured"
+      },
       "ar": {
         "numerator": 5,
         "denominator": 5,
@@ -167,8 +179,55 @@
       }
     },
     {
+      "door": "chat",
+      "klass": "offline-expired",
+      "coverage": {
+        "status": "measured"
+      },
+      "ar": {
+        "numerator": 5,
+        "denominator": 6,
+        "detail": {
+          "who": true,
+          "what": true,
+          "why-allowed": true,
+          "who-approved": false,
+          "who-approved-second": null,
+          "result": true,
+          "how-proved": true
+        },
+        "evidence": {
+          "who": "ai_audit_logs.user_id + username",
+          "what": "ai_audit_logs.tool + ai_audit_logs.tool_args",
+          "why-allowed": "ai_audit_logs.authorization",
+          "who-approved": "ai_confirmation_requests.status + decided_at + (approver_id ?? operator_id)",
+          "who-approved-second": "ai_confirmation_requests.status + approver_id (second person only)",
+          "result": "ai_audit_logs.outcome",
+          "how-proved": "ai_audit_logs.hash (+ prev_hash chain)"
+        }
+      },
+      "lc": {
+        "present": 4,
+        "required": 5,
+        "detail": {
+          "turn": false,
+          "proposal": true,
+          "policy-decision": true,
+          "confirmation-asked": true,
+          "human-decision": false,
+          "execution": false,
+          "side-effect": false,
+          "outcome": true,
+          "revocability": false
+        }
+      }
+    },
+    {
       "door": "r4",
       "klass": "r4-approved",
+      "coverage": {
+        "status": "measured"
+      },
       "ar": {
         "numerator": 7,
         "denominator": 7,
@@ -210,6 +269,9 @@
     {
       "door": "chat",
       "klass": "success",
+      "coverage": {
+        "status": "measured"
+      },
       "ar": {
         "numerator": 6,
         "denominator": 6,
@@ -251,6 +313,9 @@
     {
       "door": "chat",
       "klass": "timeout",
+      "coverage": {
+        "status": "measured"
+      },
       "ar": {
         "numerator": 5,
         "denominator": 6,

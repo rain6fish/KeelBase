@@ -35,6 +35,7 @@ function inMemoryRepo(rows: Array<Record<string, any>>) {
     });
   return {
     findOne: jest.fn(async ({ where }: { where: Record<string, any> }) => rows.find((r) => matches(r, where)) ?? null),
+    find: jest.fn(async ({ where }: { where: Record<string, any> }) => rows.filter((r) => matches(r, where))),
     update: jest.fn(async (criteria: Record<string, any>, patch: Record<string, any>) => {
       const hit = rows.filter((r) => matches(r, criteria));
       for (const r of hit) Object.assign(r, patch);
@@ -44,7 +45,13 @@ function inMemoryRepo(rows: Array<Record<string, any>>) {
 }
 
 describe('ConfirmationStore', () => {
-  let repo: { save: jest.Mock; create: jest.Mock; update: jest.Mock; findOne: jest.Mock };
+  let repo: {
+    save: jest.Mock;
+    create: jest.Mock;
+    update: jest.Mock;
+    findOne: jest.Mock;
+    find: jest.Mock;
+  };
   let store: ConfirmationStore;
 
   beforeEach(() => {
@@ -53,6 +60,7 @@ describe('ConfirmationStore', () => {
       create: jest.fn((input: unknown) => input),
       update: jest.fn().mockResolvedValue({ affected: 1 }),
       findOne: jest.fn(),
+      find: jest.fn().mockResolvedValue([]),
     };
     store = new ConfirmationStore(repo as any, 1000);
   });
@@ -367,7 +375,7 @@ describe('ConfirmationStore', () => {
       });
       // Sweep: the row at that instant is not matched by `< cutoff` (only the 1ms-earlier row is).
       // 清扫：那一刻的行不被 `< cutoff` 命中（只有早 1ms 的那条被扫）
-      await expect(edgeStore.expireStale(CONFIRMATION_DEFAULT_OFFLINE_TTL_MS)).resolves.toBe(1);
+      await expect(edgeStore.expireStale(CONFIRMATION_DEFAULT_OFFLINE_TTL_MS)).resolves.toHaveLength(1);
       expect(rows[0].status).toBe(CONFIRMATION_STATUS.APPROVED);
       expect(rows[1].status).toBe(CONFIRMATION_STATUS.TIMEOUT);
     });
@@ -395,26 +403,64 @@ describe('ConfirmationStore', () => {
     });
   });
 
-  it('expireStale：把超离线窗口的 pending 行转 timeout，返回受影响行数', async () => {
-    repo.update.mockResolvedValue({ affected: 3 });
+  // P0-19 ⑧：清扫不再只返回一个数 —— 调用方要为每一行写一条结构化记录，而一次批量更新说不出它到底
+  // 赢了哪些候选。故每行仍由各自的条件更新翻转（唯一仲裁点不变），返回的是**真正被翻转的行**；已裁决的
+  // 与仍在窗口内的都不在其中。这条用例用会求值条件的假仓库，故它分得清「按条件翻转」与「照着候选写」。
+  //
+  // P0-19 ⑧: the sweep no longer returns a bare count — the caller records each row, and a bulk update
+  // cannot say which candidates it won. Each row is still flipped by its own conditional update (the
+  // single arbitration point is unchanged) and the return is the rows that actually flipped; decided
+  // rows and rows still inside the window are not among them.
+  it('expireStale：把超离线窗口的 pending 行转 timeout，返回被翻转的行', async () => {
+    const now = Date.now();
+    const old = new Date(now - 120_000);
+    const rows = [
+      { id: 1, token: 'a', operatorId: '1', toolName: 'create_event', args: '{}', status: 'pending', createdAt: old },
+      { id: 2, token: 'b', operatorId: '1', toolName: 'create_event', args: '{}', status: 'approved', createdAt: old },
+      { id: 3, token: 'c', operatorId: '1', toolName: 'create_event', args: '{}', status: 'pending', createdAt: new Date(now) },
+      {
+        id: 4,
+        token: 'd',
+        operatorId: '1',
+        toolName: 'create_event',
+        args: '{"title":"x"}',
+        status: 'pending',
+        createdAt: old,
+        conversationId: 'conv-1',
+        authorization: '{"allowed":true}',
+      },
+    ];
+    const memory = inMemoryRepo(rows);
+    const sweepStore = new ConfirmationStore(memory as never, 1000);
 
-    const n = await store.expireStale(60_000);
+    const expired = await sweepStore.expireStale(60_000);
 
-    expect(n).toBe(3);
-    const [criteria, patch] = repo.update.mock.calls[0];
-    expect(criteria).toMatchObject({ status: 'pending' });
-    expect(patch).toMatchObject({ status: 'timeout' });
+    expect(expired.map((r) => r.token).sort()).toEqual(['a', 'd']);
+    expect(rows[0].status).toBe('timeout');
+    expect(rows[1].status).toBe('approved');
+    expect(rows[2].status).toBe('pending');
+    // The record-writer needs the basis that was parked at issue time, not a recomputation.
+    // 写记录的一方要的是签发时停在这里的依据，不是重算的一份。
+    expect(expired.find((r) => r.token === 'd')).toMatchObject({
+      toolName: 'create_event',
+      args: '{"title":"x"}',
+      conversationId: 'conv-1',
+      authorization: '{"allowed":true}',
+    });
   });
 
   it('离线窗口判据单源：清扫用的 cutoff 就是共享函数的 cutoff（两处不可能各算一份）', async () => {
     // 原先读取路径在内存里自算 cutoff、清扫任务在 SQL 里另算一份，只靠一句注释维持一致。
     // 现两处都走 offlineWindowCutoff：本断言把清扫传进 SQL 的那个时刻钉到共享实现上。
+    //
+    // 判据从 `update` 挪到 `find`：清扫先按窗口取候选、再逐行条件翻转，cutoff 仍只算一次、只在
+    // `offlineWindowCutoff` 里算。
     const now = 1_700_000_000_000;
     const spy = jest.spyOn(Date, 'now').mockReturnValue(now);
     try {
       await store.expireStale(60_000);
-      const [criteria] = repo.update.mock.calls[0];
-      const cutoff = (criteria as { createdAt: { value: Date } }).createdAt.value;
+      const [{ where }] = repo.find.mock.calls[0];
+      const cutoff = (where as { createdAt: { value: Date } }).createdAt.value;
       expect(cutoff.getTime()).toBe(offlineWindowCutoff(60_000, now).getTime());
     } finally {
       spy.mockRestore();

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { DataSource, QueryRunner } from 'typeorm';
-import { AddOperationIdentity1848000000000 } from '../1848000000000-AddOperationIdentity';
+import { AddOperationIdentity1849000000000 } from '../1849000000000-AddOperationIdentity';
 
 /**
  * **本文件必须留在 `src/migrations/__tests__/`**：迁移 glob（sqlite `../migrations/*{.ts,.js}` 与
@@ -65,10 +65,10 @@ const CLAIM_COLUMNS_BEFORE = [
   'policy_revision',
 ];
 
-describe('1848000000000 AddOperationIdentity（AW-20 操作身份 + possible-duplicate）', () => {
+describe('1849000000000 AddOperationIdentity（AW-20 操作身份 + possible-duplicate）', () => {
   let ds: DataSource;
   let runner: QueryRunner;
-  const migration = new AddOperationIdentity1848000000000();
+  const migration = new AddOperationIdentity1849000000000();
 
   const columnsOf = async (table: string): Promise<string[]> => {
     const rows = (await ds.query(`PRAGMA table_info("${table}")`)) as Array<{ name: string }>;

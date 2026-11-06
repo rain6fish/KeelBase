@@ -49,6 +49,7 @@ import { PointsModule } from '../src/points/points.module';
 import { WebhookModule } from '../src/webhooks/webhook.module';
 import { FeedbackModule } from '../src/feedback/feedback.module';
 import { DataImportModule } from '../src/data-import/data-import.module';
+import { MaintenanceTasksModule } from '../src/maintenance-tasks/maintenance-tasks.module';
 import { WsAdapter } from '@nestjs/platform-ws';
 import { AllExceptionsFilter } from '../src/common/filters/http-exception.filter';
 import { ResponseInterceptor } from '../src/common/interceptors/response.interceptor';
@@ -200,6 +201,13 @@ pruneStaleE2eDbs();
     WebhookModule,
     FeedbackModule,
     DataImportModule,
+    // P0-19 ⑧：离线窗口到期的记录由维护任务写（它手上有用户名用的 repo）。仪表要驱动**真实**的清扫
+    // 路径，故这个模块必须在测试 app 里；测试 app 不注册 ScheduleModule，故 @Cron 方法不会自己跑。
+    //
+    // P0-19 ⑧: the expiry records are written by the maintenance task (it holds the repo the username
+    // snapshot needs). The instrument drives the **real** sweep, so this module has to be here. The
+    // test app registers no ScheduleModule, so the @Cron methods never fire on their own.
+    MaintenanceTasksModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
