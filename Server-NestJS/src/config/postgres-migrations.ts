@@ -124,6 +124,11 @@ export const POSTGRES_MIGRATION_GLOBS: string[] = [
   // AW-17：目标状态查询证据表（实体在、pg 侧也要有，否则实体↔迁移漂移）
   // AW-17: the target-status lookup evidence table (the entity exists, so postgres needs it too).
   '*AddTargetStatusLookups*',
+  // AW-16 F-64：占位行的治理处置（窗口到期 / 待裁 / 已释放但结论未知）—— pg 侧同样需要，
+  // 否则实体要的 decision_state 在 pg 上不存在。
+  // AW-16 F-64: the claim row's governance disposition — postgres needs it too, or the entity's
+  // decision_state has no column there.
+  '*AddClaimDecisionState*',
 ];
 
 /** 有意排除于 postgres 的迁移（仅 sqlite；postgres 由 PostgresInitialSchema / PostgresIncrementalSchema 基线覆盖） */

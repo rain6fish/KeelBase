@@ -19,6 +19,7 @@ import { createHash } from 'crypto';
 import { ToolRegistry } from './tool-registry';
 import { ToolGateService } from './tool-gate.service';
 import { ExternalToolRegistry } from './external-tool-registry';
+import { WRITE_CLAIM_DECISION_STATE } from '../../governance-shared/entities/ai-write-claim.entity';
 import { ProxyTool } from '../proxy/proxy-tool';
 // ACT-9b：把这次写的 action key 送给出站写出方（`ProxyTool` 据此发 `Idempotency-Key`）
 import { outboundIdempotencyKey } from '../proxy/outbound-idempotency';
@@ -239,11 +240,22 @@ export class ToolExecutionService {
       if (!claim.won) {
         // 已有人持有这次执行 ⇒ **绝不重复执行**。如实报「未执行 + 为什么」——不谎报成功，也不谎报失败。
         // 对**外部写**尤其要紧：目标系统那边发生了什么我们本来就不掌握，重发一次可能是真双写。
+        //
+        // AW-16 F-63: a hold a human released reads `closed_unknown`, not "another request took it
+        // over" — nobody is executing it, and saying so would report a fact we do not have. What is
+        // true is that the decision closed the handling and the key stays occupied, so this call
+        // does not run and nothing will retry it silently.
+        // AW-16 F-63：人已释放的占位读作 `closed_unknown`，而不是「另一请求已接管」—— 没有人在执行它，
+        // 那么说会报出一个我们没有的事实。真实情况是：决定关闭了处理、键仍被占住，故本次不执行，
+        // 也不会有任何东西悄悄重试它。
         return {
           success: false,
           error:
-            `工具 "${toolName}" 的这次调用已由另一请求接管（状态 ${claim.status}）——` +
-            `本次未执行；其结果是成功还是失败不由本次调用回答`,
+            claim.status === WRITE_CLAIM_DECISION_STATE.CLOSED_UNKNOWN
+              ? `工具 "${toolName}" 的这次调用此前已由人工释放（结论未知，键仍被占住）——` +
+                `本次未执行，也不会自动重试；如需重试，请以一次新的调用发起`
+              : `工具 "${toolName}" 的这次调用已由另一请求接管（状态 ${claim.status}）——` +
+                `本次未执行；其结果是成功还是失败不由本次调用回答`,
         };
       }
     }

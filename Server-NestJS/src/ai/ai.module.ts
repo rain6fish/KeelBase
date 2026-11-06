@@ -152,6 +152,7 @@ import { AiToolSideEffect } from '../governance-shared/entities/ai-tool-side-eff
 import { EffectComparability } from '../governance-shared/entities/effect-comparability.entity';
 import { AiWriteClaim } from '../governance-shared/entities/ai-write-claim.entity';
 import { WriteClaimQueryService } from '../governance-shared/services/write-claim-query.service';
+import { WriteClaimDecisionService } from '../governance-shared/services/write-claim-decision.service';
 import { AiToolEffectsService } from '../governance-shared/services/ai-tool-effects.service';
 import { TrustSandboxService } from './trust-sandbox/trust-sandbox.service';
 import { SideEffectSnapshotCaptor } from '../governance-shared/services/side-effect-snapshot-captor';
@@ -283,6 +284,8 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     AiToolEffectsService,
     // AW-16：在途占位行的只读查询面（读 `AiWriteClaim`，不改任何状态）
     WriteClaimQueryService,
+    // AW-16 F-63/F-64：到期清扫与释放（唯一移动 `decision_state` 的地方）
+    WriteClaimDecisionService,
     // Trust 沙盘（internal-roadmap §internal.15 可视化 P0）：工作台一键重放 Trust 六场景
     TrustSandboxService,
     SideEffectSnapshotCaptor,
@@ -607,6 +610,6 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
       inject: [ConfigService, EventsService, UsersService, OrgService, OrgDirectoryService, ConversationService, AuditService, AiDailyUsageService, ToolGateService, ToolExecutionService, R4ApprovalService, ToolPresentationService, ToolExposureService, KnowledgeService, CaslAbilityFactory, TodosService, LeaveRequestsService, InventoryMovementsService, AssetLoansService, PointsLedgersService, PointRecordsService, PostsService, TagsService, SuppliersService, NotesService, BooksService, ReportsService, FollowupPlansService, ContractsService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, AiToolEffectsService, GovernancePolicyService, CrmService, CrmAnalyticsService, PmService, ApprovalService, DelegationTokenService, ContentSafetyService, ToolRegistry, AuthorizationExplainerService],
     },
   ],
-  exports: [ConversationService, AiAuditModule, AiService, KnowledgeIngestionService, AuthzExplainModule, GovernanceSharedModule, ConfirmationStore, BehaviorBaselineService, AuditStatsService, AuditQueryService, AuditEvidenceService, AiDailyUsageService, ToolGateService, ToolExecutionService, R4ApprovalService, ToolPresentationService, ToolExposureService],
+  exports: [ConversationService, AiAuditModule, AiService, KnowledgeIngestionService, AuthzExplainModule, GovernanceSharedModule, ConfirmationStore, BehaviorBaselineService, AuditStatsService, AuditQueryService, AuditEvidenceService, AiDailyUsageService, ToolGateService, ToolExecutionService, R4ApprovalService, ToolPresentationService, ToolExposureService, WriteClaimDecisionService],
 })
 export class AiModule {}

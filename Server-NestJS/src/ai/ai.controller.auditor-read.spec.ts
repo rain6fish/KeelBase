@@ -87,6 +87,12 @@ describe('AiController · auditor read surfaces (AW-2 second half)', () => {
     ['applyPolicyPreset', 'POST /ai/governance/policy/apply-preset'],
     ['decideApproval', 'POST /ai/confirmations/:token/approve-by'],
     ['retryApprovalExecution', 'POST /ai/confirmations/:token/retry-execution'],
+    // AW-16 F-63: releasing a stuck hold is a decision about the record the auditor reviews. It sits
+    // directly under the read above and must stay closed to the reader — the role reads the queue, it
+    // does not rule on it.
+    // AW-16 F-63：释放滞留占位是对「读者所复核之记录」的裁决。它正压在上一面的读端点下方，必须对读者
+    // 保持关闭 —— 这个角色读队列，不裁决队列。
+    ['releaseToolEffectClaim', 'POST /ai/tool-effects/claims/:id/release'],
   ];
 
   it.each(STILL_CLOSED)('%s (%s): auditor still 403 (admin unaffected)', async (method) => {

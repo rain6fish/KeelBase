@@ -17,6 +17,7 @@ import { BehaviorBaselineService } from '../ai/behavior-baseline/behavior-baseli
 import { AlertWebhookService } from '../alert-webhook/alert-webhook.service';
 import { AuditEvidenceService } from '../governance-shared/services/audit-evidence.service';
 import { OperationAuditService } from '../operation-audit/operation-audit.service';
+import { WriteClaimDecisionService } from '../governance-shared/services/write-claim-decision.service';
 
 /**
  * 定时任务（PL-7，@nestjs/schedule cron）。
@@ -45,6 +46,8 @@ export class MaintenanceTasksService {
     // HS-11 §22.10 债 3：两条哈希链的读侧校验（AI 审计 + 操作审计），供定期完整性巡检
     private readonly auditEvidence: AuditEvidenceService,
     private readonly operationAudit: OperationAuditService,
+    // AW-16 F-64：占位窗口到期的清扫（只移动 `decision_state`，不碰状态、不写结论）
+    private readonly writeClaimDecision: WriteClaimDecisionService,
   ) {}
 
   /**
@@ -52,6 +55,31 @@ export class MaintenanceTasksService {
    * 对话内等待（60s）结束时**不再**改 DB——行的生死由这条清理决定；窗口值取自 store（单源）。
    * 每小时一次：窗口是小时级（默认 24h），无需更密。
    */
+  /**
+   * AW-16 F-64: end the in-flight window for overdue write holds and put them in the pending-decision
+   * queue. Nothing else changes: `status` stays `claimed`, no conclusion is written, and no release
+   * happens — a row that is still executing (a slow external call) must keep the ability to settle.
+   * If this sweep had moved rows to `released`, a late completion could no longer record itself.
+   *
+   * Hourly: the window is minute-scale on a backlog nobody watches second by second, and the read
+   * surfaces still report `stale` (an age reading) in the meantime.
+   *
+   * AW-16 F-64：结束到期写占位的在途窗口，把它们放进待裁队列。别的什么都不变：`status` 仍是
+   * `claimed`、不写结论、不发生释放 —— 仍在执行的行（慢的外部调用）必须保留落定的能力。若这次清扫把
+   * 行改成了 `released`，迟到的完成就再也记不下自己。
+   *
+   * 每小时一次：窗口是分钟级，而积压不是按秒盯的；这期间读侧仍会报 `stale`（年龄读数）。
+   */
+  @Cron(CronExpression.EVERY_HOUR)
+  async expireInFlightClaimWindows() {
+    const { moved, thresholdMinutes } = await this.writeClaimDecision.sweepOverdue();
+    if (moved > 0) {
+      this.logger.log(
+        `写占位窗口到期：${moved} 条 → awaiting_decision（阈值 ${thresholdMinutes} 分钟，仅是处置、未释放）`,
+      );
+    }
+  }
+
   @Cron(CronExpression.EVERY_HOUR)
   async expireStaleConfirmations() {
     const ttlMs = await this.confirmationStore.offlineTtlMs();

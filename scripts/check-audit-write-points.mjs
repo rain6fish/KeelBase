@@ -147,6 +147,11 @@ const EXEMPT = [
     action: null,
     reason: 'forwarding endpoint — action and fields come from the caller DTO, pinned to the frozen external-audit schema; naming outcome/tool here would need a contract bump.',
   },
+  {
+    file: 'Server-NestJS/src/governance-shared/services/write-claim-decision.service.ts',
+    action: 'claim_release',
+    reason: 'a human release of a write hold is a decision, not a tool outcome: the conclusion deliberately stays unknown, so no outcome word could be truthful. `tool` is passed (AW-16 F-63).',
+  },
 ];
 
 /**

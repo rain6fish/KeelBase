@@ -87,6 +87,7 @@ describe('AiController', () => {
       undefined as any, // auditEvidence（第三刀）
       undefined as any, // r4Approval（第七刀）
       mockToolExposure, // 工具对外面（第九刀）
+      undefined as any, // writeClaimDecision（AW-16 F-63/F-64，本文件不涉及）
     );
   });
 
@@ -109,6 +110,7 @@ describe('AiController', () => {
         undefined as any,
         { retryExecution: retry } as any,
         {} as any,
+        {} as any, // writeClaimDecision（AW-16 F-63/F-64）
       );
 
     it('重试成功 → 透传结果', async () => {

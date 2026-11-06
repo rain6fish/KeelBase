@@ -4,7 +4,11 @@ import { Logger } from '@nestjs/common';
 import { DataSource, Repository } from 'typeorm';
 import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
 import { AiAuditLog } from '../../governance-shared/entities/ai-audit-log.entity';
-import { AiWriteClaim, WRITE_CLAIM_STATUS } from '../entities/ai-write-claim.entity';
+import {
+  AiWriteClaim,
+  WRITE_CLAIM_DECISION_STATE,
+  WRITE_CLAIM_STATUS,
+} from '../entities/ai-write-claim.entity';
 import { argsHash, buildKey } from './effect-shared';
 import type { WriteToolContext } from './tool-effects.types';
 
@@ -136,6 +140,24 @@ export class WriteClaimStore {
           return { won: false, status: again?.status ?? 'unreadable', effectId: again?.effectId ?? null };
         }
         return { won: true };
+      }
+      // AW-16 F-63: a hold a human released is still `claimed` on the ledger (the truth about the
+      // write is unknown), but no request is executing it. Report the decision by its own name
+      // instead of letting the caller say "another request took over" — that would assert a fact we
+      // do not have, and the caller's message is the only place this reading surfaces.
+      //
+      // AW-16 F-63：人已释放的占位在账上仍是 `claimed`（这次写的真相未知），但并没有请求在执行它。
+      // 按它自己的名字报出这份决定，而不是让调用方说「另一请求已接管」—— 那会断言一个我们没有的事实，
+      // 而调用方的提示语正是这个读数唯一露头的地方。
+      if (
+        existing.status === WRITE_CLAIM_STATUS.CLAIMED &&
+        existing.decisionState === WRITE_CLAIM_DECISION_STATE.CLOSED_UNKNOWN
+      ) {
+        return {
+          won: false,
+          status: WRITE_CLAIM_DECISION_STATE.CLOSED_UNKNOWN,
+          effectId: existing.effectId ?? null,
+        };
       }
       return { won: false, status: existing.status, effectId: existing.effectId ?? null };
     }
@@ -285,12 +307,22 @@ export class WriteClaimStore {
   /**
    * 崩溃残留：仍是 `claimed` 且已超过阈值。**可见，但不自动解决** —— 与 REV-11 的认领同一口径：
    * KeelBase 不知道那次执行是否落了库，自动改写状态就是拿猜测冒充事实。
+   *
+   * AW-16 F-63：人已释放（`closed_unknown`）的行不在这里 —— 它不该继续以「卡住、等人处理」的形态
+   * 出现在副作用列表上。它的 `status` 仍是 `claimed`（真相未知），所以它也没有变成一次允许重试的释放。
+   *
+   * AW-16 F-63: rows a human released (`closed_unknown`) are excluded — a hold that was already
+   * handled must not keep appearing as "stuck, awaiting attention". Its `status` stays `claimed` (the
+   * truth is unknown), so it has not become a release that permits a retry either.
    */
   async listStaleClaims(olderThanMs: number): Promise<AiWriteClaim[]> {
     if (!this.claimsRepo) return [];
     return this.claimsRepo
       .createQueryBuilder('c')
       .where('c.status = :s', { s: WRITE_CLAIM_STATUS.CLAIMED })
+      .andWhere('c.decisionState != :closed', {
+        closed: WRITE_CLAIM_DECISION_STATE.CLOSED_UNKNOWN,
+      })
       .andWhere('c.claimedAt < :cut', { cut: new Date(Date.now() - olderThanMs) })
       .orderBy('c.claimedAt', 'ASC')
       .getMany();

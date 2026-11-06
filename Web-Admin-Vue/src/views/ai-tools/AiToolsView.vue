@@ -81,6 +81,14 @@
       <div class="d-flex ga-3 align-center">
         <el-input v-model="claimUserId" :placeholder="t('filterByUserId')" clearable style="max-width: 180px" />
         <el-input v-model="claimToolName" :placeholder="t('inFlightFilterByTool')" clearable style="max-width: 220px" />
+        <!-- AW-16 F-64：默认读「未关闭」= 在途 + 待裁；已释放的行只有在明确选「已关闭」时才出现 -->
+        <el-select v-model="claimDecision" style="max-width: 190px">
+          <el-option value="in_flight" :label="t('inFlightDecisionLive')" />
+          <el-option value="open" :label="t('inFlightDecisionOpen')" />
+          <el-option value="awaiting_decision" :label="t('inFlightDecisionAwaiting')" />
+          <el-option value="closed_unknown" :label="t('inFlightDecisionClosed')" />
+          <el-option value="all" :label="t('inFlightDecisionAll')" />
+        </el-select>
         <el-checkbox v-model="claimStaleOnly">{{ t('inFlightOnlyStale') }}</el-checkbox>
         <el-button type="primary" @click="loadInFlight()">
           <template #icon><AppIcon icon="mdi-filter-variant" /></template>
@@ -102,6 +110,39 @@
       <template #item.stale="{ item }">
         <el-tag v-if="item.stale" size="small" type="warning" effect="light">{{ t('inFlightStale') }}</el-tag>
         <span v-else class="text-caption text-medium-emphasis">{{ t('inFlightRunning') }}</span>
+      </template>
+      <!-- AW-16 F-64：治理处置 —— 「待裁」不是失败，「已关闭」也不是成功：两者都还是未知 -->
+      <template #item.decisionState="{ item }">
+        <el-tag v-if="item.decisionState === 'awaiting_decision'" size="small" type="warning" effect="dark">
+          {{ t('inFlightDecisionAwaiting') }}
+        </el-tag>
+        <el-tag v-else-if="item.decisionState === 'closed_unknown'" size="small" type="info" effect="plain">
+          {{ t('inFlightDecisionClosed') }}
+        </el-tag>
+        <span v-else class="text-caption text-medium-emphasis">{{ t('inFlightDecisionOpen') }}</span>
+      </template>
+      <!-- AW-15 两列：缺读由服务端报 `unknown`，前端不重算、不回填 -->
+      <template #item.decidedRole="{ item }">
+        <span class="text-caption">{{ item.decidedRole }}</span>
+      </template>
+      <template #item.policyRevision="{ item }">
+        <span class="text-caption">{{ item.policyRevision }}</span>
+      </template>
+      <template #item.actions="{ item }">
+        <el-button
+          v-if="canRelease(item)"
+          text
+          size="small"
+          type="warning"
+          :title="t('inFlightRelease')"
+          @click="openRelease(item)"
+        >
+          <AppIcon icon="mdi-lock-open-variant-outline" />
+        </el-button>
+        <span v-else-if="item.decisionState === 'closed_unknown'" class="text-medium-emphasis text-caption">
+          {{ t('inFlightDecisionClosedHint') }}
+        </span>
+        <span v-else class="text-medium-emphasis text-caption">—</span>
       </template>
     </AppTable>
 
@@ -240,6 +281,29 @@
     <el-dialog v-if="canEdit" v-model="showDiffDialog" :title="t('fieldChange')" width="600px">
       <FieldDiff v-if="diffTarget" :before="diffTarget.beforeSnapshot" :after="diffTarget.afterSnapshot" />
     </el-dialog>
+
+    <!-- AW-16 F-63：释放滞留占位 —— 必须写说明；释放只关闭「处理」，不改结论，也不会允许静默重试 -->
+    <el-dialog v-if="canEdit" v-model="showRelease" :title="t('inFlightReleaseTitle')" width="560px">
+      <div class="text-caption text-medium-emphasis mb-3">
+        {{ t('inFlightReleaseHint', { tool: releaseTarget?.toolName || '-', id: releaseTarget?.id ?? '-' }) }}
+      </div>
+      <el-input v-model="releaseNote" type="textarea" :rows="3" :placeholder="t('inFlightReleaseNotePlaceholder')" />
+      <div v-if="releaseNote.trim().length < 8" class="text-caption text-error mt-1">
+        {{ t('inFlightReleaseNoteTooShort') }}
+      </div>
+      <el-input v-model="releaseEvidence" class="mt-3" :placeholder="t('inFlightReleaseEvidencePlaceholder')" />
+      <template #footer>
+        <el-button @click="showRelease = false">{{ t('cancel') }}</el-button>
+        <el-button
+          type="warning"
+          :loading="releasing"
+          :disabled="releaseNote.trim().length < 8"
+          @click="onRelease"
+        >
+          {{ t('inFlightRelease') }}
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -293,6 +357,10 @@ const claimScope = ref<'all' | 'org' | 'own'>('all')
 const claimUserId = ref('')
 const claimToolName = ref('')
 const claimStaleOnly = ref(false)
+// AW-16 F-64：默认「未关闭」= 在途 + 待裁。已释放的行只在明确选择「已关闭」时出现。
+const claimDecision = ref<'in_flight' | 'open' | 'awaiting_decision' | 'closed_unknown' | 'all'>(
+  'in_flight',
+)
 const claimScopeLabel = computed(() =>
   claimScope.value === 'org'
     ? t('inFlightScopeOrg')
@@ -308,7 +376,22 @@ const claimHeaders = computed(() => [
   { key: 'ageMinutes', title: t('inFlightAge') },
   { key: 'attempts', title: t('inFlightAttempts') },
   { key: 'stale', title: t('statusCol') },
+  { key: 'decisionState', title: t('inFlightDecision') },
+  { key: 'decidedRole', title: t('inFlightDecidedRole') },
+  { key: 'policyRevision', title: t('inFlightPolicyRevision') },
+  { key: 'actions', title: t('actionCol') },
 ])
+
+/**
+ * AW-16 F-63：可释放 = 滞留（服务端只接受已过阈值的行）且尚未关闭，且当前账号是管理员。
+ * 这里不重算「是否滞留」—— `stale` 是服务端的读数；前端只决定要不要放出这个入口。
+ *
+ * A release is offered only for a stale, not-yet-closed hold, and only to an admin. The staleness
+ * cut is the server's reading (`stale`); the front end only decides whether to show the entry point.
+ */
+function canRelease(item: InFlightClaim): boolean {
+  return canEdit.value && item.stale && item.decisionState !== 'closed_unknown'
+}
 // E-1 字段级变更审计：查看目标记录 before/after diff
 const diffTarget = ref<ToolEffect | null>(null)
 const showDiffDialog = ref(false)
@@ -472,6 +555,7 @@ async function loadInFlight() {
       userId: claimUserId.value.trim() || undefined,
       toolName: claimToolName.value.trim() || undefined,
       stale: claimStaleOnly.value,
+      decisionState: claimDecision.value,
     })
     claims.value = res.items
     claimTotal.value = res.total
@@ -481,6 +565,51 @@ async function loadInFlight() {
     snackbar.error(err instanceof Error ? err.message : t('loadFailed'))
   } finally {
     claimsLoading.value = false
+  }
+}
+
+/**
+ * AW-16 F-63：释放滞留占位。前端只收集**证据**（说明 + 可选引用）并提交；「是否滞留 / 是否可释放 /
+ * 释放后状态」全由服务端判定。成功后重拉同一视图 —— 已释放的行会从「未关闭」里消失。
+ *
+ * AW-16 F-63: release a stuck hold. The front end collects the **evidence** (note + optional ref) and
+ * submits it; whether the row is stale / releasable, and what state follows, are the server's calls.
+ * On success the same view is reloaded — a released row disappears from the "not closed" reading.
+ */
+const showRelease = ref(false)
+const releaseTarget = ref<InFlightClaim | null>(null)
+const releaseNote = ref('')
+const releaseEvidence = ref('')
+const releasing = ref(false)
+
+function openRelease(item: InFlightClaim) {
+  releaseTarget.value = item
+  releaseNote.value = ''
+  releaseEvidence.value = ''
+  showRelease.value = true
+}
+
+async function onRelease() {
+  if (!releaseTarget.value || releaseNote.value.trim().length < 8) return
+  releasing.value = true
+  try {
+    const res = await aiToolsApi.releaseClaim(releaseTarget.value.id, {
+      note: releaseNote.value.trim(),
+      ...(releaseEvidence.value.trim() ? { evidenceRef: releaseEvidence.value.trim() } : {}),
+    })
+    // 服务端按种类报结果：不是每一种都算成功 —— 如实提示，别把「已关闭」说成「释放成功」。
+    if (res.outcome === 'released_unknown') {
+      snackbar.success(t('inFlightReleaseDone'))
+      showRelease.value = false
+      loadInFlight()
+    } else {
+      snackbar.warning(t('inFlightReleaseRefused', { outcome: res.outcome }))
+      loadInFlight()
+    }
+  } catch (err) {
+    snackbar.error(err instanceof Error ? err.message : t('inFlightReleaseFailed'))
+  } finally {
+    releasing.value = false
   }
 }
 

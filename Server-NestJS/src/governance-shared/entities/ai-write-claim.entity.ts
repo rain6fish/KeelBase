@@ -13,6 +13,33 @@ export const WRITE_CLAIM_STATUS = {
 } as const;
 
 /**
+ * 占位行的**治理处置**（AW-16 F-64）—— 与 `status` 正交：`status` 说的是执行账本的事实
+ * （占住 / 已执行 / 确认未执行），本列说的是这份滞留**有没有人管、管到什么程度**。
+ *
+ * - `open`：仍在途窗口内。
+ * - `awaiting_decision`：窗口已到期，进入**待裁队列**。`status` 不变、结论不变；只有人或目标的
+ *   回答能移动它。
+ * - `closed_unknown`：人已释放这份滞留，**结论仍未知**（`status` 保持 `claimed`，键仍被占住）。
+ *   这正是「释放不等于允许静默重试」：同一次调用不会因为释放而悄悄重跑。
+ *
+ * The governance disposition of a claim — orthogonal to `status`. `status` is the execution ledger's
+ * fact; this column answers whether the stuck hold has an owner and how far that has gone. Expiry only
+ * moves `open → awaiting_decision`; a human release moves it to `closed_unknown` while `status` stays
+ * `claimed`, so the key remains occupied and the same call is never silently retried.
+ */
+export const WRITE_CLAIM_DECISION_STATE = {
+  /** 在途窗口内 / within the in-flight window */
+  OPEN: 'open',
+  /** 已到期，待裁 / window expired, awaiting a human decision */
+  AWAITING_DECISION: 'awaiting_decision',
+  /** 人已释放滞留，结论未知 / released by a human; conclusion unknown */
+  CLOSED_UNKNOWN: 'closed_unknown',
+} as const;
+
+export type WriteClaimDecisionState =
+  (typeof WRITE_CLAIM_DECISION_STATE)[keyof typeof WRITE_CLAIM_DECISION_STATE];
+
+/**
  * 执行级幂等的**占位行**（ACT-5/6 切片 1，roadmap §2.1.16）。
  *
  * 回答的是「**这一次写正在执行 / 已执行 / 试过但没成**」——在**执行之前**就落定。
@@ -94,6 +121,22 @@ export class AiWriteClaim {
   // 遇到 `| null` 会解析成 `Object` 而被 sqlite 驱动拒绝 —— 见本仓既有 prev_hash/hash 两列的同一写法）。
   @Column({ type: 'varchar', length: 32, nullable: true, name: 'release_reason' })
   releaseReason?: string | null;
+
+  /**
+   * AW-16 F-64: where this hold sits in the governance workflow — see `WRITE_CLAIM_DECISION_STATE`.
+   * Defaults to `open`; the hourly sweep moves overdue rows to `awaiting_decision` without touching
+   * `status`, and a human release moves them to `closed_unknown`.
+   *
+   * AW-16 F-64：这份滞留在治理流程里的位置 —— 见 `WRITE_CLAIM_DECISION_STATE`。默认 `open`；每小时
+   * 清扫把到期行移到 `awaiting_decision`（不碰 `status`），人的释放把它移到 `closed_unknown`。
+   */
+  @Column({
+    type: 'varchar',
+    length: 32,
+    default: WRITE_CLAIM_DECISION_STATE.OPEN,
+    name: 'decision_state',
+  })
+  decisionState!: string;
 
   /** 占位次数：每次 created 或 released→claimed 自增。用于辨识「反复失败」的写 */
   @Column({ type: 'integer', default: 1 })

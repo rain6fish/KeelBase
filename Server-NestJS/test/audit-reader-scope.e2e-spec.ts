@@ -381,7 +381,7 @@ describe('AW-2 audit reader: field whitelist + org/period scope', () => {
         // The projection's whole field set — an argument column could not hide in it.
         // 投影的完整字段集 —— 参数列无处可藏。
         expect(Object.keys(row).sort()).toEqual(
-          ['ageMinutes', 'agentId', 'argsHash', 'attempts', 'authorizationRef', 'claimedAt', 'conversationId', 'id', 'runId', 'stale', 'status', 'toolName', 'userId'].sort(),
+          ['ageMinutes', 'agentId', 'argsHash', 'attempts', 'authorizationRef', 'claimedAt', 'conversationId', 'decidedRole', 'decisionState', 'id', 'policyRevision', 'runId', 'stale', 'status', 'toolName', 'userId'].sort(),
         );
       } finally {
         await claimsRepo().delete(mine.id);
@@ -401,6 +401,77 @@ describe('AW-2 audit reader: field whitelist + org/period scope', () => {
         expect((after.body.data.items as Array<{ id: number }>).map((r) => r.id)).not.toContain(row.id);
       } finally {
         await claimsRepo().delete(row.id);
+      }
+    });
+
+    /**
+     * AW-16 F-63 on the real wire: releasing is an admin decision (the auditor reads the queue but
+     * does not rule on it), the evidence is required, the conclusion stays unknown (`status` remains
+     * `claimed`) and the row leaves the in-flight reading. The audit row is the record of the act.
+     *
+     * AW-16 F-63 走真实 HTTP：释放是管理员的决定（审计读者读队列、不裁决队列），证据必填，结论保持
+     * 未知（`status` 仍是 `claimed`），行离开在途读数。审计行就是这次动作的记录。
+     */
+    it('release: user/auditor 403, short note 400, admin closes the hold as unknown and it leaves the list', async () => {
+      const repo = claimsRepo();
+      const stale = (await repo.save({
+        idempotencyKey: `aw16-release-${Date.now()}`,
+        userId: String(userA.id),
+        toolName: 'send_email',
+        argsHash: 'deadbeefdeadbeef',
+        status: 'claimed',
+        claimedAt: new Date(Date.now() - 90 * 60_000),
+        attempts: 1,
+      })) as unknown as { id: number };
+
+      const releaseAs = (token: string, note: string) =>
+        request(app.getHttpServer())
+          .post(`/api/v1/ai/tool-effects/claims/${stale.id}/release`)
+          .set(authHeader(token))
+          .send({ note });
+
+      try {
+        await releaseAs(userA.token, 'e2e-release-user').expect(403);
+        await releaseAs(auditor.token, 'e2e-release-auditor').expect(403);
+        await releaseAs(admin.token, 'short').expect(400);
+
+        const res = await releaseAs(admin.token, 'e2e: target has no record for this request').expect(200);
+        expect(res.body.data).toMatchObject({
+          outcome: 'released_unknown',
+          status: 'claimed',
+          decisionState: 'closed_unknown',
+        });
+        expect(res.body.data.auditRowId).toBeGreaterThan(0);
+
+        const stored = (await repo.findOne({
+          where: { id: stale.id },
+        })) as unknown as { status: string; decisionState: string; releaseReason: string };
+        expect(stored.status).toBe('claimed');
+        expect(stored.decisionState).toBe('closed_unknown');
+        expect(stored.releaseReason).toBe('manual_release_unknown');
+
+        const auditRow = await ds.getRepository('ai_audit_logs').findOne({
+          where: { action: 'claim_release' } as never,
+        });
+        expect(auditRow).toBeTruthy();
+        expect((auditRow as unknown as { detail: string }).detail).toContain(
+          'target has no record',
+        );
+
+        // 默认在途视图里消失；只有显式查「已关闭」才看得到
+        const live = await readAs(admin.token).expect(200);
+        expect((live.body.data.items as Array<{ id: number }>).map((r) => r.id)).not.toContain(
+          stale.id,
+        );
+        const closed = await request(app.getHttpServer())
+          .get('/api/v1/ai/tool-effects/claims?decisionState=closed_unknown')
+          .set(authHeader(admin.token))
+          .expect(200);
+        expect((closed.body.data.items as Array<{ id: number }>).map((r) => r.id)).toContain(
+          stale.id,
+        );
+      } finally {
+        await repo.delete(stale.id);
       }
     });
   });
