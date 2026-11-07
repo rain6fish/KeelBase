@@ -50,6 +50,7 @@ describe('OperationAuditService', () => {
     createQueryBuilder: jest.fn().mockReturnValue({
       select: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
       limit: jest.fn().mockReturnThis(),
       getRawOne: jest.fn().mockResolvedValue(null),
     }),
@@ -239,6 +240,7 @@ describe('OperationAuditService', () => {
         leftJoin: jest.fn().mockReturnThis(),
         addSelect: jest.fn().mockReturnThis(),
         orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
         skip: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
@@ -289,6 +291,19 @@ describe('OperationAuditService', () => {
       expect(mockRepo.count).toHaveBeenCalledWith({
         where: { userId: 5, createdAt: expect.anything() },
       });
+    });
+
+    it('offset paging breaks timestamp ties by id, like the AI audit list', async () => {
+      // Two rows stamped in the same instant can otherwise split differently between two identical
+      // requests, so a row repeats or vanishes. The tie-break is the fix, so it is asserted.
+      // 同一时刻打戳的两行，在两次相同请求里否则可能切得不一样，于是有行重复或有行消失。tie-break 就是
+      // 那处修复，故用断言钉住。
+      const qb = mockQueryBuilder();
+
+      await service.getLogs(1, 20);
+
+      expect(qb.orderBy).toHaveBeenCalledWith('log.createdAt', 'DESC');
+      expect(qb.addOrderBy).toHaveBeenCalledWith('log.id', 'DESC');
     });
 
     it('filters by since only（count 不带 userId）', async () => {
@@ -393,6 +408,7 @@ describe('OperationAuditService', () => {
       mockRepo.createQueryBuilder.mockReturnValue({
         select: jest.fn().mockReturnThis(),
         orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
         limit: jest.fn().mockReturnThis(),
         getRawOne: jest.fn().mockResolvedValue({ hash: 'prev-h' }),
       });
@@ -432,6 +448,7 @@ describe('OperationAuditService', () => {
       const qb = {
         where: jest.fn().mockReturnThis(),
         orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
         getMany: jest.fn().mockResolvedValue(rows),
       };

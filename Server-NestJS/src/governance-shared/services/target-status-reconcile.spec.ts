@@ -2,7 +2,11 @@
 
 import { DataSource } from 'typeorm';
 import { AiToolSideEffect } from '../entities/ai-tool-side-effect.entity';
-import { AiWriteClaim, WRITE_CLAIM_STATUS } from '../entities/ai-write-claim.entity';
+import {
+  AiWriteClaim,
+  WRITE_CLAIM_DECISION_STATE,
+  WRITE_CLAIM_STATUS,
+} from '../entities/ai-write-claim.entity';
 import { TargetStatusLookupRow } from '../entities/target-status-lookup.entity';
 import { AiToolEffectsService } from './ai-tool-effects.service';
 import type { TargetStatusLookup } from '../../governance-core/target-status';
@@ -209,6 +213,32 @@ describe('AW-17 目标状态对账（只读查询收敛 unknown）', () => {
     expect(r.outcome).toBe('not_claimable');
     expect(r.claimStatus).toBe(WRITE_CLAIM_STATUS.SETTLED);
     expect(probe.lookup).not.toHaveBeenCalled();
+    expect(await lookups().count()).toBe(0);
+  });
+
+  it('人已释放的占位（claimed + closed_unknown）⇒ not_claimable，查询不得覆盖那份决定', async () => {
+    // AW-16 F-63 keeps the row `claimed` because the truth is unknown, and records the disposition
+    // separately. A later status query is evidence about the target, not a licence to undo a person's
+    // decision — so it must not move the ledger, and it must not even ask.
+    // AW-16 F-63 让该行保持 `claimed`（真相未知），处置另行记录。后来的状态查询是关于目标的证据，不是
+    // 推翻人之决定的许可 —— 故它既不得移动账，也不得去问。
+    const row = await claims().save(
+      claims().create(
+        staleClaim({
+          decisionState: WRITE_CLAIM_DECISION_STATE.CLOSED_UNKNOWN,
+          releaseReason: 'manual_release_unknown',
+        }),
+      ),
+    );
+    probe.lookup.mockResolvedValue(lookup({ conclusion: 'executed', reason: null }));
+
+    const r = await effects.reconcileClaim(row.id, 'admin-1');
+
+    expect(r.outcome).toBe('not_claimable');
+    expect(probe.lookup).not.toHaveBeenCalled();
+    const after = await claims().findOne({ where: { id: row.id } });
+    expect(after?.status).toBe(WRITE_CLAIM_STATUS.CLAIMED);
+    expect(after?.decisionState).toBe(WRITE_CLAIM_DECISION_STATE.CLOSED_UNKNOWN);
     expect(await lookups().count()).toBe(0);
   });
 

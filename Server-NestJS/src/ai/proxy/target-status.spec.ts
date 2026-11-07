@@ -373,4 +373,41 @@ describe('AW-17 目标状态查询（只读，一次）', () => {
       f.restore();
     }
   });
+
+  it('canAsk 与 lookup 问同一组门：声明不是 yes / 路径不可读 ⇒ false（按钮不亮）', () => {
+    // `lookup` refuses a declared `no` before it sends anything, and refuses a path it would never
+    // send (non-GET, absolute, no `{key}`). `canAsk` drives the console button, so it must answer with
+    // the same predicate — otherwise the button offers a query the probe will always refuse.
+    // `lookup` 在发出任何字节之前就拒绝声明为 `no` 的工具，也拒绝它绝不会发出的路径（非 GET、绝对、无
+    // `{key}`）。`canAsk` 驱动控制台按钮，故必须用同一组判据 —— 否则按钮提供的是一次探针必然拒绝的查询。
+    const f = stubFetch(async () => answer({ status: 'executed' }));
+    try {
+      expect(probeFor(writeTool({ statusPath: 'GET /c/{key}' })).canAsk('proxy_create_contract')).toBe(true);
+      expect(probeFor(writeTool({ statusPath: 'POST /c/{key}' })).canAsk('proxy_create_contract')).toBe(false);
+      expect(probeFor(writeTool({ statusPath: 'GET /c/no-key' })).canAsk('proxy_create_contract')).toBe(false);
+      expect(probeFor(writeTool({ statusPath: 'GET https://elsewhere/{key}' })).canAsk('proxy_create_contract')).toBe(false);
+      // The declaration gate is the other half: a configured path on a tool that declares `no` is not
+      // a query anyone may run, so the button must stay dark.
+      // 另一半是声明门：声明为 `no` 的工具即便配了路径，也不是任何人可以跑的查询 —— 按钮必须不亮。
+      const refuses = new (class extends ProxyTool {
+        override readonly capabilities = { statusLookup: 'no' } as const;
+      })(
+        {
+          name: 'proxy_create_contract',
+          description: '建合同',
+          method: 'POST',
+          path: '/contracts',
+          parameters: [],
+          statusPath: 'GET /c/{key}',
+        },
+        delegation as any,
+        base,
+        audience,
+      );
+      expect(probeFor(refuses).canAsk('proxy_create_contract')).toBe(false);
+      expect(f.calls).toHaveLength(0);
+    } finally {
+      f.restore();
+    }
+  });
 });

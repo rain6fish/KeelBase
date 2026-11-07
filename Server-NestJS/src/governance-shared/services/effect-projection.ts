@@ -211,7 +211,10 @@ export class EffectProjection {
       policyRevision: c.policyRevision ?? 'unknown',
       status: c.status,
       claimedAt: c.claimedAt.toISOString(),
-      ageMinutes: Math.floor((Date.now() - c.claimedAt.getTime()) / 60_000),
+      // Clamped like the in-flight projection: a clock that moved backwards must not print an age
+      // nobody can act on, and two surfaces describing the same row must not disagree about it.
+      // 与在途投影同样夹到 0：时钟回拨不该印出没人能据以行动的年龄，且描述同一行的两个面不该各说各话。
+      ageMinutes: Math.max(0, Math.floor((Date.now() - c.claimedAt.getTime()) / 60_000)),
       attempts: c.attempts,
     };
   }

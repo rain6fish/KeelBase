@@ -5,7 +5,7 @@ import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
 import { EffectComparability } from '../entities/effect-comparability.entity';
-import { AiWriteClaim, WRITE_CLAIM_STATUS } from '../entities/ai-write-claim.entity';
+import { AiWriteClaim, WRITE_CLAIM_DECISION_STATE, WRITE_CLAIM_STATUS } from '../entities/ai-write-claim.entity';
 import { TargetStatusLookupRow } from '../entities/target-status-lookup.entity';
 import { TARGET_STATUS, type TargetStatusLookup } from '../../governance-core/target-status';
 import type { ExternalRevoker } from '../../ai/proxy/proxy-revoker.service';
@@ -363,7 +363,15 @@ export class AiToolEffectsService {
       // 「没有这条占位」是两回事。
       return { outcome: 'not_found', conclusion: TARGET_STATUS.UNKNOWN, claimStatus: 'absent', evidence: null };
     }
-    if (claim.status !== WRITE_CLAIM_STATUS.CLAIMED) {
+    if (
+      claim.status !== WRITE_CLAIM_STATUS.CLAIMED ||
+      // AW-16 F-63: a hold a person released stays `claimed` on the ledger because the truth is
+      // unknown, but its disposition is recorded. A later query must not overwrite that decision with
+      // a reading it did not have — the release already said "nobody knows, and nobody will re-send".
+      // AW-16 F-63：人已释放的占位在账上仍是 `claimed`（真相未知），但处置已经记下。后来的查询不得
+      // 用它当时并不掌握的读数覆盖那份决定 —— 那次释放已经说了「没人知道，也不再重发」。
+      claim.decisionState === WRITE_CLAIM_DECISION_STATE.CLOSED_UNKNOWN
+    ) {
       return {
         outcome: 'not_claimable',
         conclusion: TARGET_STATUS.UNKNOWN,

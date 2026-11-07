@@ -40,25 +40,26 @@ import { ToolRegistry } from '../tools/tool-registry';
 import { DelegationTokenService } from '../../auth/delegation-token.service';
 import { ProxyTool } from './proxy-tool';
 import { ProxyTimeoutError, proxyFetch } from './proxy-http';
+import { NEVER_SENT_CODES, transportCode } from './transport-errors';
 import { resolveCapabilities } from '../interfaces/tool.interface';
 import { TARGET_STATUS, type TargetStatusLookup } from '../../governance-core/target-status';
 import type { TargetStatusProbe } from '../../governance-shared/services/tool-effects.types';
 
-/** The codes that mean the connection never opened — the request cannot have been sent. */
-const NEVER_SENT_CODES: ReadonlySet<string> = new Set([
-  'ENOTFOUND',
-  'EAI_AGAIN',
-  'ECONNREFUSED',
-  'EHOSTUNREACH',
-  'ENETUNREACH',
-]);
-
-/** undici hangs the code on `cause.code`; bare socket errors hang it on `code`. */
-function transportCode(err: unknown): string {
-  const e = err as { code?: unknown; cause?: unknown } | null;
-  const cause = (e?.cause ?? undefined) as { code?: unknown } | undefined;
-  if (typeof cause?.code === 'string') return cause.code;
-  return typeof e?.code === 'string' ? e.code : '';
+/**
+ * `[METHOD] path` → its two halves. A missing method defaults to GET, the same reading `revokePath`
+ * gets. One parser for the query and for "can we ask", so the console's button and the probe cannot
+ * disagree about the same declaration.
+ *
+ * `[METHOD] path` → 两半。缺方法时默认 GET，与 `revokePath` 同一读法。查询与「能不能问」共用这一个
+ * 解析器，控制台的按钮与探针就不会对同一份声明各说各话。
+ */
+function splitStatusPath(raw: string): { method: string; path: string } {
+  const trimmed = raw.trim();
+  const methodMatch = trimmed.match(/^([A-Za-z]+)\s+(.+)$/);
+  return {
+    method: (methodMatch?.[1] ?? 'GET').toUpperCase(),
+    path: (methodMatch?.[2] ?? trimmed).trim(),
+  };
 }
 
 /** The evidence for "we could not even ask": no query channel, or a configuration we refuse to send. */
@@ -101,10 +102,8 @@ export class ProxyTargetStatusProbe implements TargetStatusProbe {
     if (!tool.statusPath) return unanswered('target-status-unavailable');
 
     // `[METHOD] path` — a missing method defaults to GET, the same reading `revokePath` gets.
-    const trimmed = tool.statusPath.trim();
-    const methodMatch = trimmed.match(/^([A-Za-z]+)\s+(.+)$/);
-    const method = (methodMatch?.[1] ?? 'GET').toUpperCase();
-    let path = (methodMatch?.[2] ?? trimmed).trim();
+    const { method, path: declaredPath } = splitStatusPath(tool.statusPath);
+    let path = declaredPath;
 
     // Read-only by construction: anything but GET is refused before a single byte is sent.
     if (method !== 'GET') return unanswered('misconfigured', method, path);
@@ -159,9 +158,27 @@ export class ProxyTargetStatusProbe implements TargetStatusProbe {
     }
   }
 
-  /** AW-17: a property of the tool, not a query — no request leaves this method. */
+  /**
+   * AW-17: a property of the tool, not a query — no request leaves this method. It answers exactly
+   * the question `lookup` answers before it sends anything: the AW-19 declaration licenses a query,
+   * and the configured path is one this probe would actually send. A tool that declares
+   * `statusLookup: no` with a path configured must not light up the console's query button.
+   *
+   * AW-17：这是工具的性质，不是一次查询 —— 本方法不发任何请求。它回答的正是 `lookup` 在发出任何字节
+   * 之前要回答的那个问题：AW-19 的声明允许查询，且配置的路径确实是探针会发出的那一条。声明
+   * `statusLookup: no` 却配了路径的工具，不该点亮控制台上的查询按钮。
+   */
   canAsk(toolName: string): boolean {
-    return !!this.tool(toolName)?.statusPath;
+    const tool = this.tool(toolName);
+    if (!tool || !tool.statusPath) return false;
+    if (resolveCapabilities(tool).statusLookup !== 'yes') return false;
+    const { method, path } = splitStatusPath(tool.statusPath);
+    return (
+      method === 'GET' &&
+      !path.startsWith('//') &&
+      !/^https?:\/\//i.test(path) &&
+      path.includes('{key}')
+    );
   }
 
   /** The registered tool, or `undefined` when it is not a B-path proxy tool (or no longer registered). */

@@ -646,6 +646,10 @@ export class AiController {
    */
   @Post('tool-effects/claims/:id/reconcile')
   @CheckPolicies((ability) => ability.can('manage', 'all'))
+  // Nothing is created: the call asks the target once and returns a reading. Without the override Nest
+  // answers 201 Created on a POST that wrote nothing.
+  // 这里不创建任何东西：只向目标问一次并返回读数。不覆盖的话，Nest 会给一个什么都没创建的 POST 回 201。
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'AW-17：对卡住的外部写占位做一次性只读目标状态查询（管理员；无答案则保持 unknown）',
   })

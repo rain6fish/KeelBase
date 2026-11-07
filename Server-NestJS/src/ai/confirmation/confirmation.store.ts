@@ -518,7 +518,19 @@ export class ConfirmationStore {
         { id: row.id, status: CONFIRMATION_STATUS.PENDING },
         { status: CONFIRMATION_STATUS.TIMEOUT, decidedAt },
       );
-      if (res?.affected !== 1) continue;
+      // Zero rows: this sweep lost the arbitration (an out-of-band decision, or a window that closed
+      // first) — nothing changed, so there is no expiry to record. An **undefined** count is not the
+      // same fact: the driver did not say, and the row may well be `timeout` now. Ask the row rather
+      // than dropping it, or a call whose process died would lose the very record this sweep exists
+      // to write.
+      // 影响 0 行：本次清扫输了仲裁（被离线裁决抢先，或窗口先关）—— 什么都没改，故没有到期可记。
+      // 但「计数未定义」不是同一件事：驱动没给出答案，而行很可能已经是 `timeout`。去问那一行，而不是
+      // 丢掉它 —— 否则「进程已死的那次调用」会丢掉这条清扫存在的意义本身。
+      if (res?.affected === 0) continue;
+      if (res?.affected === undefined) {
+        const after = await this.reqRepo.findOne({ where: { id: row.id } });
+        if (after?.status !== CONFIRMATION_STATUS.TIMEOUT) continue;
+      }
       expired.push({
         token: row.token,
         operatorId: row.operatorId,

@@ -9,6 +9,8 @@
  * 调用方据此返回"超时"这一可判定的读数，而不是把其余失败也读成一个词（见 proxyErrorText）。
  */
 
+import { NEVER_SENT_CODES, transportCode } from './transport-errors';
+
 /** 默认超时（ms）；env `PROXY_FETCH_TIMEOUT_MS` 可覆盖 */
 const DEFAULT_PROXY_TIMEOUT_MS = 30_000;
 
@@ -76,32 +78,6 @@ export async function proxyFetch(
  * 请求发出之后才来的重置，意味着目标可能已收到，而「不可达」是在断言「没送到」。故兜底给不确定的读法，与
  * `tool-execution.service.ts` 外部 MCP 那条路同形。
  */
-/**
- * Codes that mean the connection **never opened**: the request cannot have been sent, so "not sent" is
- * a claim the transport layer supports. Everything else stays indeterminate rather than being read as
- * unreachable — a reset arriving after the request went out means the target may have received it, and
- * that is a different fact from never having got there.
- *
- * 这些码意味着**连接根本没建立**：请求不可能发出去，所以「没送到」是传输层支持得起的断言。其余一律留作
- * 不确定、**不**读作「不可达」——请求发出之后才来的重置意味着目标可能已经收到，那是与「根本没到」**不同**的
- * 一件事实。
- */
-const NEVER_SENT_CODES: ReadonlySet<string> = new Set([
-  'ENOTFOUND', // DNS 查不到主机
-  'EAI_AGAIN', // DNS 暂时失败
-  'ECONNREFUSED', // 对端在连上之前拒绝
-  'EHOSTUNREACH',
-  'ENETUNREACH',
-]);
-
-/** undici 把底层错误码挂在 `cause.code`，裸 socket 错误挂在 `code` —— 两处都看。 */
-function transportCode(err: unknown): string {
-  const e = err as { code?: unknown; cause?: unknown } | null;
-  const cause = (e?.cause ?? undefined) as { code?: unknown } | undefined;
-  if (typeof cause?.code === 'string') return cause.code;
-  return typeof e?.code === 'string' ? e.code : '';
-}
-
 export function proxyErrorText(err: unknown, prefix = '目标系统'): string {
   if (err instanceof ProxyTimeoutError) return `${prefix}请求超时（${err.timeoutMs}ms）`;
   // 三读里**唯一**敢说「没送到」的那一读：连接没建立过。判据 = 只是那几个码，不是「非超时」。

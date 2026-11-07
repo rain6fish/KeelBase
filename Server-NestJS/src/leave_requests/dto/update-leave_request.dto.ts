@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import { IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsIn, IsInt, IsString, Min, ValidateIf } from 'class-validator';
 import { CreateLeaveRequestDto } from './create-leave_request.dto';
 
 export class UpdateLeaveRequestDto extends PartialType(CreateLeaveRequestDto) {
@@ -14,7 +14,12 @@ export class UpdateLeaveRequestDto extends PartialType(CreateLeaveRequestDto) {
    */
   @ApiPropertyOptional({ description: 'status', enum: ['pending', 'approved', 'rejected'] })
   @IsString()
-  @IsOptional()
+  // `@IsOptional()` skips every other validator for `null` as well as `undefined`, so `{status: null}`
+  // passed the enum check and an administrator could write NULL into the column. Skip only when the
+  // field is absent — an explicit null is a value, and it is not one of the three states.
+  // `@IsOptional()` 对 `null` 与 `undefined` 都跳过其余校验器，于是 `{status: null}` 绕过了枚举，
+  // 管理员可以把 NULL 写进该列。只在字段**缺席**时跳过 —— 显式 null 是一个值，且不是那三个状态之一。
+  @ValidateIf((_, value) => value !== undefined)
   @IsIn(['pending', 'approved', 'rejected'])
   status?: string;
 

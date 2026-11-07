@@ -23,9 +23,9 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * rebuilt from the stored columns). Both tables are outside the audit hash chain, and both new columns
  * are additionally outside `_chainPayload`, so chain verification is unaffected.
  *
- * Index name: this is a partial index, so TypeORM's `<table>_<column>` hash naming does not apply to
- * it; the explicit name is the same one the entity declares, which keeps `synchronize` and this
- * migration in agreement.
+ * Index name: TypeORM names an index `IDX_` + sha1(`<table>_<column>`) truncated to 26 whether or not
+ * it carries a `WHERE` clause, so the partial index gets the same hash name any other column index
+ * would — the one the entity declares too, which keeps `synchronize` and this migration in agreement.
  *
  * AW-20：操作身份，以及一个记录「这次新写可能是对更早一次效果的重复」的位置。
  *
@@ -53,7 +53,7 @@ export class AddOperationIdentity1849000000000 implements MigrationInterface {
       queryRunner.connection.options.type === 'postgres' ? 'character varying' : 'varchar';
     await queryRunner.query(`ALTER TABLE "ai_write_claims" ADD "operation_key" ${varchar}(64)`);
     await queryRunner.query(
-      `CREATE UNIQUE INDEX "IDX_ai_write_claims_operation_lease" ON "ai_write_claims" ("operation_key") ` +
+      `CREATE UNIQUE INDEX "IDX_d74a37c7174145b558f1c0748f" ON "ai_write_claims" ("operation_key") ` +
         `WHERE "status" = 'claimed' AND "operation_key" IS NOT NULL`,
     );
     await queryRunner.query(`ALTER TABLE "ai_tool_side_effects" ADD "possible_duplicate" text`);
@@ -61,7 +61,7 @@ export class AddOperationIdentity1849000000000 implements MigrationInterface {
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`ALTER TABLE "ai_tool_side_effects" DROP COLUMN "possible_duplicate"`);
-    await queryRunner.query(`DROP INDEX "IDX_ai_write_claims_operation_lease"`);
+    await queryRunner.query(`DROP INDEX "IDX_d74a37c7174145b558f1c0748f"`);
     await queryRunner.query(`ALTER TABLE "ai_write_claims" DROP COLUMN "operation_key"`);
   }
 }

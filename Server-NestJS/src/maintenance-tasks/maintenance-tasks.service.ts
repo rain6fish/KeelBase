@@ -19,6 +19,7 @@ import { AuditEvidenceService } from '../governance-shared/services/audit-eviden
 import { OperationAuditService } from '../operation-audit/operation-audit.service';
 import { AuditService } from '../governance-shared/services/audit.service';
 import { WriteClaimDecisionService } from '../governance-shared/services/write-claim-decision.service';
+import { boundedToolArgs } from '../ai/audit/tool-call-audit';
 
 /**
  * 定时任务（PL-7，@nestjs/schedule cron）。
@@ -56,23 +57,6 @@ export class MaintenanceTasksService {
   ) {}
 
   /**
-   * GA：把超过**离线待办窗口**仍 `pending` 的确认转 `timeout`（confirmation-lifecycle v2）。
-   * 对话内等待（60s）结束时**不再**改 DB——行的生死由这条清理决定；窗口值取自 store（单源）。
-   * 每小时一次：窗口是小时级（默认 24h），无需更密。
-   *
-   * Each expiry is then written down as a structured, chained row (P0-19 ⑧). Before this, the sweep's
-   * only trace was a sentence in the log — an aggregate, free-text one — so a call whose turn never
-   * came back (the process died inside the in-stream wait) ended with nothing a reader could query:
-   * the `tool_call` row that would have said why it was allowed and how it ended is written *after*
-   * that wait. The record carries the basis parked on the confirmation row at issue time; it is never
-   * recomputed here, because recomputing would answer with today's policy.
-   *
-   * 随后把每一次到期写下来，成为一条结构化、带链的行（P0-19 ⑧）。此前这条清扫的唯一痕迹是日志里的
-   * 一句话 —— 聚合的、自由文本 —— 于是「那一轮再也拿不回来」的调用（进程死在对话内等待里）最后什么
-   * 都查不到：本该说明「凭什么放行、怎么收场」的 `tool_call` 行，是在那次等待**之后**才写的。记录里
-   * 的依据取自签发时停在确认行上的那份；这里**从不**重算，重算答的是今天的策略。
-   */
-  /**
    * AW-16 F-64: end the in-flight window for overdue write holds and put them in the pending-decision
    * queue. Nothing else changes: `status` stays `claimed`, no conclusion is written, and no release
    * happens — a row that is still executing (a slow external call) must keep the ability to settle.
@@ -97,6 +81,23 @@ export class MaintenanceTasksService {
     }
   }
 
+  /**
+   * GA：把超过**离线待办窗口**仍 `pending` 的确认转 `timeout`（confirmation-lifecycle v2）。
+   * 对话内等待（60s）结束时**不再**改 DB——行的生死由这条清理决定；窗口值取自 store（单源）。
+   * 每小时一次：窗口是小时级（默认 24h），无需更密。
+   *
+   * Each expiry is then written down as a structured, chained row (P0-19 ⑧). Before this, the sweep's
+   * only trace was a sentence in the log — an aggregate, free-text one — so a call whose turn never
+   * came back (the process died inside the in-stream wait) ended with nothing a reader could query:
+   * the `tool_call` row that would have said why it was allowed and how it ended is written *after*
+   * that wait. The record carries the basis parked on the confirmation row at issue time; it is never
+   * recomputed here, because recomputing would answer with today's policy.
+   *
+   * 随后把每一次到期写下来，成为一条结构化、带链的行（P0-19 ⑧）。此前这条清扫的唯一痕迹是日志里的
+   * 一句话 —— 聚合的、自由文本 —— 于是「那一轮再也拿不回来」的调用（进程死在对话内等待里）最后什么
+   * 都查不到：本该说明「凭什么放行、怎么收场」的 `tool_call` 行，是在那次等待**之后**才写的。记录里
+   * 的依据取自签发时停在确认行上的那份；这里**从不**重算，重算答的是今天的策略。
+   */
   @Cron(CronExpression.EVERY_HOUR)
   async expireStaleConfirmations() {
     const ttlMs = await this.confirmationStore.offlineTtlMs();
@@ -129,7 +130,10 @@ export class MaintenanceTasksService {
         detail: `${row.toolName} → timeout (offline window closed with no decision)`,
         outcome: 'timeout',
         tool: row.toolName,
-        toolArgs: row.args,
+        // Every other producer of this column bounds it first; an unbounded value is either rejected
+        // by a sized column or stored as a payload nobody said the column holds.
+        // 这一列的其余写入者都会先限长；不限长的值要么被有长度的列拒掉，要么存进一份没人说过这列该有的载荷。
+        toolArgs: boundedToolArgs(row.args),
         isError: true,
         errorMessage: 'User did not respond within the offline window',
         authorization: row.authorization ?? undefined,

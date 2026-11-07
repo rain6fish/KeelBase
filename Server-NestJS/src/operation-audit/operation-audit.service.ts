@@ -238,7 +238,13 @@ export class OperationAuditService {
         .createQueryBuilder('log')
         .leftJoin('users', 'u', 'u.id = log.userId')
         .addSelect('u.username', 'username')
+        // Offset paging over ties is undefined: two rows stamped in the same instant can split
+        // differently between two identical requests, so a row repeats or vanishes. `id` decides, the
+        // same tie-break the AI audit list applies.
+        // 偏移分页落在并列上是未定义的：同一时刻打戳的两行，在两次相同请求里可能切得不一样，于是有行重复
+        // 或有行消失。以 `id` 决序 —— 与 AI 审计列表同一个 tie-break。
         .orderBy('log.createdAt', 'DESC')
+        .addOrderBy('log.id', 'DESC')
         .skip((page - 1) * limit)
         .take(limit),
     ).getRawMany();

@@ -66,8 +66,8 @@ const EXEMPT = new Map([
   // 垂直模板是「生成物 + 产品化」：OA 审批加入审批语义（创建一律 `pending`、仅管理员可改）与按服务端
   // DTO 补齐的表单；进销存同样是 DTO 完整表单。直接重生成会把两者抹掉 —— 生成器的通用新增栏只发一个
   // 字段，服务端必然拒绝。把这两项移进模板是后续工作；在此之前样本由手工维护。
-  ['leave_requests', '生成后**手工扩展**（OA 审批垂直模板：创建强制 pending、审批仅管理员可改；Taro/Flutter 表单按后端 DTO 必填项补齐）⇒ 重生成会毁掉它，见 handoff/release-1.3.0-review.md'],
-  ['inventory_movements', '生成后**手工扩展**（进销存垂直模板：Taro 表单按后端 DTO 必填项补齐）⇒ 重生成会毁掉它，见 handoff/release-1.3.0-review.md'],
+  ['leave_requests', '生成后**手工扩展**（OA 审批垂直模板：创建强制 pending、审批仅管理员可改；Taro/Flutter 表单按后端 DTO 必填项补齐）⇒ 重生成会毁掉它，见 docs/manual/delivery-recipe.md'],
+  ['inventory_movements', '生成后**手工扩展**（进销存垂直模板：Taro 表单按后端 DTO 必填项补齐）⇒ 重生成会毁掉它，见 docs/manual/delivery-recipe.md'],
 ]);
 
 /**

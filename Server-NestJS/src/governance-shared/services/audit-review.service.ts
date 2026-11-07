@@ -172,8 +172,18 @@ export class AuditReviewService {
 
   reviewConfig(): AuditReviewConfig {
     const owner = (this.configService.get<string>('AUDIT_REVIEW_OWNER') ?? '').trim();
-    const rawCadence = (this.configService.get<string>('AUDIT_REVIEW_CADENCE_DAYS') ?? '').trim();
-    const cadence = rawCadence ? Number(rawCadence) : NaN;
+    // `AUDIT_REVIEW_CADENCE_DAYS` is declared `Joi.number()`: when it is actually configured the
+    // validated value is a number, not the raw string. Calling `.trim()` on it would throw on the one
+    // configuration this feature exists for, so the reading accepts both shapes.
+    // `AUDIT_REVIEW_CADENCE_DAYS` 声明为 `Joi.number()`：真被配置时校验后的值是数字，不是原始字符串。
+    // 对它调 `.trim()` 会在「本功能本就是为了这种配置」的那一种配置上抛错，故读数两种形状都接。
+    const rawCadence = this.configService.get<string | number>('AUDIT_REVIEW_CADENCE_DAYS');
+    const cadence =
+      typeof rawCadence === 'number'
+        ? rawCadence
+        : rawCadence
+          ? Number(String(rawCadence).trim())
+          : NaN;
     const cadenceDays = Number.isInteger(cadence) && cadence > 0 ? cadence : null;
     return {
       configured: Boolean(owner && cadenceDays),

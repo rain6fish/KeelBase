@@ -75,8 +75,13 @@ export type WriteClaimDecisionState =
 @Entity('ai_write_claims')
 @Index(['conversationId'])
 // AW-20: one in-flight claim per operation. Partial on purpose — see `operationKey`'s comment.
+// The name is TypeORM's own hash (`IDX_` + sha1("ai_write_claims_operation_key") truncated to 26),
+// not a hand-picked one: this repository's rule is that index names come from the hash, and a partial
+// index is still named that way.
 // AW-20：同一操作同时只允许一条在途占位。有意用部分索引 —— 理由见 `operationKey` 注释。
-@Index('IDX_ai_write_claims_operation_lease', ['operationKey'], {
+// 名字用 TypeORM 自己的哈希（`IDX_` + sha1("ai_write_claims_operation_key") 取前 26 位），不是手挑的：
+// 本仓的规矩是索引名来自哈希，部分索引也照样如此命名。
+@Index('IDX_d74a37c7174145b558f1c0748f', ['operationKey'], {
   unique: true,
   where: `"status" = 'claimed' AND "operation_key" IS NOT NULL`,
 })
