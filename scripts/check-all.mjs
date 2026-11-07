@@ -61,6 +61,15 @@ const width = Math.max(...names.map((n) => n.length));
 const failures = [];
 const started = Date.now();
 
+// The scope is stated on every run: this instrument answers "is the tree clean before a push", not
+// "do the tests pass".
+// 射程必须每次都说：这台仪器回答的是「推送前这棵树干不干净」，不是「测试过不过」。
+console.log(
+  '── This runs the static gates only — it excludes unit tests, e2e tests and the Java test suites, ' +
+    'which run in their own CI jobs ──\n' +
+    '   本命令只跑仓内静态门禁：不含单元测试 / e2e / Java 测试 —— 那些在各自的 CI job 里跑。\n',
+);
+
 /**
  * Prerequisites are reported before the table, once, with the command that fixes each. Four gates below go
  * red when these are missing, and each of them can only describe its own symptom — the contract submodule's
