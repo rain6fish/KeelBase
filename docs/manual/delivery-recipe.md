@@ -327,6 +327,98 @@ delivery has no `unmapped[]` items, say so explicitly rather than inventing rule
 the **shape** of the criterion — build clean, suites green, `PASS`, all-green `check:all`, `12/12` —
 never the counts.
 
+### 11. Delivery acceptance form — the coverage statement is mandatory
+
+A delivery is not finished until the deliverer hands back **one filled form**, copied from §11.2. A form
+whose coverage statement is missing, or whose required fields are blank, is **not a completed delivery** —
+the same judgement as "the reader cannot find the coverage statement." This is plan item `W2.3`, and it
+carries the standing ruling on `JV-64`: **乙**.
+
+#### 11.1 What the form must say
+
+- **Evidence path = 乙.** Under a Java-host deployment the complete evidence package is taken **from the
+  TypeScript governance console**, not from the host:
+  `GET /api/v1/ai/governance/evidence-root/<resultType>/<resultId>` returns
+  `format: keelbase-audit-evidence/4`, whose `coverage` section is mandatory, and
+  `node Server-NestJS/scripts/verify-evidence.mjs <pkg.json>` checks it offline. The host runtime keeps
+  only the verifiable audit chain (`GET /audit/verify`); it exports no evidence package and no evidence
+  root. 甲 is allowed only when the delivery itself requires host-self-sufficient evidence — the form
+  then names the requirement and the host endpoint that provides the package.
+- **`host-write-not-in-same-transaction` is on every form.** Its value is `applicable` /
+  `not-applicable` / `unknown`, plus the basis. When it is applicable, the delivery notes must say that
+  the host write and its audit row are **not** one transaction, so atomicity must not be claimed.
+- **`host-ai-path-not-governed` is on the form whenever the delivery runs a host-owned AI path.** When it
+  does not, write `not-applicable` **with the reason** — an empty basis is the same as saying nothing.
+- **The data source is pinned.** Write `coverage-gaps.ts @ <commit>` and the Java mirror
+  `coverage-gaps.json @ <commit>`; "latest" is not a source.
+- **The verdict is computed, never written.** `deriveVerdict(facts)` in
+  `Server-NestJS/src/governance-core/coverage-gaps.ts` returns `complete` only when no gap applies,
+  `unknown` when an applicable gap has `verdictImpact: unknown`, and `partial` otherwise.
+
+**Where to read the coverage statement.** The statement is not a paragraph someone writes; it has one
+registry and one producer, and these are the places to read it:
+
+- **TypeScript:** `GET /api/v1/audit/coverage`
+  (`Server-NestJS/src/governance-shared/controllers/audit.controller.ts`; admin or audit reader). The
+  console card sits in `Web-Admin-Vue/src/views/audit/AiAuditView.vue`. The gap registry and the verdict
+  have one home: `Server-NestJS/src/governance-core/coverage-gaps.ts`.
+- **Java host:** `GET /audit/coverage` (host runtime v0.1.10 and later), assembled from the mirrored
+  registry `conformance/coverage-gaps.json` with the host facts declared under `keelbase.coverage.*`. The
+  host **page** that would render it is a host-side change: it is not in this checkout, and it is left to
+  the host session.
+- **Evidence artifact:** the package from `/api/v1/ai/governance/evidence-root/...`
+  (`keelbase-audit-evidence/4`), verified offline by `Server-NestJS/scripts/verify-evidence.mjs`.
+
+#### 11.2 Blank form (copy this, fill every line)
+
+<!-- delivery-acceptance-form:begin -->
+```text
+Delivery acceptance form
+Delivery:
+Scope:
+Date:
+Deliverer:
+Second deliverer:
+HEAD:
+Gates and commands:
+Gate results (output + exit code):
+
+Evidence path (JV-64, ruling 乙)
+evidence-path: [乙]
+evidence-path-basis (required when 甲):
+evidence-path-host-package (the host must answer 404): [404 / 200+code:404 / unreachable]
+evidence-path-host-chain (the host GET /audit/verify): [200 / 401 / 403 / other]
+evidence-path-ts-package (the TS governance console): [keelbase-audit-evidence/4 / unreachable]
+evidence-path-ts-verify (verify-evidence.mjs): [no ✗ / has ✗ / not run]
+
+Coverage statement (W2.3 · AW-3)
+host-write-not-in-same-transaction: [applicable / not-applicable / unknown]   basis:
+host-ai-path-not-governed: [applicable / not-applicable / unknown]   basis:
+other-applicable-gaps: [id list / none]
+facts (closed set):
+  runtime / host / hostOwnsBusinessWrite / hostOwnAiPath / auditGranularity /
+  sharedCacheAcrossDeployments / nonDiscreteActionSurfacesExposed / packageHasExternalAnchor /
+  packageHasEffectWithoutSnapshot / packageHasOpenDispute / packageHasStalledRevoke / packageHasChatRow
+coverage-verdict: [complete / partial / unknown]
+coverage-registry: coverage-gaps.ts @ <commit> / coverage-gaps.json @ <commit>
+known-gaps (id + wire statement):
+unchecked-facts:
+
+Signature:
+```
+<!-- delivery-acceptance-form:end -->
+
+#### 11.3 The gate
+
+`npm run check:delivery-coverage` reads §11.2 and fails when the coverage-statement section is missing or
+any required field is blank, still carries its placeholder, or carries a value outside the field's
+allowed set. The gate runs inside `check:all` and the release gate. To check a **filled** copy before
+handing it back:
+
+```bash
+node scripts/check-delivery-coverage-statement.mjs --form path/to/acceptance-form.txt
+```
+
 ---
 
 ## 中文
@@ -613,3 +705,84 @@ grep -rl asset_loans Server-NestJS/public/admin/assets       # → 部署出的�
 
 **⚠ 第 4–8 步里的计数属于这个范例**（23 文件、模块的 4·29、12/12、`check:all` 全绿）。你的模块有它自己的数，
 连这个范例的数也会随仓库增长；要对得上的是判据的**形状** —— 构建干净、套件全绿、`PASS`、`check:all` 全绿、`12/12` —— **不是那些数**。
+
+### 11. 交付验收单 —— 覆盖声明是必填节
+
+交付**没有交回**这张填好的单子，就不算完成 —— 从 §11.2 复制一份，逐行填。覆盖声明缺失、或任一必填项留空的单子，
+与「读者读不到覆盖声明」同判：**交付未完成**。这是计划件 `W2.3`，并承载 `JV-64` 的常设裁定：**乙**。
+
+#### 11.1 单子上必须写什么
+
+- **取证路径 = 乙。** Java 宿主部署下，完整证据包**从 TypeScript 治理台取**，不从宿主取：
+  `GET /api/v1/ai/governance/evidence-root/<resultType>/<resultId>` 返回
+  `format: keelbase-audit-evidence/4`，其 `coverage` 段为必填；
+  `node Server-NestJS/scripts/verify-evidence.mjs <pkg.json>` 可离线核验。宿主运行时只保留可校验的审计链
+  （`GET /audit/verify`），不导出证据包、也不导出证据根。只有**本次交付本身要求宿主自足取证**时才可写甲 ——
+  那时单子上要写明该要求，以及提供证据包的宿主端点。
+- **`host-write-not-in-same-transaction` 每张单子都要有。** 取值 `适用` / `不适用` / `未知`，并写依据。
+  判「适用」时，交付说明里必须写明：宿主写与审计行**不在**同一个事务里，故不得宣称原子性。
+- **`host-ai-path-not-governed` 在交付涉及宿主自有 AI 路径时必填。** 不涉及时写 `不适用` **并给出理由** ——
+  依据留空等于什么都没说。
+- **取数来源必须钉到提交。** 写 `coverage-gaps.ts @ <commit>` 与 Java 镜像 `coverage-gaps.json @ <commit>`；
+  「以最新为准」不算来源。
+- **结论是算出来的，不是写上去的。** `Server-NestJS/src/governance-core/coverage-gaps.ts` 的 `deriveVerdict(facts)`：
+  无适用缺口才是 `complete`；有适用缺口且其 `verdictImpact: unknown` 则为 `unknown`；其余为 `partial`。
+
+**覆盖声明在哪里看。** 它不是谁写的一段话：登记表只有一份、生产者只有一个，下面就是读它的地方：
+
+- **TypeScript：** `GET /api/v1/audit/coverage`
+  （`Server-NestJS/src/governance-shared/controllers/audit.controller.ts`；管理员或审计读者）。控制台卡片在
+  `Web-Admin-Vue/src/views/audit/AiAuditView.vue`。缺口登记表与结论只有一个家：
+  `Server-NestJS/src/governance-core/coverage-gaps.ts`。
+- **Java 宿主：** `GET /audit/coverage`（宿主运行时 v0.1.10 起），由镜像登记表 `conformance/coverage-gaps.json`
+  组装，宿主事实在 `keelbase.coverage.*` 下声明。渲染它的宿主**页面**属于宿主侧改动：本检出里没有，留给宿主会话。
+- **证据产物：** 来自 `/api/v1/ai/governance/evidence-root/...` 的证据包（`keelbase-audit-evidence/4`），
+  离线用 `Server-NestJS/scripts/verify-evidence.mjs` 核验。
+
+#### 11.2 空白单（照抄，逐行填）
+
+<!-- delivery-acceptance-form:begin -->
+```text
+交付验收单
+交付名:
+模块与范围:
+日期:
+交付者:
+第二交付者:
+HEAD:
+门禁与命令:
+门禁结果（输出 + exit code）:
+
+取证路径（JV-64，裁定 乙）
+evidence-path: [乙]
+evidence-path-basis（选甲时必填）:
+evidence-path-host-package（宿主应回 404）: [404 / 200+code:404 / 不可达]
+evidence-path-host-chain（宿主 GET /audit/verify）: [200 / 401 / 403 / 其它]
+evidence-path-ts-package（TS 治理台）: [keelbase-audit-evidence/4 / 不可达]
+evidence-path-ts-verify（verify-evidence.mjs）: [无 ✗ / 有 ✗ / 未跑]
+
+覆盖声明（W2.3 · AW-3）
+host-write-not-in-same-transaction: [适用 / 不适用 / 未知]   依据:
+host-ai-path-not-governed: [适用 / 不适用 / 未知]   依据:
+other-applicable-gaps: [id 列表 / 无]
+facts（闭集）:
+  runtime / host / hostOwnsBusinessWrite / hostOwnAiPath / auditGranularity /
+  sharedCacheAcrossDeployments / nonDiscreteActionSurfacesExposed / packageHasExternalAnchor /
+  packageHasEffectWithoutSnapshot / packageHasOpenDispute / packageHasStalledRevoke / packageHasChatRow
+coverage-verdict: [complete / partial / unknown]
+coverage-registry: coverage-gaps.ts @ <commit> / coverage-gaps.json @ <commit>
+known-gaps（id + wire statement）:
+unchecked-facts:
+
+签字与日期:
+```
+<!-- delivery-acceptance-form:end -->
+
+#### 11.3 门禁
+
+`npm run check:delivery-coverage` 读 §11.2：覆盖声明节缺失、任一必填项留空、仍停在模板占位、或取值不在该字段允许集合内
+—— 均判红。该门禁在 `check:all` 与发版门禁里跑。交回**填好的**单子前，可先自查：
+
+```bash
+node scripts/check-delivery-coverage-statement.mjs --form path/to/acceptance-form.txt
+```
