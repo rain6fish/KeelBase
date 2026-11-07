@@ -619,6 +619,16 @@ jobs:
             git -C java-repo reset --hard FETCH_HEAD
             attempt=$((attempt + 1))
           done
+      # A contract capability a release claims must have an implementer. This is the gate for the
+      # 2026-10-31 decision that kept the membership change (`tableIds` / `verifiedIds` /
+      # `unverifiedIds`) out of v1.17.0 and v1.18.0: a release that claims it anyway now fails here
+      # instead of relying on somebody remembering.
+      #
+      # 发布声称的契约能力必须有实现方。这正是 2026-10-31 把成员性改动（`tableIds` / `verifiedIds` /
+      # `unverifiedIds`）挡在 v1.17.0 与 v1.18.0 之外的那条裁决：照样声称它的发布现在在这里失败，
+      # 而不再靠谁记得。
+      - name: Contract capability claims have implementers
+        run: node scripts/check-contract-release-gate.mjs --java java-repo
 
   # Full 剖面合规门禁（CE-1③ / JV-13）：F4 wire 形状 + F5 前端契约面（conformance-profile.md §2.2）。
   # 此前这个判据只有一次性跑过——JV-13 用 verify-full-profile.mjs 量出 Java 距 Full 多远，但没有任何
