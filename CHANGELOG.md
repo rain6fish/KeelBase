@@ -145,6 +145,11 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
   shallow pin describable, so a pin leading the newest tag went red on every CI run; a shallow
   repository is now unshallowed before the tags are read, while a full clone still only fetches tags.
 
+- **A contract capability without an implementer blocks release.** `npm run check:contract-release-gate`
+  checks that the pinned contract is reachable on its remote, that both READMEs name the same tag, that
+  the pin sits on the line it claims, that the release baseline is the previous release tag, and that
+  every capability the contract claims has an implementer — wired into CI and the release precheck.
+
 Full details: [v1.3.1 release](https://github.com/rain6fish/KeelBase/releases/tag/v1.3.1)
 
 **中文**
@@ -245,6 +250,10 @@ Full details: [v1.3.1 release](https://github.com/rain6fish/KeelBase/releases/ta
 
 - **契约矩阵在浅检出里也能读出 pin 的 tag。** 深度 1 的 fetch 救不了浅检出里的 pin，于是只要 pin 领先
   最新 tag，每次 CI 都判红；现在浅仓先 unshallow 再读 tag，而完整克隆仍只取 tag。
+
+- **没有实现方的契约能力会拦住发布。** `npm run check:contract-release-gate` 核对：钉住的契约在其远端
+  可达、两版 README 写的是同一个 tag、pin 落在它声称的版本线上、发布基线上一个发布 tag、以及契约声称的
+  每一项能力都有实现方 —— 已接入 CI 与发布前检查。
 
 完整详情：[v1.3.1 发布](https://gitee.com/rain6fish/KeelBase/releases/tag/v1.3.1)
 
