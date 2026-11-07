@@ -333,6 +333,7 @@ export class R4ApprovalService {
           req.operatorId,
           true,
           await this.toolGate?.riskLevelFor(req.toolName),
+          args,
         );
         if (reasons) allowSnapshot = buildAllowSnapshot(req.toolName, reasons);
       } catch {

@@ -406,4 +406,169 @@ describe('GovernancePolicyService (HS-9, D2-1d 自有表)', () => {
       });
     });
   });
+
+  /**
+   * AW-13: a second source for the other four authorization items (role / writable field domain /
+   * destination / approval requirement). Each case pairs the recorded snapshot with the policy
+   * history of the recorded revision and names the divergent item when the two disagree.
+   *
+   * AW-13：授权另四项（角色 / 可写字段域 / 目的地 / 审批要求）的第二来源。
+   * 每条都用「记录快照 vs 记录版本的策略历史」两路，不一致时逐项可指名。
+   */
+  describe('AW-13 四项授权的第二来源（重算 + 逐项 changed）', () => {
+    const REV = 'aw13hist0001';
+    const withHistory = (tools: Record<string, unknown>) => {
+      historyRepo.findOne.mockResolvedValue({
+        id: 1,
+        revision: REV,
+        value: JSON.stringify({ tools, audit: { granularity: 'all' } }),
+        appliedAt: new Date('2026-11-01T09:00:00Z'),
+      });
+      // Current policy differs from history (drift is the norm); the replay uses the **historical**
+      // one. 当前策略与历史不同（漂移是常态）；重算用的是**历史**那一版。
+      mockRow(JSON.stringify({ tools: { create_event: { enabled: true } } }));
+    };
+
+    it('角色：历史版要求 admin，记录说 user 通过 → roleChanged=true 且指名 role_allowed', async () => {
+      withHistory({ create_event: { allowedRoles: ['admin'] } });
+      const res = await service.replayDecision({
+        tool: 'create_event',
+        checks: [{ name: 'role_allowed', ok: true, detail: { allowedRoles: [], role: 'user' } }],
+        policyRevision: REV,
+      });
+      expect(res.roleChanged).toBe(true);
+      expect(res.changedChecks).toContain('role_allowed');
+      expect(res.reproducible).toBe(false);
+      expect(res.note).toContain('role_allowed');
+    });
+
+    it('可写字段域：记录写入了域外字段，而历史版域不含它 → fieldDomainChanged=true', async () => {
+      withHistory({ create_event: { writableFields: ['status'] } });
+      const res = await service.replayDecision({
+        tool: 'create_event',
+        checks: [{
+          name: 'field_domain',
+          ok: true,
+          detail: { writableFields: ['status', 'owner'], argKeys: ['status', 'owner'] },
+        }],
+        policyRevision: REV,
+      });
+      expect(res.fieldDomainChanged).toBe(true);
+      expect(res.changedChecks).toEqual(['field_domain']);
+    });
+
+    it('目的地：记录的目的地不在历史版白名单 → destinationChanged=true', async () => {
+      withHistory({ create_event: { allowedDestinations: ['erp-a'] } });
+      const res = await service.replayDecision({
+        tool: 'create_event',
+        checks: [{
+          name: 'destination_allowed',
+          ok: true,
+          detail: { destination: 'erp-b', allowedDestinations: [] },
+        }],
+        policyRevision: REV,
+      });
+      expect(res.destinationChanged).toBe(true);
+      expect(res.changedChecks).toEqual(['destination_allowed']);
+    });
+
+    it('审批要求：记录说需审批，而历史版档位是 confirm → approvalChanged=true', async () => {
+      withHistory({ create_event: { mode: 'confirm' } });
+      const res = await service.replayDecision({
+        tool: 'create_event',
+        checks: [{ name: 'approval_required', ok: true, detail: { mode: 'approval', riskLevel: 'R3' } }],
+        policyRevision: REV,
+      });
+      expect(res.approvalChanged).toBe(true);
+      expect(res.changedChecks).toEqual(['approval_required']);
+    });
+
+    it('对照：四项都不变 → 全 false、无不一致项、reproducible=true', async () => {
+      withHistory({
+        create_event: {
+          enabled: true,
+          allowedRoles: ['user'],
+          writableFields: ['status'],
+          allowedDestinations: ['local'],
+          mode: 'confirm',
+        },
+      });
+      const res = await service.replayDecision({
+        tool: 'create_event',
+        checks: [
+          { name: 'tool_enabled', ok: true },
+          { name: 'role_allowed', ok: true, detail: { allowedRoles: ['user'], role: 'user' } },
+          { name: 'field_domain', ok: true, detail: { writableFields: ['status'], argKeys: ['status'] } },
+          { name: 'destination_allowed', ok: true, detail: { destination: 'local', allowedDestinations: ['local'] } },
+          { name: 'approval_required', ok: false, detail: { mode: 'confirm', riskLevel: 'R3' } },
+        ],
+        policyRevision: REV,
+      });
+      expect(res.mode).toBe('history');
+      expect(res.toolDecisionChanged).toBe(false);
+      expect(res.roleChanged).toBe(false);
+      expect(res.fieldDomainChanged).toBe(false);
+      expect(res.destinationChanged).toBe(false);
+      expect(res.approvalChanged).toBe(false);
+      expect(res.changedChecks).toEqual([]);
+      expect(res.reproducible).toBe(true);
+      expect(res.note).not.toContain('不一致项');
+    });
+
+    it('反向：记录说拒绝、历史版说准许 → 四项各自 changed=true（两个方向的常数实现都过不了）', async () => {
+      withHistory({
+        create_event: {
+          enabled: true,
+          allowedRoles: ['admin'],
+          writableFields: ['status'],
+          allowedDestinations: ['local'],
+          mode: 'approval',
+        },
+      });
+      const res = await service.replayDecision({
+        tool: 'create_event',
+        checks: [
+          { name: 'role_allowed', ok: false, detail: { allowedRoles: ['admin'], role: 'admin' } },
+          { name: 'field_domain', ok: false, detail: { writableFields: ['status'], argKeys: ['status'] } },
+          { name: 'destination_allowed', ok: false, detail: { destination: 'local', allowedDestinations: ['local'] } },
+          { name: 'approval_required', ok: false, detail: { mode: 'confirm', riskLevel: 'R3' } },
+        ],
+        policyRevision: REV,
+      });
+      expect(res.roleChanged).toBe(true);
+      expect(res.fieldDomainChanged).toBe(true);
+      expect(res.destinationChanged).toBe(true);
+      expect(res.approvalChanged).toBe(true);
+      expect([...res.changedChecks].sort()).toEqual([
+        'approval_required',
+        'destination_allowed',
+        'field_domain',
+        'role_allowed',
+      ]);
+      expect(res.reproducible).toBe(false);
+    });
+
+    it('诚实边界：旧快照没有结构化输入 → changed=null 且写明原因，绝不默认「没变」', async () => {
+      withHistory({ create_event: { enabled: true, allowedRoles: ['admin'] } });
+      const res = await service.replayDecision({
+        tool: 'create_event',
+        checks: [
+          { name: 'tool_enabled', ok: true },
+          { name: 'role_allowed', ok: true },
+        ],
+        policyRevision: REV,
+      });
+      expect(res.roleChanged).toBeNull();
+      expect(res.notComparable).toEqual(
+        expect.arrayContaining([{ check: 'role_allowed', reason: 'no-structured-inputs' }]),
+      );
+      // The other three were never recorded in the old snapshot → they must not count as "consistent".
+      // 三项在旧快照里根本没有记录 → 也不得算作「一致」
+      expect(res.notComparable.map((n) => n.check)).toEqual(
+        expect.arrayContaining(['field_domain', 'destination_allowed', 'approval_required']),
+      );
+      expect(res.reproducible).toBe(true); // 只有可比对项参与；未知不冒充「没变」
+      expect(res.note).toContain('不可比对项');
+    });
+  });
 });

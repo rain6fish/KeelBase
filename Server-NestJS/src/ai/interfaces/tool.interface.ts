@@ -159,6 +159,17 @@ export interface AuthorizationCheck {
   name: string;
   ok: boolean;
   note?: string;
+  /**
+   * AW-13: the structured inputs the decision was taken on, frozen next to it. A reader that has the
+   * policy snapshot of the recorded revision can re-run this one decision and compare — that is what
+   * turns "the write was allowed" from a single source into a checkable pair. Only allow-path checks
+   * carry it; deny reasons keep their existing shape.
+   *
+   * AW-13：判定所依据的**结构化输入**，与判定一起冻结。读侧拿到记录版本的策略快照后，可按同一份
+   * 输入重跑这一条判定再对拍 —— 「这次写被授权了」由此从单一来源变成可检的一对。只有放行路径的
+   * 检查项带它；拒绝理由维持原形状。
+   */
+  detail?: Record<string, unknown>;
 }
 
 /** §internal.17③ Policy Evidence：授权时点生效的治理策略内容指纹（policy 版本）。 */

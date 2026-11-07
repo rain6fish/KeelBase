@@ -92,4 +92,86 @@ describe('AuthorizationExplainerService (§internal.17③ Policy Evidence)', () 
     expect(res.checks.map((c) => c.name)).toEqual(['user_scoped', 'risk_policy']);
     expect(res.riskLevel).toBe('R3');
   });
+
+  /** AW-13: the four decisions each freeze their inputs, so a reader can re-run them and compare.
+   *  AW-13：四项判定各自冻结输入，读侧按同一份输入重跑即可对拍。 */
+  describe('AW-13 四项判定的结构化输入', () => {
+    function buildWithGate(cfg: Record<string, unknown>, destination = 'local') {
+      const governancePolicy = {
+        getPolicy: jest.fn().mockResolvedValue({
+          tools: { create_event: cfg },
+          audit: { granularity: 'all' },
+          updatedAt: new Date('2026-11-01T09:00:00.000Z'),
+          revision: 'abcdef123456',
+        }),
+      };
+      const toolRegistry = { riskLevel: jest.fn(() => 'R3') } as any;
+      const usersService = { findOne: jest.fn().mockResolvedValue({ role: 'admin' }) } as any;
+      const toolGate = { destinationOf: jest.fn(() => destination) } as any;
+      const service = new AuthorizationExplainerService(
+        toolRegistry,
+        {} as any,
+        governancePolicy,
+        usersService,
+        toolGate,
+      );
+      return { service, toolGate };
+    }
+
+    it('角色 / 字段域 / 目的地 / 审批 各带判定 + 输入（参数只留名字）', async () => {
+      const { service, toolGate } = buildWithGate({
+        allowedRoles: ['admin'],
+        writableFields: ['status', 'owner'],
+        allowedDestinations: ['local'],
+        mode: 'approval',
+      });
+      const res = await service.getAuthorizationReasons('create_event', '7', true, 'R3', {
+        status: 'done',
+        owner: 9,
+      });
+
+      expect(res.checks.find((c) => c.name === 'role_allowed')).toMatchObject({
+        ok: true,
+        detail: { allowedRoles: ['admin'], role: 'admin' },
+      });
+      expect(res.checks.find((c) => c.name === 'field_domain')).toMatchObject({
+        ok: true,
+        detail: { writableFields: ['status', 'owner'], argKeys: ['status', 'owner'] },
+      });
+      expect(res.checks.find((c) => c.name === 'destination_allowed')).toMatchObject({
+        ok: true,
+        detail: { destination: 'local', allowedDestinations: ['local'] },
+      });
+      expect(res.checks.find((c) => c.name === 'approval_required')).toMatchObject({
+        ok: true,
+        detail: { mode: 'approval', riskLevel: 'R3' },
+      });
+      expect(toolGate.destinationOf).toHaveBeenCalledWith('create_event');
+      // Values never travel with the snapshot: `detail` holds argument names only.
+      // 取值不随快照走：detail 里只有参数名
+      expect(JSON.stringify(res.checks)).not.toContain('done');
+    });
+
+    it('字段域外参数 / 目的地不在白名单 → 对应项 ok=false（记录的是判定本身）', async () => {
+      const { service } = buildWithGate(
+        { writableFields: ['status'], allowedDestinations: ['erp-a'] },
+        'erp-b',
+      );
+      const res = await service.getAuthorizationReasons('create_event', '7', true, 'R3', {
+        status: 'done',
+        secret: 'x',
+      });
+      expect(res.checks.find((c) => c.name === 'field_domain')?.ok).toBe(false);
+      expect(res.checks.find((c) => c.name === 'destination_allowed')?.ok).toBe(false);
+    });
+
+    it('调用方没给参数 → 不记字段域判定（读侧如实报不可比对，而不是记个假的 ok）', async () => {
+      const { service } = buildWithGate({ writableFields: ['status'] });
+      const res = await service.getAuthorizationReasons('create_event', '7', true, 'R3');
+      const names = res.checks.map((c) => c.name);
+      expect(names).not.toContain('field_domain');
+      expect(names).toContain('destination_allowed');
+      expect(names).toContain('approval_required');
+    });
+  });
 });
