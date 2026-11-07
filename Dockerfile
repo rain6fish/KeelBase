@@ -1,5 +1,27 @@
+ # Base images are pinned by digest. A floating tag is what let the 2026-11 audit find JVMs below the
+ # fix line with nothing in CI saying so: `node:22-alpine` moves underneath a rebuild, and a container
+ # built before the move keeps the base it was created from. The readable tag stays in the reference
+ # beside the digest, so the pin still says what it means.
+ #
+ # To refresh, read the digest at the moment you pin it, confirm what is inside, then replace it here
+ # and rebuild:
+ #   docker pull node:22-alpine
+ #   docker inspect node:22-alpine --format '{{index .RepoDigests 0}}'
+ #   docker run --rm --entrypoint node node:22-alpine --version
+ # Do not paste a digest from a report — tags move, and an older read points at an older image.
+ #
+ # 基础镜像按摘要钉住。浮动标签正是 2026-11 那次安全排查里「JVM 低于修复线、CI 却什么也不报」的成因：
+ # `node:22-alpine` 会在重建之下悄悄换掉，而在此之前构建出的容器留着它被创建时那份基础镜像。
+ # 可读的标签保留在摘要旁边，用来说明这个钉住的是什么。
+ #
+ # 升级时：在钉的那一刻读出摘要、确认里面是什么，再替换这里并重建：
+ #   docker pull node:22-alpine
+ #   docker inspect node:22-alpine --format '{{index .RepoDigests 0}}'
+ #   docker run --rm --entrypoint node node:22-alpine --version
+ # 不要把某份报告里的摘要抄过来 —— 标签会移动，抄来的旧摘要指向旧镜像。
+
  # ---- Backend ----
- FROM node:22-alpine AS server-build
+ FROM node:22-alpine@sha256:0e1754758c2df4cfa3e68d59e2e1b7374bb7fd9ea6328eaaacf15cc934af8202 AS server-build
  WORKDIR /app/server
  # 中国网络 npm 官方 tarball 常不可达；默认阿里镜像，海外构建用 --build-arg NPM_REGISTRY=https://registry.npmjs.org 覆盖
  ARG NPM_REGISTRY=https://registry.npmmirror.com
@@ -16,7 +38,7 @@
  COPY Server-NestJS/ .
  RUN npm run build
 
-FROM node:22-alpine AS server
+FROM node:22-alpine@sha256:0e1754758c2df4cfa3e68d59e2e1b7374bb7fd9ea6328eaaacf15cc934af8202 AS server
 WORKDIR /app/server
 RUN sed -i 's#dl-cdn.alpinelinux.org#mirrors.aliyun.com#g' /etc/apk/repositories && \
     apk add --no-cache wget
@@ -45,7 +67,7 @@ COPY --from=server-build /app/server/dist ./dist
 
  # ---- Builder stage for Admin Console (Vue3 PC Web) ----
  # 双 surface 构建：build:user → dist/user（普通用户工作台，/user 子路径）；build:admin → dist/admin（管理台，/admin）
- FROM node:22-alpine AS admin-build
+ FROM node:22-alpine@sha256:0e1754758c2df4cfa3e68d59e2e1b7374bb7fd9ea6328eaaacf15cc934af8202 AS admin-build
  WORKDIR /app/admin
  # 中国网络 npm 官方 tarball 常不可达；默认阿里镜像，海外构建用 --build-arg NPM_REGISTRY=https://registry.npmjs.org 覆盖
  ARG NPM_REGISTRY=https://registry.npmmirror.com
@@ -67,7 +89,7 @@ COPY --from=server-build /app/server/dist ./dist
  #      官方镜像的 `conf.d` 是在 `http{}` 里的，两者路径不同，**这也是 prod 挂载点要跟着改的原因**；
  #   3. brotli 模块无需手写 `load_module`，Alpine 的包已放进 `/etc/nginx/modules/`，
  #      由 `nginx.conf` 的 `include /etc/nginx/modules/*.conf;` 自动加载。
- FROM alpine:3.24 AS web
+ FROM alpine:3.24@sha256:3f4d6b32e26703c6082839234f43769d5046b3ac7c910033911d1e71d8cd630a AS web
  # 中国网络下 Alpine 官方 CDN 很慢（与 npm 走阿里镜像同理），离线构建见 deploy/deploy-offline.sh 的说明
  RUN sed -i 's|dl-cdn.alpinelinux.org|mirrors.aliyun.com|g' /etc/apk/repositories \
      && apk add --no-cache nginx nginx-mod-http-brotli \

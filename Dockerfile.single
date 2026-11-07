@@ -4,8 +4,32 @@
 # 大项目仍用 docker-compose.yml（多容器 postgres+redis）。
 # 用法：docker build -f Dockerfile.single -t keelbase:single . && docker run -p 80:3000 keelbase:single
 
+# Base images are pinned by digest. A floating tag is what let the 2026-11 audit find JVMs below the
+# fix line with nothing in CI saying so: `node:22-alpine` moves underneath a rebuild, and a container
+# built before the move keeps the base it was created from. The readable tag stays in the reference
+# beside the digest, so the pin still says what it means.
+#
+# This is the image `docker-publish.yml` ships to ghcr.io, so the digest here is what users of the
+# published image actually get. To refresh, read the digest at the moment you pin it, confirm what is
+# inside, then replace it here and rebuild:
+#   docker pull node:22-alpine
+#   docker inspect node:22-alpine --format '{{index .RepoDigests 0}}'
+#   docker run --rm --entrypoint node node:22-alpine --version
+# Do not paste a digest from a report — tags move, and an older read points at an older image.
+#
+# 基础镜像按摘要钉住。浮动标签正是 2026-11 那次安全排查里「JVM 低于修复线、CI 却什么也不报」的成因：
+# `node:22-alpine` 会在重建之下悄悄换掉，而在此之前构建出的容器留着它被创建时那份基础镜像。
+# 可读的标签保留在摘要旁边，用来说明这个钉住的是什么。
+#
+# 这个文件就是 `docker-publish.yml` 推到 ghcr.io 的那个镜像，所以这里的摘要就是已发布镜像的用户真正拿到的。
+# 升级时：在钉的那一刻读出摘要、确认里面是什么，再替换这里并重建：
+#   docker pull node:22-alpine
+#   docker inspect node:22-alpine --format '{{index .RepoDigests 0}}'
+#   docker run --rm --entrypoint node node:22-alpine --version
+# 不要把某份报告里的摘要抄过来 —— 标签会移动，抄来的旧摘要指向旧镜像。
+
 # ---- Backend build ----
-FROM node:22-alpine AS server-build
+FROM node:22-alpine@sha256:0e1754758c2df4cfa3e68d59e2e1b7374bb7fd9ea6328eaaacf15cc934af8202 AS server-build
 WORKDIR /app/server
 # 中国网络 npm 官方 tarball 常不可达；默认阿里镜像，海外构建用 --build-arg NPM_REGISTRY=https://registry.npmjs.org 覆盖
 ARG NPM_REGISTRY=https://registry.npmmirror.com
@@ -26,7 +50,7 @@ FROM scratch AS flutter-build
 COPY Front-Flutter/build/web /build/web
 
 # ---- Admin console build (Vue3 PC Web, /admin sub-path) ----
-FROM node:22-alpine AS admin-build
+FROM node:22-alpine@sha256:0e1754758c2df4cfa3e68d59e2e1b7374bb7fd9ea6328eaaacf15cc934af8202 AS admin-build
 WORKDIR /app/admin
 ARG NPM_REGISTRY=https://registry.npmmirror.com
 ENV NPM_CONFIG_REGISTRY=$NPM_REGISTRY
@@ -36,7 +60,7 @@ COPY Web-Admin-Vue/ .
 RUN npm run build
 
 # ---- Single runtime image ----
-FROM node:22-alpine AS single
+FROM node:22-alpine@sha256:0e1754758c2df4cfa3e68d59e2e1b7374bb7fd9ea6328eaaacf15cc934af8202 AS single
 WORKDIR /app/server
 RUN apk add --no-cache wget
 RUN addgroup -S keelbase && adduser -S keelbase -G keelbase && \
