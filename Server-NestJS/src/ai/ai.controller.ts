@@ -50,6 +50,7 @@ import { ConfirmDecisionDto } from './dto/confirm-decision.dto';
 import { ApproveDecisionDto } from './dto/approve-decision.dto';
 import { MyConfirmationQueryDto } from './dto/my-confirmation-query.dto';
 import { InFlightClaimQueryDto } from './dto/in-flight-claim-query.dto';
+import { ReleaseClaimDto } from './dto/release-claim.dto';
 import { RenameConversationDto } from './dto/rename-conversation.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CurrentAbility } from '../common/casl/current-ability.decorator';
@@ -60,6 +61,7 @@ import { SkipAudit } from '../operation-audit/skip-audit.decorator';
 import { FeatureFlag } from '../feature-flags/feature-flag.decorator';
 import { AiToolEffectsService } from '../governance-shared/services/ai-tool-effects.service';
 import { WriteClaimQueryService } from '../governance-shared/services/write-claim-query.service';
+import { WriteClaimDecisionService } from '../governance-shared/services/write-claim-decision.service';
 import { DecisionTraceService, DecisionTrace } from './trace/decision-trace.service';
 import { GovernancePolicyService } from '../governance-shared/services/governance-policy.service';
 import type { GovernancePolicy } from '../governance-shared/services/governance-policy.service';
@@ -93,6 +95,9 @@ export class AiController {
     private readonly r4Approval: R4ApprovalService,
     // 工具对外面（阶段 3 第九刀：清单/集成诊断已独立）
     private readonly toolExposure: ToolExposureService,
+    // AW-16 F-63/F-64：释放程序与到期策略的写侧（读侧是上面的 `writeClaimQuery`；分开是因为读侧
+    // 一字不改状态，这是刻意的设计约束）
+    private readonly writeClaimDecision: WriteClaimDecisionService,
   ) {}
 
   /**
@@ -593,6 +598,7 @@ export class AiController {
         since: query.since ? new Date(query.since) : undefined,
         until: query.until ? new Date(query.until) : undefined,
         staleOnly: query.stale === 'true',
+        decisionState: query.decisionState,
         limit: query.limit,
       },
       { userId: user.sub, role: user.role },
@@ -957,5 +963,45 @@ export class AiController {
     if (runId) return this.toolEffectsService.revokeRun(runId, { ownerId });
     if (!conversationId) throw new BadRequestException('conversationId 或 runId 必填');
     return this.toolEffectsService.revokeConversation(conversationId, { ownerId });
+  }
+
+  /**
+   * AW-16 F-63: release a stuck write hold, with evidence, and record the act once.
+   *
+   * This is a **decision about the handling**, not a verdict about the write. The claim stays
+   * `claimed` (the truth is unknown), moves to `closed_unknown`, and its key stays occupied — so the
+   * same call is not silently retried. Only a target answer (AW-17 reconcile) or a late completion
+   * (settle) can move the ledger from there.
+   *
+   * The endpoint is `@SkipAudit()` because the service writes its own chained AI-audit row
+   * (`action: 'claim_release'`) carrying the note and reference; the generic operation-audit row
+   * would be a second, poorer copy of the same act.
+   *
+   * AW-16 F-63：带证据释放一份卡住的写占位，并把这次动作记录一次。
+   *
+   * 这是对**处理方式**的决定，不是对那次写的判决。占位仍是 `claimed`（真相未知），转为
+   * `closed_unknown`，键仍被占住 —— 故同一次调用不会被静默重试。此后只有目标的回答（AW-17 对账）
+   * 或迟到的完成（落定）能移动这本账。
+   *
+   * 端点标 `@SkipAudit()`：服务自己写一条带链的 AI 审计行（`action: 'claim_release'`），带着说明与
+   * 引用；通用操作审计行只会是同一个动作的第二份、更差的副本。
+   */
+  @Post('tool-effects/claims/:id/release')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @SkipAudit()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'AW-16 F-63：释放滞留的写占位（管理员；须附说明，结论保持未知，不自动重试）',
+  })
+  async releaseToolEffectClaim(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: ReleaseClaimDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.writeClaimDecision.release(
+      id,
+      { userId: String(user.sub), username: user.username },
+      { note: dto.note, evidenceRef: dto.evidenceRef },
+    );
   }
 }

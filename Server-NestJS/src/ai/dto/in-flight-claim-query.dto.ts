@@ -40,6 +40,16 @@ export class InFlightClaimQueryDto {
   @IsIn(['true', 'false'])
   stale?: 'true' | 'false';
 
+  @ApiPropertyOptional({
+    description:
+      'AW-16 F-64：治理处置过滤。默认在途（open + awaiting_decision）；open=仅窗口内；' +
+      'awaiting_decision=待裁队列；closed_unknown=已释放（结论未知）；all=含已关闭的历史',
+    enum: ['in_flight', 'open', 'awaiting_decision', 'closed_unknown', 'all'],
+  })
+  @IsOptional()
+  @IsIn(['in_flight', 'open', 'awaiting_decision', 'closed_unknown', 'all'])
+  decisionState?: 'in_flight' | 'open' | 'awaiting_decision' | 'closed_unknown' | 'all';
+
   @ApiPropertyOptional({ description: '返回条数上限', default: 100 })
   @IsOptional()
   @Type(() => Number)

@@ -469,6 +469,22 @@ export interface InFlightClaim {
   conversationId: string | null
   runId: string | null
   authorizationRef: string | null
+  /** AW-15：判定时的角色；服务端对缺失列报 `unknown`（不回填） */
+  decidedRole: string
+  /** AW-15：判定时的治理策略 revision；缺失报 `unknown` */
+  policyRevision: string
+  /** AW-16 F-64：治理处置 —— 在途 / 待裁 / 已释放（结论未知） */
+  decisionState: 'open' | 'awaiting_decision' | 'closed_unknown'
+}
+
+/** AW-16 F-63：释放滞留占位的裁决结果（按种类报，不压成一句「失败」） */
+export interface ReleaseClaimResult {
+  outcome: 'released_unknown' | 'not_found' | 'not_claimable' | 'not_stale' | 'already_closed'
+  claimId: number
+  toolName: string | null
+  status: string | null
+  decisionState: string | null
+  auditRowId: number | null
 }
 
 export interface InFlightClaimsResponse {

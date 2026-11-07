@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { api, governanceApi } from './client'
-import type { AdminAiTool, AiAgent, AiApprovalRequest, GovernanceActionResponse, ToolEffectsResponse, InFlightClaimsResponse, BusinessHistoryResponse } from '@/types/admin'
+import type { AdminAiTool, AiAgent, AiApprovalRequest, GovernanceActionResponse, ToolEffectsResponse, InFlightClaimsResponse, BusinessHistoryResponse, ReleaseClaimResult } from '@/types/admin'
 
 /**
  * D2-5c：治理数据端点走独立治理台（governanceApi，VITE_GOVERNANCE_URL 配置时指向治理台；
@@ -21,14 +21,37 @@ export const aiToolsApi = {
    * governance database holds none of them). Read-only; tool name and `args_hash`, never arguments.
    */
   inFlightClaims(
-    params: { userId?: string; toolName?: string; stale?: boolean; limit?: number } = {},
+    params: {
+      userId?: string
+      toolName?: string
+      stale?: boolean
+      /** AW-16 F-64：治理处置过滤（默认在途 + 待裁；已释放需显式查询） */
+      decisionState?: 'in_flight' | 'open' | 'awaiting_decision' | 'closed_unknown' | 'all'
+      limit?: number
+    } = {},
   ): Promise<InFlightClaimsResponse> {
     return api.get<InFlightClaimsResponse>('/ai/tool-effects/claims', {
       ...(params.userId ? { userId: params.userId } : {}),
       ...(params.toolName ? { toolName: params.toolName } : {}),
       ...(params.stale ? { stale: 'true' } : {}),
+      ...(params.decisionState ? { decisionState: params.decisionState } : {}),
       limit: params.limit ?? 100,
     })
+  },
+  /**
+   * AW-16 F-63：释放滞留的写占位（管理员；须附说明）。服务端保持结论未知、键仍占住，
+   * 因而同一次调用不会被静默重试。拒绝按 `outcome` 分报（not_stale / not_claimable / not_found /
+   * already_closed），调用方据此提示，不要压成一句「失败」。
+   *
+   * AW-16 F-63: release a stuck write hold (admin; a note is required). The server keeps the
+   * conclusion unknown and the key occupied, so the same call is not silently retried. Refusals come
+   * back by `outcome` and should be shown as such, not flattened into "failed".
+   */
+  releaseClaim(
+    id: number,
+    body: { note: string; evidenceRef?: string },
+  ): Promise<ReleaseClaimResult> {
+    return api.post<ReleaseClaimResult>(`/ai/tool-effects/claims/${id}/release`, body)
   },
   /** 副作用列表（治理台） */
   effects(userId?: number, page = 1, limit = 20): Promise<ToolEffectsResponse> {

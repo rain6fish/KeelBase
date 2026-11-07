@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { DataSource } from 'typeorm';
-import { AiWriteClaim, WRITE_CLAIM_STATUS } from '../entities/ai-write-claim.entity';
+import {
+  AiWriteClaim,
+  WRITE_CLAIM_DECISION_STATE,
+  WRITE_CLAIM_STATUS,
+} from '../entities/ai-write-claim.entity';
 import { UserRole } from '../../common/entities/user.entity';
 import { WriteClaimQueryService } from './write-claim-query.service';
 
@@ -84,7 +88,10 @@ describe('AW-16 在途 claim 只读查询面', () => {
         'authorizationRef',
         'claimedAt',
         'conversationId',
+        'decidedRole',
+        'decisionState',
         'id',
+        'policyRevision',
         'runId',
         'stale',
         'status',
@@ -198,5 +205,68 @@ describe('AW-16 在途 claim 只读查询面', () => {
     const ids = res.items.map((r) => r.id);
     expect(ids[0]).toBe(early.id);
     expect(ids.slice(1)).toEqual([...ids.slice(1)].sort((x, y) => x - y));
+  });
+
+  /**
+   * AW-15's two columns reach this surface too. A null reading is reported as the word `unknown` —
+   * the same reading the effects list already gives — because "not recorded" is not "no role" and
+   * must not be backfilled with a guess.
+   *
+   * AW-15 的两列也进这一面。缺读报成 `unknown` —— 与副作用列表同一读数 —— 因为「没记下」不是
+   * 「没有角色」，也不能被回填成猜测。
+   */
+  it('AW-15 两列进投影：缺读报 unknown，有值原样读出', async () => {
+    await claim({ idempotencyKey: 'legacy' });
+    await claim({
+      idempotencyKey: 'new',
+      decidedRole: 'admin',
+      policyRevision: 'rev-frozen-9',
+    });
+
+    const res = await service.list({});
+    const legacy = res.items.find((r) => r.status === WRITE_CLAIM_STATUS.CLAIMED && r.decidedRole === 'unknown')!;
+    expect(legacy).toBeDefined();
+    expect(legacy.policyRevision).toBe('unknown');
+
+    const recorded = res.items.find((r) => r.decidedRole === 'admin')!;
+    expect(recorded.policyRevision).toBe('rev-frozen-9');
+  });
+
+  /**
+   * F-64: a released hold leaves the in-flight view but stays on the ledger as `claimed`; the
+   * pending-decision queue is a filter, not a second list. `all` is the only reading that includes
+   * closed rows — and even then it never invents a conclusion.
+   *
+   * F-64：已释放的占位离开在途视图，但在账上仍是 `claimed`；待裁队列是一个过滤器、不是第二张表。
+   * 只有 `all` 读得到已关闭行 —— 即便读到，也不凭空造结论。
+   */
+  it('F-64 决策状态：默认不含已关闭；待裁可单独查；all 才包含已关闭', async () => {
+    await claim({ idempotencyKey: 'open', decisionState: WRITE_CLAIM_DECISION_STATE.OPEN });
+    await claim({
+      idempotencyKey: 'awaiting',
+      decisionState: WRITE_CLAIM_DECISION_STATE.AWAITING_DECISION,
+    });
+    await claim({
+      idempotencyKey: 'closed',
+      decisionState: WRITE_CLAIM_DECISION_STATE.CLOSED_UNKNOWN,
+    });
+
+    const inFlight = await service.list({});
+    expect(inFlight.items.map((r) => r.decisionState)).toEqual(['open', 'awaiting_decision']);
+
+    const queue = await service.list({ decisionState: 'awaiting_decision' });
+    expect(queue.items.map((r) => r.decisionState)).toEqual(['awaiting_decision']);
+    expect(queue.items[0].status).toBe(WRITE_CLAIM_STATUS.CLAIMED);
+
+    const open = await service.list({ decisionState: 'open' });
+    expect(open.items.map((r) => r.decisionState)).toEqual(['open']);
+
+    const all = await service.list({ decisionState: 'all' });
+    expect(all.total).toBe(3);
+    expect(all.items.map((r) => r.decisionState).sort()).toEqual([
+      'awaiting_decision',
+      'closed_unknown',
+      'open',
+    ]);
   });
 });

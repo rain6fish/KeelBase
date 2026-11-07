@@ -40,6 +40,11 @@ const ACTION_LABELS: Record<string, AiActionLabel> = {
   // so, because «AI · …» would read as something the assistant did.
   // AW-12：对链上已有行的人类复核回执。不是 AI 动作 —— 标签如实说出来，因为「AI · …」会被读成助手做过的事。
   audit_review: { key: 'ai.auditReview', fallback: 'Audit · Review receipt' },
+  // AW-16 F-63: a human closed a stuck write hold. The row records a **decision**, not a result —
+  // the conclusion stays unknown, which is why the label says "release", not "revoke".
+  // AW-16 F-63：人关闭了一份卡住的写占位。这一行记录的是**决定**、不是结果 —— 结论仍未知，
+  // 故标签说「release」而不是「revoke」。
+  claim_release: { key: 'ai.claimRelease', fallback: 'AI · Release write claim' },
 };
 
 /**

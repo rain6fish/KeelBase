@@ -4,7 +4,11 @@ import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
-import { AiWriteClaim, WRITE_CLAIM_STATUS } from '../entities/ai-write-claim.entity';
+import {
+  AiWriteClaim,
+  WRITE_CLAIM_DECISION_STATE,
+  WRITE_CLAIM_STATUS,
+} from '../entities/ai-write-claim.entity';
 import { staleThresholdMinutes } from '../../governance-core/revoke-staleness';
 import {
   auditScopeSql,
@@ -100,6 +104,22 @@ export class WriteClaimQueryService {
     if (query.since) qb.andWhere('c.claimedAt >= :since', { since: query.since });
     if (query.until) qb.andWhere('c.claimedAt <= :until', { until: query.until });
     if (query.staleOnly) qb.andWhere('c.claimedAt < :cut', { cut });
+    // AW-16 F-64: by default this is the **in-flight** view — a closed hold has been released by a
+    // human and is no longer "in flight", while a queued one still is (it is exactly the stuck part
+    // of the list). `all` is the only reading that includes closed rows, for history.
+    // AW-16 F-64：默认给的是**在途**视图 —— 已关闭的占位由人释放，不再「在途」；待裁的仍在途
+    //（它正是列表里卡住的那一段）。只有 `all` 读得到已关闭行，供查历史。
+    const decisionState = query.decisionState ?? 'in_flight';
+    if (decisionState === 'in_flight') {
+      qb.andWhere('c.decisionState IN (:...liveStates)', {
+        liveStates: [
+          WRITE_CLAIM_DECISION_STATE.OPEN,
+          WRITE_CLAIM_DECISION_STATE.AWAITING_DECISION,
+        ],
+      });
+    } else if (decisionState !== 'all') {
+      qb.andWhere('c.decisionState = :decisionState', { decisionState });
+    }
     const scopeFragment = auditScopeSql(scope, 'c');
     if (scopeFragment) qb.andWhere(scopeFragment.sql, scopeFragment.params);
 
@@ -143,6 +163,12 @@ export class WriteClaimQueryService {
       conversationId: c.conversationId ?? null,
       runId: c.runId ?? null,
       authorizationRef: c.authorizationRef ?? null,
+      // AW-15: the decision basis travels with the row. A missing reading is the word `unknown` —
+      // the same reading the effects list gives — never a guessed role or policy, never backfilled.
+      // AW-15：判定依据随行带出。缺读报 `unknown` —— 与副作用列表同一读数 —— 不猜角色、不猜策略、不回填。
+      decidedRole: c.decidedRole ?? 'unknown',
+      policyRevision: c.policyRevision ?? 'unknown',
+      decisionState: c.decisionState ?? WRITE_CLAIM_DECISION_STATE.OPEN,
     };
   }
 }
@@ -157,6 +183,14 @@ export interface InFlightClaimQuery {
   until?: Date;
   /** Only rows already past the stale threshold. / 只看已过陈旧阈值的行。 */
   staleOnly?: boolean;
+  /**
+   * Which governance disposition to read: the default in-flight view (`open` + `awaiting_decision`),
+   * one state only, or `all` (history, including released holds). Omitted = in-flight.
+   *
+   * 读哪一种治理处置：默认在途视图（`open` + `awaiting_decision`）、只看某一态、或 `all`（含已释放
+   * 占位的历史）。省略 = 在途。
+   */
+  decisionState?: 'in_flight' | 'open' | 'awaiting_decision' | 'closed_unknown' | 'all';
   limit?: number;
 }
 
@@ -175,6 +209,12 @@ export interface InFlightClaimRow {
   conversationId: string | null;
   runId: string | null;
   authorizationRef: string | null;
+  /** AW-15: role at decision time; `unknown` when the row predates the column. / 判定时的角色；旧行报 unknown。 */
+  decidedRole: string;
+  /** AW-15: policy revision at decision time; `unknown` when not recorded. / 判定时的策略 revision；未记录报 unknown。 */
+  policyRevision: string;
+  /** AW-16 F-64: the governance disposition — see `WRITE_CLAIM_DECISION_STATE`. */
+  decisionState: string;
 }
 
 export interface InFlightClaimsResult {

@@ -17,6 +17,7 @@ import { AlertWebhookService } from '../alert-webhook/alert-webhook.service';
 import { AuditEvidenceService } from '../governance-shared/services/audit-evidence.service';
 import { OperationAuditService } from '../operation-audit/operation-audit.service';
 import { AuditService } from '../governance-shared/services/audit.service';
+import { WriteClaimDecisionService } from '../governance-shared/services/write-claim-decision.service';
 import { MaintenanceTasksService } from './maintenance-tasks.service';
 
 function mockRepo(extra: Record<string, jest.Mock> = {}) {
@@ -84,6 +85,11 @@ describe('MaintenanceTasksService', () => {
         // HS-11 §22.10 债 3：完整性巡检读侧 —— 本文件只测其余维护任务，故给最小替身
         { provide: AuditEvidenceService, useValue: { verifyChain: jest.fn().mockResolvedValue({ valid: true, checked: 0 }) } },
         { provide: OperationAuditService, useValue: { verifyChain: jest.fn().mockResolvedValue({ valid: true, checked: 0 }) } },
+        // AW-16 F-64：占位窗口到期清扫；本文件只验「被调用」，清扫本身的判据由它的服务用例覆盖
+        {
+          provide: WriteClaimDecisionService,
+          useValue: { sweepOverdue: jest.fn().mockResolvedValue({ moved: 0, thresholdMinutes: 60 }) },
+        },
       ],
     }).compile();
 

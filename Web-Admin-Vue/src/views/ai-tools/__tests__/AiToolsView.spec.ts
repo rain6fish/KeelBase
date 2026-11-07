@@ -7,12 +7,13 @@ import { createI18n } from 'vue-i18n'
 import zh from '@/i18n/zh'
 import en from '@/i18n/en'
 
-const { toolsMock, policyMock, savePolicyMock, effectsMock, inFlightMock, revokeMock, claimMock, ackMock, errorMock, successMock, warningMock } = vi.hoisted(() => ({
+const { toolsMock, policyMock, savePolicyMock, effectsMock, inFlightMock, releaseMock, revokeMock, claimMock, ackMock, errorMock, successMock, warningMock } = vi.hoisted(() => ({
   toolsMock: vi.fn(),
   policyMock: vi.fn(),
   savePolicyMock: vi.fn(),
   effectsMock: vi.fn(),
   inFlightMock: vi.fn(),
+  releaseMock: vi.fn(),
   revokeMock: vi.fn(),
   claimMock: vi.fn(),
   ackMock: vi.fn(),
@@ -28,6 +29,7 @@ vi.mock('@/api/aiTools', () => ({
     savePolicy: savePolicyMock,
     effects: effectsMock,
     inFlightClaims: inFlightMock,
+    releaseClaim: releaseMock,
     revokeEffect: revokeMock,
     claimEffect: claimMock,
     acknowledgeDispute: ackMock,
@@ -65,6 +67,10 @@ const AppTableStub = defineComponent({
     '<div class="cell-tool">{{ item.toolName }}</div>' +
     '<div class="cell-hash"><slot name="item.argsHash" :item="item" /></div>' +
     '<div class="cell-stale"><slot name="item.stale" :item="item" /></div>' +
+    // AW-16 F-64 / AW-15：处置与判定依据三格（只有 claim 行才有这些字段）
+    '<div class="cell-decision" v-if="item.decisionState"><slot name="item.decisionState" :item="item" /></div>' +
+    '<div class="cell-role" v-if="item.decisionState">{{ item.decidedRole }}</div>' +
+    '<div class="cell-policy" v-if="item.decisionState">{{ item.policyRevision }}</div>' +
     '</div>' +
     '</template></div>',
 })
@@ -165,8 +171,8 @@ describe('AiToolsView', () => {
     effectsMock.mockResolvedValue({ total: 0, page: 1, limit: 20, items: [] })
     inFlightMock.mockResolvedValue({
       items: [
-        { id: 3, userId: '7', toolName: 'send_email', argsHash: 'deadbeefdeadbeef', status: 'claimed', claimedAt: '2026-11-05T01:00:00Z', ageMinutes: 90, stale: true, attempts: 2, agentId: null, conversationId: 'c1', runId: null, authorizationRef: 'tok-1' },
-        { id: 4, userId: '8', toolName: 'create_todo', argsHash: 'cafebabecafebabe', status: 'claimed', claimedAt: '2026-11-05T02:50:00Z', ageMinutes: 1, stale: false, attempts: 1, agentId: null, conversationId: null, runId: null, authorizationRef: null },
+        { id: 3, userId: '7', toolName: 'send_email', argsHash: 'deadbeefdeadbeef', status: 'claimed', claimedAt: '2026-11-05T01:00:00Z', ageMinutes: 90, stale: true, attempts: 2, agentId: null, conversationId: 'c1', runId: null, authorizationRef: 'tok-1', decidedRole: 'admin', policyRevision: 'rev-9', decisionState: 'awaiting_decision' },
+        { id: 4, userId: '8', toolName: 'create_todo', argsHash: 'cafebabecafebabe', status: 'claimed', claimedAt: '2026-11-05T02:50:00Z', ageMinutes: 1, stale: false, attempts: 1, agentId: null, conversationId: null, runId: null, authorizationRef: null, decidedRole: 'unknown', policyRevision: 'unknown', decisionState: 'open' },
       ],
       total: 2,
       limit: 100,
@@ -177,7 +183,12 @@ describe('AiToolsView', () => {
     const wrapper = mountView()
     await flushPromises()
 
-    expect(inFlightMock).toHaveBeenCalledWith({ userId: undefined, toolName: undefined, stale: false })
+    expect(inFlightMock).toHaveBeenCalledWith({
+      userId: undefined,
+      toolName: undefined,
+      stale: false,
+      decisionState: 'in_flight',
+    })
     const rows = wrapper.findAll('.in-flight-claims .row-stub')
     expect(rows).toHaveLength(2)
     expect(rows[0].text()).toContain('send_email')
@@ -187,6 +198,50 @@ describe('AiToolsView', () => {
     expect(rows[1].text()).not.toContain('滞留')
     // 参数明文（如收件人、标题）不可能出现在这里：接口契约里就没有这一项
     expect(wrapper.text()).not.toContain('@example.com')
+  })
+
+  /**
+   * AW-16 F-63/F-64 on the page: the disposition is a **separate reading** from the age (`stale`), the
+   * AW-15 basis columns are shown as the server reported them (including `unknown`), and the release
+   * entry appears only for a stale, not-yet-closed hold — and only for an admin.
+   *
+   * AW-16 F-63/F-64 页面侧：处置是与年龄（`stale`）**分开**的读数；AW-15 两列按服务端读数显示
+   *（含 `unknown`）；释放入口只对「滞留且未关闭」的行出现，且只给管理员。
+   */
+  it('AW-16：处置与判定依据分列显示；释放入口只给管理员的滞留未关闭行', async () => {
+    toolsMock.mockResolvedValue([tool])
+    effectsMock.mockResolvedValue({ total: 0, page: 1, limit: 20, items: [] })
+    inFlightMock.mockResolvedValue({
+      items: [
+        { id: 3, userId: '7', toolName: 'send_email', argsHash: 'deadbeefdeadbeef', status: 'claimed', claimedAt: '2026-11-05T01:00:00Z', ageMinutes: 90, stale: true, attempts: 2, agentId: null, conversationId: 'c1', runId: null, authorizationRef: 'tok-1', decidedRole: 'admin', policyRevision: 'rev-9', decisionState: 'awaiting_decision' },
+        { id: 5, userId: '7', toolName: 'create_todo', argsHash: 'cafebabecafebabe', status: 'claimed', claimedAt: '2026-11-04T01:00:00Z', ageMinutes: 1200, stale: true, attempts: 1, agentId: null, conversationId: null, runId: null, authorizationRef: null, decidedRole: 'unknown', policyRevision: 'unknown', decisionState: 'closed_unknown' },
+      ],
+      total: 2,
+      limit: 100,
+      thresholdMinutes: 60,
+      scope: 'all',
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const rows = wrapper.findAll('.in-flight-claims .row-stub')
+    expect(rows[0].text()).toContain('待裁')
+    expect(rows[0].text()).toContain('admin')
+    expect(rows[0].text()).toContain('rev-9')
+    // 缺读不是空白，也不是猜出来的值
+    expect(rows[1].text()).toContain('已释放（未知）')
+    expect(rows[1].text()).toContain('unknown')
+    // 只有第一行（待裁、未关闭）有释放按钮；已关闭的行不给入口
+    expect(rows[0].find('.cell-actions button').exists()).toBe(true)
+    expect(rows[1].find('.cell-actions button').exists()).toBe(false)
+
+    // 审计读者只读：在途列表照常显示，但没有释放按钮
+    authState.isAdmin = false
+    authState.isAuditor = true
+    const auditorView = mountView()
+    await flushPromises()
+    expect(auditorView.findAll('.in-flight-claims .row-stub')[0].find('.cell-actions button').exists()).toBe(false)
   })
 
   it('加载失败 → snackbar.error 提示', async () => {
