@@ -13,6 +13,10 @@
  * one, and the table's reader is not misled about it — they just are not told there is unreleased work.
  * Only a named version that is not the pin's tag at all fails.
  *
+ * Scope: it reads **only the TypeScript `main` row**. The history rows and the `KeelBase4J` row are
+ * maintained by hand and are not verified here — a wrong version in one of them is not something this
+ * gate will catch.
+ *
  * 兼容矩阵给 `main` 写的契约版本，本闸核对它是否仍成立。
  *
  * README 说的是 submodule pin **实际持有的**东西，而 pin 在契约**每次**有新提交时都会前进 —— 不只在发版时。
@@ -21,6 +25,9 @@
  *
  * **pin 领先 tag 是「告警」而非「失败」**：写着的仍是最新**已发布**的版本，读表的人不会被误导 —— 只是没被
  * 告知还有未发布的活。只有**写的版本根本不是 pin 的 tag** 才算失败。
+ *
+ * 射程：它**只读 TypeScript 的 `main` 行**。历史各行与 `KeelBase4J` 行由人工维护，不在这里核验 ——
+ * 其中写错一个版本，本闸不会说话。
  */
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
