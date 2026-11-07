@@ -45,7 +45,10 @@ describe('AW-16 F-63/F-64：释放程序与过期策略', () => {
   const repo = () => ds.getRepository(AiWriteClaim);
   const auditRepo = () => ds.getRepository(AiAuditLog);
   /** The read side over the same rows — so "disappeared from the list" is asserted on the real query. */
-  const query = () => new WriteClaimQueryService(repo(), undefined, undefined);
+  // AW-17 合并后 `lookupsRepo` 是必选注入（缺它会把「问过」读成「没问过」）⇒ 这里给一个空历史。
+  // After the AW-17 merge `lookupsRepo` is a required injection; an empty history is enough here.
+  const query = () =>
+    new WriteClaimQueryService(repo(), { find: async () => [] } as never, undefined);
   const STALE_AT = () => new Date(Date.now() - 90 * 60_000);
 
   const seed = async (over: Partial<AiWriteClaim> = {}): Promise<AiWriteClaim> => {

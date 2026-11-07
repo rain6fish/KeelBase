@@ -56,7 +56,10 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CurrentAbility } from '../common/casl/current-ability.decorator';
 import { CheckPolicies } from '../common/casl/check-policies.decorator';
 import { ResponseOrdering } from '../common/decorators/response-ordering.decorator';
-import { IN_FLIGHT_CLAIMS_ORDERING } from '../governance-shared/services/ordering';
+import {
+  IN_FLIGHT_CLAIMS_ORDERING,
+  TARGET_STATUS_LOOKUP_ORDERING,
+} from '../governance-shared/services/ordering';
 import { SkipAudit } from '../operation-audit/skip-audit.decorator';
 import { FeatureFlag } from '../feature-flags/feature-flag.decorator';
 import { AiToolEffectsService } from '../governance-shared/services/ai-tool-effects.service';
@@ -651,6 +654,42 @@ export class AiController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.toolEffectsService.reconcileClaim(id, String(user.sub));
+  }
+
+  /**
+   * AW-17: **what was asked, and what came back** — the lookup history of one claim, newest first.
+   *
+   * Read-only and evidence-shaped: conclusion, cause, when, who asked, whose identity the query
+   * carried, and the path actually requested. Arguments are absent because the table never stored
+   * them. Judged `read AuditLog` and scoped like the in-flight read, so an auditor sees their
+   * account's organisation (or their own rows) and a plain user is refused.
+   *
+   * Out of scope and absent give the same answer (404): a 403 would confirm that the row exists.
+   *
+   * AW-17：**问过什么、回来的是什么** —— 一条占位的查询历史，最近的在前。
+   *
+   * 只读、证据形状：结论、成因、何时、谁发起、查询携带的是谁的身份、真正请求过的路径。参数缺席，
+   * 因为表里从未存过。判 `read AuditLog`、范围同在途读面，故审计读者看到账号所属组织（或本人行），
+   * 普通用户被拒。
+   *
+   * 范围外与不存在给同一个答案（404）：403 会确认这一行存在。
+   */
+  @Get('tool-effects/claims/:id/lookups')
+  @CheckPolicies((ability) => ability.can('read', 'AuditLog'))
+  @ResponseOrdering(TARGET_STATUS_LOOKUP_ORDERING)
+  @ApiOperation({
+    summary: 'AW-17：某条占位的外部写目标状态查询历史（审计读者/管理员；只读，不回显参数）',
+  })
+  async listClaimLookups(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    const history = await this.writeClaimQuery.lookupsFor(id, {
+      userId: user.sub,
+      role: user.role,
+    });
+    if (!history) throw new NotFoundException('claim not found');
+    return history;
   }
 
   /**

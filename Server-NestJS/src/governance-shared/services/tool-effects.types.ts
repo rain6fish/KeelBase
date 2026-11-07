@@ -366,6 +366,21 @@ export interface TargetStatusProbe {
    * 答 `target-status-unavailable`，那是工具的属性，不是另一个要问的问题。
    */
   lookup(toolName: string, actionKey: string, userId: string): Promise<TargetStatusLookup>;
+
+  /**
+   * Whether this tool has a status query configured — answered **without contacting anything**. The
+   * read surface needs it to say "this one cannot be reconciled" instead of offering an action whose
+   * only possible outcome is `target-status-unavailable`.
+   *
+   * It is not a promise of an answer: a configured-but-unusable path still reports `misconfigured`
+   * when actually queried. It only answers "is there a channel at all?".
+   *
+   * 这个工具是否配了状态查询 —— **不接触任何外部系统**就能回答。读面需要它来说「这条对不了账」，
+   * 而不是给一个结果只可能是 `target-status-unavailable` 的动作。
+   *
+   * 它不承诺一定有答案：配了但不可用的路径，真去查时仍报 `misconfigured`。它只回答「有没有通道」。
+   */
+  canAsk(toolName: string): boolean;
 }
 
 /**

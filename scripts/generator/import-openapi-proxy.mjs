@@ -159,6 +159,8 @@ function operationToTool(method, path, pathItem, operation, spec) {
 
   // Java 端补偿端点约定（AI Bridge §4）：撤销时调用（带委托身份），如 DELETE /contracts/{id}
   const revokePath = operation['x-keelbase-revoke-path'];
+  // AW-17 目标状态查询约定：管理员对账时按 {key} 问目标「这次写执行了吗」，如 GET /contracts/status/{key}
+  const statusPath = operation['x-keelbase-status-path'];
   // Single grading point: explicit extension override, else write defaults to R3, read to R1.
   // `riskBasis` records which rule produced the level so the pre-import preview can show its evidence.
   // 分级唯一入口：扩展字段显式覆盖，否则写默认 R3、读默认 R1。
@@ -168,7 +170,7 @@ function operationToTool(method, path, pathItem, operation, spec) {
 
   return {
     name: nameBase,
-    description: `${tagPrefix}${summary}（B 路径代理：${method} ${rewrittenPath}${revokePath ? `；撤销 ${revokePath}` : ''}）`,
+    description: `${tagPrefix}${summary}（B 路径代理：${method} ${rewrittenPath}${revokePath ? `；撤销 ${revokePath}` : ''}${statusPath ? `；状态查询 ${statusPath}` : ''}）`,
     method,
     path: rewrittenPath,
     parameters,
@@ -176,6 +178,7 @@ function operationToTool(method, path, pathItem, operation, spec) {
     riskLevel: explicitRisk ?? (isWrite ? 'R3' : 'R1'),
     riskBasis: explicitRisk ? 'override' : isWrite ? 'default-write' : 'default-read',
     revokePath: revokePath ?? undefined,
+    statusPath: statusPath ?? undefined,
     skipped,
   };
 }

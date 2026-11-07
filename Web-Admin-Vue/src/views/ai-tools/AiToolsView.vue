@@ -128,12 +128,27 @@
       <template #item.policyRevision="{ item }">
         <span class="text-caption">{{ item.policyRevision }}</span>
       </template>
+      <!-- AW-17：目标状态读数。「从没问过」如实写「未查询」——它绝不能读成「已执行」；
+           无结论的查询是**警示**，不是成功。 -->
+      <template #item.targetStatus="{ item }">
+        <template v-if="item.lastLookup">
+          <el-tag size="small" effect="light" :type="lookupTagType(item.lastLookup)">
+            {{ lookupLabel(item.lastLookup) }}
+          </el-tag>
+          <div class="text-caption text-medium-emphasis">{{ formatTime(item.lastLookup.at) }}</div>
+          <div v-if="item.lastLookup.reason" class="text-caption text-warning">
+            {{ lookupReasonLabel(item.lastLookup.reason) }}
+          </div>
+        </template>
+        <span v-else class="text-caption text-medium-emphasis">{{ t('statusNotLookedUp') }}</span>
+      </template>
       <template #item.actions="{ item }">
         <el-button
           v-if="canRelease(item)"
           text
           size="small"
           type="warning"
+          class="release-btn"
           :title="t('inFlightRelease')"
           @click="openRelease(item)"
         >
@@ -143,6 +158,27 @@
           {{ t('inFlightDecisionClosedHint') }}
         </span>
         <span v-else class="text-medium-emphasis text-caption">—</span>
+        <!-- 查询是一次写侧治理动作（服务端 `manage all`），故审计读者只读不点 -->
+        <el-button
+          v-if="canEdit && item.stale && item.reconcilable"
+          text
+          size="small"
+          type="primary"
+          class="reconcile-btn"
+          :loading="reconcilingId === item.id"
+          :title="t('reconcileTargetStatus')"
+          @click="onReconcile(item)"
+        >
+          <AppIcon icon="mdi-magnify-scan" />
+        </el-button>
+        <span
+          v-else-if="item.stale && !item.reconcilable"
+          class="text-caption text-medium-emphasis"
+          :title="t('targetStatusUnavailable')"
+        >{{ t('targetStatusUnavailableShort') }}</span>
+        <el-button text size="small" :title="t('lookupHistory')" @click="openLookupHistory(item)">
+          <AppIcon icon="mdi-history" />
+        </el-button>
       </template>
     </AppTable>
 
@@ -304,6 +340,27 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <!-- AW-17：查询历史（只读证据）——「问过什么、回来的是什么」，最近的在前 -->
+    <el-dialog v-model="showLookupHistory" :title="t('lookupHistory')" width="720px">
+      <div class="text-caption text-medium-emphasis mb-2">
+        {{ t('lookupHistoryHint', { tool: lookupHistoryClaim?.toolName ?? '' }) }}
+      </div>
+      <el-table v-if="lookupHistory.length" :data="lookupHistory" size="small">
+        <el-table-column :label="t('lookupAt')">
+          <template #default="{ row }">{{ formatTime(row.at) }}</template>
+        </el-table-column>
+        <el-table-column :label="t('statusCol')">
+          <template #default="{ row }">
+            <el-tag size="small" effect="light" :type="lookupTagType(row)">{{ lookupLabel(row) }}</el-tag>
+            <div v-if="row.reason" class="text-caption text-warning">{{ lookupReasonLabel(row.reason) }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column prop="lookedUpBy" :label="t('lookupBy')" width="110" />
+        <el-table-column prop="queryPath" :label="t('lookupPath')" />
+      </el-table>
+      <div v-else class="text-caption text-medium-emphasis">{{ t('statusNotLookedUp') }}</div>
+    </el-dialog>
   </div>
 </template>
 
@@ -322,7 +379,7 @@ import { aiToolsApi } from '@/api/aiTools'
 import { settingsApi } from '@/api/settings'
 import { formatTime } from '@/utils/format'
 import { revokeClassTag } from '@/utils/revokeClass'
-import type { AdminAiTool, InFlightClaim, ToolEffect } from '@/types/admin'
+import type { AdminAiTool, InFlightClaim, TargetStatusLookup, ToolEffect } from '@/types/admin'
 
 const { t } = useI18n()
 const snackbar = useSnackbarStore()
@@ -379,6 +436,7 @@ const claimHeaders = computed(() => [
   { key: 'decisionState', title: t('inFlightDecision') },
   { key: 'decidedRole', title: t('inFlightDecidedRole') },
   { key: 'policyRevision', title: t('inFlightPolicyRevision') },
+  { key: 'targetStatus', title: t('targetStatusCol') },
   { key: 'actions', title: t('actionCol') },
 ])
 
@@ -391,6 +449,41 @@ const claimHeaders = computed(() => [
  */
 function canRelease(item: InFlightClaim): boolean {
   return canEdit.value && item.stale && item.decisionState !== 'closed_unknown'
+}
+
+/**
+ * AW-17: the three readings of a lookup, and their **tones**. `unknown` is a warning, never a
+ * success — the target did not answer, and painting that green would assert an outcome it never gave.
+ *
+ * AW-17：一次查询的三种读数与它们的**色调**。`unknown` 是警示，绝不是成功 —— 目标没有回答，
+ * 把它涂成绿色等于断言一个它从未给出的结局。
+ */
+function lookupTagType(l: TargetStatusLookup): 'primary' | 'info' | 'warning' {
+  if (l.conclusion === 'executed') return 'primary'
+  if (l.conclusion === 'not_executed') return 'info'
+  return 'warning'
+}
+
+function lookupLabel(l: TargetStatusLookup): string {
+  if (l.conclusion === 'executed') return t('lookupExecuted')
+  if (l.conclusion === 'not_executed') return t('lookupNotExecuted')
+  return t('lookupUnknown')
+}
+
+/** Every cause means "the target did not tell us" — none of them is "it did not run". */
+const LOOKUP_REASON_KEYS: Record<string, string> = {
+  'target-status-unavailable': 'lookupReasonUnavailable',
+  misconfigured: 'lookupReasonMisconfigured',
+  timeout: 'lookupReasonTimeout',
+  unreachable: 'lookupReasonUnreachable',
+  call_failed: 'lookupReasonCallFailed',
+  non_2xx: 'lookupReasonNon2xx',
+  unrecognized_answer: 'lookupReasonUnrecognized',
+}
+
+function lookupReasonLabel(reason: string): string {
+  const key = LOOKUP_REASON_KEYS[reason]
+  return key ? t(key) : reason
 }
 // E-1 字段级变更审计：查看目标记录 before/after diff
 const diffTarget = ref<ToolEffect | null>(null)
@@ -610,6 +703,73 @@ async function onRelease() {
     snackbar.error(err instanceof Error ? err.message : t('inFlightReleaseFailed'))
   } finally {
     releasing.value = false
+  }
+}
+
+// AW-17：查询历史（只读证据）与「查询目标状态」的一次性动作
+const reconcilingId = ref<number | null>(null)
+const showLookupHistory = ref(false)
+const lookupHistory = ref<TargetStatusLookup[]>([])
+const lookupHistoryClaim = ref<InFlightClaim | null>(null)
+
+const RECONCILE_REFUSAL_KEYS: Record<string, string> = {
+  not_stale: 'reconcileNotStale',
+  not_claimable: 'reconcileNotClaimable',
+  not_found: 'reconcileNotFound',
+}
+
+/**
+ * AW-17: perform the one-shot target-status query and report the outcome **by kind**.
+ *
+ * A refusal (`not_stale` / `not_claimable` / `not_found`) and an inconclusive answer (`unresolved`)
+ * are not the same thing, and none of them is a success: the ledger only moves on a real answer.
+ * The two `reconciled` cases name which answer landed, so the operator reads what actually happened.
+ *
+ * AW-17：执行一次目标状态查询，并按**种类**报出结果。
+ *
+ * 拒绝（`not_stale` / `not_claimable` / `not_found`）与无结论（`unresolved`）不是一回事，且都不是成功：
+ * 只有真答案才让账动。两种 `reconciled` 各自写明落地的是哪个答案，操作者读到的是实际发生的事。
+ */
+async function onReconcile(item: InFlightClaim) {
+  reconcilingId.value = item.id
+  try {
+    const res = await aiToolsApi.reconcileClaim(item.id)
+    if (res.outcome === 'reconciled') {
+      snackbar.success(
+        res.conclusion === 'executed' ? t('reconcileDoneExecuted') : t('reconcileDoneNotExecuted'),
+      )
+    } else if (res.outcome === 'unresolved') {
+      snackbar.warning(
+        t('reconcileUnresolved', {
+          reason: res.evidence?.reason ? lookupReasonLabel(res.evidence.reason) : '-',
+        }),
+      )
+    } else {
+      snackbar.warning(t(RECONCILE_REFUSAL_KEYS[res.outcome] ?? 'reconcileNotStale'))
+    }
+    await loadInFlight()
+    if (lookupHistoryClaim.value?.id === item.id) await loadLookupHistory(item)
+  } catch (err) {
+    snackbar.error(err instanceof Error ? err.message : t('loadFailed'))
+  } finally {
+    reconcilingId.value = null
+  }
+}
+
+function openLookupHistory(item: InFlightClaim) {
+  lookupHistoryClaim.value = item
+  showLookupHistory.value = true
+  loadLookupHistory(item)
+}
+
+/** 读一次历史。失败只提示 —— 它不改任何状态，静默吞掉会让「没有记录」与「读不到」混在一起。 */
+async function loadLookupHistory(item: InFlightClaim) {
+  try {
+    const res = await aiToolsApi.claimLookups(item.id)
+    lookupHistory.value = res.items
+  } catch (err) {
+    lookupHistory.value = []
+    snackbar.error(err instanceof Error ? err.message : t('loadFailed'))
   }
 }
 

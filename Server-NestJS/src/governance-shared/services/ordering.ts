@@ -127,3 +127,21 @@ export const IN_FLIGHT_CLAIMS_ORDERING: OrderingDeclaration = {
   attested: 'none',
 };
 
+/**
+ * `GET /ai/tool-effects/claims/:id/lookups` — one claim's target-status lookup history. Newest first,
+ * so the latest answer is the first row; `id` breaks ties because `at` is inserted at the same
+ * precision and two attempts can share it. `at` is written by the service (receiver-supplied), and
+ * the lookup table is not part of the audit chain — hence `attested: 'none'`.
+ *
+ * `GET /ai/tool-effects/claims/:id/lookups` —— 一条占位的目标状态查询历史。最近的在前，故最新的答案就是
+ * 第一行；`at` 以同一精度写入、两次尝试可能同刻，故以 `id` 决序。`at` 由服务写入（接收方提供），
+ * 且查询表不在审计链内 —— 故 `attested: 'none'`。
+ */
+export const TARGET_STATUS_LOOKUP_ORDERING: OrderingDeclaration = {
+  field: 'at',
+  direction: 'desc',
+  controlledBy: 'receiver',
+  tiebreak: { field: 'id', direction: 'desc' },
+  attested: 'none',
+};
+

@@ -346,4 +346,31 @@ describe('AW-17 目标状态查询（只读，一次）', () => {
       expect(f.calls).toHaveLength(0);
     });
   });
+
+  /**
+   * AW-17 read side: "can this target be asked at all?" is a property of the tool, and the read
+   * surface needs it **without performing a query** — a list of in-flight calls must be able to say
+   * "this one cannot be reconciled" instead of offering an action that would only report
+   * `target-status-unavailable`.
+   *
+   * AW-17 读侧：「这个目标能不能问」是工具的属性，读面必须**不发起查询**就能回答 —— 在途调用清单
+   * 要能说「这条对不了账」，而不是给一个只会报 `target-status-unavailable` 的按钮。
+   */
+  it('canAsk：配了 statusPath 才是可问；没配 / 工具不存在 ⇒ false（不发任何请求）', () => {
+    const f = stubFetch(async () => answer({ status: 'executed' }));
+    try {
+      const configured = probeFor(writeTool({ statusPath: 'GET /contracts/status/{key}' }));
+      expect(configured.canAsk('proxy_create_contract')).toBe(true);
+
+      const notConfigured = probeFor(writeTool());
+      expect(notConfigured.canAsk('proxy_create_contract')).toBe(false);
+
+      // Unknown tool / non-proxy tool ⇒ cannot ask, and the question itself is not a request.
+      // 未知工具 / 非代理工具 ⇒ 问不了；而这个提问本身不构成任何请求。
+      expect(configured.canAsk('no_such_tool')).toBe(false);
+      expect(f.calls).toHaveLength(0);
+    } finally {
+      f.restore();
+    }
+  });
 });
