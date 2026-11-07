@@ -132,8 +132,9 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
   also gains `id` as its tie-break, so offset paging can no longer repeat or drop a row whose
   timestamps tie. Contract: `api-response` v2.
 
-- **The contract binding moves to v1.20.0.** `audit-payload` v3 adds `audit_review` to the closed
-  action enum, so a review receipt is a legal row on the same chain. The pin, both READMEs'
+- **The contract binding moves to v1.21.0.** `audit-payload` v3 adds `audit_review` to the closed
+  action enum, so a review receipt is a legal row on the same chain, and v4 adds `claim_release`, so
+  releasing a write hold whose outcome stayed unknown is itself a legal row. The pin, both READMEs'
   compatibility rows and the versioning document name the released tag.
 
 - **The admin console reads the new surfaces.** The tool page gains an in-flight section with the
@@ -242,8 +243,9 @@ Full details: [v1.3.1 release](https://github.com/rain6fish/KeelBase/releases/ta
   排序列在哈希载荷之外时，读数如实写 `attested: none`，而不是向一个能证明自己顺序的面借用。日志列表同时
   以 `id` 决序，故偏移分页不会再让同一时间戳并列的行重复或消失。契约：`api-response` v2。
 
-- **契约绑定移到 v1.20.0。** `audit-payload` v3 在闭合的 action 枚举里加上 `audit_review`，于是复核回执
-  成为同一条链上的合法行。子模块 pin、两版 README 的兼容矩阵行与版本线文档都点名这枚已发布的 tag。
+- **契约绑定移到 v1.21.0。** `audit-payload` v3 在闭合的 action 枚举里加上 `audit_review`，于是复核回执
+  成为同一条链上的合法行；v4 加上 `claim_release`，使「释放一份结局始终未知的写占位」本身也是合法的一行。
+  子模块 pin、两版 README 的兼容矩阵行与版本线文档都点名这枚已发布的 tag。
 
 - **管理台读得到这些新面。** 工具页新增在途一节，带处置与判定依据两列、过滤器、释放对话框、一次性目标
   状态查询及其历史；审计页新增复核列。中英双语齐备，`unknown` 以警示色而非成功色呈现。
