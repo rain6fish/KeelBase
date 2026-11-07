@@ -4,9 +4,74 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 本文件记录 KeelBase 所有值得关注的变更。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [1.3.1] - 2026-11-04
+## [1.3.1] - 2026-11-07
 
-**v1.3.1 — The audit reader's scope closes on every read, and every ordered read says how it was ordered / 审计读者的范围在每个读面收口，每个有序读都说清它按什么排序**
+**v1.3.1 — Every write with no answer gets a name, a reader and a way to close / 每一次没有答案的写，都有名字、有读面、也有收口的路**
+
+### Added
+
+- **The in-flight write claim is a readable surface.** `GET /api/v1/ai/tool-effects/claims` answers
+  which AI writes are still `claimed` at the moment it is asked, narrowed by user, tool and a closed
+  time window. Each row carries the tool name and `args_hash` only — the table never stored the
+  arguments — and the projection lists its fields one by one so a future column cannot leak in
+  silently. It judges `read AuditLog`, is scoped like the audit read face, and reports `stale` as an
+  age reading that neither settles nor releases the row. Rows carry the grant they were decided under
+  (`decidedRole`, `policyRevision`, frozen at decision time, missing → `unknown`, never backfilled)
+  and their disposition (`decisionState`).
+
+- **A hold nobody can resolve gets a disposition, not a verdict.** An administrator can release a
+  write whose outcome stayed unknown past the stale threshold
+  (`POST /api/v1/ai/tool-effects/claims/:id/release`), with a written note and an optional external
+  reference. The claim moves to `closed_unknown`; `status` deliberately stays `claimed` because
+  nothing established whether the write landed, the key stays occupied so the same call is never
+  silently retried, and the act itself becomes one chained audit row. An hourly sweep moves overdue
+  holds to `awaiting_decision` without changing status or writing a conclusion, so a slow external
+  call can still settle.
+
+- **The target may be asked once, read-only.** A B-path write tool can declare `statusPath`
+  (`[METHOD] path`, `{key}` = the write's idempotency key), and an administrator can reconcile one
+  stale claim with `POST /api/v1/ai/tool-effects/claims/:id/reconcile`. The query sends GET only,
+  once, never retried, carrying the original writer's delegation identity, and only a target answer of
+  `{"status":"executed"|"not_executed"}` converges the ledger. Timeout, unreachable, non-2xx, an
+  unrecognised body or no channel at all conclude `unknown` and leave the claim `claimed`; every
+  attempt is stored as evidence and is readable at
+  `GET /api/v1/ai/tool-effects/claims/:id/lookups` (no argument plaintext — the table never held it).
+  A deployment that writes to a target nobody can ask declares the `target-status-unavailable` gap on
+  every coverage statement: **the absence of a recorded effect is not evidence that the write did not
+  happen.**
+
+- **Tools declare what their target can do.** `AiTool.capabilities` carries `statusLookup`,
+  `cancellation` and `dedup`, each `yes` / `no` / `unknown`. An absent field resolves to `unknown`, and
+  every gate reads `no` and `unknown` the same way — silence never licenses an attempt. Only a literal
+  `yes` lets the reconciliation query a target.
+
+- **Operation identity arbitrates external-write retries.** The same external effect launched from a
+  second conversation used to produce a second claim and a second real write. `operationKey`
+  (`sha256(user, tool, canonicalised arguments)`, no conversation) is now the arbitration point: a
+  partial unique index allows at most one in-flight claim per operation, so a retry from another
+  session or worker stops instead of re-sending. The index binds in-flight rows only, so the same
+  parameters can still be a legitimate second operation once the first settles; that repeat, and a new
+  write landing on ground the ledger already holds, are annotated `possible_duplicate` — a discovery,
+  not a verdict.
+
+- **Cancellation is a contract, and "stopped" is not "stopped waiting".** Tools may accept an
+  `AbortSignal`, and each tool declares whether the work itself can be stopped (`yes` / `no` /
+  `unknown`). The executor records a cancellation as a process — requested → confirmed or unknown —
+  and only `yes` + confirmed reads `aborted`; every other combination reads `abandoned` with the
+  outcome left unknown. A write keeps its claim when abandoned and releases it when aborted, so a
+  cancelled call is never an invitation to send the same write again.
+
+- **An offline window that closes with nobody deciding now records itself.** The allow basis is parked
+  on the confirmation row at issue time — not recomputed at expiry, which would answer with today's
+  policy — and each hourly expiry writes one `tool_confirmation` row with `outcome=timeout`, the
+  operator's username, the arguments and the parked basis. A process that dies inside the in-stream
+  wait no longer leaves a call with no basis, no outcome and no chain proof.
+
+- **Record-level review lives on the chain.** `AUDIT_REVIEW_OWNER` and `AUDIT_REVIEW_CADENCE_DAYS`
+  assign the reading explicitly; a review receipt is an `audit_review` row on the same hash chain with
+  the covered range inside its signed `detail`, and the unreviewed intervals are derived from the
+  chain. Deleting a receipt turns its range back into unreviewed; forging one fails verification. When
+  nobody is assigned, the coverage statement says so.
 
 ### Fixed
 
@@ -40,7 +105,12 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 - **A leave request cannot be created approved.** `status` is gone from the create DTO and the
   service writes `pending` regardless of the caller; the update path refuses a status change unless
   the caller is an administrator; the Flutter form no longer offers the control and the AI tool has
-  no `status` parameter. A client that still sends it gets a 400 instead of a silent approval.
+  no `status` parameter. A client that still sends it gets a 400 instead of a silent approval, and a
+  `null` state is rejected rather than written into the column.
+
+- **The operations audit pages over a total order.** Its list sorted by `createdAt` alone, so two rows
+  stamped in the same instant could split differently between two identical requests; `id` now
+  decides, the same tie-break the AI audit list applies.
 
 - **Both Taro vertical templates collect what the server requires.** The leave-request and
   inventory-movement forms now send every required DTO field and check them before the request,
@@ -54,13 +124,76 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 ### Changed
 
 - **Every ordered read declares the order it applied.** `@ResponseOrdering` attaches a declaration
-  and the response envelope carries `ordering{field, direction, controlledBy, tiebreak, attested}`.
-  The log list also gains `id` as its tie-break, so offset paging can no longer repeat or drop a row
-  whose timestamps tie. Contract: `api-response` v2.
+  and the response envelope carries `ordering{field, direction, controlledBy, tiebreak, attested}` —
+  three facts, each a way for "ordered" to mean nothing: who supplies the sort field, what happens
+  when it ties, and whether the position is covered by the chain. The declaration describes the
+  query that actually ran; where the sort column sits outside the hash payload the reading is
+  `attested: none`, stated rather than borrowed from a surface that can prove its order. The log list
+  also gains `id` as its tie-break, so offset paging can no longer repeat or drop a row whose
+  timestamps tie. Contract: `api-response` v2.
+
+- **The contract binding moves to v1.20.0.** `audit-payload` v3 adds `audit_review` to the closed
+  action enum, so a review receipt is a legal row on the same chain. The pin, both READMEs'
+  compatibility rows and the versioning document name the released tag.
+
+- **The admin console reads the new surfaces.** The tool page gains an in-flight section with the
+  disposition and basis columns, a filter, a release dialog, the one-shot target-status query and its
+  history; the audit page gains the reviewed column. Both languages, and `unknown` renders as a
+  warning rather than success.
+
+- **The contract matrix reads the pin's tag in a shallow checkout.** A depth-1 fetch cannot make a
+  shallow pin describable, so a pin leading the newest tag went red on every CI run; a shallow
+  repository is now unshallowed before the tags are read, while a full clone still only fetches tags.
 
 Full details: [v1.3.1 release](https://github.com/rain6fish/KeelBase/releases/tag/v1.3.1)
 
 **中文**
+
+### 新增
+
+- **在途 AI 写调用成为可读的一面。** `GET /api/v1/ai/tool-effects/claims` 回答「被问那一刻哪些 AI 写仍是
+  `claimed`」，可按用户、工具与两端闭合的时间窗收紧。每行只带工具名与 `args_hash` —— 表里从未存过参数
+  —— 投影逐字段列出，日后新增的列不会悄悄带出。它判 `read AuditLog`、范围与审计读面一致，`stale` 只是
+  年龄读数，既不落定也不释放。行上带当次判定所依据的授予（`decidedRole`、`policyRevision`，在判定那一刻
+  冻结，缺失读作 `unknown`，绝不回填）与处置状态（`decisionState`）。
+
+- **没人能解开的占位得到的是一份处置，不是一句判决。** 管理员可释放一项结局越过陈旧阈值仍未明的写
+  （`POST /api/v1/ai/tool-effects/claims/:id/release`），须写说明，可选外部引用。占位转为
+  `closed_unknown`；`status` **有意**保持 `claimed`，因为没有任何东西证明这次写是否落库；键仍被占住，
+  故同一次调用绝不会被静默重试；动作本身成为一条带链审计行。每小时清扫把到期占位移入
+  `awaiting_decision`，不改状态、不写结论，故慢的外部调用仍能落定。
+
+- **目标可以被问一次，且只读。** B 路径写工具可声明 `statusPath`（`[METHOD] path`，`{key}` 为这次写的
+  幂等键）；管理员随后可用 `POST /api/v1/ai/tool-effects/claims/:id/reconcile` 对一条陈旧占位做一次
+  对账。查询只发 GET、只发一次、不重试，携带原写入者的委托身份；只有目标答
+  `{"status":"executed"|"not_executed"}` 才让账收敛。超时、不可达、非 2xx、认不出的响应体、乃至根本
+  没有通道，结论都是 `unknown`，账保持 `claimed`；每次尝试都存为证据，可在
+  `GET /api/v1/ai/tool-effects/claims/:id/lookups` 读出（无参数明文 —— 表里从未存过）。写向「问不到」
+  目标的部署，会在每一份覆盖声明上带 `target-status-unavailable` 缺口：**没有记录下来的副作用，不是
+  这次写没发生的证据。**
+
+- **工具声明它的目标能做什么。** `AiTool.capabilities` 带 `statusLookup` / `cancellation` / `dedup`，
+  各自 `yes` / `no` / `unknown`。缺席字段解析为 `unknown`，每一道闸都把 `no` 与 `unknown` 同样看待 ——
+  沉默从不授权一次尝试。只有字面 `yes` 才让对账去问目标。
+
+- **操作身份成为外部写重试的仲裁点。** 同一外部效果从第二个会话发起，此前会得到第二个占位与第二次真实
+  外部写。现在 `operationKey`（`sha256(用户, 工具, 规范化参数)`，不含会话）是仲裁点：一个部分唯一索引
+  使同一操作最多只有一条在途占位，故来自另一会话或 worker 的重试会停下，而不是再次发送。该索引只绑在途
+  行，因此第一个操作落定之后，相同参数仍可作为另一次合法操作执行；那次重复、以及新写落在账上已有之处，
+  都会被标注 `possible_duplicate` —— 是发现，不是判决。
+
+- **取消是一份契约，「停了」不等于「只停了等待」。** 工具可接受 `AbortSignal`，并声明工作本身是否停得掉
+  （`yes` / `no` / `unknown`）。执行器把取消记成一个过程 —— requested → confirmed 或 unknown —— 只有
+  `yes` + confirmed 读作 `aborted`，其余组合一律 `abandoned`、结局未知。写路径在 abandoned 时保留占位、
+  aborted 时释放占位，故一次被取消的调用从不构成「再发一次同样的写」的邀请。
+
+- **窗口到期、无人裁决的离线确认现在会把自己记下来。** 放行依据在签发时停在确认行上 —— 到期时不重算，
+  重算答的是今天的策略 —— 且每次到期写一行 `tool_confirmation`，带 `outcome=timeout`、操作人用户名、
+  参数与该份依据。死在对话内等待里的进程，不再留下一通没有依据、没有结局、也没有链上证明的调用。
+
+- **记录级复核落在链上。** `AUDIT_REVIEW_OWNER` 与 `AUDIT_REVIEW_CADENCE_DAYS` 显式指派这项阅读；复核
+  回执是同一条哈希链上的一行 `audit_review`，覆盖区间写进被签住的 `detail`，未复核区间由链算出。删一条
+  回执，其区间就变回未复核；伪造一条则校验不通过。无人被指派时，覆盖声明如实说出来。
 
 ### 修复
 
@@ -85,7 +218,10 @@ Full details: [v1.3.1 release](https://github.com/rain6fish/KeelBase/releases/ta
 
 - **请假申请不能被创建成「已批准」。** 创建 DTO 去掉了 `status`，服务端不论调用方期望什么一律写
   `pending`；更新路径非管理员不得改状态；Flutter 表单不再提供该控件，AI 工具也没有 `status` 参数。
-  仍然传它的客户端会得到 400，而不是一次静默批准。
+  仍然传它的客户端会得到 400，而不是一次静默批准；`null` 状态同样被拒，不会写进该列。
+
+- **操作审计的分页落在全序上。** 它的列表此前只按 `createdAt` 排，同一时刻打戳的两行在两次相同请求里可能
+  切得不一样；现在以 `id` 决序 —— 与 AI 审计列表同一个 tie-break。
 
 - **Taro 两个垂直模板按服务端要求采集。** 请假与进销存表单现在发送 DTO 的每一个必填字段，并在请求前
   先校验，而不再是藏在 `as any` 后面的单个 `requestNo` / `documentNo`；「添加」不再注定失败。
@@ -96,8 +232,19 @@ Full details: [v1.3.1 release](https://github.com/rain6fish/KeelBase/releases/ta
 ### 变更
 
 - **每个有序读都声明它实际用的顺序。** `@ResponseOrdering` 挂上声明，响应信封携带
-  `ordering{field, direction, controlledBy, tiebreak, attested}`。日志列表同时以 `id` 决序，
-  故偏移分页不会再让同一时间戳并列的行重复或消失。契约：`api-response` v2。
+  `ordering{field, direction, controlledBy, tiebreak, attested}` —— 三个事实，每一个都是「有序」可以
+  变得毫无意义的方式：谁提供排序字段、并列时怎么办、位置是否被链覆盖。声明描述的是真正执行的那条查询；
+  排序列在哈希载荷之外时，读数如实写 `attested: none`，而不是向一个能证明自己顺序的面借用。日志列表同时
+  以 `id` 决序，故偏移分页不会再让同一时间戳并列的行重复或消失。契约：`api-response` v2。
+
+- **契约绑定移到 v1.20.0。** `audit-payload` v3 在闭合的 action 枚举里加上 `audit_review`，于是复核回执
+  成为同一条链上的合法行。子模块 pin、两版 README 的兼容矩阵行与版本线文档都点名这枚已发布的 tag。
+
+- **管理台读得到这些新面。** 工具页新增在途一节，带处置与判定依据两列、过滤器、释放对话框、一次性目标
+  状态查询及其历史；审计页新增复核列。中英双语齐备，`unknown` 以警示色而非成功色呈现。
+
+- **契约矩阵在浅检出里也能读出 pin 的 tag。** 深度 1 的 fetch 救不了浅检出里的 pin，于是只要 pin 领先
+  最新 tag，每次 CI 都判红；现在浅仓先 unshallow 再读 tag，而完整克隆仍只取 tag。
 
 完整详情：[v1.3.1 发布](https://gitee.com/rain6fish/KeelBase/releases/tag/v1.3.1)
 

@@ -58,16 +58,21 @@ record accountable from both ends: an audit row links to the write claim that pr
 reachability reading says how many rows cannot be traced to one, a refused call gets its own counter, and
 the explanation face names the authorization that actually let the write run. The readings instrument
 takes seven action classes on one command and runs nightly in CI, alerting only. `v1.3.0` pinned the
-contract at **v1.16.0**; `v1.3.1`, the line's first incremental release, moves it to **v1.18.0** — the
-release that carries the ordering declaration in `api-response` v2 — and closes what an audit reader can
-read back onto the scope that reader actually holds. The `main` branch is the development line; each
-tagged release is a stable snapshot that passes the full CI and test suite.
+contract at **v1.16.0**; `v1.3.1`, the line's first incremental release, moves it to **v1.20.0** as it
+landed: **v1.18.0** carries the ordering declaration in `api-response` v2, **v1.19.0** adds the
+outcome vector, and **v1.20.0** publishes `audit-payload` v3, whose closed action enum gains
+`audit_review` so a review receipt is a legal row on the same chain. The same release closes what an
+audit reader can read back onto the scope that reader actually holds, and turns an unresolved write
+into a readable, closable record. The `main` branch is the development line; each tagged release is a
+stable snapshot that passes the full CI and test suite.
 
 当前版本线是可核证据版，首发于 2026-10-31。它让审计记录两端都可核：审计行挂回产生它的那条写占位，
 并有一条可达性读数说明有多少行追不到写占位；被拒的调用有自己的计数；解释面点名真正放行这次写入的
 那次授权。读数仪器用一条命令取七类动作的读数，每夜在 CI 里跑、只告警。`v1.3.0` 把契约钉在
-**v1.16.0**；`v1.3.1` 是本线的首个增量版，把契约移到 **v1.18.0** —— 承载 `api-response` v2 排序声明的
-那一版 —— 并把审计读者能读回的东西收口到该读者实际持有的范围之内。
+**v1.16.0**；`v1.3.1` 是本线的首个增量版，按落地时的实况把契约移到 **v1.20.0**：**v1.18.0** 承载
+`api-response` v2 的排序声明，**v1.19.0** 新增结局向量，**v1.20.0** 发布 `audit-payload` v3 —— 其闭合的
+action 枚举加上 `audit_review`，使复核回执成为同一条链上的合法行。同一版还把审计读者能读回的东西收口到该
+读者实际持有的范围之内，并让一次结局未明的写成为可读、可收口的记录。
 `main` 分支为开发线，每个打了 tag 的版本都是通过完整 CI 与测试套件的稳定快照。
 
 ### Superseded: 1.2.x, 1.1.x and 1.0.x / 已被取代：1.2.x、1.1.x 与 1.0.x

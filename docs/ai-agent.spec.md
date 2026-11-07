@@ -473,6 +473,14 @@ The status query is gated on `statusLookup`: only a literal `yes` lets the recon
 
 状态查询由 `statusLookup` 把关：只有字面 `yes` 才让对账去尝试查询。`no` 与 `unknown` 一个字节都不发、结论 `unknown`，并留下 `target-status-unavailable` 缺口 —— 绝不报成功。`ProxyTool` 由配置的 `statusPath` 派生 `statusLookup`（配了端点即目标提供了查询；没配意味着**我们**没有通道，这不等于目标没有，故留 `unknown`）。`cancellation` 与 `dedup` 今天只是声明：代理配置里没有目标侧的取消通道，执行器对结局未知的外部调用也没有重试路径，故那里 `yes` 不授权任何事。第二点由测试钉住 —— `dedup: yes` 不会产生一次重发。
 
+**The basis a write was decided on (AW-15).** A write claim records *what* was authorized (`authorization_ref`) and *when* (`claimed_at`), but not *under which grant*. Two nullable columns freeze that reading at decision time — `decided_role`, read from the user row, and `policy_revision`, the same content fingerprint the authorization snapshot records — so a record can still answer "which role and which policy revision let this through" after the role has been revoked. Both are resolved by the gate that already owns those sources, and a re-claim replaces them because the row describes the latest attempt. A missing value reads `unknown` and is never backfilled: the stored facts cannot prove it. The in-flight read surface carries both columns, and a row written before they existed reports the same word a reader would use for "nobody can tell".
+
+**一次写当时依据的是哪一份授予（AW-15）。** 占位行记下了授权**是什么**（`authorization_ref`）与**何时**（`claimed_at`），却没记**依据哪一份授予**。两个可空列在判定那一刻冻结这个读数 —— `decided_role` 读自用户行，`policy_revision` 与授权快照记录的是同一个内容指纹 —— 于是角色被撤销之后，记录仍答得出「当时哪个角色、哪一版策略放行的」。两者都由本来就持有这些来源的门控解析，且重占位会替换它们，因为这一行描述的是最近一次尝试。缺失值读作 `unknown`，绝不回填：已存的事实证不了它。在途读面带出这两列；引入它们之前的行，与读者说「没人能说」时用的是同一个词 —— 既不是「没有角色」，也不是「没有策略」。
+
+**Operation identity arbitrates retries (AW-20).** The per-conversation idempotency key cannot answer "has this *operation* already started somewhere else", because the conversation is part of the key. `operationKeyOf = sha256(userId, toolName, canonicalised arguments)` names that identity, and a partial unique index on `ai_write_claims` (rows where `status = 'claimed'`) makes it the arbitration point: a retry from another session or worker stops instead of sending a second real write. The index binds in-flight rows only, so the same parameters can still be a second, legitimate operation once the first has settled; that repeat is recorded and annotated `possible_duplicate` rather than silently treated as new. This is a discovery, not a verdict — nothing is rejected, rewritten or compensated on the strength of it.
+
+**操作身份成为重试的仲裁点（AW-20）。** 按会话划分的幂等键答不了「这个**操作**是不是已经在别处开始过」，因为会话就在键里。`operationKeyOf = sha256(用户, 工具, 规范化参数)` 把这个身份命名出来，而 `ai_write_claims` 上一个**只覆盖 `claimed` 行**的部分唯一索引使它成为仲裁点：来自另一会话或 worker 的重试会停下，而不是发出第二次真实外部写。该索引只绑在途行，故第一个操作落定之后，相同参数仍可作为另一次合法操作执行；那次重复会被登记并标注 `possible_duplicate`，而不是静默当作新操作。这是发现，不是判决 —— 不因此拒绝、不改写、不触发补偿。
+
 ---
 
 ## 7. 环境变量 / 7. Environment Variables

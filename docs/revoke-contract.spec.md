@@ -571,7 +571,47 @@ ARC-6 对「缺失集合已变」的处理同一条规则。**不回填**：引�
 **比过了**的成员即使发生了**漂移**也算「比到了」—— 漂移是 REV-9 自己的读数，不是承诺被打破，把两者折在一起
 就会在检查明明跑过时报「没跑」。
 
-## 6. 相关文档 / Related
+## 6. 滞留占位的处置与对账（AW-16 / AW-17）/ A stuck hold's disposition and its reconciliation
+
+**A hold nobody can resolve gets a disposition, not a verdict.** A write claim whose outcome stayed
+unknown past `REVOKE_STALE_MINUTES` can be released by an administrator with a written note and an
+optional external reference. The claim moves to `closed_unknown`; `status` deliberately stays
+`claimed`, because nothing has established whether the write landed — writing `released` would assert
+"confirmed not stored". The key stays occupied, so the same call is refused by `claimWrite` and is
+never silently retried. The act itself is one chained AI-audit row (`action=claim_release`), carrying
+the note and reference and **no** outcome word.
+
+An hourly sweep moves overdue `open` holds to `awaiting_decision`. It changes no status and writes no
+conclusion, so a slow external call can still settle; a sweep that released rows would take that
+ability away. Reading never mutates: `stale` remains an age reading, not a decision.
+
+**The target may be asked once, read-only.** A B-path tool can declare `statusPath` (`[METHOD] path`,
+`{key}` = the write's idempotency key, the same convention as `revokePath`); an administrator can then
+reconcile one stale claim with `POST /ai/tool-effects/claims/:id/reconcile`. The query sends **GET
+only**, once, never retried, carrying the original writer's delegation identity. Only a target answer
+of `{"status":"executed"|"not_executed"}` converges the ledger (`executed` → `settled`,
+`not_executed` → `released`); everything else — timeout, unreachable, non-2xx, an unrecognised body,
+no channel at all — concludes `unknown` and leaves the ledger `claimed`. Each attempt is stored as
+evidence. A hold a person already released is **not** reconcilable: the release recorded that the
+truth is unknown, and a later query must not overwrite that decision.
+
+**滞留的占位得到的是一份处置，不是一句判决。** 结局越过 `REVOKE_STALE_MINUTES` 仍未明的写占位，可由管理员
+带书面说明（可选外部引用）释放。占位转为 `closed_unknown`，而 `status` **有意**保持 `claimed` —— 没有任何
+东西证明这次写是否落库，写成 `released` 等于断言「确认未落库」。键仍被占住，故同一次调用会被 `claimWrite`
+拒绝，绝不会被静默重试。动作本身是一条带链 AI 审计行（`action=claim_release`），带说明与引用，**不**带
+任何结局词。
+
+每小时清扫把到期的 `open` 占位移入 `awaiting_decision`：不改状态、不写结论，故慢的外部调用仍能落定 ——
+若清扫把行改成 `released`，那份能力就没了。读永远不改状态：`stale` 仍是年龄读数，不是决定。
+
+**目标可以被问一次，且只读。** B 路径工具可声明 `statusPath`（`[METHOD] path`，`{key}` 为这次写的幂等键，
+与 `revokePath` 同一约定）；管理员随后可用 `POST /ai/tool-effects/claims/:id/reconcile` 对一条陈旧占位
+做一次对账。查询**只发 GET**、只发一次、不重试，并携带原写入者的委托身份。只有目标答
+`{"status":"executed"|"not_executed"}` 才让账收敛（`executed` → `settled`，`not_executed` → `released`）；
+其余一切 —— 超时、不可达、非 2xx、认不出的响应体、乃至根本没有通道 —— 都判 `unknown`，账保持 `claimed`。
+每次尝试都留下证据。**人已释放的占位不再可对账**：那次释放记录的正是「真相未知」，后来的查询不得覆盖那份决定。
+
+## 7. 相关文档 / Related
 
 - [cascade-compensation.spec.md](cascade-compensation.spec.md)（级联撤销 / 业务级补偿——闭合本契约 B2 / C / G3）
 - docs/evidence-root.spec.md（授权快照 + 证据根；撤销目标状态在证据包内）
