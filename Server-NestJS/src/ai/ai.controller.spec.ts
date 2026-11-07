@@ -22,6 +22,8 @@ describe('AiController', () => {
   let mockListToolEffects: jest.Mock;
   let mockRevokeToolEffect: jest.Mock;
   let mockFindSplitGroups: jest.Mock;
+  let mockFindByTarget: jest.Mock;
+  let mockFindManyByTarget: jest.Mock;
   let mockListOwnedToolEffects: jest.Mock;
   let mockMyConfirmationList: jest.Mock;
   let mockAbility: any;
@@ -43,9 +45,11 @@ describe('AiController', () => {
     mockListToolEffects = jest.fn();
     mockRevokeToolEffect = jest.fn();
     mockFindSplitGroups = jest.fn();
+    mockFindByTarget = jest.fn();
+    mockFindManyByTarget = jest.fn().mockResolvedValue([]);
     mockListOwnedToolEffects = jest.fn();
     mockMyConfirmationList = jest.fn().mockResolvedValue([]);
-    mockAbility = { cannot: () => false };
+    mockAbility = { cannot: () => false, can: () => true };
     const mockAiService = { chat: mockChat, chatStream: mockChatStream } as unknown as AiService;
     // 工具对外面（阶段 3 第九刀）：清单/集成诊断已独立
     const mockToolExposure = { getToolInventory: mockGetToolInventory } as any;
@@ -68,6 +72,13 @@ describe('AiController', () => {
       revokeOwned: mockRevokeOwned,
       listOwned: mockListOwnedToolEffects,
       findSplitGroups: mockFindSplitGroups,
+      findByTarget: mockFindByTarget,
+      findManyByTarget: mockFindManyByTarget,
+      describeTarget: jest
+        .fn()
+        .mockResolvedValue({ targetExists: true, targetSoftDeleted: false, targetTitle: 'P' }),
+      listGroup: jest.fn().mockResolvedValue([]),
+      isRestored: jest.fn().mockReturnValue(false),
     } as any;
     const mockDecisionTraceService = { getConversationTrace: mockGetConversationTrace } as any;
     controller = new AiController(
@@ -523,6 +534,46 @@ describe('AiController', () => {
     it('DELETE /ai/tool-effects/:id 不存在 → 404', async () => {
       mockRevokeToolEffect.mockResolvedValue(null);
       await expect(controller.revokeToolEffect(1)).rejects.toThrow(NotFoundException);
+    });
+
+    // REV-6：判定必须有第三态，且不可比的行不得默认落进 complete。
+    // 本用例钉的是**端点真的把它读出来** —— 只让纯函数绿，读取侧仍可以继续只报 complete。
+    it('GET /ai/governance/action/:resultType/:resultId → 未捕获成员读作 incomparable，不是 complete', async () => {
+      mockFindByTarget.mockResolvedValue({
+        id: 1,
+        userId: '1',
+        resultType: 'pm_project',
+        resultId: 7,
+        conversationId: null,
+        compensationGroup: null,
+        revokeStatus: null,
+      });
+      mockFindManyByTarget.mockResolvedValue([
+        { id: 1, userId: '1', beforeSnapshot: null, afterSnapshot: null },
+        { id: 2, userId: '1', beforeSnapshot: null, afterSnapshot: null },
+      ]);
+
+      const res = await controller.governanceAction(
+        'pm_project',
+        7,
+        mockUser as any,
+        mockAbility as any,
+      );
+
+      expect(res.identity.state).toBe('incomparable');
+      expect(res.identity.members.map((m) => m.reason)).toEqual(['not_captured', 'not_captured']);
+      // 反向对照：捕获完整且一致 ⇒ complete（不是「凡撤销都报不可比」）
+      mockFindManyByTarget.mockResolvedValue([
+        { id: 1, userId: '1', beforeSnapshot: null, afterSnapshot: '{"id":7,"title":"P"}' },
+        { id: 2, userId: '1', beforeSnapshot: null, afterSnapshot: '{"title":"P","id":7}' },
+      ]);
+      const ok = await controller.governanceAction(
+        'pm_project',
+        7,
+        mockUser as any,
+        mockAbility as any,
+      );
+      expect(ok.identity.state).toBe('complete');
     });
   });
 });
