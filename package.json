@@ -52,6 +52,7 @@
     "check:generated-samples": "node scripts/check-generated-samples.mjs",
     "check:contract-matrix": "node scripts/check-contract-matrix.mjs",
     "check:contract-release-gate": "node scripts/check-contract-release-gate.mjs",
+    "check:tag-lineage": "node scripts/check-tag-lineage.mjs",
     "check:env-example": "node scripts/check-env-example.mjs",
     "check:readme-parity": "node scripts/check-readme-parity.mjs",
     "check:admin-pages": "node scripts/check-admin-pages.mjs",

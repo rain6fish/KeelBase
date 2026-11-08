@@ -52,8 +52,16 @@ import { contractSubmoduleProblem, SUBMODULE_FIX } from './require-contract-subm
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
 
+// Gates that need a tag and a CI run that only exist on a tag push. `check:tag-lineage` is run by
+// `.github/workflows/tag-lineage.yml` on every `v*` push; in this table, on an ordinary commit, it could
+// only answer "not a tag", and printing that as green is the one thing this instrument must not do.
+// 需要 tag 与只存在于 tag 推送上的 CI 运行的门禁。`check:tag-lineage` 由
+// `.github/workflows/tag-lineage.yml` 在每次 `v*` 推送时跑；在一笔普通提交上把它放进本表，它只能回答
+// 「不是 tag」，而把这种回答打印成绿色，正是本仪器绝不能做的事。
+const releaseContext = new Set(['check:tag-lineage']);
+
 const names = Object.keys(pkg.scripts)
-  .filter((n) => n.startsWith('check:') && n !== 'check:all')
+  .filter((n) => n.startsWith('check:') && n !== 'check:all' && !releaseContext.has(n))
   .concat(['spec:check'])
   .sort();
 

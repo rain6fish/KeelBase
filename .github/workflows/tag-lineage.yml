@@ -1,0 +1,40 @@
+# A release tag is checked before any consumer can treat it as a release.
+#
+# A tag cannot be taken back, and it can be cut from a branch commit that never
+# reached main, or from a commit whose CI never ran — v1.22.0 was both until its
+# release line was merged. This workflow fails on every such tag, before anything
+# downstream can resolve it.
+#
+# 发布 tag 在任何消费方把它当发布之前先被检查。
+#
+# tag 收不回来，而它可以打在从未进 main 的分支提交上，或打在 CI 从未跑过的提交上——
+# v1.22.0 在发布线并入 main 之前两者都占。本工作流在每次这样的 tag 上失败，且在任何下游
+# 解析它之前失败。
+name: Tag lineage
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  lineage:
+    name: The tag is on main and its commit ran CI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Fetch main
+        run: git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+      - name: Check the tag's lineage
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/check-tag-lineage.mjs --tag "${GITHUB_REF_NAME}" --main origin/main --workflow CI
