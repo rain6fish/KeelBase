@@ -135,6 +135,46 @@ The chain proves **internal continuity**: any row that is altered, removed from 
 
 `verify` 只在被问到时报答；没有任何东西会主动宣告一次断链，而分叉的链会静默污染其后的每一次写入。故维护调度按期跑两条链（AI 审计 + 操作审计）的校验，断了就发出那个「本来不会来」的告警：给每个管理员的站内通知 + 告警 webhook（`ALERT_WEBHOOK_*`）。它属 Trust/Audit 那一格的 **Integrity** 项、不属 APM——它读的是链，不是进程。它是**边沿触发**的：只在「转为断链」时告警、不是每轮都报，故一条被放着不管的断链不会每小时再刷一次。**校验失败**（抛异常）不是干净结论——记一笔、且不动上一轮判断，于是真正的「转断」仍会被之后那次巡检抓到。
 
+### 6.3 运维接线：日产锚 / 6.3 Operating the daily anchor
+
+**When.** Run it after the UTC day has closed: the anchor is a snapshot of `observedAt`, and rows written after that instant wait for the next run. A daily `cron` at 00:05 UTC is the reference schedule (`CRON_TZ=UTC` where the daemon honours it; otherwise convert to the host's zone). Two runs for the same date overwrite `audit-chain-anchor-<date>.json`, so keep only the copy you published, or let the publisher key by `publishedAt`.
+
+**Command.**
+
+```bash
+SM2_PRIVATE_KEY="$(cat /run/keelbase/sm2-anchor-key.pem)" \
+SM2_KEY_ID=anchor-2026 \
+SM2_USER_ID=1234567812345678 \
+npm run anchor:chain -- --out /var/lib/keelbase/anchors
+```
+
+The key is a PKCS#8 PEM. Without it the producer refuses: an unsigned anchor is not evidence, and one that looks like evidence is worse than none. Key custody belongs to the deployer — never commit it, and never mount it into a container that serves requests. `SM2_KEY_ID` is what makes a rotation visible in the record.
+
+**Publish.** Same day, outside KeelBase's trust domain — object storage the operator does not control alone, a customer portal, or an RFC3161 TSA when one is available. A file left on the host proves nothing; the receiver is what turns an anchor into evidence.
+
+**Verify.** A third party, offline: `npm run verify:chain-anchor -- audit-chain-anchor-2026-11-08.json --public-key <hex>` — question 1 only (was this record signed). The operator, with the database: omit `--no-db`, and the same command also compares the signed tails with the current rows, reporting `ok` / `grew` / `tail-missing` / `tail-replaced` / `last-row-changed`. Exit codes: 0 clean, 1 a negative verdict, 2 usage or environment.
+
+**Boundaries, restated.** Only up to `observedAt`; only hashed rows (`hash IS NULL` legacy rows are invisible); only `aiAudit` + `operationAudit` (the side-effect chain is not covered); and only when someone outside compares. Long-term preservation (WORM / immutable archive) is a separate layer this repository does not build.
+
+**何时跑。** 在 UTC 日切之后跑：锚是 `observedAt` 那一刻的快照，此后写入的行要等下一次。参考排期是每日 UTC 00:05 的 `cron`（守护进程支持时用 `CRON_TZ=UTC`，否则换算成本机时区）。同一天跑两次会覆盖 `audit-chain-anchor-<date>.json`，故只保留你发布出去的那一份，或由发布方按 `publishedAt` 分版本。
+
+**命令。**
+
+```bash
+SM2_PRIVATE_KEY="$(cat /run/keelbase/sm2-anchor-key.pem)" \
+SM2_KEY_ID=anchor-2026 \
+SM2_USER_ID=1234567812345678 \
+npm run anchor:chain -- --out /var/lib/keelbase/anchors
+```
+
+私钥是 PKCS#8 PEM。没有它生产者会拒产：未签名的锚不构成证据，而一个「看起来像证据」的东西比没有更糟。密钥托管属部署方 —— 不要提交进仓库，也不要挂载进对外提供服务的容器。`SM2_KEY_ID` 是让一次密钥轮换在记录里可见的那个字段。
+
+**发布。** 当天发布到 KeelBase 信任域之外 —— 运维方无法单方面控制的存储、客户门户，或具备 RFC3161 的 TSA。留在主机上的文件什么也证明不了；接收方才是把锚变成证据的那一环。
+
+**校验。** 域外第三方、离线：`npm run verify:chain-anchor -- audit-chain-anchor-2026-11-08.json --public-key <hex>` —— 只回答第一问（这份记录是否被签）。运维方、连着库：去掉 `--no-db`，同一条命令还会把签名过的链尾与当前行对照，报 `ok` / `grew` / `tail-missing` / `tail-replaced` / `last-row-changed`。退出码：0 干净、1 有否定结论、2 用法或环境问题。
+
+**边界重述。** 只到 `observedAt`；只数已入链的行（`hash IS NULL` 的遗留行看不见）；只覆盖 `aiAudit` + `operationAudit`（副作用链不在内）；且必须有域外的人对照。长期保全（WORM / 不可变归档）是另一层，本仓不做。
+
 ---
 
 ## 7. 测试 / 7. Tests
