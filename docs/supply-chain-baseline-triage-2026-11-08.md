@@ -3,17 +3,17 @@
 # Supply-chain baseline triage — ACCEPTED
 # 供应链基线 triage —— 已接受
 
-> **Status: accepted by the user on 2026-11-08.** The dispositions, owners and expiries in §1 are now
-> the accepted triage for the 39 baseline entries. Acceptance does **not** mean the findings are
-> fixed: `scripts/dependency-scan-baseline.json` is still unchanged, no entry was removed, no severity
-> was lowered, and the gate was not relaxed. Items marked FIX are scheduled work with the stated
-> dates; items marked ACCEPT are explicitly accepted until their expiry; items marked DECIDE still
-> owe the evidence named in §2.
+> **Status: accepted by the user on 2026-11-08, then remediated.** The dispositions, owners and
+> expiries in §1 are the accepted triage for the 39 baseline entries. A remediation pass followed:
+> 30 entries were fixed and pruned (baseline 39 → 9) through the gate's own `--update-baseline`
+> path; 7 build-only entries and 2 blocked entries remain, with the blocked two accepted until
+> 2026-12-06. Items marked FIXED landed on 2026-11-08; items marked ACCEPT are explicitly accepted
+> until their expiry. The gate was never relaxed, and no entry was removed while it still fired.
 >
-> **状态：用户已于 2026-11-08 接受。** §1 的处置、责任人与到期，即为 39 条基线条目的已接受 triage。
-> 接受**不等于**这些漏洞已修复：`scripts/dependency-scan-baseline.json` 仍未改动，没有删条目、没有
-> 降严重级、没有放宽门禁。标 FIX 的条目成为带日期的计划工作；标 ACCEPT 的条目按其到期日被明确接受；
-> 标 DECIDE 的条目仍欠 §2 所列的证据。
+> **状态：用户已于 2026-11-08 接受，随后完成整改。** §1 的处置、责任人与到期是 39 条基线条目的
+> 已接受 triage。随后执行了整改：30 条修复并用门禁自带的 `--update-baseline` 剪掉（基线 39 → 9）；
+> 剩余 7 条仅构建期与 2 条受阻项，其中受阻两条接受到 2026-12-06。标 FIXED 的条目于 2026-11-08
+> 落地；标 ACCEPT 的条目按其到期日被接受。门禁从未放宽，仍然触发的条目一条没删。
 
 ---
 
@@ -37,7 +37,7 @@ English:
   `Front-Taro/package-lock.json` (15), `Web-Admin-React/package-lock.json` (10),
   `Web-Admin-Vue/package-lock.json` (14). `Server-NestJS` (1054 packages), the root lockfile (62)
   and `Front-Flutter/pubspec.lock` (104) have **no gated production high/critical** today. This
-  paragraph records the starting state; after the 2026-11-08 remediation the baseline is **12
+  paragraph records the starting state; after the 2026-11-08 remediation the baseline is **9
   entries** (see §1A).
 - Gate semantics that matter for triage: (a) "production" is decided by **package name** appearing
   anywhere in the non-dev closure, so a dev-only *instance* can be gated because a different version
@@ -65,7 +65,7 @@ English:
   `Front-Taro/package-lock.json`（15）、`Web-Admin-React/package-lock.json`（10）、
   `Web-Admin-Vue/package-lock.json`（14）。`Server-NestJS`（1054 个包）、根锁文件（62 个包）和
   `Front-Flutter/pubspec.lock`（104 个包）当前**没有**受门禁约束的生产高危/严重项。本段记录的是
-  起点状态；2026-11-08 整改后基线为 **12 条**（见 §1A）。
+  起点状态；2026-11-08 整改后基线为 **9 条**（见 §1A）。
 - 与 triage 有关的门禁语义：(a)「生产」是按**包名**是否出现在非 dev 闭包里判定的，因此某个仅
   开发期的**实例**可能因为同名包的另一个版本在生产闭包里而被判红；(b) 基线的键是
   `lockfile|package|id`——**不比较版本、也不比较严重级**，所以同一首要公告 ID 下的严重级上升
@@ -119,8 +119,8 @@ executed on 2026-11-08 is recorded in §1A, and rows finished there should be re
 | 23 | Web-Admin-React | `follow-redirects@1.16.0` | GHSA-8r9p-f939-6h3c | HIGH | N | ACCEPT | Only the Node HTTP adapter requires it; axios's `browser` field replaces that adapter with a null helper, so it is not in the browser bundle. | 只有 Node HTTP 适配器需要它；axios 的 `browser` 字段把该适配器替换为空实现，故不在浏览器包里。 | Web-Admin-React owner / React 预览维护会话 | 2027-02-08 |
 | 24 | Web-Admin-React | `follow-redirects@1.16.0` | GHSA-mrwp-f3q8-3g9p | HIGH | N | ACCEPT | Same Node-only adapter as #23. | 与 #23 同属仅 Node 适配器。 | Web-Admin-React owner / React 预览维护会话 | 2027-02-08 |
 | 25 | Web-Admin-React | `follow-redirects@1.16.0` | GHSA-q3jh-wrc6-jgq8 | HIGH | N | ACCEPT | Same Node-only adapter as #23. | 与 #23 同属仅 Node 适配器。 | Web-Admin-React owner / React 预览维护会话 | 2027-02-08 |
-| 26 | Web-Admin-Vue | `@intlify/core-base@10.0.8` | GHSA-83rm-6c8r-g728 | HIGH | P | DECIDE (fix v11 or accept) | **Confirmed affected, not a false positive.** The advisory explicitly lists `10.0.8` (the last v10 release) as affected; its Patches section says v9/v10 will not be fixed. The installed 10.0.8 contains `sanitizeTranslatedHtml` and has no `srcdoc` handling. App-level reachability is absent: `src/i18n/index.ts` does not enable `escapeParameter`, messages are static `zh/en`, and there is no `v-html` in `src`. Fix requires vue-i18n 11.4.14 (major). | **已确认受影响，不是误报。** 公告明确把 `10.0.8`（v10 最后一个版本）列为受影响，并在 Patches 里写明 v9/v10 不再修。安装的 10.0.8 含 `sanitizeTranslatedHtml`，但不处理 `srcdoc`。应用层不可达：`src/i18n/index.ts` 未启用 `escapeParameter`，消息是静态 `zh/en`，`src` 里没有 `v-html`。修复需要 vue-i18n 11.4.14（大版本）。 | Web-Admin-Vue owner / Web-Admin-Vue 维护会话 | 2026-11-22 |
-| 27 | Web-Admin-Vue | `@intlify/shared@10.0.8` | GHSA-83rm-6c8r-g728 | HIGH | P | DECIDE (fix v11 or accept) | Same confirmed advisory as #26; app-level reachability also absent. | 与 #26 同一已确认公告；应用层同样不可达。 | Web-Admin-Vue owner / Web-Admin-Vue 维护会话 | 2026-11-22 |
+| 26 | Web-Admin-Vue | `@intlify/core-base@10.0.8` | GHSA-83rm-6c8r-g728 | HIGH | P | FIXED (2026-11-08, vue-i18n 11.4.18) | **Confirmed affected, then fixed.** The advisory explicitly lists `10.0.8` (the last v10 release) as affected; its Patches section says v9/v10 will not be fixed. The installed 10.0.8 contained `sanitizeTranslatedHtml` and no `srcdoc` handling. App-level reachability was absent (`escapeParameter` off, static messages, no `v-html`), but the package was upgraded to vue-i18n 11.4.18 / @intlify 11.4.18 anyway. | **已确认受影响，随后修复。** 公告明确把 `10.0.8`（v10 最后一个版本）列为受影响，并在 Patches 里写明 v9/v10 不再修。安装的 10.0.8 含 `sanitizeTranslatedHtml`，但不处理 `srcdoc`。应用层原本不可达（未启用 `escapeParameter`、静态消息、无 `v-html`），但仍升级到 vue-i18n 11.4.18 / @intlify 11.4.18。 | Web-Admin-Vue owner / Web-Admin-Vue 维护会话 | 2026-11-22 |
+| 27 | Web-Admin-Vue | `@intlify/shared@10.0.8` | GHSA-83rm-6c8r-g728 | HIGH | P | FIXED (2026-11-08, @intlify 11.4.18) | Same confirmed advisory as #26; fixed with the same upgrade. | 与 #26 同一已确认公告；随同一次升级修复。 | Web-Admin-Vue owner / Web-Admin-Vue 维护会话 | 2026-11-22 |
 | 28 | Web-Admin-Vue | `axios@1.19.0` | GHSA-3pq3-5fj3-cg6v | HIGH | P | FIX (minor) | Deployed Vue console. This one is Node/HTTP-2-specific and not browser-reachable, but it is part of the same 1.20.0 patch. | 已部署的 Vue 控制台。本条是 Node/HTTP-2 特定、浏览器不可达，但与其余几条第 1.20.0 同一个补丁。 | Web-Admin-Vue owner / Web-Admin-Vue 维护会话 | 2026-11-15 |
 | 29 | Web-Admin-Vue | `axios@1.19.0` | GHSA-542g-h47m-68v8 | HIGH | P | FIX (minor) | HTTP/2 init error is Node-only; fixed by 1.20.0. | HTTP/2 初始化错误仅 Node 侧；1.20.0 修复。 | Web-Admin-Vue owner / Web-Admin-Vue 维护会话 | 2026-11-15 |
 | 30 | Web-Admin-Vue | `axios@1.19.0` | GHSA-c29m-xwm3-cm6r | HIGH | P | FIX (minor) | `fromDataURI` ReDoS is in shared code; browser thread can freeze if an untrusted `data:` URL is parsed. | `fromDataURI` 的 ReDoS 在共享代码里；解析不可信 `data:` URL 时可冻结浏览器主线程。 | Web-Admin-Vue owner / Web-Admin-Vue 维护会话 | 2026-11-15 |
@@ -132,7 +132,7 @@ executed on 2026-11-08 is recorded in §1A, and rows finished there should be re
 | 36 | Web-Admin-Vue | `follow-redirects@1.16.0` | GHSA-mrwp-f3q8-3g9p | HIGH | N | ACCEPT | Same Node-only adapter as #35. | 与 #35 同属仅 Node 适配器。 | Web-Admin-Vue owner / Web-Admin-Vue 维护会话 | 2027-02-08 |
 | 37 | Web-Admin-Vue | `follow-redirects@1.16.0` | GHSA-q3jh-wrc6-jgq8 | HIGH | N | ACCEPT | Same Node-only adapter as #35. | 与 #35 同属仅 Node 适配器。 | Web-Admin-Vue owner / Web-Admin-Vue 维护会话 | 2027-02-08 |
 | 38 | Web-Admin-Vue | `source-map-js@1.2.1` | GHSA-68fv-2mgg-jv7q | HIGH | B | FIX (patch) | Used by Vue/i18n/Sass compilers at build time; not in the runtime bundle. Fix is 1.2.2. | 供 Vue/i18n/Sass 编译器构建期使用；不在运行时包里。修法是 1.2.2。 | Web-Admin-Vue owner / Web-Admin-Vue 维护会话 | 2026-11-15 |
-| 39 | Web-Admin-Vue | `vue-i18n@10.0.8` | GHSA-83rm-6c8r-g728 | HIGH | P | DECIDE (fix v11 or accept) | Same confirmed advisory as #26/#27; v10 is affected and will not be fixed; the app does not enable the vulnerable path. | 与 #26/#27 同一已确认公告；v10 受影响且不再修；应用未启用漏洞路径。 | Web-Admin-Vue owner / Web-Admin-Vue 维护会话 | 2026-11-22 |
+| 39 | Web-Admin-Vue | `vue-i18n@10.0.8` | GHSA-83rm-6c8r-g728 | HIGH | P | FIXED (2026-11-08, vue-i18n 11.4.18) | Same confirmed advisory as #26/#27; v10 was affected and would not be fixed; upgraded to 11.4.18. | 与 #26/#27 同一已确认公告；v10 受影响且不会修；已升级到 11.4.18。 | Web-Admin-Vue owner / Web-Admin-Vue 维护会话 | 2026-11-22 |
 
 ---
 
@@ -140,41 +140,40 @@ executed on 2026-11-08 is recorded in §1A, and rows finished there should be re
 
 English:
 
-The fixes below were applied and verified; the baseline was pruned from 39 to 12 entries through the
-gate's own `--update-baseline` path (27 entries no longer fire, 0 new). Nothing that still fires was
+The fixes below were applied and verified; the baseline was pruned from 39 to 9 entries through the
+gate's own `--update-baseline` path (30 entries no longer fire, 0 new). Nothing that still fires was
 removed.
 
 | App | Change | Verification |
 |---|---|---|
 | Web-Admin-Vue | `axios` ^1.20.0 → resolved 1.21.0; overrides `follow-redirects` 1.16.2, `source-map-js` 1.2.2 | typecheck 0; 554 tests passed / 8 skipped; build ok |
+| Web-Admin-Vue (i18n) | `vue-i18n` ^11.4.14 → resolved 11.4.18 (`@intlify/*` 11.4.18) | typecheck 0; 554 tests passed / 8 skipped; build ok |
 | Web-Admin-React | `axios` ^1.20.0 → resolved 1.21.0; override `follow-redirects` 1.16.2 | typecheck 0; 47 tests passed; build ok |
 | Front-Taro | `vue` ^3.5.42 → resolved 3.5.45 (pulls `@vue/server-renderer` 3.5.45); overrides `joi` 17.13.9, `nanoid` 3.3.18, `lodash-es` 4.18.1, `source-map-js` 1.2.2 | build:h5 ok; test:i18n 6, test:env 3, test:race 5 |
 
-Gate rerun on the updated lockfiles: **12 known / 0 new / 0 stale**, exit 0.
+Gate rerun on the updated lockfiles: **9 known / 0 new / 0 stale**, exit 0.
 
-Remaining 12: `brace-expansion` ×4, `glob@10.2.6` ×1, `postcss@7.0.39` ×2 (all build-only);
-`decode-uri-component@0.2.2` ×1 and `swiper@6.8.0` ×1 (Front-Taro); the `vue-i18n` family ×3
-(Web-Admin-Vue).
+Remaining 9: `brace-expansion` ×4, `glob@10.2.6` ×1, `postcss@7.0.39` ×2 (all build-only);
+`decode-uri-component@0.2.2` ×1 and `swiper@6.8.0` ×1 (Front-Taro).
 
 Two rows deviate from the accepted table:
 
 1. **Row 6, `decode-uri-component` — not fixed.** The fixed version `0.5.1` is ESM-only
    (`type: module`), while the consumer `query-string@7.1.3` is CJS and does
    `const decodeComponent = require('decode-uri-component')`, then calls it as a function. Forcing
-   0.5.1 would hand it a namespace object, not the function. Proposed revised disposition: ACCEPT
-   until 2026-12-06, with a query-string/Taro upgrade evaluation.
+   0.5.1 would hand it a namespace object, not the function. Accepted disposition: ACCEPT until
+   2026-12-06, with a query-string/Taro upgrade evaluation.
 2. **Row 15, `swiper` — reachability corrected from N to P.** The built H5 bundle
    (`Front-Taro/dist/js/683.js`, part of the `app` entrypoint) contains the full
    `taro-swiper-core` implementation and swiper code, even though no app source imports
    `@tarojs/components` or renders a swiper. The vulnerable code is therefore loaded in production;
    the sink still needs the swiper component to be constructed with crafted input, which this app
    never does. A direct override to `12.1.2` is incompatible: swiper 12 removed
-   `swiper/swiper-bundle.esm.js`, the exact path Taro 3.6.36 imports. Proposed revised disposition:
-   ACCEPT until a Taro upgrade, expiry 2026-12-06 — this is the one CRITICAL and needs explicit
-   user acceptance.
+   `swiper/swiper-bundle.esm.js`, the exact path Taro 3.6.36 imports. Accepted disposition: ACCEPT
+   until a Taro upgrade, expiry 2026-12-06 — the user accepted this CRITICAL on 2026-11-08.
 
 Decision recorded (2026-11-08): the user accepted both blocked rows (6 and 15) until 2026-12-06.
-The three `vue-i18n` entries remain open pending upstream clarification.
+The three `vue-i18n` entries were confirmed affected and then fixed by the v11 upgrade.
 
 Upstream clarification (2026-11-08, done): GHSA-83rm is **not** an OSV inconsistency. Its
 machine-readable record explicitly lists `9.14.5` and `10.0.8` as affected (`versions`, not a semver
@@ -182,49 +181,49 @@ range); the semver range `11.1.10–11.4.14` covers only the v11 line, which is 
 range-only read looked contradictory. The advisory's Patches section says v9 and v10 are unsupported
 and **will not be fixed**. The installed 10.0.8 contains `sanitizeTranslatedHtml` and has no `srcdoc`
 handling, matching the description. Web-Admin-Vue does not enable the vulnerable configuration
-(`escapeParameter` absent, static `zh/en` messages, no `v-html`), so the package is affected but the
-app path is not reachable. Disposition is still open: upgrade to vue-i18n 11.4.14 (major) or
-time-boxed acceptance.
+(`escapeParameter` absent, static `zh/en` messages, no `v-html`), so the package was affected but the
+app path is not reachable. Disposition (2026-11-08): the user chose the upgrade; vue-i18n 11.4.18 is
+installed and the three entries no longer fire.
 
 中文：
 
-下面的修复已落地并验证；基线用门禁自带的 `--update-baseline` 从 39 条剪到 12 条（27 条不再触发，
+下面的修复已落地并验证；基线用门禁自带的 `--update-baseline` 从 39 条剪到 9 条（30 条不再触发，
 0 条新增）。仍然触发的条目一条都没删。
 
 | 应用 | 改动 | 验证 |
 |---|---|---|
 | Web-Admin-Vue | `axios` ^1.20.0 → 解析 1.21.0；overrides `follow-redirects` 1.16.2、`source-map-js` 1.2.2 | typecheck 0；554 测试通过 / 8 跳过；构建通过 |
+| Web-Admin-Vue (i18n) | `vue-i18n` ^11.4.14 → 解析 11.4.18（`@intlify/*` 11.4.18） | typecheck 0；554 测试通过 / 8 跳过；构建通过 |
 | Web-Admin-React | `axios` ^1.20.0 → 解析 1.21.0；override `follow-redirects` 1.16.2 | typecheck 0；47 测试通过；构建通过 |
 | Front-Taro | `vue` ^3.5.42 → 解析 3.5.45（带出 `@vue/server-renderer` 3.5.45）；overrides `joi` 17.13.9、`nanoid` 3.3.18、`lodash-es` 4.18.1、`source-map-js` 1.2.2 | build:h5 通过；test:i18n 6、test:env 3、test:race 5 |
 
-用更新后的锁文件复跑门禁：**12 条已知 / 0 条新增 / 0 条陈旧**，exit 0。
+用更新后的锁文件复跑门禁：**9 条已知 / 0 条新增 / 0 条陈旧**，exit 0。
 
-剩余 12 条：`brace-expansion` ×4、`glob@10.2.6` ×1、`postcss@7.0.39` ×2（均仅构建期）；
-`decode-uri-component@0.2.2` ×1 与 `swiper@6.8.0` ×1（Front-Taro）；vue-i18n 一族 ×3
-（Web-Admin-Vue）。
+剩余 9 条：`brace-expansion` ×4、`glob@10.2.6` ×1、`postcss@7.0.39` ×2（均仅构建期）；
+`decode-uri-component@0.2.2` ×1 与 `swiper@6.8.0` ×1（Front-Taro）。
 
 有两行偏离了已接受的表：
 
 1. **第 6 行 `decode-uri-component` —— 未修。** 修复版 `0.5.1` 是 ESM-only（`type: module`），
    而消费方 `query-string@7.1.3` 是 CJS，写的是
    `const decodeComponent = require('decode-uri-component')`，随后当函数调用。强塞 0.5.1 会拿到
-   命名空间对象而不是函数。建议改为：ACCEPT 至 2026-12-06，同时评估 query-string / Taro 升级。
+   命名空间对象而不是函数。已接受处置：ACCEPT 至 2026-12-06，同时评估 query-string / Taro 升级。
 2. **第 15 行 `swiper` —— 可达性由 N 更正为 P。** 构建后的 H5 包
    （`Front-Taro/dist/js/683.js`，属于 `app` 入口）里含完整的 `taro-swiper-core` 实现与 swiper
    代码，尽管没有任何 app 源码 import `@tarojs/components` 或渲染 swiper。所以漏洞代码在生产中
    是加载的；sink 仍需用构造输入实例化 swiper 组件，而本应用从不这么做。直接 override 到 `12.1.2`
    不可行：swiper 12 删掉了 `swiper/swiper-bundle.esm.js`，正是 Taro 3.6.36 import 的路径。
-   建议改为：ACCEPT 至 Taro 升级，到期 2026-12-06——这是唯一的 CRITICAL，需要用户明确接受。
+   已接受处置：ACCEPT 至 Taro 升级，到期 2026-12-06——用户已于 2026-11-08 接受这条 CRITICAL。
 
 决定记录（2026-11-08）：用户接受两条受阻项（第 6、15 行）至 2026-12-06。三条 vue-i18n 条目
-仍待上游澄清。
+已确认受影响，随后通过 v11 升级修复。
 
 上游澄清（2026-11-08，已完成）：GHSA-83rm **不是** OSV 数据不一致。它的机器可读记录用 `versions`
 （不是 semver 范围）明确列出 `9.14.5` 与 `10.0.8` 受影响；semver 范围 `11.1.10–11.4.14` 只覆盖
 v11 线，所以早先只看范围会显得矛盾。公告的 Patches 一节写明 v9/v10 已不再支持、**不会修**。安装的
 10.0.8 含 `sanitizeTranslatedHtml`，且不处理 `srcdoc`，与描述一致。Web-Admin-Vue 未启用漏洞配置
 （没有 `escapeParameter`、消息是静态 `zh/en`、没有 `v-html`），所以包受影响、但应用路径不可达。
-处置仍待定：升级到 vue-i18n 11.4.14（大版本），或限期接受。
+处置（2026-11-08）：用户选择升级；已安装 vue-i18n 11.4.18，三条条目不再触发。
 
 ---
 
@@ -244,8 +243,7 @@ is **moot** because the React entries are fixed; items 4 and 6 are **moot** for 
    or accepted with a major-version plan.
 2. **vue-i18n family — resolved (2026-11-08).** The advisory explicitly lists 9.14.5 and 10.0.8 as
    affected; v9/v10 will not be fixed; the installed 10.0.8 code matches. The app does not enable the
-   vulnerable configuration. The remaining question is only the disposition (v11 upgrade vs
-   time-boxed acceptance), not applicability.
+   vulnerable configuration. Fixed by upgrading to vue-i18n 11.4.18 on 2026-11-08.
 3. **Web-Admin-React production scope.** `CLAUDE.md` §13.1 says it is a preview, not wired to
    deployment. If the user confirms it is out of production scope, its 10 entries are P\* → not
    "production" for acceptance purposes; the gate will still count them as production dependencies.
@@ -268,8 +266,8 @@ is **moot** because the React entries are fixed; items 4 and 6 are **moot** for 
    require），但我**没有**构建 `Front-Taro` 再 grep 产物。缺：一份构建后的 H5 包。若
    `swiper-bundle` 在产物里，#15 就变成 P，必须修或带大版本计划接受。
 2. **vue-i18n 一族 —— 已解决（2026-11-08）。** 公告明确列出 9.14.5 与 10.0.8 受影响；v9/v10 不再
-   修复；安装的 10.0.8 代码与描述一致。应用未启用漏洞配置。剩下的只是处置选择（升级 v11 还是限期
-   接受），不是适用性问题。
+   修复；安装的 10.0.8 代码与描述一致。应用未启用漏洞配置。已在 2026-11-08 升级到 vue-i18n
+   11.4.18 修复。
 3. **Web-Admin-React 的生产范围。** `CLAUDE.md` §13.1 说它是预览版、未接部署。若用户确认它不在
    生产范围，它的 10 条就是 P\* → 验收口径下不算「生产」；但门禁仍会把它们当生产依赖计数。
 4. **lodash-es 的 sink。** 我查的是 `Front-Taro/src`，不是 Taro 运行时的每一条代码路径。缺：
@@ -286,39 +284,35 @@ is **moot** because the React entries are fixed; items 4 and 6 are **moot** for 
 English:
 
 - **The gate itself is healthy and should stay merged.** After remediation it is green on the updated
-  tree (12 known / 0 new / 0 stale), fails closed on "unverified", and its self-test proves red /
+  tree (9 known / 0 new / 0 stale), fails closed on "unverified", and its self-test proves red /
   green / 未核. There is no reason to revert it.
-- **Remediation landed.** 27 of the 39 entries were fixed and pruned by the gate's own
-  `--update-baseline` path. The baseline is now 12 entries: 7 build-only (`brace-expansion` ×4,
-  `glob` ×1, `postcss` ×2, all explicitly accepted), 1 `decode-uri-component` (P, fix blocked by an
-  ESM-only upstream fix), 1 `swiper` (P, CRITICAL, fix blocked by Taro's pin), and 3 `vue-i18n`
-  family (P, confirmed affected; disposition open).
-- **Acceptance criterion.** "Every entry triaged" is satisfied. "No unresolved production
-  high/critical" is **not** yet satisfied, but the gap is now down to one item: the 3 `vue-i18n`
-  entries are confirmed affected and their disposition is still open (v11 upgrade vs acceptance).
-  Upstream clarification is no longer the blocker. The other two production-reachable entries
-  (`decode-uri-component`, `swiper`) were explicitly accepted by the user on 2026-11-08 until
-  2026-12-06. Nothing was marked fixed without a build/test/scan verification.
-- **Still open:** (a) decide the `vue-i18n` disposition — upgrade to 11.4.14 (major) or accept with
-  the app-level non-exploitability evidence; (b) by 2026-12-06, fix or re-accept the two blocked
-  entries — evaluate a query-string/Taro upgrade for `decode-uri-component` and a Taro upgrade for
-  `swiper`. The React preview's production status is no longer blocking: its 10 entries are fixed.
+- **Remediation landed.** 30 of the 39 entries were fixed and pruned by the gate's own
+  `--update-baseline` path. The baseline is now 9 entries: 7 build-only (`brace-expansion` ×4,
+  `glob` ×1, `postcss` ×2, accepted until 2027-02-08), 1 `decode-uri-component` (P, fix blocked by an
+  ESM-only upstream fix; accepted until 2026-12-06), and 1 `swiper` (P, CRITICAL, fix blocked by
+  Taro's pin; accepted until 2026-12-06).
+- **Acceptance criterion.** "Every entry triaged" is satisfied. "No unaccepted production
+  high/critical" is now **satisfied**: every production high/critical is either fixed (30 entries,
+  including the vue-i18n family on 2026-11-08) or explicitly accepted with an owner and expiry.
+  Nothing was marked fixed without a build/test/scan verification.
+- **Still open:** by 2026-12-06, fix or re-accept the two blocked entries — evaluate a
+  query-string/Taro upgrade for `decode-uri-component` and a Taro upgrade for `swiper`. The React
+  preview's production status is no longer blocking: its 10 entries are fixed.
 
 中文：
 
-- **门禁本身是健康的，应继续保持合并。** 整改后它在更新过的树上为绿（12 条已知 / 0 条新增 /
+- **门禁本身是健康的，应继续保持合并。** 整改后它在更新过的树上为绿（9 条已知 / 0 条新增 /
   0 条陈旧），在「未核」时 fail-closed，自测也证明了红 / 绿 / 未核三种行为。没有理由回退它。
-- **整改已落地。** 39 条里有 27 条修复并用门禁自带的 `--update-baseline` 剪掉。基线现在 12 条：
-  7 条仅构建期（`brace-expansion` ×4、`glob` ×1、`postcss` ×2，均已明确接受）、1 条
-  `decode-uri-component`（P，修复受 ESM-only 上游阻塞）、1 条 `swiper`（P，CRITICAL，修复受 Taro
-  钉版阻塞）、3 条 vue-i18n 一族（P，已确认受影响；处置待定）。
-- **验收口径。** 「每条都已 triage」已成立。「生产高/严重无未解决项」**尚未**成立，但缺口已收窄到
-  一项：3 条 vue-i18n 已确认受影响，处置仍待定（升级 v11 还是接受）。上游澄清已不再是阻塞。
-  另外两条生产可达项（`decode-uri-component`、`swiper`）已由用户在 2026-11-08 明确接受至
-  2026-12-06。没有任何一条是没经过构建/测试/扫描验证就标成已修复的。
-- **仍然未决：** (a) 定 vue-i18n 的处置——升级到 11.4.14（大版本），或凭应用层不可达证据接受；
-  (b) 到 2026-12-06 前，修复或重新接受那两条受阻项——评估 `decode-uri-component` 的 query-string /
-  Taro 升级与 `swiper` 的 Taro 升级。React 预览版的生产范围已不再阻塞：它的 10 条已修复。
+- **整改已落地。** 39 条里有 30 条修复并用门禁自带的 `--update-baseline` 剪掉。基线现在 9 条：
+  7 条仅构建期（`brace-expansion` ×4、`glob` ×1、`postcss` ×2，接受到 2027-02-08）、1 条
+  `decode-uri-component`（P，修复受 ESM-only 上游阻塞；接受到 2026-12-06）、1 条 `swiper`（P，
+  CRITICAL，修复受 Taro 钉版阻塞；接受到 2026-12-06）。
+- **验收口径。** 「每条都已 triage」已成立。「生产高/严重无未接受项」现已**成立**：每条生产
+  高/严重都已修复（30 条，含 2026-11-08 修复的 vue-i18n 一族），或带责任人与到期被明确接受。
+  没有任何一条是没经过构建/测试/扫描验证就标成已修复的。
+- **仍然未决：** 到 2026-12-06 前，修复或重新接受那两条受阻项——评估 `decode-uri-component` 的
+  query-string / Taro 升级与 `swiper` 的 Taro 升级。React 预览版的生产范围已不再阻塞：它的 10 条
+  已修复。
 
 ---
 
@@ -340,5 +334,5 @@ OSV_SCANNER=/tmp/osv-gate-probe/osv-scanner_windows_amd64.exe \
   node scripts/check-dependency-scan.mjs --verbose
 ```
 
-Expected after remediation (2026-11-08): `12 known, 0 new`, `0 baseline entries no longer fire`, exit 0.
-整改后的预期（2026-11-08）：`12 known, 0 new`、没有陈旧条目、exit 0。
+Expected after remediation (2026-11-08): `9 known, 0 new`, `0 baseline entries no longer fire`, exit 0.
+整改后的预期（2026-11-08）：`9 known, 0 new`、没有陈旧条目、exit 0。
