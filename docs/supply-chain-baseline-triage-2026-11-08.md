@@ -99,7 +99,7 @@ executed on 2026-11-08 is recorded in §1A, and rows finished there should be re
 | 3 | Front-Taro | `brace-expansion@2.1.4` | GHSA-6j4f-fj2g-mc7p | HIGH | B | ACCEPT | Instance under `@tarojs/plugin-doctor` / `depcheck` has `dev:true`; build-only. | 该实例在 `@tarojs/plugin-doctor` / `depcheck` 下，`dev:true`；仅构建期。 | Front-Taro owner / Front-Taro 维护会话 | 2027-02-08 |
 | 4 | Front-Taro | `brace-expansion@1.1.18` | GHSA-qhr7-859c-m2p7 | HIGH | B | ACCEPT | Same dev-only chain as #2. | 与 #2 同一条仅开发期链路。 | Front-Taro owner / Front-Taro 维护会话 | 2027-02-08 |
 | 5 | Front-Taro | `brace-expansion@2.1.4` | GHSA-qhr7-859c-m2p7 | HIGH | B | ACCEPT | Same dev-only instance as #3. | 与 #3 同一个仅开发期实例。 | Front-Taro owner / Front-Taro 维护会话 | 2027-02-08 |
-| 6 | Front-Taro | `decode-uri-component@0.2.2` | GHSA-qr28-fpjm-wq7f | HIGH | P | BLOCKED → ACCEPT (proposed) | Runtime path `query-string` ← `@tarojs/router` ← `@tarojs/plugin-platform-h5`; a crafted H5 URL can reach the quadratic DoS. **Fix blocked:** the fixed `0.5.1` is ESM-only while `query-string@7.1.3` is CJS and calls `require('decode-uri-component')` as a function. Needs a query-string/Taro upgrade. | 运行路径 `query-string` ← `@tarojs/router` ← `@tarojs/plugin-platform-h5`；构造的 H5 URL 可触发二次方 DoS。**修复受阻：** 修复版 `0.5.1` 是 ESM-only，而 `query-string@7.1.3` 是 CJS，把 `require('decode-uri-component')` 当函数调用。需要 query-string / Taro 升级。 | Front-Taro owner / Front-Taro 维护会话 | 2026-12-06 |
+| 6 | Front-Taro | `decode-uri-component@0.2.2` | GHSA-qr28-fpjm-wq7f | HIGH | P | ACCEPT (user, until 2026-12-06) | Runtime path `query-string` ← `@tarojs/router` ← `@tarojs/plugin-platform-h5`; a crafted H5 URL can reach the quadratic DoS. **Fix blocked:** the fixed `0.5.1` is ESM-only while `query-string@7.1.3` is CJS and calls `require('decode-uri-component')` as a function. Accepted by the user on 2026-11-08 until a query-string/Taro upgrade. | 运行路径 `query-string` ← `@tarojs/router` ← `@tarojs/plugin-platform-h5`；构造的 H5 URL 可触发二次方 DoS。**修复受阻：** 修复版 `0.5.1` 是 ESM-only，而 `query-string@7.1.3` 是 CJS，把 `require('decode-uri-component')` 当函数调用。用户已于 2026-11-08 接受，至 query-string / Taro 升级为止。 | Front-Taro owner / Front-Taro 维护会话 | 2026-12-06 |
 | 7 | Front-Taro | `glob@10.2.6` | GHSA-5j98-mcp5-4vw2 | HIGH | B | ACCEPT | Only the `dev:true` instance under `@tarojs/plugin-doctor` is affected; the production-closure `glob@7.2.3` is outside the advisory range (≥10.2.0). | 受影响的只是 `@tarojs/plugin-doctor` 下 `dev:true` 的实例；生产闭包里的 `glob@7.2.3` 不在公告范围（≥10.2.0）。 | Front-Taro owner / Front-Taro 维护会话 | 2027-02-08 |
 | 8 | Front-Taro | `joi@17.13.4` | GHSA-4528-x5fx-h6hg | HIGH | B | FIX (patch) | Reached only via `@tarojs/service`, the Taro build service; validates build config, not shipped. Fix is 17.13.9. | 只经 `@tarojs/service`（Taro 构建服务）到达，校验构建配置，不进产物。修法是 17.13.9。 | Front-Taro owner / Front-Taro 维护会话 | 2026-11-15 |
 | 9 | Front-Taro | `joi@17.13.4` | GHSA-6h2x-m376-mqjq | HIGH | B | FIX (patch) | Same build-service chain as #8. | 与 #8 同一条构建服务链路。 | Front-Taro owner / Front-Taro 维护会话 | 2026-11-15 |
@@ -108,7 +108,7 @@ executed on 2026-11-08 is recorded in §1A, and rows finished there should be re
 | 12 | Front-Taro | `postcss@7.0.39` | GHSA-6g55-p6wh-862q | HIGH | B | ACCEPT | All `postcss@7.0.39` instances are `dev:true` (component-compiler-utils / autoprefixer / miniprogram-simulate); the production-closure `postcss@8.5.26` is above the fix line. | `postcss@7.0.39` 的所有实例都是 `dev:true`（component-compiler-utils / autoprefixer / miniprogram-simulate）；生产闭包里的 `postcss@8.5.26` 已在修复线之上。 | Front-Taro owner / Front-Taro 维护会话 | 2027-02-08 |
 | 13 | Front-Taro | `postcss@7.0.39` | GHSA-r28c-9q8g-f849 | HIGH | B | ACCEPT | Same dev-only instances as #12. | 与 #12 同一批仅开发期实例。 | Front-Taro owner / Front-Taro 维护会话 | 2027-02-08 |
 | 14 | Front-Taro | `source-map-js@1.2.1` | GHSA-68fv-2mgg-jv7q | HIGH | B | FIX (patch) | Used by Vue/Sass/PostCSS compilers to read build-time source maps; not in the runtime bundle. Fix is 1.2.2. | 供 Vue/Sass/PostCSS 编译器读取构建期 source map；不在运行时包里。修法是 1.2.2。 | Front-Taro owner / Front-Taro 维护会话 | 2026-11-15 |
-| 15 | Front-Taro | `swiper@6.8.0` | GHSA-hmx5-qpq5-p643 | **CRITICAL** | P | ACCEPT (proposed) | The only CRITICAL. **Reachability corrected:** the built H5 bundle `dist/js/683.js` (part of the `app` entrypoint) contains the full `taro-swiper-core` implementation and swiper code, even though no app source imports `@tarojs/components` or renders a swiper. The sink still needs the swiper component to be constructed with crafted input, which the app never does. A direct override to `12.1.2` is incompatible: swiper 12 removed `swiper/swiper-bundle.esm.js`, the exact path Taro 3.6.36 imports. Needs a Taro upgrade. | 唯一 CRITICAL。**可达性已更正：** 构建后的 H5 包 `dist/js/683.js`（属于 `app` 入口）含完整的 `taro-swiper-core` 实现与 swiper 代码，尽管没有 app 源码 import `@tarojs/components` 或渲染 swiper。sink 仍需用构造输入实例化 swiper 组件，本应用从不这么做。直接 override 到 `12.1.2` 不可行：swiper 12 删掉了 `swiper/swiper-bundle.esm.js`，正是 Taro 3.6.36 import 的路径。需要 Taro 升级。 | Front-Taro owner / Front-Taro 维护会话 | 2026-12-06 |
+| 15 | Front-Taro | `swiper@6.8.0` | GHSA-hmx5-qpq5-p643 | **CRITICAL** | P | ACCEPT (user, until 2026-12-06) | The only CRITICAL. **Reachability corrected:** the built H5 bundle `dist/js/683.js` (part of the `app` entrypoint) contains the full `taro-swiper-core` implementation and swiper code, even though no app source imports `@tarojs/components` or renders a swiper. The sink still needs the swiper component to be constructed with crafted input, which the app never does. A direct override to `12.1.2` is incompatible: swiper 12 removed `swiper/swiper-bundle.esm.js`, the exact path Taro 3.6.36 imports. Accepted by the user on 2026-11-08 until a Taro upgrade. | 唯一 CRITICAL。**可达性已更正：** 构建后的 H5 包 `dist/js/683.js`（属于 `app` 入口）含完整的 `taro-swiper-core` 实现与 swiper 代码，尽管没有 app 源码 import `@tarojs/components` 或渲染 swiper。sink 仍需用构造输入实例化 swiper 组件，本应用从不这么做。直接 override 到 `12.1.2` 不可行：swiper 12 删掉了 `swiper/swiper-bundle.esm.js`，正是 Taro 3.6.36 import 的路径。用户已于 2026-11-08 接受，至 Taro 升级为止。 | Front-Taro owner / Front-Taro 维护会话 | 2026-12-06 |
 | 16 | Web-Admin-React | `axios@1.19.0` | GHSA-3pq3-5fj3-cg6v | HIGH | P\* | FIX (minor) | Node HTTP/2 adapter bypasses DNS/proxy controls; browser build maps the Node adapter to a null helper, so not browser-reachable. App is a non-deployed preview. Fix is 1.20.0. | Node HTTP/2 适配器绕过 DNS/代理控制；浏览器构建把 Node 适配器映射为空实现，故浏览器不可达。该应用是未部署的预览版。修法是 1.20.0。 | Web-Admin-React owner / React 预览维护会话 | 2026-11-15 |
 | 17 | Web-Admin-React | `axios@1.19.0` | GHSA-542g-h47m-68v8 | HIGH | P\* | FIX (minor) | HTTP/2 session init error is Node-only; same adapter mapping as #16. | HTTP/2 会话初始化错误仅 Node 侧；适配器映射同 #16。 | Web-Admin-React owner / React 预览维护会话 | 2026-11-15 |
 | 18 | Web-Admin-React | `axios@1.19.0` | GHSA-c29m-xwm3-cm6r | HIGH | P\* | FIX (minor) | `fromDataURI` ReDoS is in shared code; reachable only if a `data:` URL from an untrusted source is parsed. | `fromDataURI` 的 ReDoS 在共享代码里；只有解析来自不可信来源的 `data:` URL 时才可达。 | Web-Admin-React owner / React 预览维护会话 | 2026-11-15 |
@@ -173,6 +173,9 @@ Two rows deviate from the accepted table:
    ACCEPT until a Taro upgrade, expiry 2026-12-06 — this is the one CRITICAL and needs explicit
    user acceptance.
 
+Decision recorded (2026-11-08): the user accepted both blocked rows (6 and 15) until 2026-12-06.
+The three `vue-i18n` entries remain open pending upstream clarification.
+
 中文：
 
 下面的修复已落地并验证；基线用门禁自带的 `--update-baseline` 从 39 条剪到 12 条（27 条不再触发，
@@ -202,6 +205,9 @@ Two rows deviate from the accepted table:
    是加载的；sink 仍需用构造输入实例化 swiper 组件，而本应用从不这么做。直接 override 到 `12.1.2`
    不可行：swiper 12 删掉了 `swiper/swiper-bundle.esm.js`，正是 Taro 3.6.36 import 的路径。
    建议改为：ACCEPT 至 Taro 升级，到期 2026-12-06——这是唯一的 CRITICAL，需要用户明确接受。
+
+决定记录（2026-11-08）：用户接受两条受阻项（第 6、15 行）至 2026-12-06。三条 vue-i18n 条目
+仍待上游澄清。
 
 ---
 
@@ -270,12 +276,14 @@ English:
   ESM-only upstream fix), 1 `swiper` (P, CRITICAL, fix blocked by Taro's pin), and 3 `vue-i18n`
   family (P?, upstream advisory data still inconsistent).
 - **Acceptance criterion.** "Every entry triaged" is satisfied. "No unresolved production
-  high/critical" is **not** yet satisfied: 5 production-reachable entries remain (1 decode-uri,
-  1 swiper, 3 vue-i18n), two of them blocked by concrete upstream constraints and one by an upstream
-  data inconsistency. Nothing was marked fixed without a build/test/scan verification.
-- **Still open:** (a) evaluate a query-string/Taro upgrade for `decode-uri-component`, (b) upgrade
-  Taro or explicitly accept the `swiper` CRITICAL until then, (c) get upstream clarification for
-  `GHSA-83rm`. The React preview's production status is no longer blocking: its 10 entries are fixed.
+  high/critical" is **not** yet satisfied, but the gap is now down to one item: the 3 `vue-i18n`
+  entries remain open pending upstream clarification. The other two production-reachable entries
+  (`decode-uri-component`, `swiper`) were explicitly accepted by the user on 2026-11-08 until
+  2026-12-06. Nothing was marked fixed without a build/test/scan verification.
+- **Still open:** (a) get upstream clarification for `GHSA-83rm` (the 3 vue-i18n entries), (b) by
+  2026-12-06, fix or re-accept the two blocked entries — evaluate a query-string/Taro upgrade for
+  `decode-uri-component` and a Taro upgrade for `swiper`. The React preview's production status is
+  no longer blocking: its 10 entries are fixed.
 
 中文：
 
@@ -285,12 +293,12 @@ English:
   7 条仅构建期（`brace-expansion` ×4、`glob` ×1、`postcss` ×2，均已明确接受）、1 条
   `decode-uri-component`（P，修复受 ESM-only 上游阻塞）、1 条 `swiper`（P，CRITICAL，修复受 Taro
   钉版阻塞）、3 条 vue-i18n 一族（P?，上游公告数据仍不一致）。
-- **验收口径。** 「每条都已 triage」已成立。「生产高/严重无未解决项」**尚未**成立：仍有 5 条生产
-  可达（1 条 decode-uri、1 条 swiper、3 条 vue-i18n），其中两条受具体的上游约束阻塞、一条受上游
-  数据不一致阻塞。没有任何一条是没经过构建/测试/扫描验证就标成已修复的。
-- **仍然未决：** (a) 评估 query-string / Taro 升级以解 `decode-uri-component`，(b) 升级 Taro，
-  或在此之前明确接受 `swiper` 这条 CRITICAL，(c) 拿到 `GHSA-83rm` 的上游澄清。React 预览版的
-  生产范围已不再阻塞：它的 10 条已修复。
+- **验收口径。** 「每条都已 triage」已成立。「生产高/严重无未解决项」**尚未**成立，但缺口已收窄到
+  一项：3 条 vue-i18n 仍待上游澄清。另外两条生产可达项（`decode-uri-component`、`swiper`）已由
+  用户在 2026-11-08 明确接受至 2026-12-06。没有任何一条是没经过构建/测试/扫描验证就标成已修复的。
+- **仍然未决：** (a) 拿到 `GHSA-83rm` 的上游澄清（3 条 vue-i18n），(b) 到 2026-12-06 前，修复或
+  重新接受那两条受阻项——评估 `decode-uri-component` 的 query-string / Taro 升级与 `swiper` 的
+  Taro 升级。React 预览版的生产范围已不再阻塞：它的 10 条已修复。
 
 ---
 
