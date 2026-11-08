@@ -294,16 +294,18 @@ first release rather than assembled when someone asks.
 
 | Runtime | Runtime version | Contract version |
 |---|---|---|
-| `KeelBase` (TypeScript) | `v1.3.1` | **v1.18.0** — bound as a submodule |
+| `KeelBase` (TypeScript) | `v1.3.1` | **v1.21.0** — bound as a submodule |
 | `KeelBase` (TypeScript) | `v1.3.0` | **v1.16.0** — bound as a submodule |
 | `KeelBase` (TypeScript) | `v1.2.0` | **v1.12.0** — bound as a submodule |
 | `KeelBase` (TypeScript) | `v1.1.0` | **v1.6.0** — bound as a submodule |
 | `KeelBase` (TypeScript) | `main`, **unreleased** | **v1.22.0** — bound as a submodule |
 | `KeelBase` (TypeScript) | `v1.0.11`, superseded | **v1.0.1** — carried in-tree; that release predates the contract repository |
-| [`KeelBase4J`](https://github.com/rain6fish/KeelBase4J) (Java) | `v0.1.16` | **v1.17.0** — vendored snapshot, taken from the contract repository |
+| [`KeelBase4J`](https://github.com/rain6fish/KeelBase4J) (Java) | `v0.1.17` | **v1.20.0** — vendored snapshot, taken from the contract repository |
+| [`KeelBase4J`](https://github.com/rain6fish/KeelBase4J) (Java) | `main`, **unreleased** | **v1.22.0** — vendored snapshot, taken from the contract repository |
+| [`KeelBase4J`](https://github.com/rain6fish/KeelBase4J) (Java) | `v0.1.16`, superseded | **v1.17.0** — vendored snapshot, taken from the contract repository |
 
 The `contract-matrix` gate verifies **only the TypeScript `main` row**. Every other row — including
-the 4J row above — is maintained by hand and is not read by that gate.
+the 4J rows above — is maintained by hand and is not read by that gate.
 
 A runtime that is behind the current contract is not broken; it simply does not yet answer for the
 newer version's objects. What moves a runtime forward is a deliberate act — the contract never reaches
