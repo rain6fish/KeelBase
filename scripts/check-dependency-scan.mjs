@@ -29,6 +29,15 @@
  *    and a permanently red gate is a gate nobody reads. They live in
  *    `scripts/dependency-scan-baseline.json`; anything *not* in that file fails. `--update-baseline`
  *    regenerates it, and entries that no longer fire are reported so the file cannot quietly rot.
+ *    Every entry also carries `reason`, `owner` and `expiry` (YYYY-MM-DD, +08): an exception nobody
+ *    re-decides must not become permanent, so an entry missing any of them or past its expiry is a red
+ *    run that names it.
+ *
+ * 4. **The scan must survive where the checkout lives.** osv-scanner honours `.gitignore`, so a
+ *    checkout under a path its enclosing repository ignores — the desktop app puts worktrees at
+ *    `.claude/worktrees/<name>`, and this repository's `.gitignore` ignores `.claude/*` — walks zero
+ *    directories. Measured 2026-11-08: `1 dirs visited`, exit 128. When the walk finds no sources the
+ *    gate retries with `--no-ignore`; if that also finds nothing the run is **未核**, never a pass.
  *
  * Not part of `npm run check:all`: it needs the pinned scanner binary and a network, and a local skip
  * would read exactly like a pass in that summary table. CI is the runner.
@@ -54,7 +63,13 @@
  * 3. **存量债是登记，不是消音。** 这棵树目前确实带着一批已发布前端依赖的 high 级发现。第一天就对它们判红，
  *    会让这个 job 长期挂着红，而长期红着的门禁没人看。它们登记在
  *    `scripts/dependency-scan-baseline.json` 里；**不在**该文件里的一律判红。`--update-baseline` 重生成它，
- *    并报出不再触发的陈旧条目，免得这份文件悄悄烂掉。
+ *    并报出不再触发的陈旧条目，免得这份文件悄悄烂掉。每条还必须带 `reason`、`owner`、`expiry`
+ *    （YYYY-MM-DD，+08）：无人重新裁决的例外不能变成永久例外，缺任一项或已过期都判红并点名。
+ *
+ * 4. **扫描必须活得过检出所在的位置。** osv-scanner 遵守 `.gitignore`，所以检出若落在其外层仓库忽略的路径下
+ *    —— 桌面应用把工作树建在 `.claude/worktrees/<name>`，而本仓 `.gitignore` 忽略 `.claude/*` —— 会零目录
+ *    走查（实测 2026-11-08：`1 dirs visited`，退出 128）。走查找不到包源时，门禁改以 `--no-ignore` 重试；
+ *    重试仍找不到才算**未核**，绝不写成通过。
  *
  * 它不进 `npm run check:all`：它要钉住的扫描器二进制和网络，而在那张汇总表里本地跳过读起来与通过一模一样。
  * 跑它的是 CI。
@@ -71,6 +86,9 @@ const PROBE_URL = process.env.OSV_PROBE_URL || 'https://api.osv.dev/v1/query';
 const SCANNER_PIN = '2.7.0';
 
 const GATED_BANDS = new Set(['HIGH', 'CRITICAL', 'UNKNOWN']);
+
+/** Every baseline entry must carry these, or the exception silently becomes permanent. */
+const TRIAGE_FIELDS = ['reason', 'owner', 'expiry'];
 
 function log(msg) {
   console.log(`[dependency-scan] ${msg}`);
@@ -201,11 +219,13 @@ function productionNames(absLockfile) {
   return null;
 }
 
-function runScanner(dir, env) {
+function runScanner(dir, env, { noIgnore = false } = {}) {
   const outFile = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'osv-gate-')), 'osv.json');
+  const args = ['scan', 'source', '-r', dir, '--format', 'json', '--output-file', outFile];
+  if (noIgnore) args.push('--no-ignore');
   const result = spawnSync(
     scannerPath(),
-    ['scan', 'source', '-r', dir, '--format', 'json', '--output-file', outFile],
+    args,
     { encoding: 'utf8', env: { ...process.env, ...env }, maxBuffer: 64 * 1024 * 1024 },
   );
 
@@ -214,14 +234,26 @@ function runScanner(dir, env) {
   }
   const stdout = result.stdout || '';
   const stderr = result.stderr || '';
+  // A failed extraction means the scan did not complete; the retry below must never read it as
+  // "nothing to scan". / 提取失败表示扫描没有完成；下面的重试路径不得把它读成「没有可扫的东西」。
+  if (/Error during extraction/i.test(stderr)) {
+    unverified(`osv-scanner reported an extraction error\n${stderr.trim()}`);
+  }
+  // osv-scanner honours .gitignore. A checkout that sits under a path its enclosing repository
+  // ignores walks zero directories and exits 128 — measured 2026-11-08 on a worktree at
+  // .claude/worktrees/<name>, whose enclosing .gitignore ignores .claude/*. That is not a scan
+  // failure; the caller retries with --no-ignore (node_modules is skipped natively either way).
+  // osv-scanner 遵守 .gitignore。检出若落在其外层仓库忽略的路径下（实测 2026-11-08：工作树位于
+  // .claude/worktrees/<name>，外层 .gitignore 忽略 .claude/*），会零目录退出 128。这不是扫描失败，
+  // 调用方改以 --no-ignore 重试（两种方式都会原生跳过 node_modules）。
+  if (/No package sources found/i.test(`${stdout}\n${stderr}`)) {
+    return { report: { results: [] }, scanned: [], outFile, stderr, noSources: true };
+  }
   // Exit 1 is "vulnerabilities found" and is expected. Anything else — including the 127 a failed
   // network fetch produced when measured — means the scan itself did not happen.
   // 退出码 1 = 找到漏洞，是预期；其余任何码（包括实测到的网络失败时的 127）都表示扫描本身没发生。
   if (result.status !== 0 && result.status !== 1) {
     unverified(`osv-scanner exited ${result.status}\n${stderr.trim() || stdout.trim()}`);
-  }
-  if (/Error during extraction/i.test(stderr)) {
-    unverified(`osv-scanner reported an extraction error\n${stderr.trim()}`);
   }
 
   let report;
@@ -244,14 +276,59 @@ function runScanner(dir, env) {
   return { report, scanned, outFile, stderr };
 }
 
+function baselineKey(entry) {
+  return `${entry.lockfile}|${entry.package}|${entry.id}`;
+}
+
 function loadBaseline() {
-  if (!fs.existsSync(BASELINE_FILE)) return new Map();
+  if (!fs.existsSync(BASELINE_FILE)) return { entries: [], map: new Map() };
   const parsed = JSON.parse(fs.readFileSync(BASELINE_FILE, 'utf8'));
-  const map = new Map();
-  for (const entry of parsed.findings || []) {
-    map.set(`${entry.lockfile}|${entry.package}|${entry.id}`, entry);
+  const entries = parsed.findings || [];
+  const map = new Map(entries.map((entry) => [baselineKey(entry), entry]));
+  return { entries, map };
+}
+
+/** Today's date in +08, the timezone the baseline expiry dates are written in. */
+function todayInShanghai() {
+  return new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+/**
+ * An exception nobody re-decides is an exception that becomes permanent. Every entry needs a real
+ * reason, an owner, and an expiry; an entry past its expiry is no longer accepted, whether or not the
+ * finding still fires.
+ *
+ * 无人重新裁决的例外，会变成永久例外。每条都要有真实理由、责任人与到期日；一旦过期，不论发现是否
+ * 仍然触发，都不再算被接受。
+ */
+function baselineProblems(entries, today = todayInShanghai()) {
+  const problems = [];
+  for (const entry of entries) {
+    const key = `${entry.lockfile} ${entry.package}@${entry.version} ${entry.id}`;
+    const missing = TRIAGE_FIELDS.filter((field) => typeof entry[field] !== 'string' || entry[field].trim() === '');
+    if (missing.length) {
+      problems.push({ key, kind: 'missing', detail: `missing ${missing.join(', ')}` });
+      continue;
+    }
+    const expiry = entry.expiry.trim();
+    const parsed = new Date(`${expiry}T00:00:00Z`);
+    const wellFormed =
+      /^\d{4}-\d{2}-\d{2}$/.test(expiry) && !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === expiry;
+    if (!wellFormed) {
+      problems.push({ key, kind: 'invalid-expiry', detail: `expiry "${entry.expiry}" is not a YYYY-MM-DD date` });
+    } else if (expiry < today) {
+      problems.push({ key, kind: 'expired', detail: `expired on ${expiry} (today is ${today})` });
+    }
   }
-  return map;
+  return problems;
+}
+
+function printBaselineProblems(problems) {
+  fail(`FAIL — ${problems.length} baseline entr(y/ies) are untriaged or expired:`);
+  for (const p of problems) fail(`  - ${p.key} — ${p.detail}`);
+  fail('FAIL — 基线有条目缺理由/责任人/到期，或已过期。');
+  fail('Give every entry a real reason, an owner, and an expiry (YYYY-MM-DD, +08); re-decide rather than extending a date.');
+  fail('每条都要写真实理由、责任人、到期日（+08）；要延期，先重新裁决。');
 }
 
 /**
@@ -298,7 +375,13 @@ async function evaluate(dir, baseline) {
   const probeProblem = await probeOsvApi();
   if (probeProblem) unverified(probeProblem);
 
-  const { report, scanned, outFile, stderr } = runScanner(dir, {});
+  let scan = runScanner(dir, {});
+  if (scan.noSources) {
+    log('recursive walk found no package sources; retrying with --no-ignore (the checkout may sit under a path its enclosing repository ignores, e.g. .claude/worktrees/*)');
+    scan = runScanner(dir, {}, { noIgnore: true });
+    if (scan.noSources) unverified('osv-scanner found no package sources in this tree, with or without .gitignore');
+  }
+  const { report, scanned, outFile, stderr } = scan;
   const { findings, skipped } = classify(report);
 
   const counts = { CRITICAL: 0, HIGH: 0, MODERATE: 0, LOW: 0, UNKNOWN: 0 };
@@ -338,17 +421,33 @@ function printFresh(list) {
     fail(`  - ${f.lockfile} ${f.package}@${f.version} ${f.aliases.join(', ')} [${f.band}]`);
   }
   fail('FAIL — 生产依赖里有上面这些基线未登记的高危/严重发现。');
-  fail('Either upgrade the dependency, or record the exception with `--update-baseline` and say why in the review.');
-  fail('请升级该依赖；确实要保留的，跑 `--update-baseline` 登记，并在评审里写明理由。');
+  fail('Either upgrade the dependency, or record the exception with `--update-baseline` and give it a reason, an owner and an expiry.');
+  fail('请升级该依赖；确实要保留的，跑 `--update-baseline` 登记，并补上理由、责任人与到期日。');
 }
 
-function writeBaseline(ev) {
+function writeBaseline(ev, previousEntries = []) {
+  const previous = new Map(previousEntries.map((entry) => [baselineKey(entry), entry]));
   const findings = ev.gated
-    .map((f) => ({ lockfile: f.lockfile, package: f.package, version: f.version, id: f.id, severity: f.band }))
+    .map((f) => {
+      const old = previous.get(`${f.lockfile}|${f.package}|${f.id}`) || {};
+      return {
+        lockfile: f.lockfile,
+        package: f.package,
+        version: f.version,
+        id: f.id,
+        severity: f.band,
+        // Triage survives regeneration; a new entry starts untriaged, which fails the gate until
+        // someone gives it a reason, an owner and an expiry.
+        // triage 字段随重生成保留；新条目从「未 triage」起步，补齐理由/责任人/到期之前门禁判红。
+        reason: old.reason || '',
+        owner: old.owner || 'unassigned',
+        expiry: old.expiry || '',
+      };
+    })
     .sort((a, b) => `${a.lockfile}|${a.package}|${a.id}`.localeCompare(`${b.lockfile}|${b.package}|${b.id}`));
   const payload = {
     _note:
-      'High/critical findings in production dependencies that existed when the gate landed, so the gate starts green and fails only on new ones. Regenerate with `node scripts/check-dependency-scan.mjs --update-baseline`; each entry needs a reason in the reviewing PR. / 门禁落地时已存在的生产依赖高危/严重发现，使门禁从绿起步、只对新发现判红。用 `--update-baseline` 重生成；每条都要在评审里写明理由。',
+      'High/critical findings in production dependencies that existed when the gate landed, so the gate starts green and fails only on new ones. Each entry must carry `reason`, `owner` and `expiry` (YYYY-MM-DD, +08); the gate fails when any is missing or the expiry has passed. `--update-baseline` keeps existing triage and leaves new entries blank. Entries with no assigned owner expire at the current triage checkpoint (2026-11-12); re-decide or clear them by then. / 门禁落地时已存在的生产依赖高危/严重发现，使门禁从绿起步、只对新发现判红。每条必须带 `reason`、`owner`、`expiry`（YYYY-MM-DD，+08）；缺任一项或已过期，门禁判红。`--update-baseline` 保留既有 triage，新条目留空待补。无责任人的条目到期日取当前 triage 检查点（2026-11-12）；届时须重新裁决或清除。',
     generatedAt: new Date().toISOString().slice(0, 10),
     scanner: `osv-scanner v${SCANNER_PIN}`,
     findings,
@@ -407,6 +506,50 @@ async function selftest() {
   const good = await evaluate(path.join(tmp, 'fixed'), empty);
   check('green: the fixed pin passes', good.fresh.length === 0 && good.gated.length === 0, `${good.fresh.length} new, ${good.gated.length} gated`);
 
+  // The recursive walk must reach a lockfile one level down, and it must do so even when the checkout
+  // itself sits under a path its enclosing repository ignores — the desktop app puts worktrees at
+  // `.claude/worktrees/<name>`, and this repository's `.gitignore` ignores `.claude/*`.
+  // 递归走查必须走到下一层的锁文件；即便检出本身落在其外层仓库忽略的路径下（桌面应用把工作树建在
+  // `.claude/worktrees/<name>`，而本仓 `.gitignore` 忽略 `.claude/*`）也必须走到。
+  fixture(path.join(tmp, 'nested-plain', 'one', 'two'), 'minimist', '1.2.5');
+  const nested = await evaluate(path.join(tmp, 'nested-plain'), empty);
+  check('nested lockfile in a plain tree is scanned', nested.fresh.length > 0, `${nested.fresh.length} new high/critical`);
+
+  const trapped = path.join(tmp, 'ignored-checkout');
+  fs.mkdirSync(trapped, { recursive: true });
+  fs.writeFileSync(path.join(trapped, '.gitignore'), '.claude/*\n');
+  fixture(path.join(trapped, '.claude', 'worktrees', 'wt', 'nested'), 'minimist', '1.2.5');
+  const retried = await evaluate(trapped, empty);
+  check('nested lockfile under a gitignored checkout path is still scanned', retried.fresh.length > 0, `${retried.fresh.length} new high/critical`);
+
+  // Baseline triage: an entry with no reason/owner/expiry, and an entry past its expiry, are both
+  // named as red. A complete, unexpired entry passes.
+  // 基线 triage：缺理由/责任人/到期的条目、以及已过期的条目，都要被点名判红；完整且未过期的条目通过。
+  const complete = {
+    lockfile: 'x/package-lock.json',
+    package: 'x',
+    version: '1.0.0',
+    id: 'GHSA-x',
+    severity: 'HIGH',
+    reason: 'recorded debt',
+    owner: 'unassigned',
+    expiry: '2099-12-31',
+  };
+  const missing = baselineProblems([{ ...complete, reason: '', owner: undefined }], '2026-11-08');
+  check(
+    'red: a baseline entry missing reason/owner/expiry is named',
+    missing.length === 1 && missing[0].kind === 'missing' && missing[0].detail.includes('reason') && missing[0].detail.includes('owner'),
+    missing[0] ? missing[0].detail : 'no problem reported',
+  );
+  const expired = baselineProblems([{ ...complete, expiry: '2026-11-01' }], '2026-11-08');
+  check(
+    'red: an expired baseline entry is named with its date',
+    expired.length === 1 && expired[0].kind === 'expired' && expired[0].detail.includes('2026-11-01'),
+    expired[0] ? expired[0].detail : 'no problem reported',
+  );
+  const clean = baselineProblems([complete], '2026-11-08');
+  check('green: a complete, unexpired baseline entry passes', clean.length === 0, JSON.stringify(clean));
+
   // The offline case must be a red "未核", not a green "zero findings".
   // 断网必须是红的「未核」，不能是绿的「零发现」。
   process.env.OSV_PROBE_URL = 'http://127.0.0.1:9/v1/query';
@@ -430,17 +573,27 @@ async function main() {
   const args = process.argv.slice(2);
   if (args.includes('--selftest')) return selftest();
 
-  const baseline = loadBaseline();
+  const { entries, map: baseline } = loadBaseline();
   const verbose = args.includes('--verbose');
-  const ev = await evaluate(ROOT, baseline);
 
   if (args.includes('--update-baseline')) {
-    writeBaseline(ev);
+    const ev = await evaluate(ROOT, baseline);
+    writeBaseline(ev, entries);
     report(ev, { verbose });
     log('baseline updated; re-run without --update-baseline to see the gated verdict');
     return;
   }
 
+  // Checked before the scan: an untriaged or expired exception is a verdict on the baseline itself,
+  // and it must not depend on the network being up.
+  // 在扫描之前判：未 triage 或已过期的例外，是对基线本身的判决，不应取决于网络是否可用。
+  const problems = baselineProblems(entries);
+  if (problems.length) {
+    printBaselineProblems(problems);
+    process.exit(1);
+  }
+
+  const ev = await evaluate(ROOT, baseline);
   report(ev, { verbose });
 
   const baselineKeys = new Set(baseline.keys());
