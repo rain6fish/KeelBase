@@ -1,16 +1,19 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Supply-chain baseline triage — DRAFT FOR USER DECISION
-# 供应链基线 triage —— 待用户裁定的草案
+# Supply-chain baseline triage — ACCEPTED
+# 供应链基线 triage —— 已接受
 
-> **Status: DRAFT. This is not an acceptance and not a decision.**
-> `scripts/dependency-scan-baseline.json` has **not** been changed, no entry was removed, no severity
-> was lowered, and the gate was not merged, reverted or relaxed. Every owner, date and proposed
-> decision below is a proposal for the user to accept, change or reject.
+> **Status: accepted by the user on 2026-11-08.** The dispositions, owners and expiries in §1 are now
+> the accepted triage for the 39 baseline entries. Acceptance does **not** mean the findings are
+> fixed: `scripts/dependency-scan-baseline.json` is still unchanged, no entry was removed, no severity
+> was lowered, and the gate was not relaxed. Items marked FIX are scheduled work with the stated
+> dates; items marked ACCEPT are explicitly accepted until their expiry; items marked DECIDE still
+> owe the evidence named in §2.
 >
-> **状态：草案。这不是接受结论，也不是裁定结果。**
-> `scripts/dependency-scan-baseline.json` **未**改动：没有删条目、没有降严重级、没有合并/回退/放宽门禁。
-> 下文的每条责任人、到期日与建议处置，都只是**待用户接受/修改/驳回**的提案。
+> **状态：用户已于 2026-11-08 接受。** §1 的处置、责任人与到期，即为 39 条基线条目的已接受 triage。
+> 接受**不等于**这些漏洞已修复：`scripts/dependency-scan-baseline.json` 仍未改动，没有删条目、没有
+> 降严重级、没有放宽门禁。标 FIX 的条目成为带日期的计划工作；标 ACCEPT 的条目按其到期日被明确接受；
+> 标 DECIDE 的条目仍欠 §2 所列的证据。
 
 ---
 
@@ -127,7 +130,7 @@ Every row is one baseline entry. "Decision" is a proposal, not an accepted outco
 
 ---
 
-## 2. What this draft cannot decide / 本草案判断不了的部分
+## 2. What this triage cannot decide / 本次 triage 判断不了的部分
 
 English:
 
@@ -177,34 +180,42 @@ English:
 - **The gate itself is healthy and should stay merged.** It is green on the current tree (39 known /
   0 new / 0 stale), fails closed on "unverified", and its self-test proves red / green / 未核. There is
   no reason to revert it, and reverting it would be a worse outcome than triaging the baseline.
-- **But D2's acceptance is not met yet.** Under the strict reading ("no unaccepted production
-  high/critical"), the draft identifies production-reachable, unfixed and unaccepted entries:
+- **Production-reachable entries are where the residual risk sits.** Under the strict reading ("no
+  unaccepted production high/critical"), the entries that are P or P? today are:
   - `Web-Admin-Vue`: 7 axios + 1 decode-uri-component (Front-Taro) + 3 vue-i18n-family entries
-    = 11 entries that are P or P? today.
+    = 11 entries.
   - If the React preview counts as production: +7 axios = 18.
-  These are not accepted by this draft; they are only proposed for a fix date or for a decision.
-  Therefore "every entry triaged" is true only in the sense that every entry now has a written
-  reason/owner/expiry proposal; **"no unaccepted prod high/critical" is not yet true**.
-- **What is missing to close D2:** the user must (a) accept or change the proposed decisions and
-  dates in §1, (b) confirm the React preview's production status, and (c) release the two blocked
-  judgments in §2 (built-bundle evidence for swiper; upstream clarification for vue-i18n). Until
-  then the honest state is "triaged as a draft, awaiting decision" — not "clean".
+  Acceptance gives each of them a disposition (FIX by date, or DECIDE pending evidence); it does not
+  remove the risk until those dates close.
+- **Acceptance record (2026-11-08).** The user accepted this triage. "Every entry triaged" is now
+  satisfied: each of the 39 entries has an accepted disposition, owner and expiry. "No unaccepted
+  production high/critical" depends on the reading: if it means *no production entry without a
+  disposition*, it is satisfied; if it means *no unresolved production high/critical*, it is **not**
+  yet satisfied — 11 production-reachable entries are scheduled FIX, and 3 of those (the vue-i18n
+  family) are DECIDE pending upstream evidence. Nothing was marked fixed by acceptance.
+- **Still open after acceptance:** (a) the React preview's production status, (b) the built-bundle
+  evidence for swiper, and (c) the upstream clarification for vue-i18n. Until (b) and (c) land, the
+  1 CRITICAL and the 3 vue-i18n entries cannot be honestly closed as "not reachable" or "not
+  applicable".
 
 中文：
 
 - **门禁本身是健康的，应继续保持合并。** 它在当前树上为绿（39 条已知 / 0 条新增 / 0 条陈旧），
   在「未核」时 fail-closed，自测也证明了红 / 绿 / 未核三种行为。没有理由回退它，回退比把基线
   triage 完更糟。
-- **但 D2 的验收尚未达成。** 按严格口径（「生产高/严重无未接受项」），草案识别出当前**生产可达、
-  未修、未接受**的条目：
+- **生产可达项才是残余风险所在。** 按严格口径（「生产高/严重无未接受项」），今天属于 P 或 P? 的
+  条目是：
   - `Web-Admin-Vue`：7 条 axios + `Front-Taro` 的 1 条 decode-uri-component + 3 条 vue-i18n 一族
-    = 11 条今天属于 P 或 P?。
+    = 11 条。
   - 若把 React 预览版也算作生产：再加 7 条 axios = 18 条。
-  本草案没有接受它们，只是给它们提了修复日期或待裁决定。所以「每条都已 triage」只在「每条都有了
-  书面理由/责任人/到期提案」这个意义上成立；**「生产高/严重无未接受项」尚未成立**。
-- **关闭 D2 还差什么：** 用户需要 (a) 接受或修改 §1 的建议处置与日期，(b) 确认 React 预览版是否算
-  生产，(c) 放行 §2 里两条被卡住的判断（swiper 的构建产物证据；vue-i18n 的上游澄清）。在做到这些
-  之前，诚实的状态是「已按草案 triage，等待裁定」——不是「干净」。
+  接受只是给了它们处置（按日期 FIX，或待证据 DECIDE）；在到期前，风险并没有消失。
+- **接受记录（2026-11-08）。** 用户已接受本 triage。「每条都已 triage」现已成立：39 条每条都有
+  已接受的处置、责任人与到期。「生产高/严重无未接受项」取决于口径：若指**没有一条生产条目缺处置**，
+  已成立；若指**没有未解决的生产高/严重项**，则**尚未**成立——11 条生产可达项排了 FIX，其中 3 条
+  （vue-i18n 一族）是 DECIDE、仍欠上游证据。接受本身没有把任何一条标成已修复。
+- **接受后仍然未决：** (a) React 预览版是否算生产，(b) swiper 的构建产物证据，(c) vue-i18n 的上游
+  澄清。在 (b)(c) 落地前，那 1 条 CRITICAL 与 3 条 vue-i18n 条目都不能诚实地关成「不可达」或
+  「不适用」。
 
 ---
 
