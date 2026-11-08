@@ -144,8 +144,9 @@ On Windows the release asset is `osv-scanner_windows_amd64.exe`, with sha256
 `9964ed64ec9a387391eb4cc006ad5c531154821aef29b793e02c448de4686438`.
 
 One operational fact, measured 2026-11-08: `osv-scanner` does not read a tree that lives under a
-`.claude/` directory. The same lockfile was read under `…/.x/` (1 package) and not read under
-`…/.claude/x/` (0 packages). Desktop-app worktrees are created at `.claude/worktrees/<name>`, so running
+`.claude/` directory. A lockfile placed under `…/.probe-plain/` was read (1 package); the same file under
+`…/.claude/probe-plain/` was not read (0 packages). Desktop-app worktrees are created at
+`.claude/worktrees/<name>`, so running
 the gate from one reports "No package sources found" and the gate exits 2 as **未核** — correctly, since
 it cannot claim a clean tree. Run it from a plain checkout to get a reading.
 
@@ -155,8 +156,8 @@ reasoning excludes `migration-consistency-postgres`. CI is the runner (`scripts/
 
 ## 4. Base images
 
-Two Dockerfiles, four references, each pinned by digest. The digests were read at pin time and verified
-against the registry and a smoke build.
+Two Dockerfiles, four references, each pinned by digest. Each digest was read at pin time and verified
+against the registry and a smoke build when it was pinned.
 
 | Reference | Digest | Where |
 |---|---|---|
@@ -375,8 +376,9 @@ OSV_SCANNER=/tmp/osv-scanner node scripts/check-dependency-scan.mjs --verbose
 Windows 上的发布件是 `osv-scanner_windows_amd64.exe`，sha256 为
 `9964ed64ec9a387391eb4cc006ad5c531154821aef29b793e02c448de4686438`。
 
-一条 2026-11-08 实测的操作事实：`osv-scanner` 不读位于 `.claude/` 目录之下的树。同一份锁文件在
-`…/.x/` 下被读到（1 个包），在 `…/.claude/x/` 下没被读到（0 个包）。桌面应用把工作树建在
+一条 2026-11-08 实测的操作事实：`osv-scanner` 不读位于 `.claude/` 目录之下的树。放在
+`…/.probe-plain/` 下的锁文件被读到（1 个包），同一份放在 `…/.claude/probe-plain/` 下则没被读到
+（0 个包）。桌面应用把工作树建在
 `.claude/worktrees/<名字>`，所以从那里跑门禁会报「没有找到包源」，门禁以 2 退出、报**未核** —— 这是对的，
 因为它无法声称这棵树是干净的。要拿到读数，请在普通检出里跑。
 
