@@ -1,15 +1,8 @@
 {
   "_note": "High/critical findings in production dependencies that existed when the gate landed, so the gate starts green and fails only on new ones. Regenerate with `node scripts/check-dependency-scan.mjs --update-baseline`; each entry needs a reason in the reviewing PR. / 门禁落地时已存在的生产依赖高危/严重发现，使门禁从绿起步、只对新发现判红。用 `--update-baseline` 重生成；每条都要在评审里写明理由。",
-  "generatedAt": "2026-11-06",
+  "generatedAt": "2026-11-08",
   "scanner": "osv-scanner v2.7.0",
   "findings": [
-    {
-      "lockfile": "Front-Taro/package-lock.json",
-      "package": "@vue/server-renderer",
-      "version": "3.5.41",
-      "id": "GHSA-g2v6-rqmx-r4w6",
-      "severity": "HIGH"
-    },
     {
       "lockfile": "Front-Taro/package-lock.json",
       "package": "brace-expansion",
@@ -54,34 +47,6 @@
     },
     {
       "lockfile": "Front-Taro/package-lock.json",
-      "package": "joi",
-      "version": "17.13.4",
-      "id": "GHSA-4528-x5fx-h6hg",
-      "severity": "HIGH"
-    },
-    {
-      "lockfile": "Front-Taro/package-lock.json",
-      "package": "joi",
-      "version": "17.13.4",
-      "id": "GHSA-6h2x-m376-mqjq",
-      "severity": "HIGH"
-    },
-    {
-      "lockfile": "Front-Taro/package-lock.json",
-      "package": "lodash-es",
-      "version": "4.17.21",
-      "id": "GHSA-r5fr-rjxr-66jc",
-      "severity": "HIGH"
-    },
-    {
-      "lockfile": "Front-Taro/package-lock.json",
-      "package": "nanoid",
-      "version": "3.3.17",
-      "id": "GHSA-2v37-7h3g-55p8",
-      "severity": "HIGH"
-    },
-    {
-      "lockfile": "Front-Taro/package-lock.json",
       "package": "postcss",
       "version": "7.0.39",
       "id": "GHSA-6g55-p6wh-862q",
@@ -96,185 +61,10 @@
     },
     {
       "lockfile": "Front-Taro/package-lock.json",
-      "package": "source-map-js",
-      "version": "1.2.1",
-      "id": "GHSA-68fv-2mgg-jv7q",
-      "severity": "HIGH"
-    },
-    {
-      "lockfile": "Front-Taro/package-lock.json",
       "package": "swiper",
       "version": "6.8.0",
       "id": "GHSA-hmx5-qpq5-p643",
       "severity": "CRITICAL"
-    },
-    {
-      "lockfile": "Web-Admin-React/package-lock.json",
-      "package": "axios",
-      "version": "1.19.0",
-      "id": "GHSA-3pq3-5fj3-cg6v",
-      "severity": "HIGH"
-    },
-    {
-      "lockfile": "Web-Admin-React/package-lock.json",
-      "package": "axios",
-      "version": "1.19.0",
-      "id": "GHSA-542g-h47m-68v8",
-      "severity": "HIGH"
-    },
-    {
-      "lockfile": "Web-Admin-React/package-lock.json",
-      "package": "axios",
-      "version": "1.19.0",
-      "id": "GHSA-c29m-xwm3-cm6r",
-      "severity": "HIGH"
-    },
-    {
-      "lockfile": "Web-Admin-React/package-lock.json",
-      "package": "axios",
-      "version": "1.19.0",
-      "id": "GHSA-m8m8-qj5v-23w3",
-      "severity": "HIGH"
-    },
-    {
-      "lockfile": "Web-Admin-React/package-lock.json",
-      "package": "axios",
-      "version": "1.19.0",
-      "id": "GHSA-mghh-pgcx-3jjj",
-      "severity": "HIGH"
-    },
-    {
-      "lockfile": "Web-Admin-React/package-lock.json",
-      "package": "axios",
-      "version": "1.19.0",
-      "id": "GHSA-r4gj-5m52-g5wh",
-      "severity": "HIGH"
-    },
-    {
-      "lockfile": "Web-Admin-React/package-lock.json",
-      "package": "axios",
-      "version": "1.19.0",
-      "id": "GHSA-x97p-jq2g-jp4f",
-      "severity": "HIGH"
-    },
-    {
-      "lockfile": "Web-Admin-React/package-lock.json",
-      "package": "follow-redirects",
-      "version": "1.16.0",
-      "id": "GHSA-8r9p-f939-6h3c",
-      "severity": "HIGH"
-    },
-    {
-      "lockfile": "Web-Admin-React/package-lock.json",
-      "package": "follow-redirects",
-      "version": "1.16.0",
-      "id": "GHSA-mrwp-f3q8-3g9p",
-      "severity": "HIGH"
-    },
-    {
-      "lockfile": "Web-Admin-React/package-lock.json",
-      "package": "follow-redirects",
-      "version": "1.16.0",
-      "id": "GHSA-q3jh-wrc6-jgq8",
-      "severity": "HIGH"
-    },
-    {
-      "lockfile": "Web-Admin-Vue/package-lock.json",
-      "package": "@intlify/core-base",
-      "version": "10.0.8",
-      "id": "GHSA-83rm-6c8r-g728",
-      "severity": "HIGH"
-    },
-    {
-      "lockfile": "Web-Admin-Vue/package-lock.json",
-      "package": "@intlify/shared",
-      "version": "10.0.8",
-      "id": "GHSA-83rm-6c8r-g728",
-      "severity": "HIGH"
-    },
-    {
-      "lockfile": "Web-Admin-Vue/package-lock.json",
-      "package": "axios",
-      "version": "1.19.0",
-      "id": "GHSA-3pq3-5fj3-cg6v",
-      "severity": "HIGH"
-    },
-    {
-      "lockfile": "Web-Admin-Vue/package-lock.json",
-      "package": "axios",
-      "version": "1.19.0",
-      "id": "GHSA-542g-h47m-68v8",
-      "severity": "HIGH"
-    },
-    {
-      "lockfile": "Web-Admin-Vue/package-lock.json",
-      "package": "axios",
-      "version": "1.19.0",
-      "id": "GHSA-c29m-xwm3-cm6r",
-      "severity": "HIGH"
-    },
-    {
-      "lockfile": "Web-Admin-Vue/package-lock.json",
-      "package": "axios",
-      "version": "1.19.0",
-      "id": "GHSA-m8m8-qj5v-23w3",
-      "severity": "HIGH"
-    },
-    {
-      "lockfile": "Web-Admin-Vue/package-lock.json",
-      "package": "axios",
-      "version": "1.19.0",
-      "id": "GHSA-mghh-pgcx-3jjj",
-      "severity": "HIGH"
-    },
-    {
-      "lockfile": "Web-Admin-Vue/package-lock.json",
-      "package": "axios",
-      "version": "1.19.0",
-      "id": "GHSA-r4gj-5m52-g5wh",
-      "severity": "HIGH"
-    },
-    {
-      "lockfile": "Web-Admin-Vue/package-lock.json",
-      "package": "axios",
-      "version": "1.19.0",
-      "id": "GHSA-x97p-jq2g-jp4f",
-      "severity": "HIGH"
-    },
-    {
-      "lockfile": "Web-Admin-Vue/package-lock.json",
-      "package": "follow-redirects",
-      "version": "1.16.0",
-      "id": "GHSA-8r9p-f939-6h3c",
-      "severity": "HIGH"
-    },
-    {
-      "lockfile": "Web-Admin-Vue/package-lock.json",
-      "package": "follow-redirects",
-      "version": "1.16.0",
-      "id": "GHSA-mrwp-f3q8-3g9p",
-      "severity": "HIGH"
-    },
-    {
-      "lockfile": "Web-Admin-Vue/package-lock.json",
-      "package": "follow-redirects",
-      "version": "1.16.0",
-      "id": "GHSA-q3jh-wrc6-jgq8",
-      "severity": "HIGH"
-    },
-    {
-      "lockfile": "Web-Admin-Vue/package-lock.json",
-      "package": "source-map-js",
-      "version": "1.2.1",
-      "id": "GHSA-68fv-2mgg-jv7q",
-      "severity": "HIGH"
-    },
-    {
-      "lockfile": "Web-Admin-Vue/package-lock.json",
-      "package": "vue-i18n",
-      "version": "10.0.8",
-      "id": "GHSA-83rm-6c8r-g728",
-      "severity": "HIGH"
     }
   ]
 }
