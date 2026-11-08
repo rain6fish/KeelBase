@@ -30,12 +30,15 @@ English:
   main...HEAD` = `0 0`). The plan's stop condition "untriaged ⇒ keep the gate unmerged" therefore
   cannot be satisfied retroactively; the corrective is to finish triage now.
 - Re-ran the pinned scanner (`osv-scanner 2.7.0`, Windows binary verified against the release
-  `SHA256SUMS`) read-only on the tracked tree. Result: **39 known / 0 new / 0 stale**, exit 0,
+  `SHA256SUMS`) read-only on the tracked tree. Result (starting state): **39 known / 0 new /
+  0 stale**, exit 0,
   7 lockfiles scanned. No baseline entry is stale, so all 39 still fire.
 - The 39 entries are **38 HIGH + 1 CRITICAL**, all in three front-end lockfiles:
   `Front-Taro/package-lock.json` (15), `Web-Admin-React/package-lock.json` (10),
   `Web-Admin-Vue/package-lock.json` (14). `Server-NestJS` (1054 packages), the root lockfile (62)
-  and `Front-Flutter/pubspec.lock` (104) have **no gated production high/critical** today.
+  and `Front-Flutter/pubspec.lock` (104) have **no gated production high/critical** today. This
+  paragraph records the starting state; after the 2026-11-08 remediation the baseline is **12
+  entries** (see §1A).
 - Gate semantics that matter for triage: (a) "production" is decided by **package name** appearing
   anywhere in the non-dev closure, so a dev-only *instance* can be gated because a different version
   of the same name is in the production closure; (b) the baseline key is
@@ -60,7 +63,8 @@ English:
 - 39 条 = **38 条 HIGH + 1 条 CRITICAL**，全部落在三份前端锁文件里：
   `Front-Taro/package-lock.json`（15）、`Web-Admin-React/package-lock.json`（10）、
   `Web-Admin-Vue/package-lock.json`（14）。`Server-NestJS`（1054 个包）、根锁文件（62 个包）和
-  `Front-Flutter/pubspec.lock`（104 个包）当前**没有**受门禁约束的生产高危/严重项。
+  `Front-Flutter/pubspec.lock`（104 个包）当前**没有**受门禁约束的生产高危/严重项。本段记录的是
+  起点状态；2026-11-08 整改后基线为 **12 条**（见 §1A）。
 - 与 triage 有关的门禁语义：(a)「生产」是按**包名**是否出现在非 dev 闭包里判定的，因此某个仅
   开发期的**实例**可能因为同名包的另一个版本在生产闭包里而被判红；(b) 基线的键是
   `lockfile|package|id`——**不比较版本、也不比较严重级**，所以同一首要公告 ID 下的严重级上升
@@ -83,8 +87,10 @@ English:
 
 ## 1. The 39 entries / 39 条基线条目
 
-Every row is one baseline entry. "Decision" is a proposal, not an accepted outcome.
-每一行就是一条基线条目。"建议处置"只是提案，不是已接受的结论。
+Every row is one baseline entry. This table is the accepted triage record; the remediation already
+executed on 2026-11-08 is recorded in §1A, and rows finished there should be read as done.
+每一行就是一条基线条目。本表是已接受的 triage 记录；2026-11-08 已执行的整改记在 §1A，那里完成的
+行应视为已完成。
 
 | # | Lockfile | Package@version | Advisory | Sev | Reach | Decision | Reason (EN) | 理由（中文） | Owner | Expiry |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -93,7 +99,7 @@ Every row is one baseline entry. "Decision" is a proposal, not an accepted outco
 | 3 | Front-Taro | `brace-expansion@2.1.4` | GHSA-6j4f-fj2g-mc7p | HIGH | B | ACCEPT | Instance under `@tarojs/plugin-doctor` / `depcheck` has `dev:true`; build-only. | 该实例在 `@tarojs/plugin-doctor` / `depcheck` 下，`dev:true`；仅构建期。 | Front-Taro owner / Front-Taro 维护会话 | 2027-02-08 |
 | 4 | Front-Taro | `brace-expansion@1.1.18` | GHSA-qhr7-859c-m2p7 | HIGH | B | ACCEPT | Same dev-only chain as #2. | 与 #2 同一条仅开发期链路。 | Front-Taro owner / Front-Taro 维护会话 | 2027-02-08 |
 | 5 | Front-Taro | `brace-expansion@2.1.4` | GHSA-qhr7-859c-m2p7 | HIGH | B | ACCEPT | Same dev-only instance as #3. | 与 #3 同一个仅开发期实例。 | Front-Taro owner / Front-Taro 维护会话 | 2027-02-08 |
-| 6 | Front-Taro | `decode-uri-component@0.2.2` | GHSA-qr28-fpjm-wq7f | HIGH | P | FIX | Runtime path `query-string` ← `@tarojs/router` ← `@tarojs/plugin-platform-h5`. Quadratic DoS on percent-encoded runs; a crafted H5 URL can reach it. | 运行路径 `query-string` ← `@tarojs/router` ← `@tarojs/plugin-platform-h5`。百分号编码串上的二次方 DoS，构造的 H5 URL 可到达。 | Front-Taro owner / Front-Taro 维护会话 | 2026-11-15 |
+| 6 | Front-Taro | `decode-uri-component@0.2.2` | GHSA-qr28-fpjm-wq7f | HIGH | P | BLOCKED → ACCEPT (proposed) | Runtime path `query-string` ← `@tarojs/router` ← `@tarojs/plugin-platform-h5`; a crafted H5 URL can reach the quadratic DoS. **Fix blocked:** the fixed `0.5.1` is ESM-only while `query-string@7.1.3` is CJS and calls `require('decode-uri-component')` as a function. Needs a query-string/Taro upgrade. | 运行路径 `query-string` ← `@tarojs/router` ← `@tarojs/plugin-platform-h5`；构造的 H5 URL 可触发二次方 DoS。**修复受阻：** 修复版 `0.5.1` 是 ESM-only，而 `query-string@7.1.3` 是 CJS，把 `require('decode-uri-component')` 当函数调用。需要 query-string / Taro 升级。 | Front-Taro owner / Front-Taro 维护会话 | 2026-12-06 |
 | 7 | Front-Taro | `glob@10.2.6` | GHSA-5j98-mcp5-4vw2 | HIGH | B | ACCEPT | Only the `dev:true` instance under `@tarojs/plugin-doctor` is affected; the production-closure `glob@7.2.3` is outside the advisory range (≥10.2.0). | 受影响的只是 `@tarojs/plugin-doctor` 下 `dev:true` 的实例；生产闭包里的 `glob@7.2.3` 不在公告范围（≥10.2.0）。 | Front-Taro owner / Front-Taro 维护会话 | 2027-02-08 |
 | 8 | Front-Taro | `joi@17.13.4` | GHSA-4528-x5fx-h6hg | HIGH | B | FIX (patch) | Reached only via `@tarojs/service`, the Taro build service; validates build config, not shipped. Fix is 17.13.9. | 只经 `@tarojs/service`（Taro 构建服务）到达，校验构建配置，不进产物。修法是 17.13.9。 | Front-Taro owner / Front-Taro 维护会话 | 2026-11-15 |
 | 9 | Front-Taro | `joi@17.13.4` | GHSA-6h2x-m376-mqjq | HIGH | B | FIX (patch) | Same build-service chain as #8. | 与 #8 同一条构建服务链路。 | Front-Taro owner / Front-Taro 维护会话 | 2026-11-15 |
@@ -102,7 +108,7 @@ Every row is one baseline entry. "Decision" is a proposal, not an accepted outco
 | 12 | Front-Taro | `postcss@7.0.39` | GHSA-6g55-p6wh-862q | HIGH | B | ACCEPT | All `postcss@7.0.39` instances are `dev:true` (component-compiler-utils / autoprefixer / miniprogram-simulate); the production-closure `postcss@8.5.26` is above the fix line. | `postcss@7.0.39` 的所有实例都是 `dev:true`（component-compiler-utils / autoprefixer / miniprogram-simulate）；生产闭包里的 `postcss@8.5.26` 已在修复线之上。 | Front-Taro owner / Front-Taro 维护会话 | 2027-02-08 |
 | 13 | Front-Taro | `postcss@7.0.39` | GHSA-r28c-9q8g-f849 | HIGH | B | ACCEPT | Same dev-only instances as #12. | 与 #12 同一批仅开发期实例。 | Front-Taro owner / Front-Taro 维护会话 | 2027-02-08 |
 | 14 | Front-Taro | `source-map-js@1.2.1` | GHSA-68fv-2mgg-jv7q | HIGH | B | FIX (patch) | Used by Vue/Sass/PostCSS compilers to read build-time source maps; not in the runtime bundle. Fix is 1.2.2. | 供 Vue/Sass/PostCSS 编译器读取构建期 source map；不在运行时包里。修法是 1.2.2。 | Front-Taro owner / Front-Taro 维护会话 | 2026-11-15 |
-| 15 | Front-Taro | `swiper@6.8.0` | GHSA-hmx5-qpq5-p643 | **CRITICAL** | N | DECIDE | The only CRITICAL. `swiper` is required only by the lazy `taro-swiper-core` chunk; `@tarojs/components` is not imported anywhere in `Front-Taro/src` and no page renders `<swiper>` / `<taro-swiper-core>`. Needs a built-bundle check before closing. Fix (12.1.2) is a major across Taro's pinned 6.8.0. | 唯一 CRITICAL。`swiper` 只被懒加载的 `taro-swiper-core` chunk 引用；`Front-Taro/src` 里没有任何地方 import `@tarojs/components`，也没有页面渲染 `<swiper>` / `<taro-swiper-core>`。关闭前需要看构建产物。修法（12.1.2）跨 Taro 钉住的 6.8.0 一个大版本。 | Front-Taro owner / Front-Taro 维护会话 | 2026-11-22 (evidence) / 2026-12-06 (decision) |
+| 15 | Front-Taro | `swiper@6.8.0` | GHSA-hmx5-qpq5-p643 | **CRITICAL** | P | ACCEPT (proposed) | The only CRITICAL. **Reachability corrected:** the built H5 bundle `dist/js/683.js` (part of the `app` entrypoint) contains the full `taro-swiper-core` implementation and swiper code, even though no app source imports `@tarojs/components` or renders a swiper. The sink still needs the swiper component to be constructed with crafted input, which the app never does. A direct override to `12.1.2` is incompatible: swiper 12 removed `swiper/swiper-bundle.esm.js`, the exact path Taro 3.6.36 imports. Needs a Taro upgrade. | 唯一 CRITICAL。**可达性已更正：** 构建后的 H5 包 `dist/js/683.js`（属于 `app` 入口）含完整的 `taro-swiper-core` 实现与 swiper 代码，尽管没有 app 源码 import `@tarojs/components` 或渲染 swiper。sink 仍需用构造输入实例化 swiper 组件，本应用从不这么做。直接 override 到 `12.1.2` 不可行：swiper 12 删掉了 `swiper/swiper-bundle.esm.js`，正是 Taro 3.6.36 import 的路径。需要 Taro 升级。 | Front-Taro owner / Front-Taro 维护会话 | 2026-12-06 |
 | 16 | Web-Admin-React | `axios@1.19.0` | GHSA-3pq3-5fj3-cg6v | HIGH | P\* | FIX (minor) | Node HTTP/2 adapter bypasses DNS/proxy controls; browser build maps the Node adapter to a null helper, so not browser-reachable. App is a non-deployed preview. Fix is 1.20.0. | Node HTTP/2 适配器绕过 DNS/代理控制；浏览器构建把 Node 适配器映射为空实现，故浏览器不可达。该应用是未部署的预览版。修法是 1.20.0。 | Web-Admin-React owner / React 预览维护会话 | 2026-11-15 |
 | 17 | Web-Admin-React | `axios@1.19.0` | GHSA-542g-h47m-68v8 | HIGH | P\* | FIX (minor) | HTTP/2 session init error is Node-only; same adapter mapping as #16. | HTTP/2 会话初始化错误仅 Node 侧；适配器映射同 #16。 | Web-Admin-React owner / React 预览维护会话 | 2026-11-15 |
 | 18 | Web-Admin-React | `axios@1.19.0` | GHSA-c29m-xwm3-cm6r | HIGH | P\* | FIX (minor) | `fromDataURI` ReDoS is in shared code; reachable only if a `data:` URL from an untrusted source is parsed. | `fromDataURI` 的 ReDoS 在共享代码里；只有解析来自不可信来源的 `data:` URL 时才可达。 | Web-Admin-React owner / React 预览维护会话 | 2026-11-15 |
@@ -130,11 +136,85 @@ Every row is one baseline entry. "Decision" is a proposal, not an accepted outco
 
 ---
 
+## 1A. Remediation executed (2026-11-08) / 已执行整改（2026-11-08）
+
+English:
+
+The fixes below were applied and verified; the baseline was pruned from 39 to 12 entries through the
+gate's own `--update-baseline` path (27 entries no longer fire, 0 new). Nothing that still fires was
+removed.
+
+| App | Change | Verification |
+|---|---|---|
+| Web-Admin-Vue | `axios` ^1.20.0 → resolved 1.21.0; overrides `follow-redirects` 1.16.2, `source-map-js` 1.2.2 | typecheck 0; 554 tests passed / 8 skipped; build ok |
+| Web-Admin-React | `axios` ^1.20.0 → resolved 1.21.0; override `follow-redirects` 1.16.2 | typecheck 0; 47 tests passed; build ok |
+| Front-Taro | `vue` ^3.5.42 → resolved 3.5.45 (pulls `@vue/server-renderer` 3.5.45); overrides `joi` 17.13.9, `nanoid` 3.3.18, `lodash-es` 4.18.1, `source-map-js` 1.2.2 | build:h5 ok; test:i18n 6, test:env 3, test:race 5 |
+
+Gate rerun on the updated lockfiles: **12 known / 0 new / 0 stale**, exit 0.
+
+Remaining 12: `brace-expansion` ×4, `glob@10.2.6` ×1, `postcss@7.0.39` ×2 (all build-only);
+`decode-uri-component@0.2.2` ×1 and `swiper@6.8.0` ×1 (Front-Taro); the `vue-i18n` family ×3
+(Web-Admin-Vue).
+
+Two rows deviate from the accepted table:
+
+1. **Row 6, `decode-uri-component` — not fixed.** The fixed version `0.5.1` is ESM-only
+   (`type: module`), while the consumer `query-string@7.1.3` is CJS and does
+   `const decodeComponent = require('decode-uri-component')`, then calls it as a function. Forcing
+   0.5.1 would hand it a namespace object, not the function. Proposed revised disposition: ACCEPT
+   until 2026-12-06, with a query-string/Taro upgrade evaluation.
+2. **Row 15, `swiper` — reachability corrected from N to P.** The built H5 bundle
+   (`Front-Taro/dist/js/683.js`, part of the `app` entrypoint) contains the full
+   `taro-swiper-core` implementation and swiper code, even though no app source imports
+   `@tarojs/components` or renders a swiper. The vulnerable code is therefore loaded in production;
+   the sink still needs the swiper component to be constructed with crafted input, which this app
+   never does. A direct override to `12.1.2` is incompatible: swiper 12 removed
+   `swiper/swiper-bundle.esm.js`, the exact path Taro 3.6.36 imports. Proposed revised disposition:
+   ACCEPT until a Taro upgrade, expiry 2026-12-06 — this is the one CRITICAL and needs explicit
+   user acceptance.
+
+中文：
+
+下面的修复已落地并验证；基线用门禁自带的 `--update-baseline` 从 39 条剪到 12 条（27 条不再触发，
+0 条新增）。仍然触发的条目一条都没删。
+
+| 应用 | 改动 | 验证 |
+|---|---|---|
+| Web-Admin-Vue | `axios` ^1.20.0 → 解析 1.21.0；overrides `follow-redirects` 1.16.2、`source-map-js` 1.2.2 | typecheck 0；554 测试通过 / 8 跳过；构建通过 |
+| Web-Admin-React | `axios` ^1.20.0 → 解析 1.21.0；override `follow-redirects` 1.16.2 | typecheck 0；47 测试通过；构建通过 |
+| Front-Taro | `vue` ^3.5.42 → 解析 3.5.45（带出 `@vue/server-renderer` 3.5.45）；overrides `joi` 17.13.9、`nanoid` 3.3.18、`lodash-es` 4.18.1、`source-map-js` 1.2.2 | build:h5 通过；test:i18n 6、test:env 3、test:race 5 |
+
+用更新后的锁文件复跑门禁：**12 条已知 / 0 条新增 / 0 条陈旧**，exit 0。
+
+剩余 12 条：`brace-expansion` ×4、`glob@10.2.6` ×1、`postcss@7.0.39` ×2（均仅构建期）；
+`decode-uri-component@0.2.2` ×1 与 `swiper@6.8.0` ×1（Front-Taro）；vue-i18n 一族 ×3
+（Web-Admin-Vue）。
+
+有两行偏离了已接受的表：
+
+1. **第 6 行 `decode-uri-component` —— 未修。** 修复版 `0.5.1` 是 ESM-only（`type: module`），
+   而消费方 `query-string@7.1.3` 是 CJS，写的是
+   `const decodeComponent = require('decode-uri-component')`，随后当函数调用。强塞 0.5.1 会拿到
+   命名空间对象而不是函数。建议改为：ACCEPT 至 2026-12-06，同时评估 query-string / Taro 升级。
+2. **第 15 行 `swiper` —— 可达性由 N 更正为 P。** 构建后的 H5 包
+   （`Front-Taro/dist/js/683.js`，属于 `app` 入口）里含完整的 `taro-swiper-core` 实现与 swiper
+   代码，尽管没有任何 app 源码 import `@tarojs/components` 或渲染 swiper。所以漏洞代码在生产中
+   是加载的；sink 仍需用构造输入实例化 swiper 组件，而本应用从不这么做。直接 override 到 `12.1.2`
+   不可行：swiper 12 删掉了 `swiper/swiper-bundle.esm.js`，正是 Taro 3.6.36 import 的路径。
+   建议改为：ACCEPT 至 Taro 升级，到期 2026-12-06——这是唯一的 CRITICAL，需要用户明确接受。
+
+---
+
 ## 2. What this triage cannot decide / 本次 triage 判断不了的部分
 
 English:
 
-1. **The CRITICAL (swiper) is not proven out of the shipped bundle.** Source evidence is strong
+Post-remediation status: item 1 is **resolved** — the H5 bundle was built and checked (swiper is in
+it), and the row was corrected to P; item 3 is **moot** because the React entries are fixed; items 4
+and 6 are **moot** for the same reason; items 2 (vue-i18n upstream) and 5 (decode-uri
+exploitability) remain **open**.
+
+1. **The CRITICAL (swiper) was not proven out of the shipped bundle.** Source evidence is strong
    (`Front-Taro/src` never imports `@tarojs/components`; `swiper` is required only inside the Stencil
    lazy chunk `taro-swiper-core_2.entry.js`), but I did **not** build `Front-Taro` and grep the
    output. Missing: a built H5 bundle. If `swiper-bundle` is in it, #15 becomes P and must be fixed
@@ -155,7 +235,11 @@ English:
 
 中文：
 
-1. **CRITICAL（swiper）尚未被证明不在发布包里。** 源码证据较强（`Front-Taro/src` 从不 import
+整改后的状态：第 1 条**已解决**——H5 包已构建并检查（swiper 在包里），该行已更正为 P；第 3 条
+**已失效**，因为 React 的条目已修复；第 4、6 条同样**已失效**；第 2 条（vue-i18n 上游）与第 5 条
+（decode-uri 可利用性）仍然**未决**。
+
+1. **CRITICAL（swiper）当时尚未被证明不在发布包里。** 源码证据较强（`Front-Taro/src` 从不 import
    `@tarojs/components`；`swiper` 只在 Stencil 懒加载 chunk `taro-swiper-core_2.entry.js` 里被
    require），但我**没有**构建 `Front-Taro` 再 grep 产物。缺：一份构建后的 H5 包。若
    `swiper-bundle` 在产物里，#15 就变成 P，必须修或带大版本计划接受。
@@ -177,45 +261,36 @@ English:
 
 English:
 
-- **The gate itself is healthy and should stay merged.** It is green on the current tree (39 known /
-  0 new / 0 stale), fails closed on "unverified", and its self-test proves red / green / 未核. There is
-  no reason to revert it, and reverting it would be a worse outcome than triaging the baseline.
-- **Production-reachable entries are where the residual risk sits.** Under the strict reading ("no
-  unaccepted production high/critical"), the entries that are P or P? today are:
-  - `Web-Admin-Vue`: 7 axios + 1 decode-uri-component (Front-Taro) + 3 vue-i18n-family entries
-    = 11 entries.
-  - If the React preview counts as production: +7 axios = 18.
-  Acceptance gives each of them a disposition (FIX by date, or DECIDE pending evidence); it does not
-  remove the risk until those dates close.
-- **Acceptance record (2026-11-08).** The user accepted this triage. "Every entry triaged" is now
-  satisfied: each of the 39 entries has an accepted disposition, owner and expiry. "No unaccepted
-  production high/critical" depends on the reading: if it means *no production entry without a
-  disposition*, it is satisfied; if it means *no unresolved production high/critical*, it is **not**
-  yet satisfied — 11 production-reachable entries are scheduled FIX, and 3 of those (the vue-i18n
-  family) are DECIDE pending upstream evidence. Nothing was marked fixed by acceptance.
-- **Still open after acceptance:** (a) the React preview's production status, (b) the built-bundle
-  evidence for swiper, and (c) the upstream clarification for vue-i18n. Until (b) and (c) land, the
-  1 CRITICAL and the 3 vue-i18n entries cannot be honestly closed as "not reachable" or "not
-  applicable".
+- **The gate itself is healthy and should stay merged.** After remediation it is green on the updated
+  tree (12 known / 0 new / 0 stale), fails closed on "unverified", and its self-test proves red /
+  green / 未核. There is no reason to revert it.
+- **Remediation landed.** 27 of the 39 entries were fixed and pruned by the gate's own
+  `--update-baseline` path. The baseline is now 12 entries: 7 build-only (`brace-expansion` ×4,
+  `glob` ×1, `postcss` ×2, all explicitly accepted), 1 `decode-uri-component` (P, fix blocked by an
+  ESM-only upstream fix), 1 `swiper` (P, CRITICAL, fix blocked by Taro's pin), and 3 `vue-i18n`
+  family (P?, upstream advisory data still inconsistent).
+- **Acceptance criterion.** "Every entry triaged" is satisfied. "No unresolved production
+  high/critical" is **not** yet satisfied: 5 production-reachable entries remain (1 decode-uri,
+  1 swiper, 3 vue-i18n), two of them blocked by concrete upstream constraints and one by an upstream
+  data inconsistency. Nothing was marked fixed without a build/test/scan verification.
+- **Still open:** (a) evaluate a query-string/Taro upgrade for `decode-uri-component`, (b) upgrade
+  Taro or explicitly accept the `swiper` CRITICAL until then, (c) get upstream clarification for
+  `GHSA-83rm`. The React preview's production status is no longer blocking: its 10 entries are fixed.
 
 中文：
 
-- **门禁本身是健康的，应继续保持合并。** 它在当前树上为绿（39 条已知 / 0 条新增 / 0 条陈旧），
-  在「未核」时 fail-closed，自测也证明了红 / 绿 / 未核三种行为。没有理由回退它，回退比把基线
-  triage 完更糟。
-- **生产可达项才是残余风险所在。** 按严格口径（「生产高/严重无未接受项」），今天属于 P 或 P? 的
-  条目是：
-  - `Web-Admin-Vue`：7 条 axios + `Front-Taro` 的 1 条 decode-uri-component + 3 条 vue-i18n 一族
-    = 11 条。
-  - 若把 React 预览版也算作生产：再加 7 条 axios = 18 条。
-  接受只是给了它们处置（按日期 FIX，或待证据 DECIDE）；在到期前，风险并没有消失。
-- **接受记录（2026-11-08）。** 用户已接受本 triage。「每条都已 triage」现已成立：39 条每条都有
-  已接受的处置、责任人与到期。「生产高/严重无未接受项」取决于口径：若指**没有一条生产条目缺处置**，
-  已成立；若指**没有未解决的生产高/严重项**，则**尚未**成立——11 条生产可达项排了 FIX，其中 3 条
-  （vue-i18n 一族）是 DECIDE、仍欠上游证据。接受本身没有把任何一条标成已修复。
-- **接受后仍然未决：** (a) React 预览版是否算生产，(b) swiper 的构建产物证据，(c) vue-i18n 的上游
-  澄清。在 (b)(c) 落地前，那 1 条 CRITICAL 与 3 条 vue-i18n 条目都不能诚实地关成「不可达」或
-  「不适用」。
+- **门禁本身是健康的，应继续保持合并。** 整改后它在更新过的树上为绿（12 条已知 / 0 条新增 /
+  0 条陈旧），在「未核」时 fail-closed，自测也证明了红 / 绿 / 未核三种行为。没有理由回退它。
+- **整改已落地。** 39 条里有 27 条修复并用门禁自带的 `--update-baseline` 剪掉。基线现在 12 条：
+  7 条仅构建期（`brace-expansion` ×4、`glob` ×1、`postcss` ×2，均已明确接受）、1 条
+  `decode-uri-component`（P，修复受 ESM-only 上游阻塞）、1 条 `swiper`（P，CRITICAL，修复受 Taro
+  钉版阻塞）、3 条 vue-i18n 一族（P?，上游公告数据仍不一致）。
+- **验收口径。** 「每条都已 triage」已成立。「生产高/严重无未解决项」**尚未**成立：仍有 5 条生产
+  可达（1 条 decode-uri、1 条 swiper、3 条 vue-i18n），其中两条受具体的上游约束阻塞、一条受上游
+  数据不一致阻塞。没有任何一条是没经过构建/测试/扫描验证就标成已修复的。
+- **仍然未决：** (a) 评估 query-string / Taro 升级以解 `decode-uri-component`，(b) 升级 Taro，
+  或在此之前明确接受 `swiper` 这条 CRITICAL，(c) 拿到 `GHSA-83rm` 的上游澄清。React 预览版的
+  生产范围已不再阻塞：它的 10 条已修复。
 
 ---
 
@@ -237,5 +312,5 @@ OSV_SCANNER=/tmp/osv-gate-probe/osv-scanner_windows_amd64.exe \
   node scripts/check-dependency-scan.mjs --verbose
 ```
 
-Expected on 2026-11-08: `39 known, 0 new`, `0 baseline entries no longer fire`, exit 0.
-2026-11-08 的预期：`39 known, 0 new`、没有陈旧条目、exit 0。
+Expected after remediation (2026-11-08): `12 known, 0 new`, `0 baseline entries no longer fire`, exit 0.
+整改后的预期（2026-11-08）：`12 known, 0 new`、没有陈旧条目、exit 0。
