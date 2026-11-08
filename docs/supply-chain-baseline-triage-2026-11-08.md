@@ -44,9 +44,10 @@ English:
   of the same name is in the production closure; (b) the baseline key is
   `lockfile|package|id` — **version and severity are not compared**, so a severity escalation under
   the same first advisory ID would not read as "new".
-- OSV data is internally inconsistent for `GHSA-83rm-6c8r-g728`: `/v1/vulns` says affected range
-  starts at `11.1.10`, while `/v1/query` still returns the advisory for `10.0.8`, and the scanner
-  fires on it. This is an upstream advisory/index inconsistency, not a local scanning error.
+- `GHSA-83rm-6c8r-g728` initially looked inconsistent: `/v1/vulns` shows a semver range starting at
+  `11.1.10`, while `/v1/query` returns the advisory for `10.0.8`. The clarification (2026-11-08) is
+  that the record also lists `9.14.5` and `10.0.8` explicitly as affected versions; the v9/v10 lines
+  are unsupported and will not be fixed. This is not a local scanning error. Details in §1A.
 
 中文：
 
@@ -69,9 +70,9 @@ English:
   开发期的**实例**可能因为同名包的另一个版本在生产闭包里而被判红；(b) 基线的键是
   `lockfile|package|id`——**不比较版本、也不比较严重级**，所以同一首要公告 ID 下的严重级上升
   不会被读成「新增」。
-- OSV 数据在 `GHSA-83rm-6c8r-g728` 上自相矛盾：`/v1/vulns` 说受影响范围从 `11.1.10` 起，
-  `/v1/query` 却仍对 `10.0.8` 返回该公告，扫描器也照样命中。这是上游公告/索引不一致，不是本地
-  扫描错误。
+- `GHSA-83rm-6c8r-g728` 起初看起来自相矛盾：`/v1/vulns` 的 semver 范围从 `11.1.10` 起，而
+  `/v1/query` 却对 `10.0.8` 返回该公告。2026-11-08 的澄清是：记录里另外用 `versions` 明确列出
+  `9.14.5` 与 `10.0.8` 受影响；v9/v10 线已不再支持、不会修复。这不是本地扫描错误。详见 §1A。
 
 ### Reachability legend / 可达性图例
 
@@ -79,7 +80,6 @@ English:
 |---|---|---|
 | **P** | Loaded in the deployed runtime artifact; the vulnerable sink is plausibly reachable. Production-reachable. | 已进入生产运行产物；漏洞 sink 有合理可达路径。**生产可触达**。 |
 | **P\*** | Loaded at runtime, but the app is documented as a **preview** and is not wired to deployment. | 运行时可达，但该应用按文档是**预览版**，未接部署。 |
-| **P?** | Runtime code is present; advisory applicability itself is disputed/contradictory. | 运行时存在该代码；但公告是否适用本身有争议/矛盾。 |
 | **B** | Build/CI-time only: runs on the build machine, is not shipped in the deployed artifact. | **仅构建/CI 期**：跑在构建机，不进部署产物。 |
 | **N** | Installed in the tree but not loaded, or the specific vulnerable sink is not exercised. | 已安装但**不被加载**，或具体漏洞 sink 未被调用。 |
 
@@ -119,8 +119,8 @@ executed on 2026-11-08 is recorded in §1A, and rows finished there should be re
 | 23 | Web-Admin-React | `follow-redirects@1.16.0` | GHSA-8r9p-f939-6h3c | HIGH | N | ACCEPT | Only the Node HTTP adapter requires it; axios's `browser` field replaces that adapter with a null helper, so it is not in the browser bundle. | 只有 Node HTTP 适配器需要它；axios 的 `browser` 字段把该适配器替换为空实现，故不在浏览器包里。 | Web-Admin-React owner / React 预览维护会话 | 2027-02-08 |
 | 24 | Web-Admin-React | `follow-redirects@1.16.0` | GHSA-mrwp-f3q8-3g9p | HIGH | N | ACCEPT | Same Node-only adapter as #23. | 与 #23 同属仅 Node 适配器。 | Web-Admin-React owner / React 预览维护会话 | 2027-02-08 |
 | 25 | Web-Admin-React | `follow-redirects@1.16.0` | GHSA-q3jh-wrc6-jgq8 | HIGH | N | ACCEPT | Same Node-only adapter as #23. | 与 #23 同属仅 Node 适配器。 | Web-Admin-React owner / React 预览维护会话 | 2027-02-08 |
-| 26 | Web-Admin-Vue | `@intlify/core-base@10.0.8` | GHSA-83rm-6c8r-g728 | HIGH | P? | DECIDE | Runtime i18n code. The advisory record says affected range starts at 11.1.10, but the OSV query endpoint still returns it for 10.0.8; the advisory that clearly applies to 10.0.8 is GHSA-8rc2 (LOW). Needs upstream clarification before "fix" or "accept". | 运行时 i18n 代码。公告记录说受影响范围从 11.1.10 起，但 OSV 查询端点仍对 10.0.8 返回它；明确适用于 10.0.8 的是 GHSA-8rc2（LOW）。在「修」或「接受」前需要上游澄清。 | Web-Admin-Vue owner / Web-Admin-Vue 维护会话 | 2026-11-22 |
-| 27 | Web-Admin-Vue | `@intlify/shared@10.0.8` | GHSA-83rm-6c8r-g728 | HIGH | P? | DECIDE | Same advisory inconsistency as #26. | 与 #26 同一条公告不一致。 | Web-Admin-Vue owner / Web-Admin-Vue 维护会话 | 2026-11-22 |
+| 26 | Web-Admin-Vue | `@intlify/core-base@10.0.8` | GHSA-83rm-6c8r-g728 | HIGH | P | DECIDE (fix v11 or accept) | **Confirmed affected, not a false positive.** The advisory explicitly lists `10.0.8` (the last v10 release) as affected; its Patches section says v9/v10 will not be fixed. The installed 10.0.8 contains `sanitizeTranslatedHtml` and has no `srcdoc` handling. App-level reachability is absent: `src/i18n/index.ts` does not enable `escapeParameter`, messages are static `zh/en`, and there is no `v-html` in `src`. Fix requires vue-i18n 11.4.14 (major). | **已确认受影响，不是误报。** 公告明确把 `10.0.8`（v10 最后一个版本）列为受影响，并在 Patches 里写明 v9/v10 不再修。安装的 10.0.8 含 `sanitizeTranslatedHtml`，但不处理 `srcdoc`。应用层不可达：`src/i18n/index.ts` 未启用 `escapeParameter`，消息是静态 `zh/en`，`src` 里没有 `v-html`。修复需要 vue-i18n 11.4.14（大版本）。 | Web-Admin-Vue owner / Web-Admin-Vue 维护会话 | 2026-11-22 |
+| 27 | Web-Admin-Vue | `@intlify/shared@10.0.8` | GHSA-83rm-6c8r-g728 | HIGH | P | DECIDE (fix v11 or accept) | Same confirmed advisory as #26; app-level reachability also absent. | 与 #26 同一已确认公告；应用层同样不可达。 | Web-Admin-Vue owner / Web-Admin-Vue 维护会话 | 2026-11-22 |
 | 28 | Web-Admin-Vue | `axios@1.19.0` | GHSA-3pq3-5fj3-cg6v | HIGH | P | FIX (minor) | Deployed Vue console. This one is Node/HTTP-2-specific and not browser-reachable, but it is part of the same 1.20.0 patch. | 已部署的 Vue 控制台。本条是 Node/HTTP-2 特定、浏览器不可达，但与其余几条第 1.20.0 同一个补丁。 | Web-Admin-Vue owner / Web-Admin-Vue 维护会话 | 2026-11-15 |
 | 29 | Web-Admin-Vue | `axios@1.19.0` | GHSA-542g-h47m-68v8 | HIGH | P | FIX (minor) | HTTP/2 init error is Node-only; fixed by 1.20.0. | HTTP/2 初始化错误仅 Node 侧；1.20.0 修复。 | Web-Admin-Vue owner / Web-Admin-Vue 维护会话 | 2026-11-15 |
 | 30 | Web-Admin-Vue | `axios@1.19.0` | GHSA-c29m-xwm3-cm6r | HIGH | P | FIX (minor) | `fromDataURI` ReDoS is in shared code; browser thread can freeze if an untrusted `data:` URL is parsed. | `fromDataURI` 的 ReDoS 在共享代码里；解析不可信 `data:` URL 时可冻结浏览器主线程。 | Web-Admin-Vue owner / Web-Admin-Vue 维护会话 | 2026-11-15 |
@@ -132,7 +132,7 @@ executed on 2026-11-08 is recorded in §1A, and rows finished there should be re
 | 36 | Web-Admin-Vue | `follow-redirects@1.16.0` | GHSA-mrwp-f3q8-3g9p | HIGH | N | ACCEPT | Same Node-only adapter as #35. | 与 #35 同属仅 Node 适配器。 | Web-Admin-Vue owner / Web-Admin-Vue 维护会话 | 2027-02-08 |
 | 37 | Web-Admin-Vue | `follow-redirects@1.16.0` | GHSA-q3jh-wrc6-jgq8 | HIGH | N | ACCEPT | Same Node-only adapter as #35. | 与 #35 同属仅 Node 适配器。 | Web-Admin-Vue owner / Web-Admin-Vue 维护会话 | 2027-02-08 |
 | 38 | Web-Admin-Vue | `source-map-js@1.2.1` | GHSA-68fv-2mgg-jv7q | HIGH | B | FIX (patch) | Used by Vue/i18n/Sass compilers at build time; not in the runtime bundle. Fix is 1.2.2. | 供 Vue/i18n/Sass 编译器构建期使用；不在运行时包里。修法是 1.2.2。 | Web-Admin-Vue owner / Web-Admin-Vue 维护会话 | 2026-11-15 |
-| 39 | Web-Admin-Vue | `vue-i18n@10.0.8` | GHSA-83rm-6c8r-g728 | HIGH | P? | DECIDE | Same advisory inconsistency as #26/#27; runtime i18n package. | 与 #26/#27 同一条公告不一致；运行时 i18n 包。 | Web-Admin-Vue owner / Web-Admin-Vue 维护会话 | 2026-11-22 |
+| 39 | Web-Admin-Vue | `vue-i18n@10.0.8` | GHSA-83rm-6c8r-g728 | HIGH | P | DECIDE (fix v11 or accept) | Same confirmed advisory as #26/#27; v10 is affected and will not be fixed; the app does not enable the vulnerable path. | 与 #26/#27 同一已确认公告；v10 受影响且不再修；应用未启用漏洞路径。 | Web-Admin-Vue owner / Web-Admin-Vue 维护会话 | 2026-11-22 |
 
 ---
 
@@ -176,6 +176,16 @@ Two rows deviate from the accepted table:
 Decision recorded (2026-11-08): the user accepted both blocked rows (6 and 15) until 2026-12-06.
 The three `vue-i18n` entries remain open pending upstream clarification.
 
+Upstream clarification (2026-11-08, done): GHSA-83rm is **not** an OSV inconsistency. Its
+machine-readable record explicitly lists `9.14.5` and `10.0.8` as affected (`versions`, not a semver
+range); the semver range `11.1.10–11.4.14` covers only the v11 line, which is why an earlier
+range-only read looked contradictory. The advisory's Patches section says v9 and v10 are unsupported
+and **will not be fixed**. The installed 10.0.8 contains `sanitizeTranslatedHtml` and has no `srcdoc`
+handling, matching the description. Web-Admin-Vue does not enable the vulnerable configuration
+(`escapeParameter` absent, static `zh/en` messages, no `v-html`), so the package is affected but the
+app path is not reachable. Disposition is still open: upgrade to vue-i18n 11.4.14 (major) or
+time-boxed acceptance.
+
 中文：
 
 下面的修复已落地并验证；基线用门禁自带的 `--update-baseline` 从 39 条剪到 12 条（27 条不再触发，
@@ -209,6 +219,13 @@ The three `vue-i18n` entries remain open pending upstream clarification.
 决定记录（2026-11-08）：用户接受两条受阻项（第 6、15 行）至 2026-12-06。三条 vue-i18n 条目
 仍待上游澄清。
 
+上游澄清（2026-11-08，已完成）：GHSA-83rm **不是** OSV 数据不一致。它的机器可读记录用 `versions`
+（不是 semver 范围）明确列出 `9.14.5` 与 `10.0.8` 受影响；semver 范围 `11.1.10–11.4.14` 只覆盖
+v11 线，所以早先只看范围会显得矛盾。公告的 Patches 一节写明 v9/v10 已不再支持、**不会修**。安装的
+10.0.8 含 `sanitizeTranslatedHtml`，且不处理 `srcdoc`，与描述一致。Web-Admin-Vue 未启用漏洞配置
+（没有 `escapeParameter`、消息是静态 `zh/en`、没有 `v-html`），所以包受影响、但应用路径不可达。
+处置仍待定：升级到 vue-i18n 11.4.14（大版本），或限期接受。
+
 ---
 
 ## 2. What this triage cannot decide / 本次 triage 判断不了的部分
@@ -216,18 +233,19 @@ The three `vue-i18n` entries remain open pending upstream clarification.
 English:
 
 Post-remediation status: item 1 is **resolved** — the H5 bundle was built and checked (swiper is in
-it), and the row was corrected to P; item 3 is **moot** because the React entries are fixed; items 4
-and 6 are **moot** for the same reason; items 2 (vue-i18n upstream) and 5 (decode-uri
-exploitability) remain **open**.
+it), and the row was corrected to P; item 2 (vue-i18n upstream) is now **resolved** (see §1A); item 3
+is **moot** because the React entries are fixed; items 4 and 6 are **moot** for the same reason; item
+5 (decode-uri exploitability) remains **open**.
 
 1. **The CRITICAL (swiper) was not proven out of the shipped bundle.** Source evidence is strong
    (`Front-Taro/src` never imports `@tarojs/components`; `swiper` is required only inside the Stencil
    lazy chunk `taro-swiper-core_2.entry.js`), but I did **not** build `Front-Taro` and grep the
    output. Missing: a built H5 bundle. If `swiper-bundle` is in it, #15 becomes P and must be fixed
    or accepted with a major-version plan.
-2. **vue-i18n family: upstream data contradicts itself.** `/v1/vulns/GHSA-83rm-6c8r-g728` excludes
-   10.0.8; `/v1/query` returns it; the scanner fires. Missing: the authoritative upstream advisory
-   text and a scanner re-run after the index is consistent. Until then, do not delete the entries.
+2. **vue-i18n family — resolved (2026-11-08).** The advisory explicitly lists 9.14.5 and 10.0.8 as
+   affected; v9/v10 will not be fixed; the installed 10.0.8 code matches. The app does not enable the
+   vulnerable configuration. The remaining question is only the disposition (v11 upgrade vs
+   time-boxed acceptance), not applicability.
 3. **Web-Admin-React production scope.** `CLAUDE.md` §13.1 says it is a preview, not wired to
    deployment. If the user confirms it is out of production scope, its 10 entries are P\* → not
    "production" for acceptance purposes; the gate will still count them as production dependencies.
@@ -241,17 +259,17 @@ exploitability) remain **open**.
 
 中文：
 
-整改后的状态：第 1 条**已解决**——H5 包已构建并检查（swiper 在包里），该行已更正为 P；第 3 条
-**已失效**，因为 React 的条目已修复；第 4、6 条同样**已失效**；第 2 条（vue-i18n 上游）与第 5 条
-（decode-uri 可利用性）仍然**未决**。
+整改后的状态：第 1 条**已解决**——H5 包已构建并检查（swiper 在包里），该行已更正为 P；第 2 条
+（vue-i18n 上游）现已**解决**（见 §1A）；第 3 条**已失效**，因为 React 的条目已修复；第 4、6 条
+同样**已失效**；第 5 条（decode-uri 可利用性）仍然**未决**。
 
 1. **CRITICAL（swiper）当时尚未被证明不在发布包里。** 源码证据较强（`Front-Taro/src` 从不 import
    `@tarojs/components`；`swiper` 只在 Stencil 懒加载 chunk `taro-swiper-core_2.entry.js` 里被
    require），但我**没有**构建 `Front-Taro` 再 grep 产物。缺：一份构建后的 H5 包。若
    `swiper-bundle` 在产物里，#15 就变成 P，必须修或带大版本计划接受。
-2. **vue-i18n 一族：上游数据自相矛盾。** `/v1/vulns/GHSA-83rm-6c8r-g728` 排除 10.0.8；
-   `/v1/query` 却返回它；扫描器也命中。缺：权威上游公告文本，以及索引一致后的扫描复跑。在澄清前
-   不要删条目。
+2. **vue-i18n 一族 —— 已解决（2026-11-08）。** 公告明确列出 9.14.5 与 10.0.8 受影响；v9/v10 不再
+   修复；安装的 10.0.8 代码与描述一致。应用未启用漏洞配置。剩下的只是处置选择（升级 v11 还是限期
+   接受），不是适用性问题。
 3. **Web-Admin-React 的生产范围。** `CLAUDE.md` §13.1 说它是预览版、未接部署。若用户确认它不在
    生产范围，它的 10 条就是 P\* → 验收口径下不算「生产」；但门禁仍会把它们当生产依赖计数。
 4. **lodash-es 的 sink。** 我查的是 `Front-Taro/src`，不是 Taro 运行时的每一条代码路径。缺：
@@ -274,16 +292,17 @@ English:
   `--update-baseline` path. The baseline is now 12 entries: 7 build-only (`brace-expansion` ×4,
   `glob` ×1, `postcss` ×2, all explicitly accepted), 1 `decode-uri-component` (P, fix blocked by an
   ESM-only upstream fix), 1 `swiper` (P, CRITICAL, fix blocked by Taro's pin), and 3 `vue-i18n`
-  family (P?, upstream advisory data still inconsistent).
+  family (P, confirmed affected; disposition open).
 - **Acceptance criterion.** "Every entry triaged" is satisfied. "No unresolved production
   high/critical" is **not** yet satisfied, but the gap is now down to one item: the 3 `vue-i18n`
-  entries remain open pending upstream clarification. The other two production-reachable entries
+  entries are confirmed affected and their disposition is still open (v11 upgrade vs acceptance).
+  Upstream clarification is no longer the blocker. The other two production-reachable entries
   (`decode-uri-component`, `swiper`) were explicitly accepted by the user on 2026-11-08 until
   2026-12-06. Nothing was marked fixed without a build/test/scan verification.
-- **Still open:** (a) get upstream clarification for `GHSA-83rm` (the 3 vue-i18n entries), (b) by
-  2026-12-06, fix or re-accept the two blocked entries — evaluate a query-string/Taro upgrade for
-  `decode-uri-component` and a Taro upgrade for `swiper`. The React preview's production status is
-  no longer blocking: its 10 entries are fixed.
+- **Still open:** (a) decide the `vue-i18n` disposition — upgrade to 11.4.14 (major) or accept with
+  the app-level non-exploitability evidence; (b) by 2026-12-06, fix or re-accept the two blocked
+  entries — evaluate a query-string/Taro upgrade for `decode-uri-component` and a Taro upgrade for
+  `swiper`. The React preview's production status is no longer blocking: its 10 entries are fixed.
 
 中文：
 
@@ -292,13 +311,14 @@ English:
 - **整改已落地。** 39 条里有 27 条修复并用门禁自带的 `--update-baseline` 剪掉。基线现在 12 条：
   7 条仅构建期（`brace-expansion` ×4、`glob` ×1、`postcss` ×2，均已明确接受）、1 条
   `decode-uri-component`（P，修复受 ESM-only 上游阻塞）、1 条 `swiper`（P，CRITICAL，修复受 Taro
-  钉版阻塞）、3 条 vue-i18n 一族（P?，上游公告数据仍不一致）。
+  钉版阻塞）、3 条 vue-i18n 一族（P，已确认受影响；处置待定）。
 - **验收口径。** 「每条都已 triage」已成立。「生产高/严重无未解决项」**尚未**成立，但缺口已收窄到
-  一项：3 条 vue-i18n 仍待上游澄清。另外两条生产可达项（`decode-uri-component`、`swiper`）已由
-  用户在 2026-11-08 明确接受至 2026-12-06。没有任何一条是没经过构建/测试/扫描验证就标成已修复的。
-- **仍然未决：** (a) 拿到 `GHSA-83rm` 的上游澄清（3 条 vue-i18n），(b) 到 2026-12-06 前，修复或
-  重新接受那两条受阻项——评估 `decode-uri-component` 的 query-string / Taro 升级与 `swiper` 的
-  Taro 升级。React 预览版的生产范围已不再阻塞：它的 10 条已修复。
+  一项：3 条 vue-i18n 已确认受影响，处置仍待定（升级 v11 还是接受）。上游澄清已不再是阻塞。
+  另外两条生产可达项（`decode-uri-component`、`swiper`）已由用户在 2026-11-08 明确接受至
+  2026-12-06。没有任何一条是没经过构建/测试/扫描验证就标成已修复的。
+- **仍然未决：** (a) 定 vue-i18n 的处置——升级到 11.4.14（大版本），或凭应用层不可达证据接受；
+  (b) 到 2026-12-06 前，修复或重新接受那两条受阻项——评估 `decode-uri-component` 的 query-string /
+  Taro 升级与 `swiper` 的 Taro 升级。React 预览版的生产范围已不再阻塞：它的 10 条已修复。
 
 ---
 
