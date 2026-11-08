@@ -18,7 +18,7 @@
     "@fontsource/public-sans": "^5.1.0",
     "@mui/icons-material": "^6.4.0",
     "@mui/material": "^6.4.0",
-    "axios": "^1.7.9",
+    "axios": "^1.20.0",
     "i18next": "^23.16.8",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
