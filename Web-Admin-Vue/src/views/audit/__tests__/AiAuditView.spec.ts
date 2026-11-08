@@ -7,7 +7,7 @@ import { createI18n } from 'vue-i18n'
 import zh from '@/i18n/zh'
 import en from '@/i18n/en'
 
-const { logsMock, statsMock, verifyMock, interpretationMock, identityChainMock, coverageMock, reviewsMock, errorMock, successMock, csvMock } = vi.hoisted(() => ({
+const { logsMock, statsMock, verifyMock, interpretationMock, identityChainMock, coverageMock, reviewsMock, objectTypesMock, answersMock, errorMock, successMock, warningMock, showMock, csvMock } = vi.hoisted(() => ({
   logsMock: vi.fn(),
   statsMock: vi.fn(),
   verifyMock: vi.fn(),
@@ -15,8 +15,12 @@ const { logsMock, statsMock, verifyMock, interpretationMock, identityChainMock, 
   identityChainMock: vi.fn(),
   coverageMock: vi.fn(),
   reviewsMock: vi.fn(),
+  objectTypesMock: vi.fn(),
+  answersMock: vi.fn(),
   errorMock: vi.fn(),
   successMock: vi.fn(),
+  warningMock: vi.fn(),
+  showMock: vi.fn(),
   csvMock: vi.fn(),
 }))
 
@@ -29,6 +33,8 @@ vi.mock('@/api/audit', () => ({
     chain: identityChainMock,
     coverage: coverageMock,
     reviews: reviewsMock,
+    objectTypes: objectTypesMock,
+    answers: answersMock,
   },
 }))
 // AU-4：会话下钻用 adminApi（元数据 + 正文）；mock 掉避免测试里出现真实网络调用
@@ -36,7 +42,7 @@ vi.mock('@/api/admin', () => ({
   adminApi: { aiConversationMeta: vi.fn(), aiConversation: vi.fn() },
 }))
 vi.mock('@/stores/snackbar', () => ({
-  useSnackbarStore: () => ({ error: errorMock, success: successMock }),
+  useSnackbarStore: () => ({ error: errorMock, success: successMock, warning: warningMock, show: showMock }),
 }))
 vi.mock('@/utils/csv', () => ({ downloadCsv: csvMock }))
 // M2 Agent→审计联动（ffe096d）组件读 route.query.agentId，测试需 mock useRoute
@@ -44,6 +50,13 @@ vi.mock('vue-router', () => ({ useRoute: () => ({ query: {} }) }))
 
 import ElementPlus from 'element-plus'
 import AiAuditView from '../AiAuditView.vue'
+
+// PageHeader stub：渲染默认插槽，使页头里的「导出」按钮在测试里可点（真 stub 会吞掉插槽）。
+// PageHeader stub: renders the default slot so the header's export button is clickable in tests.
+const PageHeaderStub = defineComponent({
+  name: 'PageHeader',
+  template: '<div class="page-header-stub"><slot /></div>',
+})
 
 // AppTable stub：渲染 items 的 action 列插槽，让 D2 人类语言标签可断言
 const AppTableStub = defineComponent({
@@ -59,7 +72,7 @@ function mountView() {
     global: {
       plugins: [i18n, ElementPlus],
       stubs: {
-        PageHeader: true,
+        PageHeader: PageHeaderStub,
         AppTable: AppTableStub,
         StatCard: true,
         RangeFilter: true,
@@ -75,6 +88,7 @@ beforeEach(() => {
   verifyMock.mockResolvedValue({ valid: true, checked: 0, brokenIndex: null, chain: [] })
   coverageMock.mockResolvedValue(null)
   reviewsMock.mockResolvedValue(null)
+  objectTypesMock.mockResolvedValue([])
   interpretationMock.mockResolvedValue(null)
   identityChainMock.mockResolvedValue(null)
 })
@@ -87,7 +101,7 @@ describe('AiAuditView', () => {
     mountView()
     await flushPromises()
 
-    expect(logsMock).toHaveBeenCalledWith({ userId: undefined, limit: 50, since: undefined })
+    expect(logsMock).toHaveBeenCalledWith(expect.objectContaining({ userId: undefined, limit: 50, since: undefined }))
     expect(statsMock).toHaveBeenCalledWith(undefined)
   })
 
@@ -98,14 +112,55 @@ describe('AiAuditView', () => {
     const wrapper = mountView()
     await flushPromises()
     // 初始 load：主日志查询不带 denied（errorLogs 并行调用是 limit:5 的 isError 查询，用 limit:50 区分）
-    expect(logsMock).toHaveBeenCalledWith({ limit: 50, denied: undefined })
+    expect(logsMock).toHaveBeenCalledWith(expect.objectContaining({ limit: 50, denied: undefined }))
 
     // 选择行为类型「denied」→ 点筛选按钮 → load 携带 denied=true
-    await wrapper.findComponent({ name: 'ElSelect' }).vm.$emit('update:modelValue', 'denied')
+    // The first select is the business-object picker; the behaviour filter is the second.
+    // 第一个下拉是业务对象选择器；行为过滤是第二个。
+    await wrapper.findAllComponents({ name: 'ElSelect' })[1].vm.$emit('update:modelValue', 'denied')
     await wrapper.find('button.el-button--primary').trigger('click')
     await flushPromises()
 
-    expect(logsMock).toHaveBeenCalledWith({ limit: 50, denied: 'true' })
+    expect(logsMock).toHaveBeenCalledWith(expect.objectContaining({ limit: 50, denied: 'true' }))
+    wrapper.unmount()
+  })
+
+  it('U1：导出六问 → 原样写出服务端给的六列（控制台不加列、不改词）', async () => {
+    logsMock.mockResolvedValue([])
+    statsMock.mockResolvedValue({ totalTokens: 0 })
+    const matrix = {
+      headers: ['Time (UTC)', 'Action', 'Result', 'Object', 'Authorization', 'Initiated by'],
+      rows: [['2026-11-05 10:30:00 UTC', 'Create event', 'Executed', 'Customer #9005', 'Confirmed by alice', 'alice (through the AI assistant)']],
+      match: { objectType: null, objectId: null, since: null, until: null, count: 1, found: true, truncated: false, statement: '1 matching record.' },
+    }
+    answersMock.mockResolvedValue(matrix)
+
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.find('.page-header-stub button').trigger('click')
+    await flushPromises()
+
+    expect(answersMock).toHaveBeenCalledWith(expect.objectContaining({ limit: 1000 }))
+    expect(csvMock).toHaveBeenCalledWith('audit-six-answers', matrix.headers, matrix.rows)
+    wrapper.unmount()
+  })
+
+  it('U1：无匹配 → 说出那句话，不下载一个空文件', async () => {
+    logsMock.mockResolvedValue([])
+    statsMock.mockResolvedValue({ totalTokens: 0 })
+    answersMock.mockResolvedValue({
+      headers: [],
+      rows: [],
+      match: { objectType: 'crm_customer', objectId: 9005, since: null, until: null, count: 0, found: false, truncated: false, statement: 'No matching records for Customer #9005.' },
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.find('.page-header-stub button').trigger('click')
+    await flushPromises()
+
+    expect(showMock).toHaveBeenCalledWith('No matching records for Customer #9005.', 'info')
+    expect(csvMock).not.toHaveBeenCalled()
     wrapper.unmount()
   })
 

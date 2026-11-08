@@ -83,6 +83,17 @@ describe('explainState（单事件解释面的那一个状态）', () => {
     }
   });
 
+  it('⚠ 真实行同时带 isError：被挡下的动作仍是「被拒」，不是「失败」', () => {
+    // `buildToolCallAudit` writes `isError: true` whenever there is no result, and a policy-blocked
+    // call never has one. So this is the combination that occurs on disk — the one the earlier
+    // order turned into «failed».
+    // 没有 result 时 `buildToolCallAudit` 写 `isError: true`，而被策略挡下的调用从来没有 result。
+    // 所以这才是盘上真实出现的组合 —— 旧的排序把它报成了「失败」。
+    for (const outcome of ['blocked', 'refused', 'declined']) {
+      expect(explainState({ outcome, isError: true })).toBe('rejected');
+    }
+  });
+
   it('其余即执行成功 —— 空输入也给得出答案，不留 undefined', () => {
     expect(explainState({ outcome: 'executed' })).toBe('executed');
     expect(explainState({})).toBe('executed');

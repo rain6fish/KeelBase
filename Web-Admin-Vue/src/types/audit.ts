@@ -271,3 +271,29 @@ export interface AuditReviewStatus {
   malformedReceipts: number
   truncated: boolean
 }
+
+/**
+ * U1：六问导出矩阵。`headers` 与 `rows` 里的每一格**已经是产品词** —— 服务端的词表是唯一把内部
+ * 令牌翻成文字的地方，且它绝不回显不认识的令牌。控制台只负责把它们写进 CSV。
+ *
+ * `match.statement` 是「有没有匹配」那句白话；没有匹配时读者看到的是它，而不是一个空文件。
+ *
+ * U1: the six-answer export matrix. Every cell in `headers` and `rows` is **already a product word**
+ * — the server's vocabulary is the only place an internal token becomes text, and it never echoes an
+ * unknown one. The console only writes them into a CSV. `match.statement` is the plain sentence about
+ * whether anything matched; on no match the reader sees it instead of an empty file.
+ */
+export interface AuditAnswerMatrix {
+  headers: string[]
+  rows: string[][]
+  match: {
+    objectType: string | null
+    objectId: number | null
+    since: string | null
+    until: string | null
+    count: number
+    found: boolean
+    truncated: boolean
+    statement: string
+  }
+}
