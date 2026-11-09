@@ -6,8 +6,8 @@
  *
  * The checks are each a CI job of their own — which is right for CI, where you want to see exactly which
  * one broke, and wrong for the moment before a push, where you want "is this tree clean". This is that
- * second thing: it runs each `check:*` script (plus `spec:check`) in sequence and reports a table, so a
- * change that trips one of them is visible locally instead of in CI.
+ * second thing: it runs each `check:*` script (plus `spec:check` and `conformance`) in sequence and reports
+ * a table, so a change that trips one of them is visible locally instead of in CI.
  *
  * A few checks need something this machine may not have (a sibling Java checkout for the vector sync, a
  * headless browser for the mobile preview). Those show as failures too — the summary names the script,

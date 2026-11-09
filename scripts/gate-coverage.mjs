@@ -63,14 +63,15 @@ export const RELEASE_ONLY = new Set(['check:tag-lineage']);
  * but this checkout — so the gate runs them too. `spec:check` is handled with the `check:*` family because
  * it is a root script; this list is for the ones that live in another package.
  *
- * `conformance` was measured at ~10 s and needs no key, no database and no build: it replays the contract
- * corpus against the implementation. It is the only entry outside the `check:*` family that qualified.
+ * `conformance` was measured at ~1 s (2026-11-09) and needs no key, no database and no build: it replays
+ * the contract corpus against the implementation. It is the only entry outside the `check:*` family that
+ * qualified.
  *
  * 不是 `check:*` 脚本、但便宜、确定、除了本检出什么都不需要 —— 于是本门也跑。`spec:check` 因为是根脚本，
  * 归在 `check:*` 那一族里；这份清单放的是**住在别的包里**的那些。
  *
- * `conformance` 实测约 10 秒，不要 key、不要数据库、不要构建：它拿契约语料回放实现。它是 `check:*` 族之外
- * **唯一**够格的一项。
+ * `conformance` 实测约 1 秒（2026-11-09），不要 key、不要数据库、不要构建：它拿契约语料回放实现。它是
+ * `check:*` 族之外**唯一**够格的一项。
  */
 export const EXTRA_STEPS = [
   { pkg: SERVER_PKG, cwd: SERVER_PKG, npm: 'conformance', label: 'Server-NestJS:conformance' },
@@ -145,8 +146,8 @@ export const NOT_COVERED = [
     commands: ['npm run cli:test'],
     npmScripts: [{ pkg: ROOT_PKG, name: 'cli:test' }],
     reason: {
-      zh: '`scripts/*.test.mjs` 的 node:test 套件，实测**约 100 秒**（写入本句时 328 例）—— 比本题全部静态门禁的合计还长。不在此门：门禁的价值在于「推之前随手可跑」；CI 的 `cli-test` job 每次推送都跑，本模块的守卫测试也在其中。',
-      en: 'The node:test suite for `scripts/*.test.mjs` — measured at **~100 s** (328 cases when this line was written), longer than every static gate here combined. Not here: the point of this gate is that it is cheap enough to run on the way to a push; CI\'s `cli-test` job runs it on every push, and the guard test for this module is one of its cases.',
+      zh: '`scripts/*.test.mjs` 的 node:test 套件，实测**约 240 秒 / 354 例**（2026-11-09 本机）—— 比本题全部静态门禁的合计还长。不在此门：门禁的价值在于「推之前随手可跑」；CI 的 `cli-test` job 每次推送都跑，本模块的守卫测试也在其中。',
+      en: 'The node:test suite for `scripts/*.test.mjs` — measured at **~240 s / 354 cases** (2026-11-09 on this machine), longer than every static gate here combined. Not here: the point of this gate is that it is cheap enough to run on the way to a push; CI\'s `cli-test` job runs it on every push, and the guard test for this module is one of its cases.',
     },
   },
   {
