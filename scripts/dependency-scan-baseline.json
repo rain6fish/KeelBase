@@ -1,27 +1,17 @@
 {
   "_note": "High/critical findings in production dependencies that existed when the gate landed, so the gate starts green and fails only on new ones. Each entry must carry `reason`, `owner` and `expiry` (YYYY-MM-DD, +08); the gate fails when any is missing or the expiry has passed. `--update-baseline` keeps existing triage and leaves new entries blank. Entries with no assigned owner expire at the current triage checkpoint (2026-11-12); re-decide or clear them by then. / 门禁落地时已存在的生产依赖高危/严重发现，使门禁从绿起步、只对新发现判红。每条必须带 `reason`、`owner`、`expiry`（YYYY-MM-DD，+08）；缺任一项或已过期，门禁判红。`--update-baseline` 保留既有 triage，新条目留空待补。无责任人的条目到期日取当前 triage 检查点（2026-11-12）；届时须重新裁决或清除。",
-  "generatedAt": "2026-11-06",
+  "generatedAt": "2026-11-08",
   "scanner": "osv-scanner v2.7.0",
   "findings": [
     {
       "lockfile": "Front-Taro/package-lock.json",
-      "package": "@vue/server-renderer",
-      "version": "3.5.41",
-      "id": "GHSA-g2v6-rqmx-r4w6",
-      "severity": "HIGH",
-      "reason": "Recorded production advisory against the exact installed @vue/server-renderer 3.5.41 (GHSA-g2v6-rqmx-r4w6 names the issue). Transitive under vue in the Taro H5 toolchain. Fixed in @vue/server-renderer 3.5.42. Upgrading is a dependency change outside this gate's remit.\n\n针对确切安装的 @vue/server-renderer 3.5.41 登记的生产依赖公告（GHSA-g2v6-rqmx-r4w6 指出具体问题）。Taro H5 工具链中 vue 的传递依赖；@vue/server-renderer 3.5.42 已修复。升级属于依赖变更，不在本门禁范围内。",
-      "owner": "unassigned",
-      "expiry": "2026-11-12"
-    },
-    {
-      "lockfile": "Front-Taro/package-lock.json",
       "package": "brace-expansion",
       "version": "1.1.18",
       "id": "GHSA-6j4f-fj2g-mc7p",
       "severity": "HIGH",
-      "reason": "Recorded production advisory against the exact installed brace-expansion 1.1.18 (GHSA-6j4f-fj2g-mc7p names the issue). Transitive under minimatch/glob in the Taro toolchain. Fixed in brace-expansion 1.1.19. Upgrading is a dependency change outside this gate's remit.\n\n针对确切安装的 brace-expansion 1.1.18 登记的生产依赖公告（GHSA-6j4f-fj2g-mc7p 指出具体问题）。Taro 工具链中 minimatch/glob 的传递依赖；brace-expansion 1.1.19 已修复。升级属于依赖变更，不在本门禁范围内。",
-      "owner": "unassigned",
-      "expiry": "2026-11-12"
+      "reason": "Reached only through minimatch ← eslint / scss-bundle / Taro CLI, all dev:true; not shipped. Accepted by the user on 2026-11-08 until the build-only chain is upgraded.\n\n只经 minimatch ← eslint / scss-bundle / Taro CLI 到达，链路全是 dev:true，不进产物。用户已于 2026-11-08 接受，至该仅构建期链路升级为止。",
+      "owner": "maintainer",
+      "expiry": "2027-02-08"
     },
     {
       "lockfile": "Front-Taro/package-lock.json",
@@ -29,9 +19,9 @@
       "version": "2.1.4",
       "id": "GHSA-6j4f-fj2g-mc7p",
       "severity": "HIGH",
-      "reason": "Recorded production advisory against the exact installed brace-expansion 2.1.4 (GHSA-6j4f-fj2g-mc7p names the issue). Transitive under minimatch/glob in the Taro toolchain. Fixed in brace-expansion 2.1.5. Upgrading is a dependency change outside this gate's remit.\n\n针对确切安装的 brace-expansion 2.1.4 登记的生产依赖公告（GHSA-6j4f-fj2g-mc7p 指出具体问题）。Taro 工具链中 minimatch/glob 的传递依赖；brace-expansion 2.1.5 已修复。升级属于依赖变更，不在本门禁范围内。",
-      "owner": "unassigned",
-      "expiry": "2026-11-12"
+      "reason": "Instance under @tarojs/plugin-doctor / depcheck has dev:true; build-only. Accepted on 2026-11-08 until the Taro build chain is upgraded.\n\n该实例在 @tarojs/plugin-doctor / depcheck 下，dev:true，仅构建期。2026-11-08 接受，至 Taro 构建链升级为止。",
+      "owner": "maintainer",
+      "expiry": "2027-02-08"
     },
     {
       "lockfile": "Front-Taro/package-lock.json",
@@ -39,9 +29,9 @@
       "version": "1.1.18",
       "id": "GHSA-qhr7-859c-m2p7",
       "severity": "HIGH",
-      "reason": "Recorded production advisory against the exact installed brace-expansion 1.1.18 (GHSA-qhr7-859c-m2p7 names the issue). Transitive under minimatch/glob in the Taro toolchain. Fixed in brace-expansion 1.1.20. Upgrading is a dependency change outside this gate's remit.\n\n针对确切安装的 brace-expansion 1.1.18 登记的生产依赖公告（GHSA-qhr7-859c-m2p7 指出具体问题）。Taro 工具链中 minimatch/glob 的传递依赖；brace-expansion 1.1.20 已修复。升级属于依赖变更，不在本门禁范围内。",
-      "owner": "unassigned",
-      "expiry": "2026-11-12"
+      "reason": "Same dev-only chain as the GHSA-6j4f-fj2g-mc7p entry at 1.1.18 (minimatch ← eslint / scss-bundle / Taro CLI, dev:true). Accepted on 2026-11-08.\n\n与 1.1.18 的 GHSA-6j4f-fj2g-mc7p 条目同一条仅开发期链路（minimatch ← eslint / scss-bundle / Taro CLI，dev:true）。2026-11-08 接受。",
+      "owner": "maintainer",
+      "expiry": "2027-02-08"
     },
     {
       "lockfile": "Front-Taro/package-lock.json",
@@ -49,9 +39,9 @@
       "version": "2.1.4",
       "id": "GHSA-qhr7-859c-m2p7",
       "severity": "HIGH",
-      "reason": "Recorded production advisory against the exact installed brace-expansion 2.1.4 (GHSA-qhr7-859c-m2p7 names the issue). Transitive under minimatch/glob in the Taro toolchain. Fixed in brace-expansion 2.1.6. Upgrading is a dependency change outside this gate's remit.\n\n针对确切安装的 brace-expansion 2.1.4 登记的生产依赖公告（GHSA-qhr7-859c-m2p7 指出具体问题）。Taro 工具链中 minimatch/glob 的传递依赖；brace-expansion 2.1.6 已修复。升级属于依赖变更，不在本门禁范围内。",
-      "owner": "unassigned",
-      "expiry": "2026-11-12"
+      "reason": "Same dev-only instance as the GHSA-6j4f-fj2g-mc7p entry at 2.1.4 (@tarojs/plugin-doctor / depcheck, dev:true). Accepted on 2026-11-08.\n\n与 2.1.4 的 GHSA-6j4f-fj2g-mc7p 条目同一个仅开发期实例（@tarojs/plugin-doctor / depcheck，dev:true）。2026-11-08 接受。",
+      "owner": "maintainer",
+      "expiry": "2027-02-08"
     },
     {
       "lockfile": "Front-Taro/package-lock.json",
@@ -59,9 +49,9 @@
       "version": "0.2.2",
       "id": "GHSA-qr28-fpjm-wq7f",
       "severity": "HIGH",
-      "reason": "Recorded production advisory against the exact installed decode-uri-component 0.2.2 (GHSA-qr28-fpjm-wq7f names the issue). Transitive under query-string and source-map-resolve in the Taro toolchain. Fixed in decode-uri-component 0.5.1; there is no fix in the 0.2.x line. Upgrading is a dependency change outside this gate's remit.\n\n针对确切安装的 decode-uri-component 0.2.2 登记的生产依赖公告（GHSA-qr28-fpjm-wq7f 指出具体问题）。Taro 工具链中 query-string 与 source-map-resolve 的传递依赖；decode-uri-component 0.5.1 已修复；0.2.x 线上没有修复版。升级属于依赖变更，不在本门禁范围内。",
-      "owner": "unassigned",
-      "expiry": "2026-11-12"
+      "reason": "Runtime path query-string ← @tarojs/router ← @tarojs/plugin-platform-h5; a crafted H5 URL can reach the quadratic DoS. Fix blocked: the fixed 0.5.1 is ESM-only while query-string 7.1.3 is CJS and calls require('decode-uri-component') as a function. Accepted by the user on 2026-11-08 until a query-string/Taro upgrade.\n\n运行路径 query-string ← @tarojs/router ← @tarojs/plugin-platform-h5；构造的 H5 URL 可触发二次方 DoS。修复受阻：修复版 0.5.1 是 ESM-only，而 query-string 7.1.3 是 CJS，把 require('decode-uri-component') 当函数调用。用户已于 2026-11-08 接受，至 query-string / Taro 升级为止。",
+      "owner": "maintainer",
+      "expiry": "2026-12-06"
     },
     {
       "lockfile": "Front-Taro/package-lock.json",
@@ -69,49 +59,9 @@
       "version": "10.2.6",
       "id": "GHSA-5j98-mcp5-4vw2",
       "severity": "HIGH",
-      "reason": "Recorded production advisory against the exact installed glob 10.2.6 (GHSA-5j98-mcp5-4vw2 names the issue). Transitive under @tarojs/cli and other Taro build packages. Fixed in glob 10.5.0. Upgrading is a dependency change outside this gate's remit.\n\n针对确切安装的 glob 10.2.6 登记的生产依赖公告（GHSA-5j98-mcp5-4vw2 指出具体问题）。@tarojs/cli 等 Taro 构建包的传递依赖；glob 10.5.0 已修复。升级属于依赖变更，不在本门禁范围内。",
-      "owner": "unassigned",
-      "expiry": "2026-11-12"
-    },
-    {
-      "lockfile": "Front-Taro/package-lock.json",
-      "package": "joi",
-      "version": "17.13.4",
-      "id": "GHSA-4528-x5fx-h6hg",
-      "severity": "HIGH",
-      "reason": "Recorded production advisory against the exact installed joi 17.13.4 (GHSA-4528-x5fx-h6hg names the issue). Transitive under @tarojs/service. Fixed in joi 17.13.9. Upgrading is a dependency change outside this gate's remit.\n\n针对确切安装的 joi 17.13.4 登记的生产依赖公告（GHSA-4528-x5fx-h6hg 指出具体问题）。@tarojs/service 的传递依赖；joi 17.13.9 已修复。升级属于依赖变更，不在本门禁范围内。",
-      "owner": "unassigned",
-      "expiry": "2026-11-12"
-    },
-    {
-      "lockfile": "Front-Taro/package-lock.json",
-      "package": "joi",
-      "version": "17.13.4",
-      "id": "GHSA-6h2x-m376-mqjq",
-      "severity": "HIGH",
-      "reason": "Recorded production advisory against the exact installed joi 17.13.4 (GHSA-6h2x-m376-mqjq names the issue). Transitive under @tarojs/service. Fixed in joi 17.13.7. Upgrading is a dependency change outside this gate's remit.\n\n针对确切安装的 joi 17.13.4 登记的生产依赖公告（GHSA-6h2x-m376-mqjq 指出具体问题）。@tarojs/service 的传递依赖；joi 17.13.7 已修复。升级属于依赖变更，不在本门禁范围内。",
-      "owner": "unassigned",
-      "expiry": "2026-11-12"
-    },
-    {
-      "lockfile": "Front-Taro/package-lock.json",
-      "package": "lodash-es",
-      "version": "4.17.21",
-      "id": "GHSA-r5fr-rjxr-66jc",
-      "severity": "HIGH",
-      "reason": "Recorded production advisory against the exact installed lodash-es 4.17.21 (GHSA-r5fr-rjxr-66jc names the issue). Transitive under the Taro H5 runtime. Fixed in lodash-es 4.18.0. Upgrading is a dependency change outside this gate's remit.\n\n针对确切安装的 lodash-es 4.17.21 登记的生产依赖公告（GHSA-r5fr-rjxr-66jc 指出具体问题）。Taro H5 运行时的传递依赖；lodash-es 4.18.0 已修复。升级属于依赖变更，不在本门禁范围内。",
-      "owner": "unassigned",
-      "expiry": "2026-11-12"
-    },
-    {
-      "lockfile": "Front-Taro/package-lock.json",
-      "package": "nanoid",
-      "version": "3.3.17",
-      "id": "GHSA-2v37-7h3g-55p8",
-      "severity": "HIGH",
-      "reason": "Recorded production advisory against the exact installed nanoid 3.3.17 (GHSA-2v37-7h3g-55p8 names the issue). Transitive under postcss and ics in the Taro toolchain. Fixed in nanoid 3.3.18. Upgrading is a dependency change outside this gate's remit.\n\n针对确切安装的 nanoid 3.3.17 登记的生产依赖公告（GHSA-2v37-7h3g-55p8 指出具体问题）。Taro 工具链中 postcss 与 ics 的传递依赖；nanoid 3.3.18 已修复。升级属于依赖变更，不在本门禁范围内。",
-      "owner": "unassigned",
-      "expiry": "2026-11-12"
+      "reason": "Only the dev:true instance under @tarojs/plugin-doctor is affected; the production-closure glob 7.2.3 is outside the advisory range (>=10.2.0). Accepted on 2026-11-08.\n\n受影响的只是 @tarojs/plugin-doctor 下 dev:true 的实例；生产闭包里的 glob 7.2.3 不在公告范围（>=10.2.0）。2026-11-08 接受。",
+      "owner": "maintainer",
+      "expiry": "2027-02-08"
     },
     {
       "lockfile": "Front-Taro/package-lock.json",
@@ -119,9 +69,9 @@
       "version": "7.0.39",
       "id": "GHSA-6g55-p6wh-862q",
       "severity": "HIGH",
-      "reason": "Recorded production advisory against the exact installed postcss 7.0.39 (GHSA-6g55-p6wh-862q names the issue). Transitive under the Taro/Vue build chain. Fixed in postcss 8.5.12; clearing it needs the postcss 8 major upgrade. Upgrading is a dependency change outside this gate's remit.\n\n针对确切安装的 postcss 7.0.39 登记的生产依赖公告（GHSA-6g55-p6wh-862q 指出具体问题）。Taro/Vue 构建链的传递依赖；postcss 8.5.12 已修复；清除它需要 postcss 8 的大版本升级。升级属于依赖变更，不在本门禁范围内。",
-      "owner": "unassigned",
-      "expiry": "2026-11-12"
+      "reason": "All postcss 7.0.39 instances are dev:true (component-compiler-utils / autoprefixer / miniprogram-simulate); the production-closure postcss 8.5.26 is above the fix line. Accepted on 2026-11-08.\n\npostcss 7.0.39 的所有实例都是 dev:true（component-compiler-utils / autoprefixer / miniprogram-simulate）；生产闭包里的 postcss 8.5.26 已在修复线之上。2026-11-08 接受。",
+      "owner": "maintainer",
+      "expiry": "2027-02-08"
     },
     {
       "lockfile": "Front-Taro/package-lock.json",
@@ -129,19 +79,9 @@
       "version": "7.0.39",
       "id": "GHSA-r28c-9q8g-f849",
       "severity": "HIGH",
-      "reason": "Recorded production advisory against the exact installed postcss 7.0.39 (GHSA-r28c-9q8g-f849 names the issue). Transitive under the Taro/Vue build chain. Fixed in postcss 8.5.18; clearing it needs the postcss 8 major upgrade. Upgrading is a dependency change outside this gate's remit.\n\n针对确切安装的 postcss 7.0.39 登记的生产依赖公告（GHSA-r28c-9q8g-f849 指出具体问题）。Taro/Vue 构建链的传递依赖；postcss 8.5.18 已修复；清除它需要 postcss 8 的大版本升级。升级属于依赖变更，不在本门禁范围内。",
-      "owner": "unassigned",
-      "expiry": "2026-11-12"
-    },
-    {
-      "lockfile": "Front-Taro/package-lock.json",
-      "package": "source-map-js",
-      "version": "1.2.1",
-      "id": "GHSA-68fv-2mgg-jv7q",
-      "severity": "HIGH",
-      "reason": "Recorded production advisory against the exact installed source-map-js 1.2.1 (GHSA-68fv-2mgg-jv7q names the issue). Transitive under the build chain (vue compiler / postcss / css-tree). Fixed in source-map-js 1.2.2. Upgrading is a dependency change outside this gate's remit.\n\n针对确切安装的 source-map-js 1.2.1 登记的生产依赖公告（GHSA-68fv-2mgg-jv7q 指出具体问题）。构建链（vue 编译器 / postcss / css-tree）的传递依赖；source-map-js 1.2.2 已修复。升级属于依赖变更，不在本门禁范围内。",
-      "owner": "unassigned",
-      "expiry": "2026-11-12"
+      "reason": "Same dev-only instances as the GHSA-6g55-p6wh-862q entry (component-compiler-utils / autoprefixer / miniprogram-simulate, dev:true). Accepted on 2026-11-08.\n\n与 GHSA-6g55-p6wh-862q 条目同一批仅开发期实例（component-compiler-utils / autoprefixer / miniprogram-simulate，dev:true）。2026-11-08 接受。",
+      "owner": "maintainer",
+      "expiry": "2027-02-08"
     },
     {
       "lockfile": "Front-Taro/package-lock.json",
@@ -149,249 +89,9 @@
       "version": "6.8.0",
       "id": "GHSA-hmx5-qpq5-p643",
       "severity": "CRITICAL",
-      "reason": "Recorded production advisory against the exact installed swiper 6.8.0 (GHSA-hmx5-qpq5-p643 names the issue). Transitive under @tarojs/components. Fixed in swiper 12.1.2; clearing it needs the swiper 12 major upgrade. Upgrading is a dependency change outside this gate's remit.\n\n针对确切安装的 swiper 6.8.0 登记的生产依赖公告（GHSA-hmx5-qpq5-p643 指出具体问题）。@tarojs/components 的传递依赖；swiper 12.1.2 已修复；清除它需要 swiper 12 的大版本升级。升级属于依赖变更，不在本门禁范围内。",
-      "owner": "unassigned",
-      "expiry": "2026-11-12"
-    },
-    {
-      "lockfile": "Web-Admin-React/package-lock.json",
-      "package": "axios",
-      "version": "1.19.0",
-      "id": "GHSA-3pq3-5fj3-cg6v",
-      "severity": "HIGH",
-      "reason": "Recorded production advisory against the exact installed axios 1.19.0 (GHSA-3pq3-5fj3-cg6v names the issue). Direct dependency of the console's HTTP client. Fixed in axios 1.20.0. Upgrading is a dependency change outside this gate's remit.\n\n针对确切安装的 axios 1.19.0 登记的生产依赖公告（GHSA-3pq3-5fj3-cg6v 指出具体问题）。控制台 HTTP 客户端的直接依赖；axios 1.20.0 已修复。升级属于依赖变更，不在本门禁范围内。",
-      "owner": "unassigned",
-      "expiry": "2026-11-12"
-    },
-    {
-      "lockfile": "Web-Admin-React/package-lock.json",
-      "package": "axios",
-      "version": "1.19.0",
-      "id": "GHSA-542g-h47m-68v8",
-      "severity": "HIGH",
-      "reason": "Recorded production advisory against the exact installed axios 1.19.0 (GHSA-542g-h47m-68v8 names the issue). Direct dependency of the console's HTTP client. Fixed in axios 1.20.0. Upgrading is a dependency change outside this gate's remit.\n\n针对确切安装的 axios 1.19.0 登记的生产依赖公告（GHSA-542g-h47m-68v8 指出具体问题）。控制台 HTTP 客户端的直接依赖；axios 1.20.0 已修复。升级属于依赖变更，不在本门禁范围内。",
-      "owner": "unassigned",
-      "expiry": "2026-11-12"
-    },
-    {
-      "lockfile": "Web-Admin-React/package-lock.json",
-      "package": "axios",
-      "version": "1.19.0",
-      "id": "GHSA-c29m-xwm3-cm6r",
-      "severity": "HIGH",
-      "reason": "Recorded production advisory against the exact installed axios 1.19.0 (GHSA-c29m-xwm3-cm6r names the issue). Direct dependency of the console's HTTP client. Fixed in axios 1.20.0. Upgrading is a dependency change outside this gate's remit.\n\n针对确切安装的 axios 1.19.0 登记的生产依赖公告（GHSA-c29m-xwm3-cm6r 指出具体问题）。控制台 HTTP 客户端的直接依赖；axios 1.20.0 已修复。升级属于依赖变更，不在本门禁范围内。",
-      "owner": "unassigned",
-      "expiry": "2026-11-12"
-    },
-    {
-      "lockfile": "Web-Admin-React/package-lock.json",
-      "package": "axios",
-      "version": "1.19.0",
-      "id": "GHSA-m8m8-qj5v-23w3",
-      "severity": "HIGH",
-      "reason": "Recorded production advisory against the exact installed axios 1.19.0 (GHSA-m8m8-qj5v-23w3 names the issue). Direct dependency of the console's HTTP client. Fixed in axios 1.20.0. Upgrading is a dependency change outside this gate's remit.\n\n针对确切安装的 axios 1.19.0 登记的生产依赖公告（GHSA-m8m8-qj5v-23w3 指出具体问题）。控制台 HTTP 客户端的直接依赖；axios 1.20.0 已修复。升级属于依赖变更，不在本门禁范围内。",
-      "owner": "unassigned",
-      "expiry": "2026-11-12"
-    },
-    {
-      "lockfile": "Web-Admin-React/package-lock.json",
-      "package": "axios",
-      "version": "1.19.0",
-      "id": "GHSA-mghh-pgcx-3jjj",
-      "severity": "HIGH",
-      "reason": "Recorded production advisory against the exact installed axios 1.19.0 (GHSA-mghh-pgcx-3jjj names the issue). Direct dependency of the console's HTTP client. Fixed in axios 1.20.0. Upgrading is a dependency change outside this gate's remit.\n\n针对确切安装的 axios 1.19.0 登记的生产依赖公告（GHSA-mghh-pgcx-3jjj 指出具体问题）。控制台 HTTP 客户端的直接依赖；axios 1.20.0 已修复。升级属于依赖变更，不在本门禁范围内。",
-      "owner": "unassigned",
-      "expiry": "2026-11-12"
-    },
-    {
-      "lockfile": "Web-Admin-React/package-lock.json",
-      "package": "axios",
-      "version": "1.19.0",
-      "id": "GHSA-r4gj-5m52-g5wh",
-      "severity": "HIGH",
-      "reason": "Recorded production advisory against the exact installed axios 1.19.0 (GHSA-r4gj-5m52-g5wh names the issue). Direct dependency of the console's HTTP client. Fixed in axios 1.20.0. Upgrading is a dependency change outside this gate's remit.\n\n针对确切安装的 axios 1.19.0 登记的生产依赖公告（GHSA-r4gj-5m52-g5wh 指出具体问题）。控制台 HTTP 客户端的直接依赖；axios 1.20.0 已修复。升级属于依赖变更，不在本门禁范围内。",
-      "owner": "unassigned",
-      "expiry": "2026-11-12"
-    },
-    {
-      "lockfile": "Web-Admin-React/package-lock.json",
-      "package": "axios",
-      "version": "1.19.0",
-      "id": "GHSA-x97p-jq2g-jp4f",
-      "severity": "HIGH",
-      "reason": "Recorded production advisory against the exact installed axios 1.19.0 (GHSA-x97p-jq2g-jp4f names the issue). Direct dependency of the console's HTTP client. Fixed in axios 1.20.0. Upgrading is a dependency change outside this gate's remit.\n\n针对确切安装的 axios 1.19.0 登记的生产依赖公告（GHSA-x97p-jq2g-jp4f 指出具体问题）。控制台 HTTP 客户端的直接依赖；axios 1.20.0 已修复。升级属于依赖变更，不在本门禁范围内。",
-      "owner": "unassigned",
-      "expiry": "2026-11-12"
-    },
-    {
-      "lockfile": "Web-Admin-React/package-lock.json",
-      "package": "follow-redirects",
-      "version": "1.16.0",
-      "id": "GHSA-8r9p-f939-6h3c",
-      "severity": "HIGH",
-      "reason": "Recorded production advisory against the exact installed follow-redirects 1.16.0 (GHSA-8r9p-f939-6h3c names the issue). Transitive under axios. Fixed in follow-redirects 1.16.1. Upgrading is a dependency change outside this gate's remit.\n\n针对确切安装的 follow-redirects 1.16.0 登记的生产依赖公告（GHSA-8r9p-f939-6h3c 指出具体问题）。axios 的传递依赖；follow-redirects 1.16.1 已修复。升级属于依赖变更，不在本门禁范围内。",
-      "owner": "unassigned",
-      "expiry": "2026-11-12"
-    },
-    {
-      "lockfile": "Web-Admin-React/package-lock.json",
-      "package": "follow-redirects",
-      "version": "1.16.0",
-      "id": "GHSA-mrwp-f3q8-3g9p",
-      "severity": "HIGH",
-      "reason": "Recorded production advisory against the exact installed follow-redirects 1.16.0 (GHSA-mrwp-f3q8-3g9p names the issue). Transitive under axios. Fixed in follow-redirects 1.16.2. Upgrading is a dependency change outside this gate's remit.\n\n针对确切安装的 follow-redirects 1.16.0 登记的生产依赖公告（GHSA-mrwp-f3q8-3g9p 指出具体问题）。axios 的传递依赖；follow-redirects 1.16.2 已修复。升级属于依赖变更，不在本门禁范围内。",
-      "owner": "unassigned",
-      "expiry": "2026-11-12"
-    },
-    {
-      "lockfile": "Web-Admin-React/package-lock.json",
-      "package": "follow-redirects",
-      "version": "1.16.0",
-      "id": "GHSA-q3jh-wrc6-jgq8",
-      "severity": "HIGH",
-      "reason": "Recorded production advisory against the exact installed follow-redirects 1.16.0 (GHSA-q3jh-wrc6-jgq8 names the issue). Transitive under axios. Fixed in follow-redirects 1.16.1. Upgrading is a dependency change outside this gate's remit.\n\n针对确切安装的 follow-redirects 1.16.0 登记的生产依赖公告（GHSA-q3jh-wrc6-jgq8 指出具体问题）。axios 的传递依赖；follow-redirects 1.16.1 已修复。升级属于依赖变更，不在本门禁范围内。",
-      "owner": "unassigned",
-      "expiry": "2026-11-12"
-    },
-    {
-      "lockfile": "Web-Admin-Vue/package-lock.json",
-      "package": "@intlify/core-base",
-      "version": "10.0.8",
-      "id": "GHSA-83rm-6c8r-g728",
-      "severity": "HIGH",
-      "reason": "Recorded production advisory against the exact installed @intlify/core-base 10.0.8 (GHSA-83rm-6c8r-g728 names the issue). Transitive under vue-i18n. Fixed in @intlify/core-base 11.4.14; clearing it crosses a major version line. Upgrading is a dependency change outside this gate's remit.\n\n针对确切安装的 @intlify/core-base 10.0.8 登记的生产依赖公告（GHSA-83rm-6c8r-g728 指出具体问题）。vue-i18n 的传递依赖；@intlify/core-base 11.4.14 已修复；清除它要跨大版本线。升级属于依赖变更，不在本门禁范围内。",
-      "owner": "unassigned",
-      "expiry": "2026-11-12"
-    },
-    {
-      "lockfile": "Web-Admin-Vue/package-lock.json",
-      "package": "@intlify/shared",
-      "version": "10.0.8",
-      "id": "GHSA-83rm-6c8r-g728",
-      "severity": "HIGH",
-      "reason": "Recorded production advisory against the exact installed @intlify/shared 10.0.8 (GHSA-83rm-6c8r-g728 names the issue). Transitive under vue-i18n. Fixed in @intlify/shared 11.4.14; clearing it crosses a major version line. Upgrading is a dependency change outside this gate's remit.\n\n针对确切安装的 @intlify/shared 10.0.8 登记的生产依赖公告（GHSA-83rm-6c8r-g728 指出具体问题）。vue-i18n 的传递依赖；@intlify/shared 11.4.14 已修复；清除它要跨大版本线。升级属于依赖变更，不在本门禁范围内。",
-      "owner": "unassigned",
-      "expiry": "2026-11-12"
-    },
-    {
-      "lockfile": "Web-Admin-Vue/package-lock.json",
-      "package": "axios",
-      "version": "1.19.0",
-      "id": "GHSA-3pq3-5fj3-cg6v",
-      "severity": "HIGH",
-      "reason": "Recorded production advisory against the exact installed axios 1.19.0 (GHSA-3pq3-5fj3-cg6v names the issue). Direct dependency of the console's HTTP client. Fixed in axios 1.20.0. Upgrading is a dependency change outside this gate's remit.\n\n针对确切安装的 axios 1.19.0 登记的生产依赖公告（GHSA-3pq3-5fj3-cg6v 指出具体问题）。控制台 HTTP 客户端的直接依赖；axios 1.20.0 已修复。升级属于依赖变更，不在本门禁范围内。",
-      "owner": "unassigned",
-      "expiry": "2026-11-12"
-    },
-    {
-      "lockfile": "Web-Admin-Vue/package-lock.json",
-      "package": "axios",
-      "version": "1.19.0",
-      "id": "GHSA-542g-h47m-68v8",
-      "severity": "HIGH",
-      "reason": "Recorded production advisory against the exact installed axios 1.19.0 (GHSA-542g-h47m-68v8 names the issue). Direct dependency of the console's HTTP client. Fixed in axios 1.20.0. Upgrading is a dependency change outside this gate's remit.\n\n针对确切安装的 axios 1.19.0 登记的生产依赖公告（GHSA-542g-h47m-68v8 指出具体问题）。控制台 HTTP 客户端的直接依赖；axios 1.20.0 已修复。升级属于依赖变更，不在本门禁范围内。",
-      "owner": "unassigned",
-      "expiry": "2026-11-12"
-    },
-    {
-      "lockfile": "Web-Admin-Vue/package-lock.json",
-      "package": "axios",
-      "version": "1.19.0",
-      "id": "GHSA-c29m-xwm3-cm6r",
-      "severity": "HIGH",
-      "reason": "Recorded production advisory against the exact installed axios 1.19.0 (GHSA-c29m-xwm3-cm6r names the issue). Direct dependency of the console's HTTP client. Fixed in axios 1.20.0. Upgrading is a dependency change outside this gate's remit.\n\n针对确切安装的 axios 1.19.0 登记的生产依赖公告（GHSA-c29m-xwm3-cm6r 指出具体问题）。控制台 HTTP 客户端的直接依赖；axios 1.20.0 已修复。升级属于依赖变更，不在本门禁范围内。",
-      "owner": "unassigned",
-      "expiry": "2026-11-12"
-    },
-    {
-      "lockfile": "Web-Admin-Vue/package-lock.json",
-      "package": "axios",
-      "version": "1.19.0",
-      "id": "GHSA-m8m8-qj5v-23w3",
-      "severity": "HIGH",
-      "reason": "Recorded production advisory against the exact installed axios 1.19.0 (GHSA-m8m8-qj5v-23w3 names the issue). Direct dependency of the console's HTTP client. Fixed in axios 1.20.0. Upgrading is a dependency change outside this gate's remit.\n\n针对确切安装的 axios 1.19.0 登记的生产依赖公告（GHSA-m8m8-qj5v-23w3 指出具体问题）。控制台 HTTP 客户端的直接依赖；axios 1.20.0 已修复。升级属于依赖变更，不在本门禁范围内。",
-      "owner": "unassigned",
-      "expiry": "2026-11-12"
-    },
-    {
-      "lockfile": "Web-Admin-Vue/package-lock.json",
-      "package": "axios",
-      "version": "1.19.0",
-      "id": "GHSA-mghh-pgcx-3jjj",
-      "severity": "HIGH",
-      "reason": "Recorded production advisory against the exact installed axios 1.19.0 (GHSA-mghh-pgcx-3jjj names the issue). Direct dependency of the console's HTTP client. Fixed in axios 1.20.0. Upgrading is a dependency change outside this gate's remit.\n\n针对确切安装的 axios 1.19.0 登记的生产依赖公告（GHSA-mghh-pgcx-3jjj 指出具体问题）。控制台 HTTP 客户端的直接依赖；axios 1.20.0 已修复。升级属于依赖变更，不在本门禁范围内。",
-      "owner": "unassigned",
-      "expiry": "2026-11-12"
-    },
-    {
-      "lockfile": "Web-Admin-Vue/package-lock.json",
-      "package": "axios",
-      "version": "1.19.0",
-      "id": "GHSA-r4gj-5m52-g5wh",
-      "severity": "HIGH",
-      "reason": "Recorded production advisory against the exact installed axios 1.19.0 (GHSA-r4gj-5m52-g5wh names the issue). Direct dependency of the console's HTTP client. Fixed in axios 1.20.0. Upgrading is a dependency change outside this gate's remit.\n\n针对确切安装的 axios 1.19.0 登记的生产依赖公告（GHSA-r4gj-5m52-g5wh 指出具体问题）。控制台 HTTP 客户端的直接依赖；axios 1.20.0 已修复。升级属于依赖变更，不在本门禁范围内。",
-      "owner": "unassigned",
-      "expiry": "2026-11-12"
-    },
-    {
-      "lockfile": "Web-Admin-Vue/package-lock.json",
-      "package": "axios",
-      "version": "1.19.0",
-      "id": "GHSA-x97p-jq2g-jp4f",
-      "severity": "HIGH",
-      "reason": "Recorded production advisory against the exact installed axios 1.19.0 (GHSA-x97p-jq2g-jp4f names the issue). Direct dependency of the console's HTTP client. Fixed in axios 1.20.0. Upgrading is a dependency change outside this gate's remit.\n\n针对确切安装的 axios 1.19.0 登记的生产依赖公告（GHSA-x97p-jq2g-jp4f 指出具体问题）。控制台 HTTP 客户端的直接依赖；axios 1.20.0 已修复。升级属于依赖变更，不在本门禁范围内。",
-      "owner": "unassigned",
-      "expiry": "2026-11-12"
-    },
-    {
-      "lockfile": "Web-Admin-Vue/package-lock.json",
-      "package": "follow-redirects",
-      "version": "1.16.0",
-      "id": "GHSA-8r9p-f939-6h3c",
-      "severity": "HIGH",
-      "reason": "Recorded production advisory against the exact installed follow-redirects 1.16.0 (GHSA-8r9p-f939-6h3c names the issue). Transitive under axios. Fixed in follow-redirects 1.16.1. Upgrading is a dependency change outside this gate's remit.\n\n针对确切安装的 follow-redirects 1.16.0 登记的生产依赖公告（GHSA-8r9p-f939-6h3c 指出具体问题）。axios 的传递依赖；follow-redirects 1.16.1 已修复。升级属于依赖变更，不在本门禁范围内。",
-      "owner": "unassigned",
-      "expiry": "2026-11-12"
-    },
-    {
-      "lockfile": "Web-Admin-Vue/package-lock.json",
-      "package": "follow-redirects",
-      "version": "1.16.0",
-      "id": "GHSA-mrwp-f3q8-3g9p",
-      "severity": "HIGH",
-      "reason": "Recorded production advisory against the exact installed follow-redirects 1.16.0 (GHSA-mrwp-f3q8-3g9p names the issue). Transitive under axios. Fixed in follow-redirects 1.16.2. Upgrading is a dependency change outside this gate's remit.\n\n针对确切安装的 follow-redirects 1.16.0 登记的生产依赖公告（GHSA-mrwp-f3q8-3g9p 指出具体问题）。axios 的传递依赖；follow-redirects 1.16.2 已修复。升级属于依赖变更，不在本门禁范围内。",
-      "owner": "unassigned",
-      "expiry": "2026-11-12"
-    },
-    {
-      "lockfile": "Web-Admin-Vue/package-lock.json",
-      "package": "follow-redirects",
-      "version": "1.16.0",
-      "id": "GHSA-q3jh-wrc6-jgq8",
-      "severity": "HIGH",
-      "reason": "Recorded production advisory against the exact installed follow-redirects 1.16.0 (GHSA-q3jh-wrc6-jgq8 names the issue). Transitive under axios. Fixed in follow-redirects 1.16.1. Upgrading is a dependency change outside this gate's remit.\n\n针对确切安装的 follow-redirects 1.16.0 登记的生产依赖公告（GHSA-q3jh-wrc6-jgq8 指出具体问题）。axios 的传递依赖；follow-redirects 1.16.1 已修复。升级属于依赖变更，不在本门禁范围内。",
-      "owner": "unassigned",
-      "expiry": "2026-11-12"
-    },
-    {
-      "lockfile": "Web-Admin-Vue/package-lock.json",
-      "package": "source-map-js",
-      "version": "1.2.1",
-      "id": "GHSA-68fv-2mgg-jv7q",
-      "severity": "HIGH",
-      "reason": "Recorded production advisory against the exact installed source-map-js 1.2.1 (GHSA-68fv-2mgg-jv7q names the issue). Transitive under the build chain (vue compiler / postcss / css-tree). Fixed in source-map-js 1.2.2. Upgrading is a dependency change outside this gate's remit.\n\n针对确切安装的 source-map-js 1.2.1 登记的生产依赖公告（GHSA-68fv-2mgg-jv7q 指出具体问题）。构建链（vue 编译器 / postcss / css-tree）的传递依赖；source-map-js 1.2.2 已修复。升级属于依赖变更，不在本门禁范围内。",
-      "owner": "unassigned",
-      "expiry": "2026-11-12"
-    },
-    {
-      "lockfile": "Web-Admin-Vue/package-lock.json",
-      "package": "vue-i18n",
-      "version": "10.0.8",
-      "id": "GHSA-83rm-6c8r-g728",
-      "severity": "HIGH",
-      "reason": "Recorded production advisory against the exact installed vue-i18n 10.0.8 (GHSA-83rm-6c8r-g728 names the issue). Direct dependency of the console's i18n layer. Fixed in vue-i18n 11.4.14; clearing it crosses a major version line. Upgrading is a dependency change outside this gate's remit.\n\n针对确切安装的 vue-i18n 10.0.8 登记的生产依赖公告（GHSA-83rm-6c8r-g728 指出具体问题）。控制台国际化层的直接依赖；vue-i18n 11.4.14 已修复；清除它要跨大版本线。升级属于依赖变更，不在本门禁范围内。",
-      "owner": "unassigned",
-      "expiry": "2026-11-12"
+      "reason": "The only CRITICAL. The built H5 bundle dist/js/683.js (part of the app entrypoint) contains the full taro-swiper-core and swiper code, but the sink needs the swiper component to be constructed with crafted input, which the app never does. A direct override to 12.1.2 is incompatible: swiper 12 removed swiper/swiper-bundle.esm.js, the exact path Taro 3.6.36 imports. Accepted by the user on 2026-11-08 until a Taro upgrade.\n\n唯一 CRITICAL。构建后的 H5 包 dist/js/683.js（属于 app 入口）含完整的 taro-swiper-core 与 swiper 代码，但 sink 仍需用构造输入实例化 swiper 组件，本应用从不这么做。直接 override 到 12.1.2 不可行：swiper 12 删掉了 swiper/swiper-bundle.esm.js，正是 Taro 3.6.36 import 的路径。用户已于 2026-11-08 接受，至 Taro 升级为止。",
+      "owner": "maintainer",
+      "expiry": "2026-12-06"
     }
   ]
 }
