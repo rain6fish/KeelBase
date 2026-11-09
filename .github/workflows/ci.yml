@@ -826,6 +826,19 @@ jobs:
           cache: 'npm'
           cache-dependency-path: Server-NestJS/package-lock.json
       - run: cd Server-NestJS && npm ci
+      # The contract-membership gate asks whether Java implements a capability the contract claims.
+      # Without this checkout the gate can answer C1-C4 but not C5, and it treats "cannot verify" as
+      # red — so the sibling is fetched here rather than leaving a release that claims a capability
+      # unverifiable. KeelBase4J is public; the default token reads it.
+      # 契约成员性闸要回答「Java 是否实现了契约声称的能力」。没有这份检出，闸答得了 C1-C4 却答不了
+      # C5，而它把「无法核验」判红 —— 所以在这里取同级仓，而不是让一份声称了能力的发布无从核验。
+      # KeelBase4J 是公开仓，默认 token 即可读出。
+      - name: Check out the sibling runtime the contract gate compares against
+        uses: actions/checkout@v5
+        with:
+          repository: rain6fish/KeelBase4J
+          ref: main
+          path: java-repo
       - name: 生成随机测试密钥
         run: |
           echo "ENCRYPTION_KEY=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
@@ -841,6 +854,7 @@ jobs:
           JWT_SECRET: ${{ env.JWT_SECRET }}
           JWT_REFRESH_SECRET: ${{ env.JWT_REFRESH_SECRET }}
           NODE_ENV: test
+          KEELBASE_JAVA_REPO: java-repo
 
   # Run/Adversarial 云端实证（§7.4 #2）：真实 LLM 对话（Run/Safety）+ 攻击集回归。
   # 非阻塞标注——continue-on-error 让失败以警告呈现不 gate 流水线；缺 DEEPSEEK_API_KEY 时跳过。

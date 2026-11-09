@@ -71,6 +71,23 @@ else
   gate "Endpoints(文档-端点一致)" fail "声明端点缺失（文档过期或路由被删）——先修 CLAUDE.md §9 或补路由"
 fi
 
+# ── Contract：发布声称的契约能力必须有实现方（主仓 0816d423 裁决）─────────────────
+# ── Contract: a release may only claim contract capabilities that have an implementer ──
+# The 2026-10-31 decision kept the membership change (tableIds / verifiedIds / unverifiedIds) out of
+# v1.17.0 and v1.18.0. Before this gate the rule lived only in prose, so a release that claimed it
+# anyway did not fail. This is that failure: the claim is read from the contract tree, not from prose,
+# and a tree that cannot be read is red rather than skipped. The sibling Java checkout comes from
+# `--java` or `KEELBASE_JAVA_REPO`.
+# 2026-10-31 那条裁决把成员性改动（tableIds / verifiedIds / unverifiedIds）挡在 v1.17.0 与 v1.18.0
+# 之外，此前只活在散文里：照样声称它的发布不会失败。这道闸就是那次失败 —— 声称从契约树里读，不从
+# 文档里读；读不出一律判红，没有 skip。同级 Java 检出由 `--java` 或 `KEELBASE_JAVA_REPO` 指定。
+echo "→ [Contract] 契约成员性（声称的能力 vs 实现方）"
+if node scripts/check-contract-release-gate.mjs >/dev/null 2>&1; then
+  gate "Contract(契约成员性)" pass
+else
+  gate "Contract(契约成员性)" fail "声称了却没有实现方，或无法核验 —— 跑 node scripts/check-contract-release-gate.mjs 看逐条判据"
+fi
+
 # ── Delivery：交付验收单必须带覆盖声明（W2.3 · JV-64 乙）────────────────────────
 # ── Delivery: the acceptance form must carry a coverage statement (W2.3 · JV-64 乙) ──
 echo "→ [Delivery] 交付验收单 vs 覆盖声明（docs/manual/delivery-recipe.md §11）"

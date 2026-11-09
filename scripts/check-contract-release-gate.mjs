@@ -71,7 +71,19 @@ const GIT_TIMEOUT_MS = 30_000;
 /**
  * Capabilities that are claimed by a schema in the contract tree and must therefore be implemented.
  * Adding one is deliberate: it is the whole registry, not a sample.
+ *
+ * Scope is the parked-capability registry, not every capability the contract claims. An entry asserts
+ * that the Java runtime must answer the field. Capabilities the consumer runtime itself produces are
+ * not entries: `audit-payload` v4's `claim_release` action (AW-16) is written by
+ * `write-claim-decision.service.ts` and its sample is checked by `wire-schema.spec.ts`; registering it
+ * here would probe Java for a field Java is not meant to declare, turning a correct tree red.
+ *
  * 由契约树里的 schema 声称、因而必须有实现方的能力。新增一条是**有意**的动作：这里是全部登记，不是抽样。
+ *
+ * 这里是**暂缓能力**登记表，不是契约声称的全部能力。一条登记即「Java 运行时必须答得出该字段」。
+ * 由消费方运行时自己产出的能力不登记：`audit-payload` v4 的 `claim_release` 动作（AW-16）由
+ * `write-claim-decision.service.ts` 写入、样例由 `wire-schema.spec.ts` 校验；登记它等于向 Java 追问
+ * 一个它本就不该声明的字段，会把一棵正确的树判红。
  */
 const CAPABILITIES = [
   {
