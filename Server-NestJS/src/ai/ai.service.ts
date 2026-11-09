@@ -226,6 +226,7 @@ export class AiService {
                 userId,
                 false,
                 await this.toolGate.riskLevelFor(toolName),
+                args,
               )
             : undefined;
           await this.auditService.log(
@@ -1185,6 +1186,7 @@ export class AiService {
             userId,
             isWrite,
             await this.toolGate.riskLevelFor(tc.name),
+            parsed,
           );
           yield {
             type: 'tool_start',
@@ -1236,6 +1238,7 @@ export class AiService {
                     userId,
                     true,
                     await this.toolGate.riskLevelFor(tc.name),
+                    parsed,
                   ),
                 },
               };
@@ -1309,6 +1312,7 @@ export class AiService {
                       userId,
                       true,
                       await this.toolGate.riskLevelFor(tc.name),
+                      parsed,
                     ),
                   },
                 };
@@ -1695,6 +1699,7 @@ export class AiService {
                   params.userId,
                   await this.toolGate.requiresConfirmation(tc.name),
                   await this.toolGate.riskLevelFor(tc.name),
+                  args,
                 )
               : null;
             const auditRow = await this.auditService.log(

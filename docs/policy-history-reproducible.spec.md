@@ -48,6 +48,25 @@
 - `verifyReproducible(recorded)` **升级实现**：内部先试 `replayDecision`，history 命中则以其结果为准（`policyChanged` 语义并入：recorded.revision != 当前 revision 时由 replay 判定一致性）；未命中才走原当前重放。返回结构保持向后兼容（新增 `mode` 可选字段）。
 - 装配点（未来）：Evidence Root v3（evidence-root.spec §5.3）把 authorization 里 `policy.revision` 接 `replayDecision`，给"为什么允许仍成立"提供历史版实证；合规段可带 recorded+current revision 与 replay 结果。
 
+### 4.1 AW-13：四项授权判定的重演（2026-11-07，纯加性）
+
+`replayDecision` 除 `tool_enabled` 外，重演快照冻结的另四项，各返回一个 `changed`：
+
+| 字段 | 对应 check | 判定重演方式 | `null`（不可比对）的时机 |
+|---|---|---|---|
+| `roleChanged` | `role_allowed` | 历史版 `allowedRoles` × 记录的角色 | 当时无限制（未查角色）而历史版新增了限制 |
+| `fieldDomainChanged` | `field_domain` | 历史版 `writableFields` × 记录的参数名 | 没有 `argKeys`（调用方未给参数） |
+| `destinationChanged` | `destination_allowed` | 历史版 `allowedDestinations` × 记录的目的地 | 记录里没有目的地 |
+| `approvalChanged` | `approval_required` | 历史版档位覆盖 × 记录的风险级，经 `effectiveGateMode` 推导 | 记录里没有风险级 |
+
+- `changedChecks` 列出**不一致的项名** —— 这是 AW-13 的判据：不一致要能说出是哪一项偏了，而不是合成一个布尔。
+- `notComparable` 列出**给不出第二来源**的项与原因码（`no-recorded-check` / `no-structured-inputs` /
+  `caller-role-not-recorded` / `arg-keys-not-recorded` / `destination-not-recorded` / `risk-level-not-recorded`）。
+- `reproducible` = 「没有任何一项不一致」。不可比对项不参与：未知既不冒充「没变」，也不冒充「一致」。
+- **旧快照不变形**：引入 `detail` 之前的行没有结构化输入 → 四项均为 `null` + `notComparable`；
+  `reproducible` 仍只看 `tool_enabled`，与旧行为一致。
+- `verifyReproducible` 的返回形状保持不变（向后兼容视图）。
+
 ## 5. 端点 / 5. Endpoints（admin）
 
 - `GET /api/v1/ai/governance/policy/history`（admin）：历史列表（revision/appliedAt/value 摘要，倒序，分页/limit 钳制）。

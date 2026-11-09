@@ -241,6 +241,8 @@ export class McpExportController {
           // Held ⇒ it is a write waiting on a person; executed ⇒ the only thing that runs here is a
           // read. 被扣下的是等人点头的写；执行过的是读。
           !out.executed,
+          undefined,
+          toolArgs,
         );
         allowSnapshot = buildAllowSnapshot(toolName, reasons);
       } catch {
