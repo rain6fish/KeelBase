@@ -268,6 +268,16 @@ export interface AuditReviewStatus {
     throughId: number
     cadenceDays: number | null
   }>
+  /**
+   * Valid receipts in the chain; `receipts` above may be capped below this.
+   * 链上的有效回执总数；上面的 `receipts` 可能被限量到此数以下。
+   */
+  receiptsTotal: number
+  /**
+   * True when `receipts` was cut at the return-list cap (unreadable receipts count separately).
+   * 返回的 `receipts` 是否在清单上限处被截断（读不出来的回执单独计数）。
+   */
+  receiptsTruncated: boolean
   malformedReceipts: number
   truncated: boolean
 }
