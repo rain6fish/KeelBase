@@ -127,14 +127,23 @@ export function explainState(input: ExplanationStateInput): ExplanationState {
       ? 'result_unknown'
       : 'compensating';
   }
-  // A named "nothing ran" beats the bare `isError` fallback: that word is a specific fact (the window
-  // closed with no decision), while `isError` is the shape rows had before `outcome` existed. A
-  // timeout row is still `isError`, so the fallback would win if it were consulted first.
+  // A named outcome beats the bare `isError` fallback: each word is a specific fact, while `isError`
+  // is only the shape rows had before `outcome` existed. This matters in practice, not just in
+  // theory — a policy-blocked row is written with `isError: true` and `outcome: 'blocked'`, so an
+  // `isError` check placed before the rejected set reported every blocked action as **failed**.
+  // `not_executed` had already been moved ahead of the fallback for the same reason (a timeout row
+  // is still `isError`); this extends the same rule to the other specific words.
   //
-  // 具名的「没发生」压过 `isError` 这条兜底：那个词是具体事实（窗口到期无人裁决），而 `isError` 只是
-  // `outcome` 列出现之前那些行的形状。超时行 `isError` 仍为真，兜底若排在前面就会赢。
+  // 具名结局压过 `isError` 这条兜底：每个词都是具体事实，而 `isError` 只是 `outcome` 列出现之前那些行
+  // 的形状。这不是理论问题 —— 被风险策略挡下的行就是**同时**带 `isError: true` 与
+  // `outcome: 'blocked'`，于是把 `isError` 判在「被拒」集合之前的写法，会把每一次被挡下的动作报成
+  // **失败**。`not_executed` 早已出于同一理由挪到兜底之前（超时行 `isError` 仍为真）；这里把同一条
+  // 规则延到其余具名词上。
   if (input.outcome === 'not_executed') return 'not_executed';
-  if (input.outcome === 'failed' || input.isError) return 'failed';
+  if (input.outcome === 'failed') return 'failed';
   if (input.outcome && REJECTED_OUTCOMES.has(input.outcome)) return 'rejected';
+  // Legacy rows only: no `outcome` column was written for them.
+  // 只属于历史行：它们写的时候还没有 `outcome` 列。
+  if (input.isError) return 'failed';
   return 'executed';
 }

@@ -85,6 +85,8 @@ import { TARGET_STATUS_PROBE } from '../governance-shared/services/tool-effects.
 import { TargetStatusLookupRow } from '../governance-shared/entities/target-status-lookup.entity';
 import { AuditStatsService } from '../governance-shared/services/audit-stats.service';
 import { AuditQueryService } from '../governance-shared/services/audit-query.service';
+import { AuditObjectIndexService } from '../governance-shared/services/audit-object-index.service';
+import { AuditAnswersService } from '../governance-shared/services/audit-answers.service';
 import { AuditEvidenceService } from '../governance-shared/services/audit-evidence.service';
 import { CoverageService } from '../governance-shared/services/coverage.service';
 import { AuditReviewService } from '../governance-shared/services/audit-review.service';
@@ -271,6 +273,10 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     AuditReviewService,
     AuditStatsService,
     AuditQueryService,
+    // U1: the object index and the six-answer export share the audit reader's row scope.
+    // U1：对象索引与六问导出共用审计读者的行范围。
+    AuditObjectIndexService,
+    AuditAnswersService,
     InsightsService,
     KnowledgeService,
     EmbeddingsService,

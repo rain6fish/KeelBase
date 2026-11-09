@@ -39,6 +39,8 @@ import { AiGovernancePolicyHistory } from '../governance-shared/entities/ai-gove
 import { GovernanceSharedModule } from '../governance-shared/governance-shared.module';
 import { AuditStatsService } from '../governance-shared/services/audit-stats.service';
 import { AuditQueryService } from '../governance-shared/services/audit-query.service';
+import { AuditObjectIndexService } from '../governance-shared/services/audit-object-index.service';
+import { AuditAnswersService } from '../governance-shared/services/audit-answers.service';
 import { AuditEvidenceService } from '../governance-shared/services/audit-evidence.service';
 import { CoverageService } from '../governance-shared/services/coverage.service';
 import { AuditReviewService } from '../governance-shared/services/audit-review.service';
@@ -100,6 +102,13 @@ import { GovernanceCaslAbilityFactory } from './governance-casl.factory';
     // module because their visible dependencies only exist in this process's context.
     AuditStatsService,
     AuditQueryService,
+    // U1: the object index and the six-answer export share the audit reader's row scope. The claim
+    // repository is not registered in this process, so the index reports itself unavailable here
+    // rather than answering "no match".
+    // U1：对象索引与六问导出共用审计读者的行范围。本进程没有注册占位仓储，故索引在此如实报「不可用」，
+    // 而不是答「无匹配」。
+    AuditObjectIndexService,
+    AuditAnswersService,
     AuditEvidenceService,
     CoverageService,
     AuditReviewService,

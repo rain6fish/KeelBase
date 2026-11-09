@@ -90,6 +90,15 @@ interface AuditRowQueryOptions {
   agentId?: string;
   isError?: 'true' | 'false';
   denied?: 'true';
+  /**
+   * Row ids already selected by another criterion — today, the business-object index. Applied as
+   * an AND with every other filter and before paging, so a page can never contain a row the other
+   * criterion did not select. An empty array is "nothing matched", not "no filter".
+   *
+   * 已由另一条判据（今天是业务对象索引）选出的行 id。与其余过滤取 AND，且在分页**之前**施加，
+   * 故一页里不可能有那条判据没选中的行。空数组的含义是「没有匹配」，**不是**「没有过滤」。
+   */
+  ids?: number[];
 }
 
 @Injectable()
@@ -104,7 +113,7 @@ export class AuditQueryService {
 
   async getUserLogs(
     userId: string,
-    options: { limit?: number; offset?: number; since?: Date; until?: Date } = {},
+    options: { limit?: number; offset?: number; since?: Date; until?: Date; ids?: number[] } = {},
     reader?: AuditReaderContext,
   ): Promise<AiAuditLogWithUser[]> {
     return this._queryLogs({ userId, ...options }, reader);
@@ -145,6 +154,10 @@ export class AuditQueryService {
     options: AuditRowQueryOptions = {},
     reader?: AuditReaderContext,
   ): Promise<AiAuditLogWithUser[]> {
+    // "Nothing matched" must short-circuit: an empty `IN` list is invalid SQL, and dropping the
+    // predicate would turn "no match" into "every row".
+    // 「没有匹配」必须短路：空的 `IN` 清单是非法 SQL，而丢掉这条谓词会把「无匹配」变成「全部行」。
+    if (options.ids && options.ids.length === 0) return [];
     const qb = this.logRepo
       .createQueryBuilder('log')
       // D2-1c username 快照：读快照列，不再左联业务 users 表（独立治理库后无 users）
@@ -161,6 +174,7 @@ export class AuditQueryService {
       .take(options.limit ?? 50)
       .skip(options.offset ?? 0);
     if (options.userId) qb.where('log.userId = :userId', { userId: options.userId });
+    if (options.ids && options.ids.length) qb.andWhere('log.id IN (:...ids)', { ids: options.ids });
     // Period: the window is closed on both ends. `until` used to be honoured only by the coverage
     // statement; the log list ignored it, so a caller asking for a period got an open-ended read.
     // 期间：窗口两端闭合。`until` 以前只有覆盖声明在用，日志列表忽略它 —— 于是要求一段期间的调用者
