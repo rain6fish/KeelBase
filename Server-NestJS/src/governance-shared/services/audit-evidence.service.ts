@@ -850,7 +850,14 @@ export class AuditEvidenceService {
     } | null;
     /** The operation-audit rows the effect's target produced — the business leg of the same action. */
     operationAudit: EvidenceChainRow[];
-    /** Who approved it, when the action went through a confirmation. */
+    /**
+     * Who approved it, when the action went through a confirmation. `approverName` is the name
+     * snapshot carried by the approver's own decision row in this same conversation; a record
+     * written before that row existed has no name here, and the reader keeps the id.
+     *
+     * 走过确认时**谁批准**。`approverName` 取**同一会话内**批准人自己那条裁决行携带的姓名快照；
+     * 该行存在之前写下的记录这里没有名字，读者仍用 id。
+     */
     approval: {
       token: string;
       toolName: string;
@@ -858,6 +865,7 @@ export class AuditEvidenceService {
       kind: string | null;
       status: string;
       approverId: string | null;
+      approverName: string | null;
       decidedAt: Date | null;
       expiresAt: Date | null;
     } | null;
@@ -909,6 +917,23 @@ export class AuditEvidenceService {
       ? ((await this.confirmationsRepo?.findOne({ where: { token: claim.authorizationRef } })) ?? null)
       : null;
 
+    // The name behind `approverId`, taken from the approver's own decision row in this same
+    // conversation — the row `R4ApprovalService.decideApproval` writes with their username
+    // snapshot. Never guessed from a tool name plus a timestamp: a record written before that row
+    // existed has no such row, so the name is `null` and the read falls back to the id.
+    //
+    // `approverId` 背后的姓名，取自**同一会话**中批准人自己那条裁决行 —— 即
+    // `R4ApprovalService.decideApproval` 带着其用户名快照写下的那一行。不按工具名加时间猜：
+    // 该行存在之前写下的记录没有这一行，姓名即 `null`，读面回落到 id。
+    const approverName = confirmationRow?.approverId
+      ? (convRows.find(
+          (r) =>
+            r.action === 'tool_confirmation' &&
+            r.userId === confirmationRow.approverId &&
+            !!r.username,
+        )?.username ?? null)
+      : null;
+
     let operationAudit: EvidenceChainRow[] = [];
     const opPaths = effectRow ? this._evidenceRootRestPaths(effectRow.resultType) : null;
     if (effectRow && this.operationAudit && opPaths) {
@@ -956,6 +981,7 @@ export class AuditEvidenceService {
             kind: confirmationRow.kind ?? null,
             status: confirmationRow.status,
             approverId: confirmationRow.approverId ?? null,
+            approverName,
             decidedAt: confirmationRow.decidedAt ?? null,
             expiresAt: confirmationRow.expiresAt ?? null,
           }

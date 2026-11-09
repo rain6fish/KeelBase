@@ -820,6 +820,11 @@ describe('AuditEvidenceService.getInterpretation（P0-20 单事件解释面）',
       conversationId?: string | null;
       rowUserId?: string;
       orgService?: any;
+      /**
+       * Extra rows of the same conversation, after the anchor row.
+       * 同一会话中紧随锚点行之后的额外行。
+       */
+      convRows?: any[];
     } = {},
   ) {
     const auditRow = row({
@@ -837,7 +842,7 @@ describe('AuditEvidenceService.getInterpretation（P0-20 单事件解释面）',
     });
     const logRepo = {
       findOne: jest.fn().mockResolvedValue(auditRow),
-      find: jest.fn().mockResolvedValue([auditRow]),
+      find: jest.fn().mockResolvedValue([auditRow, ...(opts.convRows ?? [])]),
     };
     const effectsRepo = {
       findOne: jest.fn().mockImplementation(async (arg?: { where?: { id?: number } }) =>
@@ -963,5 +968,50 @@ describe('AuditEvidenceService.getInterpretation（P0-20 单事件解释面）',
     const res = await service.getInterpretation(7);
     expect(res.approval).toMatchObject({ token: 'tok-1', status: 'pending', riskLevel: 'R3' });
     expect(res.state).toBe('awaiting_confirmation');
+  });
+
+  it('批准人自己的裁决行 ⇒ approverName 取那行的姓名快照', async () => {
+    // The name is read from the approver's own `tool_confirmation` row — the one `decideApproval`
+    // writes with their username snapshot — and from nothing else.
+    // 姓名只从批准人自己那条 `tool_confirmation` 行读 —— 即 `decideApproval` 带着用户名快照写下的
+    // 那一行，别处不取。
+    const { service } = build({
+      claim: { id: 1, auditRowId: 7, effectId: 42, authorizationRef: 'tok-1' },
+      confirmation: {
+        token: 'tok-1', toolName: 'create_task', riskLevel: 'R4', kind: 'single', status: 'approved',
+        approverId: '2', decidedAt: new Date('2026-11-08T01:00:00Z'), expiresAt: null,
+      },
+      convRows: [
+        {
+          id: 8, userId: '2', username: 'admin', action: 'tool_confirmation',
+          detail: 'create_task({"title":"跟进"}) → approve', isError: false,
+          createdAt: new Date('2026-11-08T01:00:00Z'),
+        },
+      ],
+    });
+    const res = await service.getInterpretation(7);
+    expect(res.approval).toMatchObject({ approverId: '2', approverName: 'admin' });
+  });
+
+  it('会话里没有批准人的裁决行 ⇒ approverName 为 null，id 照旧（别人的行不算）', async () => {
+    // A decision row by *someone else* must not supply the name: the fallback is the id, never a
+    // neighbouring identity.
+    // 由**别人**留下的裁决行不能提供姓名：回落是 id，绝不是邻居的身份。
+    const { service } = build({
+      claim: { id: 1, auditRowId: 7, effectId: 42, authorizationRef: 'tok-1' },
+      confirmation: {
+        token: 'tok-1', toolName: 'create_task', riskLevel: 'R4', kind: 'single', status: 'approved',
+        approverId: '2', decidedAt: new Date('2026-11-08T01:00:00Z'), expiresAt: null,
+      },
+      convRows: [
+        {
+          id: 8, userId: '9', username: 'someone-else', action: 'tool_confirmation',
+          detail: 'create_task({"title":"跟进"}) → approve', isError: false,
+          createdAt: new Date('2026-11-08T01:00:00Z'),
+        },
+      ],
+    });
+    const res = await service.getInterpretation(7);
+    expect(res.approval).toMatchObject({ approverId: '2', approverName: null });
   });
 });
