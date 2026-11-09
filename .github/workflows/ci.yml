@@ -985,3 +985,22 @@ jobs:
           name: coverage-flutter
           path: Front-Flutter/coverage/lcov.info
           if-no-files-found: warn
+
+  # Every `image:` in a compose file must carry `@sha256:`. Seven floated (three on `latest`) until
+  # 2026-11-10: the same compose file could resolve a different image next week, and nothing said so.
+  # Kept at the end of the file on purpose — docs/manual/supply-chain.md cites lines above it.
+  #
+  # 编排文件里的每条 `image:` 都必须带 `@sha256:`。在此之前有七条浮动（其中三条是 `latest`）：同一份
+  # 编排下周可能解析出另一个镜像，而没有任何东西会说。有意放在文件末尾 —— docs/manual/supply-chain.md
+  # 引用的是它上面的行号。
+  compose-digests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: true
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: node scripts/check-compose-digests.mjs
+      - run: node --test scripts/check-compose-digests.test.mjs
