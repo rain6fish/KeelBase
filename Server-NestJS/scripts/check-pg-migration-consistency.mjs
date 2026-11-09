@@ -20,7 +20,9 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..'); // Server-NestJS
 const DRIFT_GLOB = path.join(root, 'src', 'migrations', '*_PgConsistencyCheck*.ts');
-const IMAGE = 'pgvector/pgvector:pg17';
+// Pinned like the compose entry it mirrors; the digest is the one docs/manual/supply-chain.md §4 records.
+// 与它所对应的编排条目一样钉住；摘要就是 docs/manual/supply-chain.md §4 记录的那一个。
+const IMAGE = 'pgvector/pgvector:pg17@sha256:7d0a41464797aeb9862dfdc0bbf1526b82cfd324cdd8036df19e3545f4a9ccb8';
 const DB_NAME = 'keelbase_consistency';
 
 const env = { ...process.env };
