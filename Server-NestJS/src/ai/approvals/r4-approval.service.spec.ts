@@ -250,6 +250,109 @@ describe('R4ApprovalService（R4 双人审批域）', () => {
       expect(res.message).toBe('already decided');
       expect(mockToolRegistry.execute).not.toHaveBeenCalled();
     });
+
+    /**
+     * The second person's decision is audited as **their** row. The operator's `tool_call` row below
+     * it names the operator; before this row existed the approver left no record of their own, and
+     * the audit read could only show the numeric id on the confirmation row.
+     *
+     * 第二人的裁决记为**他们自己**的一行。它下面的 `tool_call` 行记的是 operator；这一行存在之前，
+     * 批准人不留下自己的记录，审计读面只能给出确认行上的数字 id。
+     */
+    it('第二人批准：裁决落 tool_confirmation 审计行（带批准人姓名），执行行注记也点名批准人', async () => {
+      const repo = {
+        findOne: jest.fn().mockResolvedValue({
+          token: 't-audit',
+          operatorId: '1',
+          status: 'pending',
+          toolName: 'create_event',
+          args: '{"title":"x"}',
+          conversationId: 'conv-1',
+          approverId: null,
+          decidedAt: null,
+        }),
+        update: jest.fn().mockResolvedValue({ affected: 1 }),
+      };
+      const users = {
+        findOne: jest.fn(async (id: number) => ({ username: id === 9 ? 'approver-zhao' : 'operator-li' })),
+      };
+      r4 = makeService(repo, users);
+      mockToolRegistry.execute.mockResolvedValue({ success: true, data: { id: 7 } });
+
+      const res = await r4.decideApproval('t-audit', '9', 'approve');
+
+      expect(res.ok).toBe(true);
+      const entries = mockAuditService.log.mock.calls.map((c) => c[0] as Record<string, unknown>);
+      const decisionRow = entries.find((e) => e.action === 'tool_confirmation');
+      expect(decisionRow).toMatchObject({
+        userId: '9',
+        username: 'approver-zhao',
+        conversationId: 'conv-1',
+        action: 'tool_confirmation',
+        detail: 'create_event({"title":"x"}) → approve',
+        outcome: 'approved',
+        tool: 'create_event',
+        isError: false,
+      });
+      // The execution row still belongs to the operator, but its note now names the approver.
+      const callRow = entries.find((e) => e.action === 'tool_call');
+      expect(callRow).toMatchObject({ userId: '1', username: 'operator-li' });
+      expect(String(callRow?.errorMessage)).toContain('approver-zhao (#9)');
+    });
+
+    it('第二人拒绝：同样落审计行（declined），且不执行工具', async () => {
+      const repo = {
+        findOne: jest.fn().mockResolvedValue({
+          token: 't-dec',
+          operatorId: '1',
+          status: 'pending',
+          toolName: 'create_event',
+          args: '{"title":"x"}',
+          conversationId: null,
+          approverId: null,
+          decidedAt: null,
+        }),
+        update: jest.fn().mockResolvedValue({ affected: 1 }),
+      };
+      r4 = makeService(repo, { findOne: jest.fn().mockResolvedValue({ username: 'approver-zhao' }) });
+
+      const res = await r4.decideApproval('t-dec', '9', 'decline');
+
+      expect(res).toEqual({ ok: true, success: false });
+      expect(mockToolRegistry.execute).not.toHaveBeenCalled();
+      expect(mockAuditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: '9',
+          username: 'approver-zhao',
+          action: 'tool_confirmation',
+          outcome: 'declined',
+          tool: 'create_event',
+          isError: true,
+        }),
+      );
+    });
+
+    it('仲裁未命中（already decided）⇒ 不写裁决审计行', async () => {
+      const repo = {
+        findOne: jest.fn().mockResolvedValue({
+          token: 't-lost',
+          operatorId: '1',
+          status: 'pending',
+          toolName: 'create_event',
+          args: '{}',
+          conversationId: null,
+          approverId: null,
+          decidedAt: null,
+        }),
+        update: jest.fn().mockResolvedValue({ affected: 0 }),
+      };
+      r4 = makeService(repo, { findOne: jest.fn().mockResolvedValue({ username: 'approver-zhao' }) });
+      mockAuditService.log.mockClear();
+
+      await r4.decideApproval('t-lost', '9', 'approve');
+
+      expect(mockAuditService.log).not.toHaveBeenCalled();
+    });
   });
 
   // ── P2 审批执行轴（执行态 + 重试）：批准 ≠ 执行成功 ──
