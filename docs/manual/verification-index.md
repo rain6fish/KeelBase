@@ -69,6 +69,7 @@ node Server-NestJS/scripts/verify-permission-denied.mjs # V-2：越权 403
 ## 相关 / Related
 
 - [security-showcase.md](security-showcase.md) — 安全展示五项（人工演示路径）
+- [supply-chain.md](supply-chain.md) — dependency scan scope, severity thresholds, baseline obligations, base-image pins and stop conditions / 依赖扫描射程、阈值、基线义务、镜像钉与停止条件
 - [ai-trust-manifesto.md](../ai-trust-manifesto.md) — 企业 AI 信任宣言（DNA 四原则 → 采购/选型四问，参考实现验证映射）
 - [keelbase-dna.md](../keelbase-dna.md) — 工程哲学（四原则出处）
 - [adoption-30min.md](adoption-30min.md) — 30 分钟接入治理
