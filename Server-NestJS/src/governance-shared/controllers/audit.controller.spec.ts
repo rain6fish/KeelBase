@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { BadRequestException, ServiceUnavailableException } from '@nestjs/common';
 import { AuditController } from './audit.controller';
 import { AuditService } from '../../governance-shared/services/audit.service';
 import { AuditStatsService } from '../../governance-shared/services/audit-stats.service';
@@ -7,6 +8,8 @@ import { AuditQueryService } from '../../governance-shared/services/audit-query.
 import { AuditEvidenceService } from '../../governance-shared/services/audit-evidence.service';
 import { CoverageService } from '../../governance-shared/services/coverage.service';
 import { AuditReviewService } from '../../governance-shared/services/audit-review.service';
+import { AuditObjectIndexService } from '../../governance-shared/services/audit-object-index.service';
+import { AuditAnswersService } from '../../governance-shared/services/audit-answers.service';
 import { CHECK_POLICIES_KEY } from '../../common/casl/check-policies.decorator';
 import { UserRole } from '../../common/entities/user.entity';
 
@@ -18,6 +21,8 @@ describe('AuditController', () => {
   let auditService: Record<string, jest.Mock>;
   let coverage: Record<string, jest.Mock>;
   let auditReview: Record<string, jest.Mock>;
+  let objectIndex: { available: boolean; auditRowIdsFor: jest.Mock };
+  let answers: { export: jest.Mock };
 
   const mockUser = { sub: 1, username: 'alex' };
   // The list projection is role-aware: an admin keeps the full row, everyone else gets the whitelist.
@@ -43,6 +48,11 @@ describe('AuditController', () => {
     coverage = Object.fromEntries(['forScope'].map((m) => [m, jest.fn()]));
     // AW-12 复核面：控制器只转出去（写回执 / 读状态）
     auditReview = Object.fromEntries(['record', 'status'].map((m) => [m, jest.fn()]));
+    // U1：对象索引可用（主应用形态）；不可用的进程由 `audit-object-index.spec.ts` 单独钉。
+    // U1: the object index is available here (the main-app shape); the unavailable process is pinned
+    // in `audit-object-index.spec.ts`.
+    objectIndex = { available: true, auditRowIdsFor: jest.fn() };
+    answers = { export: jest.fn() };
     controller = new AuditController(
       auditService as unknown as AuditService,
       auditStats as unknown as AuditStatsService,
@@ -50,6 +60,8 @@ describe('AuditController', () => {
       auditEvidence as unknown as AuditEvidenceService,
       coverage as unknown as CoverageService,
       auditReview as unknown as AuditReviewService,
+      objectIndex as unknown as AuditObjectIndexService,
+      answers as unknown as AuditAnswersService,
     );
   });
 
@@ -57,7 +69,7 @@ describe('AuditController', () => {
     auditQuery.getLogs.mockResolvedValue([]);
     await expect(controller.getLogs({ limit: 50, offset: 0 } as any, admin as any)).resolves.toEqual([]);
     expect(auditQuery.getLogs).toHaveBeenCalledWith(
-      { limit: 50, offset: 0, since: undefined, until: undefined },
+      { limit: 50, offset: 0, since: undefined, until: undefined, ids: undefined },
       { userId: 1, role: UserRole.ADMIN },
     );
 
@@ -70,6 +82,7 @@ describe('AuditController', () => {
         offset: 5,
         since: new Date('2026-08-01T00:00:00Z'),
         until: undefined,
+        ids: undefined,
       },
       { userId: 1, role: UserRole.ADMIN },
     );
@@ -82,7 +95,7 @@ describe('AuditController', () => {
     ).resolves.toEqual([]);
     expect(auditQuery.getUserLogs).toHaveBeenCalledWith(
       '42',
-      { limit: 20, offset: 0, since: undefined, until: undefined },
+      { limit: 20, offset: 0, since: undefined, until: undefined, ids: undefined },
       { userId: 1, role: UserRole.ADMIN },
     );
   });
@@ -98,6 +111,7 @@ describe('AuditController', () => {
         offset: 0,
         since: undefined,
         until: undefined,
+        ids: undefined,
         orgId: undefined,
         agentId: undefined,
         isError: undefined,
@@ -105,6 +119,58 @@ describe('AuditController', () => {
       },
       { userId: 1, role: UserRole.ADMIN },
     );
+  });
+
+  it('U1：对象 + 区间 → 索引给出的行 id 施加到列表查询上', async () => {
+    auditQuery.getLogs.mockResolvedValue([]);
+    objectIndex.auditRowIdsFor.mockResolvedValue([7, 9]);
+    await controller.getLogs(
+      { limit: 50, offset: 0, objectType: 'crm_customer', objectId: 9005 } as any,
+      admin as any,
+    );
+    expect(objectIndex.auditRowIdsFor).toHaveBeenCalledWith('crm_customer', 9005);
+    expect(auditQuery.getLogs).toHaveBeenLastCalledWith(
+      expect.objectContaining({ ids: [7, 9] }),
+      { userId: 1, role: UserRole.ADMIN },
+    );
+  });
+
+  it('U1：半个过滤条件是 400 —— 悄悄放大读数才是要拦的', async () => {
+    await expect(
+      controller.getLogs({ limit: 50, offset: 0, objectType: 'crm_customer' } as any, admin as any),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      controller.getLogs({ limit: 50, offset: 0, objectId: 9005 } as any, admin as any),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('U1：索引不可用的进程答 503，绝不答「无匹配」', async () => {
+    objectIndex.available = false;
+    await expect(
+      controller.getLogs(
+        { limit: 50, offset: 0, objectType: 'crm_customer', objectId: 9005 } as any,
+        admin as any,
+      ),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
+  });
+
+  it('U1：六问导出委托 service，并沿用读者上下文', async () => {
+    answers.export.mockResolvedValue({ headers: [], rows: [], match: { found: false } });
+    objectIndex.auditRowIdsFor.mockResolvedValue([1]);
+    await controller.getAnswers(
+      { objectType: 'crm_customer', objectId: 9005, limit: 500 } as any,
+      auditor as any,
+    );
+    expect(answers.export).toHaveBeenCalledWith(
+      { objectType: 'crm_customer', objectId: 9005, since: undefined, until: undefined, limit: 500 },
+      [1],
+      { userId: 1, role: UserRole.AUDITOR },
+    );
+  });
+
+  it('U1：对象类型清单由导出词表给出（选择器与 CSV 同源）', () => {
+    const types = controller.getObjectTypes();
+    expect(types).toEqual(expect.arrayContaining([{ value: 'crm_customer', label: 'Customer' }]));
   });
 
   it('AW-2：审计读者拿白名单行，管理员拿整行', async () => {

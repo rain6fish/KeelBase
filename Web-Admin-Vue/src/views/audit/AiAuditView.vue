@@ -2,7 +2,7 @@
 <template>
   <div>
     <PageHeader :title="t('aiAuditTitle')">
-      <el-button @click="onExport">
+      <el-button :loading="exporting" @click="onExport">
         <template #icon><AppIcon icon="mdi-download" /></template>
         {{ t('export') }}
       </el-button>
@@ -100,7 +100,21 @@
       <div class="d-flex ga-3 flex-wrap align-center">
         <el-input v-model="userId" :label="t('filterByUser')" style="max-width: 200px" />
         <el-input v-model="agentId" :label="t('filterByAgent')" style="max-width: 200px" />
+        <!-- U1：按**业务对象**检索。类型与 id 必须成对 —— 半个条件服务端答 400，而不是悄悄读全部。 -->
+        <el-select v-model="objectType" :placeholder="t('auditObjectFilter')" clearable style="width: 170px">
+          <el-option v-for="o in objectTypes" :key="o.value" :label="o.label" :value="o.value" />
+        </el-select>
+        <el-input v-model="objectIdText" :placeholder="t('auditObjectId')" style="max-width: 120px" />
         <RangeFilter v-model="range" @update:model-value="onRange" />
+        <!-- U1：绝对区间。相对区间的下拉给不了「11-05 10:00–11:00」这种要核对的窗口。 -->
+        <el-date-picker
+          v-model="absoluteRange"
+          type="datetimerange"
+          :start-placeholder="t('auditRangeFrom')"
+          :end-placeholder="t('auditRangeTo')"
+          style="max-width: 360px"
+          @change="onAbsoluteRange"
+        />
         <el-select v-model="behaviorFilter" :placeholder="t('filterBehavior')" clearable style="width: 170px">
           <el-option :label="t('behaviorExecute')" value="execute" />
           <el-option :label="t('behaviorFailed')" value="failed" />
@@ -131,6 +145,9 @@
         </el-button>
       </template>
     </AppTable>
+
+    <!-- U1：无匹配要**明说**。一个空表格会被读成「加载失败」或「这里没问题」，而它其实是一个答案。 -->
+    <div v-if="noMatchLine" class="text-caption text-medium-emphasis mt-2">{{ noMatchLine }}</div>
 
     <!-- §internal.16 A-4 展开详情：L1 业务摘要 → L2 证据统计 → L3 技术详情 -->
     <el-card v-if="expanded" shadow="never" class="mt-2">
@@ -436,6 +453,44 @@ const userId = ref('')
 const agentId = ref('')
 const range = ref('all')
 const behaviorFilter = ref('')
+// U1: business object + a closed absolute window. The object type list comes from the server's
+// export vocabulary, so the picker and the CSV use the same words.
+// U1：业务对象 + 闭合的绝对区间。对象类型清单来自服务端的导出词表，故选择器与 CSV 用的是同一套词。
+const objectType = ref('')
+const objectIdText = ref('')
+const objectTypes = ref<Array<{ value: string; label: string }>>([])
+const absoluteRange = ref<Date[] | null>(null)
+const until = ref<string | undefined>(undefined)
+
+/**
+ * Half an object filter is a mistake, not a wildcard: the server answers 400. Asking here first is
+ * what turns that into a sentence instead of an error page.
+ *
+ * 半个对象过滤条件是**输入错误**、不是通配：服务端答 400。在这里先问一次，是为了把它变成一句话，
+ * 而不是一个错误页。
+ */
+function objectPair(): { objectType?: string; objectId?: number } | null {
+  const id = Number(objectIdText.value.trim())
+  const hasId = Number.isInteger(id) && id > 0
+  const hasType = Boolean(objectType.value)
+  if (!hasType && !objectIdText.value.trim()) return {}
+  if (!hasType || !hasId) {
+    snackbar.error(t('auditObjectPairRequired'))
+    return null
+  }
+  return { objectType: objectType.value, objectId: id }
+}
+
+const selectedObjectLabel = computed(
+  () => objectTypes.value.find((o) => o.value === objectType.value)?.label ?? objectType.value,
+)
+
+/** «No matching records» is an answer, so the page says it instead of showing a blank table. */
+const noMatchLine = computed(() => {
+  if (loading.value || logs.value.length > 0) return ''
+  if (!objectType.value || !objectIdText.value.trim()) return ''
+  return t('auditNoMatchFor', { object: selectedObjectLabel.value, id: objectIdText.value.trim() })
+})
 
 /** A-8 行为类型判定：AI 执行 / AI 被拒 / AI 越权 / AI 阻断 / 对话（「AI 没做什么」同样是安全证据） */
 function behaviorType(l: AuditLog): string {
@@ -563,6 +618,8 @@ const abnormalCounts = computed(() => {
 })
 
 async function load() {
+  const object = objectPair()
+  if (object === null) return
   loading.value = true
   try {
     const [logsRes, statsRes, verifyRes, errRes, coverageRes, reviewRes] = await Promise.all([
@@ -571,13 +628,19 @@ async function load() {
         agentId: agentId.value || undefined,
         limit,
         since: since.value,
+        until: until.value,
+        objectType: object.objectType,
+        objectId: object.objectId,
         // A-8 越权专门视图：选「越权/被拒」时走服务端 denied 过滤（is_error + authorization 非空），而非仅过滤已加载的 50 行
         denied: behaviorFilter.value === 'denied' ? 'true' : undefined,
       }),
       auditApi.stats(since.value),
       auditApi.verify().catch(() => null),
-      auditApi.logs({ isError: 'true', limit: 5, since: since.value }).catch(() => [] as AuditLog[]),
-      auditApi.coverage({ since: since.value }).catch(() => null),
+      auditApi.logs({ isError: 'true', limit: 5, since: since.value, until: until.value }).catch(() => [] as AuditLog[]),
+      // The coverage statement is about the same window the rows were read from; an open-ended
+      // statement beside a windowed list would describe a different read.
+      // 覆盖声明说的就是读这些行时的那个窗口；窗口化列表旁边放一份无界声明，描述的是另一次读取。
+      auditApi.coverage({ since: since.value, until: until.value }).catch(() => null),
       auditApi.reviews().catch(() => null),
     ])
     logs.value = logsRes
@@ -598,6 +661,22 @@ async function load() {
 function onRange(key: string, s?: string) {
   range.value = key
   since.value = s
+  // A relative range replaces an absolute one; two windows at once would be two answers to one question.
+  // 相对区间取代绝对区间；两个窗口同时生效，等于对一个问题给了两个答案。
+  until.value = undefined
+  absoluteRange.value = null
+}
+
+/** U1：绝对区间 → 闭合的 `since`/`until`（发送前转 ISO 8601，服务端按 UTC 比较）。 */
+function onAbsoluteRange(value: Date[] | null) {
+  if (value && value.length === 2) {
+    since.value = value[0].toISOString()
+    until.value = value[1].toISOString()
+    range.value = ''
+  } else {
+    since.value = undefined
+    until.value = undefined
+  }
 }
 function toggleExpand(id: number) {
   const log = logs.value.find((l) => l.id === id)
@@ -721,25 +800,50 @@ function detailParts(detail: string | null | undefined): { toolName: string; arg
   return m ? { toolName: m[1], args: m[2] } : null
 }
 
-function onExport() {
-  downloadCsv(
-    'ai-audit',
-    [t('timeCol'), t('userCol'), t('featureCol'), t('modelCol'), t('tokenCol'), t('statusCol')],
-    logs.value.map((l) => [
-      formatTime(l.createdAt),
-      l.username || l.userId || '',
-      actionLabel(l),
-      l.provider ? `${l.provider}/${l.model}` : (l.model || ''),
-      (l.promptTokens ?? 0) + (l.completionTokens ?? 0),
-      l.isError ? t('error') : t('ok'),
-    ]),
-  )
-  snackbar.success(t('exportDone'))
+const exporting = ref(false)
+
+/**
+ * U1: the export is the six answers, produced by the server in product words. The console writes
+ * exactly what it received — it adds no column, and it cannot leak a name the server did not send.
+ *
+ * U1：导出就是六问，由服务端以产品词产出。控制台原样写出收到的内容 —— 不添列，也漏不出服务端
+ * 没有发的名字。
+ */
+async function onExport() {
+  const object = objectPair()
+  if (object === null) return
+  exporting.value = true
+  try {
+    const matrix = await auditApi.answers({
+      objectType: object.objectType,
+      objectId: object.objectId,
+      since: since.value,
+      until: until.value,
+      limit: 1000,
+    })
+    if (!matrix.match.found) {
+      // An empty file is not an answer; the sentence is.
+      // 空文件不是答案，那句话才是。
+      snackbar.show(matrix.match.statement, 'info')
+      return
+    }
+    downloadCsv('audit-six-answers', matrix.headers, matrix.rows)
+    if (matrix.match.truncated) snackbar.warning(matrix.match.statement)
+    else snackbar.success(t('exportDone'))
+  } catch (err) {
+    snackbar.error(err instanceof Error ? err.message : t('exportFailed'))
+  } finally {
+    exporting.value = false
+  }
 }
 
 onMounted(() => {
   const q = route.query.agentId
   if (typeof q === 'string' && q) agentId.value = q
+  // The picker's words come from the export's own vocabulary; a failed fetch leaves it empty rather
+  // than inventing labels the CSV would not use.
+  // 选择器的词来自导出自己的词表；取不到就留空，而不是编一套 CSV 不用的标签。
+  auditApi.objectTypes().then((r) => { objectTypes.value = r }).catch(() => { objectTypes.value = [] })
   load()
 })
 </script>

@@ -1,6 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Controller, Get, Post, Body, Query, Param, ParseIntPipe } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Get,
+  Post,
+  Body,
+  Query,
+  Param,
+  ParseIntPipe,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { AuditService } from '../../governance-shared/services/audit.service';
 import { AuditStatsService } from '../../governance-shared/services/audit-stats.service';
@@ -9,7 +19,11 @@ import { AuditEvidenceService } from '../../governance-shared/services/audit-evi
 import { CoverageService } from '../../governance-shared/services/coverage.service';
 import { AuditReviewService } from '../../governance-shared/services/audit-review.service';
 import { AuditQueryDto } from '../dto/audit-query.dto';
+import { AuditAnswersQueryDto } from '../dto/audit-answers-query.dto';
 import { SubmitFeedbackDto } from '../dto/submit-feedback.dto';
+import { AuditAnswersService } from '../services/audit-answers.service';
+import { AuditObjectIndexService } from '../services/audit-object-index.service';
+import { objectTypeOptions } from '../services/audit-export-vocabulary';
 import { CreateAuditReviewDto } from '../dto/create-audit-review.dto';
 import { CheckPolicies } from '../../common/casl/check-policies.decorator';
 import { ResponseOrdering } from '../../common/decorators/response-ordering.decorator';
@@ -63,6 +77,10 @@ export class AuditController {
     private readonly coverage: CoverageService,
     // AW-12 记录级复核：回执写入（链上）与复核状态读取
     private readonly auditReview: AuditReviewService,
+    // U1: business-object → audit rows, and the six-answer export built from the same rows.
+    // U1：业务对象 → 审计行，以及由同一批行拼出的六问导出。
+    private readonly objectIndex: AuditObjectIndexService,
+    private readonly answers: AuditAnswersService,
   ) {}
 
   @Get('logs')
@@ -78,15 +96,19 @@ export class AuditController {
   @ApiQuery({ name: 'isError', required: false, description: '按是否错误过滤（E-2 异常视图）' })
   @ApiQuery({ name: 'denied', required: false, description: '仅越权/阻断事件（A-8：isError + authorization 非空）' })
   @ApiQuery({ name: 'until', required: false, description: '结束时间（ISO 8601）—— 与 since 一起构成闭合期间' })
+  @ApiQuery({ name: 'objectType', required: false, description: '业务对象类型（与 objectId 成对）' })
+  @ApiQuery({ name: 'objectId', required: false, description: '业务对象 id（与 objectType 成对）' })
   async getLogs(@Query() query: AuditQueryDto, @CurrentUser() user: JwtPayload) {
     // Period is the requested window, closed on both ends. Org is the reader's account scope and is
     // applied inside the service — the request's `orgId` only narrows it.
     // 期间就是请求的窗口，两端闭合。组织是读者的账号范围，在服务里施加 —— 请求的 `orgId` 只能收紧它。
+    const ids = await this._objectRowIds(query.objectType, query.objectId);
     const base = {
       limit: query.limit,
       offset: query.offset,
       since: query.since ? new Date(query.since) : undefined,
       until: query.until ? new Date(query.until) : undefined,
+      ids,
     };
     const reader = { userId: user.sub, role: user.role };
     const rows = query.userId
@@ -105,6 +127,80 @@ export class AuditController {
     // not visible by default. Admins keep the full row (unchanged behaviour).
     // AW-2：审计读者收到的行由白名单重建，故日后新增的列默认不可见。管理员保留整行（行为不变）。
     return projectAuditRowsForCaller(rows, user.role);
+  }
+
+  /**
+   * The six answers, as product words, ready to be written as one CSV row each.
+   *
+   * <p>Six columns and **zero internal names**: the vocabulary module is the only place an internal
+   * token becomes text, and it never echoes an unknown one. The scope is the reader's, exactly like
+   * the list — an auditor's organisation, or their own rows when they belong to none.
+   *
+   * 六问，已是产品词，每条记录可直接写成一个 CSV 行。
+   *
+   * <p>六列、**0 处内部名**：把内部令牌翻成文字的只有词表模块一处，且它绝不回显不认识的令牌。
+   * 范围与列表完全相同 —— 审计读者的组织，不属于任何组织时退回本人行。
+   */
+  @Get('answers')
+  @CheckPolicies((ability) => ability.can('read', 'AuditLog'))
+  @ApiOperation({ summary: 'U1 六问导出：对象 + 区间 → 六列产品词（管理员 / 审计读者）' })
+  @ApiQuery({ name: 'objectType', required: false, description: '业务对象类型（与 objectId 成对）' })
+  @ApiQuery({ name: 'objectId', required: false, description: '业务对象 id（与 objectType 成对）' })
+  @ApiQuery({ name: 'since', required: false, description: '起始时间（ISO 8601）' })
+  @ApiQuery({ name: 'until', required: false, description: '结束时间（ISO 8601）' })
+  @ApiQuery({ name: 'limit', required: false, description: '最多导出的记录数（默认 500，上限 1000）' })
+  async getAnswers(@Query() query: AuditAnswersQueryDto, @CurrentUser() user: JwtPayload) {
+    const ids = await this._objectRowIds(query.objectType, query.objectId);
+    return this.answers.export(
+      {
+        objectType: query.objectType,
+        objectId: query.objectId,
+        since: query.since ? new Date(query.since) : undefined,
+        until: query.until ? new Date(query.until) : undefined,
+        limit: query.limit,
+      },
+      ids,
+      { userId: user.sub, role: user.role },
+    );
+  }
+
+  /**
+   * The business nouns a reader may search by. Served from the export's own vocabulary so the
+   * picker and the CSV cannot name the same object differently.
+   *
+   * 读者可以按之检索的业务名词。由导出自己的词表提供，使选择器与 CSV 不会把同一个对象叫成两个名字。
+   */
+  @Get('object-types')
+  @CheckPolicies((ability) => ability.can('read', 'AuditLog'))
+  @ApiOperation({ summary: 'U1 业务对象类型清单（对象检索用；管理员 / 审计读者）' })
+  getObjectTypes() {
+    return objectTypeOptions();
+  }
+
+  /**
+   * Turn `(objectType, objectId)` into audit row ids, or `undefined` when no object filter was
+   * given. Half a filter is a **400** rather than "every row": a typo that silently widens the read
+   * is the failure mode this guard exists to stop. An index that does not exist in this process is
+   * a **503** — never an empty page, which would read as "no match".
+   *
+   * 把 `(objectType, objectId)` 变成审计行 id；没有给对象过滤时返回 `undefined`。半个过滤条件是
+   * **400**，不是「全部行」：一个悄悄把读数放大的输入错误，正是这条护栏要拦住的东西。本进程没有索引
+   * 时答 **503** —— 绝不是一个空页，那会被读成「无匹配」。
+   */
+  private async _objectRowIds(
+    objectType?: string,
+    objectId?: number,
+  ): Promise<number[] | undefined> {
+    if (!objectType && objectId == null) return undefined;
+    if (!objectType || objectId == null) {
+      throw new BadRequestException('objectType and objectId must be given together');
+    }
+    if (!this.objectIndex.available) {
+      throw new ServiceUnavailableException(
+        'The business-object index is not available in this deployment; search by period instead.',
+      );
+    }
+    return this.objectIndex.auditRowIdsFor(objectType, objectId);
   }
 
   /**

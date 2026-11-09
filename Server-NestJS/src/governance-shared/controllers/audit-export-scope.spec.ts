@@ -57,4 +57,15 @@ describe('AuditController · evidence-package export gate', () => {
     expect(await reaches('getActionReport', UserRole.ADMIN)).toBe(true);
     expect(await reaches('getActionReport', UserRole.USER)).toBe(false);
   });
+
+  it('U1: the six-answer export and the object picker are reader surfaces, not administrator ones', async () => {
+    // `common` (a plain user) gets 403 on export — the minute's acceptance — while the audit reader
+    // reaches it, because the export is scoped exactly like the list.
+    // `common`（普通用户）导出得到 403 —— 纪要的验收；而审计读者够得到，因为导出的范围与列表完全相同。
+    for (const method of ['getAnswers', 'getObjectTypes']) {
+      expect(await reaches(method, UserRole.ADMIN)).toBe(true);
+      expect(await reaches(method, UserRole.AUDITOR)).toBe(true);
+      expect(await reaches(method, UserRole.USER)).toBe(false);
+    }
+  });
 });

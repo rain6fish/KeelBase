@@ -2,7 +2,7 @@
 
 import { api } from './client'
 import type { Paginated } from '@/types/api'
-import type { AuditLog, UsageStats, ActionReport, ChainVerifyResult, AuditInterpretation, IdentityChain, CoverageStatement, AuditReviewStatus } from '@/types/audit'
+import type { AuditLog, AuditAnswerMatrix, UsageStats, ActionReport, ChainVerifyResult, AuditInterpretation, IdentityChain, CoverageStatement, AuditReviewStatus } from '@/types/audit'
 import type { OperationAuditLog } from '@/types/admin'
 
 /** D4/A-6 审计证据包导出（GET /audit/action-report/export；v2 含 compliance 合规段） */
@@ -24,16 +24,43 @@ export interface ActionReportExport {
 }
 
 export const auditApi = {
-  logs(params: { userId?: string; agentId?: string; limit?: number; offset?: number; since?: string; isError?: 'true' | 'false'; denied?: 'true' } = {}): Promise<AuditLog[]> {
+  logs(params: { userId?: string; agentId?: string; limit?: number; offset?: number; since?: string; until?: string; isError?: 'true' | 'false'; denied?: 'true'; objectType?: string; objectId?: number } = {}): Promise<AuditLog[]> {
     const query: Record<string, string | number> = {}
     if (params.userId) query.userId = params.userId
     if (params.agentId) query.agentId = params.agentId
     if (params.limit != null) query.limit = params.limit
     if (params.offset != null) query.offset = params.offset
     if (params.since) query.since = params.since
+    if (params.until) query.until = params.until
     if (params.isError) query.isError = params.isError
     if (params.denied) query.denied = params.denied
+    if (params.objectType) query.objectType = params.objectType
+    if (params.objectId != null) query.objectId = params.objectId
     return api.get<AuditLog[]>('/audit/logs', query)
+  },
+  /**
+   * U1：六问导出。`rows` 已经是六个产品词，控制台只负责写 CSV —— 内部名不可能在这里被「顺带加上」。
+   *
+   * U1: the six-answer export. `rows` are already six product words; the console only writes the
+   * CSV, so an internal name cannot be «added along the way» here.
+   */
+  answers(params: { objectType?: string; objectId?: number; since?: string; until?: string; limit?: number } = {}): Promise<AuditAnswerMatrix> {
+    const query: Record<string, string | number> = {}
+    if (params.objectType) query.objectType = params.objectType
+    if (params.objectId != null) query.objectId = params.objectId
+    if (params.since) query.since = params.since
+    if (params.until) query.until = params.until
+    if (params.limit != null) query.limit = params.limit
+    return api.get<AuditAnswerMatrix>('/audit/answers', query)
+  },
+  /**
+   * U1：可检索的业务对象类型。与导出同一个词表 —— 选择器和 CSV 不会把同一个对象叫成两个名字。
+   *
+   * U1: the searchable business object types, from the export's own vocabulary, so the picker and
+   * the CSV cannot name the same object differently.
+   */
+  objectTypes(): Promise<Array<{ value: string; label: string }>> {
+    return api.get<Array<{ value: string; label: string }>>('/audit/object-types')
   },
   stats(since?: string): Promise<UsageStats> {
     return api.get<UsageStats>('/audit/stats', { ...(since ? { since } : {}) })
