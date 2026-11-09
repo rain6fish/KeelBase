@@ -257,6 +257,28 @@ export class R4ApprovalService {
     // 状态已由上面的条件更新落库；这里只回填 `executeApprovedTool` 默认注记要用的审批人
     req.approverId = approverId;
 
+    // The second person's decision is itself an audited act. The `tool_call` row that follows is
+    // written for the operator (it is their action being run); without a row of their own the
+    // approver leaves no record, and the audit read can only show the numeric id on the
+    // confirmation. Only the arbitration winner above reaches this point, so it cannot double up.
+    //
+    // 第二人的裁决本身是一次应被审计的行为。随后的 `tool_call` 行记的是 operator（被执行的是他的动作）；
+    // 没有自己的一行，批准人不留下记录，审计读面只能给出确认行上的数字 id。只有上面的仲裁胜者会走到
+    // 这里，故不会重复。
+    await this.auditService.log({
+      userId: approverId,
+      username: await this._userNameOf(approverId),
+      conversationId: req.conversationId ?? undefined,
+      action: 'tool_confirmation',
+      // The same per-tool shape `ai.service.ts` writes for an inline decision, so the interpreter,
+      // the decision trace and `deriveOutcome` read it without a second parser.
+      // 与 `ai.service.ts` 内联裁决写出的单条形状相同，故解释器、决策轨迹与 `deriveOutcome` 无需第二个解析器。
+      detail: `${req.toolName}(${req.args}) → ${decision}`,
+      outcome: decision === 'approve' ? 'approved' : 'declined',
+      tool: req.toolName,
+      isError: decision !== 'approve',
+    });
+
     if (decision === 'approve') {
       const result = await this.executeApprovedTool(req);
       return { ok: true, success: result.success, resultId: (result.data as any)?.id, message: result.error };
@@ -289,7 +311,19 @@ export class R4ApprovalService {
       return { success: false, error: 'execution already in progress or already completed' };
     }
 
-    const note = outcomeNote ?? `R4 approved by approver ${req.approverId}`;
+    // Name the approver, not only their id: the note is the one place the operator's own row can
+    // answer "who signed this off". The id stays beside the name so the row still resolves when the
+    // account was deleted (no snapshot) — the note never guesses at an identity.
+    //
+    // 点名批准人而不只是 id：这条注记是 operator 自己那一行能回答「谁签的」的唯一位置。名字旁边保留 id，
+    // 账号已删（无快照）时该行仍可解析 —— 注记不猜身份。
+    let note = outcomeNote;
+    if (!note) {
+      const approverName = req.approverId ? await this._userNameOf(req.approverId) : undefined;
+      note = req.approverId
+        ? `R4 approved by approver ${approverName ? `${approverName} (#${req.approverId})` : req.approverId}`
+        : 'R4 approved';
+    }
     let result: ToolResult;
     try {
       // AUTHZ-1：把 artifact 的 audience 带到执行点——本行从签发到执行跨请求（R4 可达小时/天级、
