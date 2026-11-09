@@ -324,13 +324,27 @@ export class GovernancePolicyService {
     return this.setPolicy(preset.policy);
   }
 
-  /** P-③（§internal.17 ① P-③，docs/policy-history-reproducible.spec.md）：跨版本回放。
-   *  历史优先——按 recorded.policyRevision 查 ai_governance_policy_history，「拿当时策略对象真重演」该工具放行判定
-   *  （tool_enabled；role_allowed 需当时用户角色、不在策略内 → 以 recorded checks 冻结结果为准，不夸大整条可重演）；
-   *  历史未命中回落「当前策略重放 + 漂移检出」（原 verifyReproducible 语义）。 */
+  /** P-③ cross-version replay (docs/policy-history-reproducible.spec.md): history first — look up
+   *  `ai_governance_policy_history` by `recorded.policyRevision` and actually replay the tool's allow
+   *  decision under that policy; on a miss, fall back to "replay under the current policy + drift
+   *  detection" (the original `verifyReproducible` semantics).
+   *
+   *  AW-13: replay more than `tool_enabled`. The other four decisions frozen in the snapshot — role /
+   *  writable field domain / destination / approval requirement — are each re-run against the policy
+   *  of the recorded revision with the same frozen inputs, giving their own `changed` flag
+   *  (`true` / `false` / `null`). `null` means "not comparable" (an old snapshot has no structured
+   *  inputs, or no role was recorded because none was required) and is never read as "unchanged"; the
+   *  reason goes to `notComparable`. Divergent item names go to `changedChecks`, which is what gives
+   *  "this write was authorized" a second source one can point at by name.
+   *
+   *  P-③（§internal.17 ① P-③）：跨版本回放。历史优先——按 recorded.policyRevision 查历史表，拿当时
+   *  策略对象真重演该工具放行判定；历史未命中回落「当前策略重放 + 漂移检出」。
+   *  AW-13：快照里冻结的另四项（角色 / 可写字段域 / 目的地 / 审批要求）各按同一份输入重跑，逐项给
+   *  `changed`；`null` 是「不可比对」，**不是**「没变」。
+   */
   async replayDecision(recorded: {
     tool?: string;
-    checks?: Array<{ name: string; ok?: boolean }>;
+    checks?: Array<{ name: string; ok?: boolean; detail?: Record<string, unknown> }>;
     policyRevision?: string;
   }): Promise<{
     mode: 'history' | 'current-fallback';
@@ -338,6 +352,15 @@ export class GovernancePolicyService {
     reproducible: boolean;
     policyChanged: boolean;
     toolDecisionChanged: boolean;
+    /** AW-13: false / true / null (not comparable). AW-13：false / true / null（不可比对） */
+    roleChanged: boolean | null;
+    fieldDomainChanged: boolean | null;
+    destinationChanged: boolean | null;
+    approvalChanged: boolean | null;
+    /** AW-13: items whose replay differs from the record (empty = no divergence). AW-13：重跑与记录不一致的检查项名 */
+    changedChecks: string[];
+    /** AW-13: items with no second source, plus a reason code. AW-13：给不出第二来源的检查项 + 原因码 */
+    notComparable: Array<{ check: string; reason: string }>;
     recordedRevision: string | null;
     snapshotRevision?: string | null;
     appliedAt?: Date | null;
@@ -345,54 +368,174 @@ export class GovernancePolicyService {
     note: string;
   }> {
     if (!recorded?.policyRevision) {
-      return { mode: 'current-fallback', verifiable: false, reproducible: false, policyChanged: false, toolDecisionChanged: false, recordedRevision: null, currentRevision: policyRevisionOf(undefined), note: '快照无策略版本（历史记录），无法校验' };
+      return {
+        mode: 'current-fallback', verifiable: false, reproducible: false, policyChanged: false,
+        toolDecisionChanged: false,
+        roleChanged: null, fieldDomainChanged: null, destinationChanged: null, approvalChanged: null,
+        changedChecks: [], notComparable: [],
+        recordedRevision: null, currentRevision: policyRevisionOf(undefined),
+        note: '快照无策略版本（历史记录），无法校验',
+      };
     }
     const snapshot = await this.getPolicySnapshotByRevision(recorded.policyRevision);
     const current = await this.getPolicy();
     const currentRevision = current.revision ?? policyRevisionOf(undefined);
     const policyChanged = recorded.policyRevision !== currentRevision;
+    // The policy the replay runs on: the historical snapshot when there is one, else the current one
+    // (that is what `current-fallback` has always meant).
+    // 重演所依据的策略：有历史快照用它，否则用当前（current-fallback 的既定语义）。
+    const replayPolicy = snapshot?.policy ?? current;
+    const toolCfg: Partial<ToolPolicyOverride> = recorded.tool ? (replayPolicy.tools?.[recorded.tool] ?? {}) : {};
+    const findCheck = (name: string) => recorded.checks?.find((c) => c.name === name);
+    const detailOf = (name: string): Record<string, unknown> | null => {
+      const detail = findCheck(name)?.detail;
+      return detail && typeof detail === 'object' ? detail : null;
+    };
+    const changedChecks: string[] = [];
+    const notComparable: Array<{ check: string; reason: string }> = [];
+
+    /** Re-run one check: only possible with both a recorded verdict and structured inputs; otherwise
+     *  report it as not comparable.
+     *
+     *  一道检查项的重跑：记录里有判定 + 结构化输入，才能重跑；否则如实报不可比对。 */
+    const compare = (
+      name: string,
+      replay: (detail: Record<string, unknown>) => { value: boolean } | { reason: string },
+    ): boolean | null => {
+      const check = findCheck(name);
+      if (!check || typeof check.ok !== 'boolean') {
+        notComparable.push({ check: name, reason: 'no-recorded-check' });
+        return null;
+      }
+      const detail = detailOf(name);
+      if (!detail) {
+        notComparable.push({ check: name, reason: 'no-structured-inputs' });
+        return null;
+      }
+      const replayed = replay(detail);
+      if ('reason' in replayed) {
+        notComparable.push({ check: name, reason: replayed.reason });
+        return null;
+      }
+      const changed = replayed.value !== check.ok;
+      if (changed) changedChecks.push(name);
+      return changed;
+    };
+
     let toolDecisionChanged = false;
-    const decisionEnabled = (cfg?: Partial<ToolPolicyOverride>): boolean => cfg?.enabled ?? true;
     if (recorded.tool) {
-      const recordedEnabled = recorded.checks?.find((c) => c.name === 'tool_enabled')?.ok;
+      const recordedEnabled = findCheck('tool_enabled')?.ok;
       if (typeof recordedEnabled === 'boolean') {
-        const under =
-          snapshot && snapshot.policy ? decisionEnabled(snapshot.policy.tools?.[recorded.tool]) : (await this.getToolPolicy(recorded.tool)).enabled;
-        if (recordedEnabled !== under) toolDecisionChanged = true;
+        const under = toolCfg.enabled ?? true;
+        if (recordedEnabled !== under) {
+          toolDecisionChanged = true;
+          changedChecks.push('tool_enabled');
+        }
+      } else {
+        notComparable.push({ check: 'tool_enabled', reason: 'no-recorded-check' });
       }
     }
-    const reproducible = !toolDecisionChanged;
-    if (snapshot) {
-      return {
-        mode: 'history',
-        verifiable: true,
-        reproducible,
-        policyChanged,
-        toolDecisionChanged,
-        recordedRevision: recorded.policyRevision,
-        snapshotRevision: snapshot.revision,
-        appliedAt: snapshot.appliedAt,
-        currentRevision,
-        note: policyChanged
-          ? toolDecisionChanged
-            ? `历史版重演不符：当时策略 ${snapshot.revision} 下该工具放行判定与记录不一致（现策略 ${currentRevision}）`
-            : `历史版重演一致：当时策略 ${snapshot.revision} 下该工具仍放行（现策略已变 ${currentRevision}）`
-          : `历史版重演一致（策略未变 ${snapshot.revision}）`,
-      };
-    }
-    return {
-      mode: 'current-fallback',
+
+    // Role: the snapshot froze the caller's role and the allow-list of that moment. No restriction in
+    // the historical revision ⇒ the verdict is trivially true; a restriction added later, with no
+    // role recorded because none was needed then ⇒ not comparable (never read as "unchanged").
+    //
+    // 角色：记录里冻结了当时的角色与白名单。历史版无限制 ⇒ 判定恒为真；历史版新增了限制、
+    // 而当时无限制所以没查角色 ⇒ 无从比对（不得默认「没变」）。
+    const roleChanged = compare('role_allowed', (detail) => {
+      const historicRoles = toolCfg.allowedRoles ?? [];
+      if (historicRoles.length === 0) return { value: true };
+      const role = detail.role;
+      if (typeof role !== 'string') return { reason: 'caller-role-not-recorded' };
+      return { value: historicRoles.includes(role) };
+    });
+
+    // Writable field domain: the snapshot holds argument names only (never values). An empty domain
+    // does not constrain ⇒ the verdict is trivially true.
+    //
+    // 可写字段域：记录里只有参数名（没有取值）。域为空 ⇒ 与否决无关，判定恒为真。
+    const fieldDomainChanged = compare('field_domain', (detail) => {
+      const historicDomain = toolCfg.writableFields ?? [];
+      if (historicDomain.length === 0) return { value: true };
+      const argKeys = Array.isArray(detail.argKeys) ? (detail.argKeys as unknown[]) : null;
+      if (!argKeys) return { reason: 'arg-keys-not-recorded' };
+      return { value: argKeys.every((key) => typeof key === 'string' && historicDomain.includes(key)) };
+    });
+
+    // Destination: where the call was pointed is a request-side fact (already frozen); the allow-list
+    // comes from the policy of the recorded revision.
+    //
+    // 目的地：目的地是请求侧的事实（已冻结），白名单来自记录版本的策略。
+    const destinationChanged = compare('destination_allowed', (detail) => {
+      const historicAllowed = toolCfg.allowedDestinations ?? [];
+      if (historicAllowed.length === 0) return { value: true };
+      const destination = detail.destination;
+      if (typeof destination !== 'string') return { reason: 'destination-not-recorded' };
+      return { value: historicAllowed.includes(destination) };
+    });
+
+    // Approval requirement: the mode follows from "the policy override of the recorded revision +
+    // the risk level declared then" — both are in the snapshot, so the replay is deterministic.
+    //
+    // 审批要求：档位由「记录版本的策略覆盖 + 当时声明的风险级」推导 —— 两者都在快照里，可确定重演。
+    const riskLevels: ToolRiskLevel[] = ['R0', 'R1', 'R2', 'R3', 'R4', 'R5'];
+    const approvalChanged = compare('approval_required', (detail) => {
+      const riskLevel = detail.riskLevel;
+      if (typeof riskLevel !== 'string' || !riskLevels.includes(riskLevel as ToolRiskLevel)) {
+        return { reason: 'risk-level-not-recorded' };
+      }
+      return { value: effectiveGateMode(toolCfg, riskLevel as ToolRiskLevel) === 'approval' };
+    });
+
+    const reproducible = changedChecks.length === 0;
+    const changedNote = changedChecks.length > 0 ? `；不一致项：${changedChecks.join(', ')}` : '';
+    const unknownNote =
+      notComparable.length > 0 ? `；不可比对项：${notComparable.map((n) => n.check).join(', ')}` : '';
+    const common = {
       verifiable: true,
       reproducible,
       policyChanged,
       toolDecisionChanged,
+      roleChanged,
+      fieldDomainChanged,
+      destinationChanged,
+      approvalChanged,
+      changedChecks,
+      notComparable,
       recordedRevision: recorded.policyRevision,
       currentRevision,
-      note: policyChanged
-        ? toolDecisionChanged
-          ? `策略已漂移（${recorded.policyRevision} → ${currentRevision}）且该工具放行判定已变，不可复现`
-          : `策略已漂移（${recorded.policyRevision} → ${currentRevision}），但该工具放行判定未受影响，仍可复现`
-        : '策略未变，该放行按记录版本可复现',
+    };
+    if (snapshot) {
+      return {
+        ...common,
+        mode: 'history',
+        snapshotRevision: snapshot.revision,
+        appliedAt: snapshot.appliedAt,
+        note:
+          (policyChanged
+            ? reproducible
+              ? `历史版重演一致：当时策略 ${snapshot.revision} 下该工具的放行判定与记录一致（现策略已变 ${currentRevision}）`
+              : `历史版重演不符：当时策略 ${snapshot.revision} 下有放行判定与记录不一致（现策略 ${currentRevision}）`
+            : reproducible
+              ? `历史版重演一致（策略未变 ${snapshot.revision}）`
+              : `历史版重演不符：策略未变 ${snapshot.revision}，但有一项判定与记录不一致`) +
+          changedNote +
+          unknownNote,
+      };
+    }
+    return {
+      ...common,
+      mode: 'current-fallback',
+      note:
+        (policyChanged
+          ? reproducible
+            ? `策略已漂移（${recorded.policyRevision} → ${currentRevision}），但记录中的判定未受影响，仍可复现`
+            : `策略已漂移（${recorded.policyRevision} → ${currentRevision}）且记录中有判定已变，不可复现`
+          : reproducible
+            ? '策略未变，该放行按记录版本可复现'
+            : '策略未变，但有一项判定与记录不一致') +
+        changedNote +
+        unknownNote,
     };
   }
 

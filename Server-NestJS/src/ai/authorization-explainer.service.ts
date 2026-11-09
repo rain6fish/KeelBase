@@ -18,7 +18,12 @@ import {
   AuthorizationReasons,
   ToolRiskLevel,
 } from './interfaces/tool.interface';
-import { GovernancePolicyService, sanitizeBoundedFields } from '../governance-shared/services/governance-policy.service';
+import {
+  GovernancePolicyService,
+  effectiveGateMode,
+  sanitizeBoundedFields,
+} from '../governance-shared/services/governance-policy.service';
+import { ToolGateService } from './tools/tool-gate.service';
 
 /**
  * §internal.16 A-5 / T5 跨入口一致：**放行授权依据快照的单一构造**（JSON 字符串）。
@@ -47,6 +52,16 @@ export class AuthorizationExplainerService {
     private readonly abilityFactory: CaslAbilityFactory,
     @Optional() private readonly governancePolicy?: GovernancePolicyService,
     @Optional() private readonly usersService?: UsersService,
+    /**
+     * AW-13: destination is resolved by `ToolGateService.destinationOf` — the single source the gate
+     * itself uses. Optional so degraded assemblies still explain everything else; absent, the
+     * destination check is simply not recorded (readers then report it as uncomparable, never as
+     * "unchanged").
+     *
+     * AW-13：目的地取自 `ToolGateService.destinationOf` —— 门控自己用的那个单一源。降级装配可省；
+     * 省了就不记这项检查（读侧如实报「不可比对」，绝不报「没变」）。
+     */
+    @Optional() private readonly toolGate?: ToolGateService,
   ) {}
 
   /**
@@ -65,6 +80,17 @@ export class AuthorizationExplainerService {
      * 缺省时仍按注册表取，行为与从前一致。
      */
     riskLevelOverride?: ToolRiskLevel,
+    /**
+     * AW-13: the arguments of *this* call, so the field-domain decision can be recorded together
+     * with the inputs it was taken on. Only names are kept (`argKeys`), never values — the values
+     * live in the tool-call row's `tool_args` column, as before. Callers that do not have the
+     * arguments yet simply omit it; readers then report the item as uncomparable.
+     *
+     * AW-13：**本次调用**的参数，用于把字段域判定与它依据的输入一起记下。只留参数名
+     * （`argKeys`），不留取值 —— 取值仍只在工具调用行的 `tool_args` 列。手上还没有参数的调用方
+     * 可以不传；读侧会对该项如实报「不可比对」。
+     */
+    args?: Record<string, unknown>,
   ): Promise<AuthorizationReasons> {
     const riskLevel = riskLevelOverride ?? this.toolRegistry.riskLevel(toolName);
     const riskStrategy = RISK_STRATEGY[riskLevel];
@@ -101,9 +127,22 @@ export class AuthorizationExplainerService {
           note: ok
             ? `角色 ${user.role} ∈ [${roles.join(', ')}]`
             : `需要角色 [${roles.join(', ')}]`,
+          detail: { allowedRoles: roles, role: user?.role ?? null },
         });
       } else {
-        checks.push({ name: 'role_allowed', ok: true, note: '无角色限制' });
+        // No restriction ⇒ the user row is not read (no extra query on the hot path): the decision is
+        // already determined by "there was no restriction then". If a later policy revision adds a
+        // role restriction, the reader has no role to compare against ⇒ it says "not comparable"
+        // rather than guessing.
+        //
+        // 无限制时**不查用户**（热路径不加一次读）：判定在「当时无限制」这一事实下已是确定的。
+        // 若历史版本的策略新增了角色限制，读侧没有当时的角色可比 ⇒ 如实报「不可比对」，而不是猜。
+        checks.push({
+          name: 'role_allowed',
+          ok: true,
+          note: '无角色限制',
+          detail: { allowedRoles: roles },
+        });
       }
       // CONF-1「有界变动」：本工具声明了界限时把它写进快照 —— 那次放行**可被追责到界限本身**，
       // 而不是追责到某一组具体取值（具体值在别的列：工具行 args / 字段域检查）。故这里**不需要** args。
@@ -115,6 +154,60 @@ export class AuthorizationExplainerService {
           note: `${field} 声明界限 ≤ ${bounded[field].max}（本次放行覆盖该界限内的取值）`,
         });
       }
+      // AW-13: each of the other four decisions is recorded as "decision + structured inputs". A
+      // reader re-runs them against the policy of the recorded revision and compares — "this write
+      // was authorized" stops resting on a single source. Only argument *names* are kept; values stay
+      // in the tool-call row's `tool_args` column.
+      //
+      // AW-13：另四项判定各自记成「判定 + 结构化输入」——读侧按记录版本的策略快照重跑这四项再对拍，
+      // 「这次写被授权了」由此不再只有单一来源。参数只留**名字**，取值仍在工具调用行的 `tool_args` 列。
+      if (args !== undefined) {
+        const writable = cfg.writableFields ?? [];
+        const argKeys = Object.keys(args ?? {});
+        const outside = writable.length > 0 ? argKeys.filter((k) => !writable.includes(k)) : [];
+        checks.push({
+          name: 'field_domain',
+          ok: outside.length === 0,
+          note:
+            writable.length === 0
+              ? '未声明可写字段域'
+              : outside.length === 0
+                ? `字段 [${argKeys.join(', ')}] ∈ 可写域 [${writable.join(', ')}]`
+                : `字段 ${outside.join(', ')} 不在可写域 [${writable.join(', ')}]`,
+          detail: { writableFields: writable, argKeys },
+        });
+      }
+      if (this.toolGate) {
+        // Destination comes from the gate's own resolver (AUTHZ-1 single source) — no second copy of
+        // that rule here.
+        //
+        // 目的地取自门控的同一个解析（AUTHZ-1 单一源），不在这里另写一份规则。
+        const destination = this.toolGate.destinationOf(toolName);
+        const allowedDestinations = cfg.allowedDestinations ?? [];
+        const ok = allowedDestinations.length === 0 || allowedDestinations.includes(destination);
+        checks.push({
+          name: 'destination_allowed',
+          ok,
+          note:
+            allowedDestinations.length === 0
+              ? `目的地 ${destination}（未声明白名单）`
+              : ok
+                ? `目的地 ${destination} ∈ [${allowedDestinations.join(', ')}]`
+                : `目的地 ${destination} 不在白名单 [${allowedDestinations.join(', ')}]`,
+          detail: { destination, allowedDestinations },
+        });
+      }
+      // Approval requirement: the effective gate mode. The risk level is the tool's own declaration
+      // (not in the policy), so it is frozen alongside the decision for the replayer.
+      //
+      // 审批要求：门控档位与实际风险级（后者来自工具声明，不在策略内，故随判定一起冻结）。
+      const gateMode = effectiveGateMode(cfg, riskLevel);
+      checks.push({
+        name: 'approval_required',
+        ok: gateMode === 'approval',
+        note: `门控档位 ${gateMode}（策略覆盖/声明的风险级 ${riskLevel} 推导）`,
+        detail: { mode: gateMode, riskLevel },
+      });
     }
     checks.push({
       name: 'user_scoped',

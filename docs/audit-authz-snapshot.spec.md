@@ -184,6 +184,25 @@ condition — its non-success shape is a failure.
   仍缺的一阶是 `turn` —— 轮次自己的审计行在轮次末尾才写，而这个事件没走到末尾，那是那次崩溃的事实，不是
   到期路径的缺口。
 
+## 5.7 四项判定的结构化输入（AW-13，2026-11-07 增量，纯加性）
+
+为了让「这次写被授权了」有可检出的第二来源，放行快照的 `checks[]` 里另四项判定各自带上结构化输入：
+
+| check | `ok` 的含义 | `detail` | 重算依据 |
+|---|---|---|---|
+| `role_allowed` | 当时角色在允许列表内（无限制恒真） | `{ allowedRoles, role? }` | 历史版 `allowedRoles` × 记录的角色 |
+| `field_domain` | 本次参数名都落在可写域内 | `{ writableFields, argKeys }` | 历史版 `writableFields` × 记录的参数名 |
+| `destination_allowed` | 目的地落在白名单内（无白名单恒真） | `{ destination, allowedDestinations }` | 历史版 `allowedDestinations` × 记录的目的地 |
+| `approval_required` | 生效档位是 `approval` | `{ mode, riskLevel }` | 历史版档位覆盖 × 记录的风险级 |
+
+- **纯加性**：`checks[]` 既有 `name/ok/note` 不变，只多一个可选 `detail`；拒绝路径（数组形状）不受影响。
+- **不留取值**：`field_domain.detail` 只含参数**名**（`argKeys`），取值仍在工具调用行的 `tool_args` 列。
+- **调用方不给参数就不记**：`getAuthorizationReasons` 的 `args` 可选；不给则没有 `field_domain`，读侧如实报「不可比对」。
+- **角色只在需要时查**：无角色限制时不读用户表（热路径不加一次读），此时 `detail.role` 缺省 —— 若后来的策略新增限制，读侧报不可比对而不是猜。
+- **目的地单一源**：取自 `ToolGateService.destinationOf`（AUTHZ-1），不另写规则。
+
+读侧重演见 [policy-history-reproducible.spec.md](policy-history-reproducible.spec.md) §4.1。
+
 ## 6. 相关
 
 - [security-showcase.spec.md](security-showcase.spec.md) — A2 对抗性证明（运行时边界演示）
