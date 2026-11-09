@@ -1301,6 +1301,7 @@ const zh = {
   aiApprovalsRetried: '已重试',
   aiApprovalsApprove: '批准',
   aiApprovalsDecline: '拒绝',
+  aiApprovalsSelfApproveBlocked: '本人不能批准自己发起的请求',
   aiApprovalsEmpty: '暂无待审批请求',
   aiApprovalStatusApproved: '已批准',
   aiApprovalStatusDeclined: '已拒绝',

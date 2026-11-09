@@ -1305,6 +1305,7 @@ const en: ZhDict = {
   aiApprovalsRetried: 'Retried',
   aiApprovalsApprove: 'Approve',
   aiApprovalsDecline: 'Decline',
+  aiApprovalsSelfApproveBlocked: 'You cannot approve your own request',
   aiApprovalsEmpty: 'No pending approvals',
   aiApprovalStatusApproved: 'Approved',
   aiApprovalStatusDeclined: 'Declined',
