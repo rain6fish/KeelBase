@@ -122,6 +122,39 @@ New `enabled` / `allowedRoles` fields; `requiresConfirmation` / `requiresApprova
     执行点因此补上这一维（`ToolGateService.assertApprovalRequirementHolds`，`executeWrite` 在目的地绑定之后调）：当前要求审批时，**凭据本身**必须证明有过一位审批人 —— 确认行 `status='approved'` **且** `approverId` 非空（操作者本人点的确认同样落 `approved`，但那不是双人审批）。不一致即**拒**，计数器记 `reason=approval_missing`。判据落在**凭据**上而不是调用方声明的布尔（「凭据要能在运行时被校验」）。
     **只在执行点可判**：发起时那个窗口还不存在，故决策前没有第二处可放。**边界**：只挡「要求变严」这一向 —— 策略**放宽**（R4→R3）时手上那张审批是**更强**的凭据，不构成拒绝理由（那会是一次功能倒退）。**fail-closed**：读不到凭据（未装配确认存储 / 未带 token）一律不放行 —— 这里挡的是**授权**，不是一条保护。
    **Approval is recomputed at the execution point (ACT-7)**: `requiresApproval` was evaluated only *before the decision*, while the artifact carries the tier it had *then* — so a policy escalation from R3 to R4 inside the waiting window let an *operator's own confirmation* stand in for an approval, when R4 means a **second person**. The execution point now recomputes it: when approval is required, the **credential itself** must show an approver (the confirmation row is approved *and* carries an `approverId`), otherwise the write is refused and counted as `approval_missing`. Only the execution point can decide this — the window does not exist earlier. The check is one-directional: a policy *downgrade* leaves a stronger credential in hand and is not a reason to refuse. It fails closed when the credential cannot be read.
+12. **裁决本身入审计：第二人留下自己的一行，读面据此点名（U2）**：ACT-7 证明「有过一位审批人」，这一条回答「他是谁」。
+    R4 此前只写 operator 的 `tool_call` 行，审计读者在确认行上只能看到一个数字 `approverId`，没有一行说出**是谁**做的决定。
+    现在 `R4ApprovalService.decideApproval` 在条件更新胜出后、执行之前，以**批准人本人**身份写一条 `tool_confirmation`
+    审计行：`userId` / `username` 是批准人（用户名快照），`action='tool_confirmation'`，`detail` 与**会话内联确认**同形
+    （`工具名(参数JSON) → approve|decline`），`outcome` 是 `approved` / `declined`，`tool` 是工具名，拒绝时 `isError=true`
+    —— 同一形状，故解释器、决策轨迹与 `deriveOutcome` 无需第二个解析器；只有仲裁胜者走到这里，故不会重复。
+    执行行的默认注记同时点名批准人：`R4 approved by approver <姓名> (#<id>)`；取不到姓名快照时回落纯 id（账号已删 /
+    未注入用户服务），**不猜身份**。
+    读面：`GET /audit/logs/:id/interpretation` 的 `approval` 腿新增 `approverName`，取自**同一会话**内批准人自己那条
+    `tool_confirmation` 行的用户名快照。该行不存在（早于本行为的记录）⇒ `approverName = null`，读面回落显示 id，
+    **不按工具名加时间推断**。
+    **守卫**：`Server-NestJS/test/r4-second-approver-audit.e2e-spec.ts` 只走产品自己的门（管理员经治理策略把
+    `create_followup_task` 升到审批档 → operator 经 `/ai/chat/stream` 与 demo provider 发起 → 另一名管理员经
+    `POST /ai/confirmations/:token/approve-by` 裁决），经审计读面断言批准人那一行带其 id 与用户名快照、执行行以
+    「姓名 (#id)」点名、哈希链仍可验；只把 `r4-approval.service.ts` 回退到该行为之前，批准人行的断言即红。
+   **The decision is itself audited: the second person leaves a row of their own, and the read face names them (U2)**:
+   ACT-7 proves *that* an approver exists; this answers *who*. R4 used to write only the operator's `tool_call` row, so
+   an audit reader saw a numeric `approverId` on the confirmation and no row naming the person who decided.
+   `decideApproval` now writes a `tool_confirmation` row attributed to the approver themselves — their user id and
+   username snapshot, action `tool_confirmation`, the same `detail` shape the inline confirmation path writes,
+   `outcome` `approved`/`declined`, `tool` the tool name, `isError` true on a decline — so the interpreter, the
+   decision trace and `deriveOutcome` read it without a second parser; only the arbitration winner reaches this
+   point. The execution row's default note names the approver as `name (#id)`, falling back to the bare id when no
+   snapshot exists (a deleted account, or no user service injected) — it never guesses at an identity. On the read
+   face, `GET /audit/logs/:id/interpretation` returns `approverName` on the `approval` leg, taken from the approver's
+   own row in the same conversation; a record written before that row existed has none, so the value is `null` and the
+   read keeps the id — never inferred from a tool name plus a timestamp. The guard is
+   `Server-NestJS/test/r4-second-approver-audit.e2e-spec.ts`, which reaches the tier through the product's own doors
+   and asserts the approver's row, the execution note and chain validity; reverting only `r4-approval.service.ts` to
+   its pre-change state turns the approver-row assertion red.
+    **相关 / Related**：[authorization-architecture.md](authorization-architecture.md) §4.1（R4 授权路径与审计归属）·
+    [ai-agent.spec.md](ai-agent.spec.md) §5.1（会话内联确认的形状）· [hs11-audit-chain.spec.md](hs11-audit-chain.spec.md)（哈希链）·
+    [ai-action-center.spec.md](ai-action-center.spec.md)（确认记录与离线裁决）。
 
 ---
 
