@@ -11,6 +11,8 @@ Bilingual (EN/ZH) manuals for KeelBase. 中英双语手册。
 | [Concept Map (EN)](concepts-en.md) | Everyone / 所有人 | English concept map |
 | [Rules Map / 规则地图](rules-map.md) | Developers / 开发者 | **哪类规则在哪份文件**（规则入口）/ which rule lives in which file |
 | [Rules Map (EN)](rules-map-en.md) | Developers / 开发者 | English rules map |
+| [Release Cadence / 发版节奏](release-cadence.md) | Ops / 运维 | when a version is opened, the three release lines, the gates each tag must pass and the order — and when to stop / 何时开版本、三条发布线的门与顺序、以及何时停止 |
+| [Supply-Chain Security Criterion / 供应链安全口径](supply-chain.md) | Developers / 开发者 | dependency scan scope, severity thresholds, baseline obligations, base-image pins and stop conditions / 依赖扫描射程、阈值、基线义务、镜像钉与停止条件 |
 | [FAQ / 常见问题](faq.md) | Everyone / 所有人 | 按主题排查（环境/启动/账号/AI/部署）/ topic-based troubleshooting |
 | [FAQ (EN)](faq-en.md) | Everyone / 所有人 | English topic-based troubleshooting |
 | [Usage Manual / 使用手册](usage.md) | End users / 终端用户 | Feature URLs & common operations / 功能 URL 与常见操作 |
