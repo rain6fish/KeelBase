@@ -238,7 +238,9 @@
             <el-tag size="small">{{ interpretation.approval.status }}</el-tag>
             <span>{{ interpretation.approval.riskLevel }}</span>
             <span v-if="interpretation.approval.approverId" class="text-medium-emphasis">
-              {{ t('approverCol') }}: {{ interpretation.approval.approverId }}
+              {{ t('approverCol') }}: {{ interpretation.approval.approverName
+                ? `${interpretation.approval.approverName}（#${interpretation.approval.approverId}）`
+                : interpretation.approval.approverId }}
             </span>
             <span v-if="interpretation.approval.decidedAt" class="text-medium-emphasis">
               {{ formatTime(interpretation.approval.decidedAt) }}

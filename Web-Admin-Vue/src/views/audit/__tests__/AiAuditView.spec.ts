@@ -338,4 +338,59 @@ describe('AiAuditView', () => {
     expect(wrapper.text()).not.toContain('已复核')
     wrapper.unmount()
   })
+
+  // U2: the approval leg answers "who signed this off" with a name, not only a numeric id — and
+  // still falls back to the bare id when the record predates the approver's own decision row.
+  // U2：「谁批准」这一腿用姓名回答「谁签的字」，而不只是数字 id —— 早于批准人自己裁决行的记录，
+  // 仍回落到纯 id。
+  describe('approval leg names the approver', () => {
+    function stubWithApproval(approval: Record<string, unknown>) {
+      logsMock.mockResolvedValue([
+        { id: 1, action: 'tool_call', actionKey: 'ai.toolCall', createdAt: '2026-08-20', isError: false },
+      ])
+      statsMock.mockResolvedValue({ totalTokens: 0, byDay: [] })
+      interpretationMock.mockResolvedValue({
+        row: { id: 1 },
+        summary: {
+          sentence: '业务摘要',
+          key: null,
+          businessEvent: null,
+          stats: { businessEvents: [], evidence: [], confirmations: { approved: 0, declined: 0 }, blocked: 0, errors: 0 },
+        },
+        conversation: [],
+        state: 'executed',
+        effect: null,
+        operationAudit: [],
+        approval,
+      })
+      return mountView()
+    }
+
+    it('有姓名快照 ⇒ 渲染「姓名（#id）」', async () => {
+      const wrapper = stubWithApproval({
+        token: 'tok-1', toolName: 'create_task', riskLevel: 'R4', kind: 'single', status: 'approved',
+        approverId: '2', approverName: 'admin', decidedAt: null, expiresAt: null,
+      })
+      await flushPromises()
+      await wrapper.find('.app-table-stub button').trigger('click')
+      await flushPromises()
+
+      expect(wrapper.text()).toContain('批准人: admin（#2）')
+      wrapper.unmount()
+    })
+
+    it('无姓名快照（老记录）⇒ 仍显示原 id', async () => {
+      const wrapper = stubWithApproval({
+        token: 'tok-1', toolName: 'create_task', riskLevel: 'R4', kind: 'single', status: 'approved',
+        approverId: '2', approverName: null, decidedAt: null, expiresAt: null,
+      })
+      await flushPromises()
+      await wrapper.find('.app-table-stub button').trigger('click')
+      await flushPromises()
+
+      expect(wrapper.text()).toContain('批准人: 2')
+      expect(wrapper.text()).not.toContain('（#2）')
+      wrapper.unmount()
+    })
+  })
 })

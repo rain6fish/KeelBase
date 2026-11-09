@@ -144,6 +144,11 @@ export interface AuditInterpretation {
     kind: string | null
     status: string
     approverId: string | null
+    /**
+     * The approver's name snapshot, from their own decision row; `null` on older records.
+     * 批准人的姓名快照，取自其自己的裁决行；早于该行的记录为 `null`。
+     */
+    approverName: string | null
     decidedAt: string | null
     expiresAt: string | null
   } | null
