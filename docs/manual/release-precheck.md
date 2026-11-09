@@ -17,6 +17,7 @@
      - `--max-tools` 不要调：模板默认已是 50，小于默认不生效；
      - **基线**（2026-10-18，`v1.1.0..HEAD`，默认 `medium`）：407 文件 / 70 组 / 4,560 次调用 / 267.4M 输入 + 3.62M 输出 / 45m26s / ≈29.9 元。本档目标 **90–120M 输入 / 10–13 元**。
    - **全量**：`ocr scan`（全文件审查）**须单独说明**（谁要 · 为什么 · 预计成本）—— 2026-10-18 实测：一次全量扫 5 个仓 = **4438 次请求 / 42.54 元一小时**，而大多数文件自上次发版以来没动过（`P1-15`）。确需全量时用 `--path` 限定本次动过的目录，并带 `--max-tokens-budget`；`scan` 没有 `--effort`，省 token 靠 `--no-plan` / `--no-dedup` / `--no-summary` 与范围控制。
+   - **脚本入口（强制默认档）**：`./scripts/ocr-review-default.sh`——自动取上一发布 tag 与当前分支、打印区间与改动文件清单后调用 `ocr review`；`--print-range` 只看范围、不调 OCR；全量必须 `--full --reason "<谁要 / 为什么 / 预计成本>"`，否则退出码 2。
    - 或 Claude Code 会话内 `/open-code-review:delegate-review`（OCR 选文件/规则 + 宿主审查，免 key）
 2. **Claude Code 自带 code review**：对同一 diff 跑 Claude 的多维代码审查（正确性 / 安全 / 性能 / 简化 / 测试覆盖）。
 3. **code-review skill（mattpocock，2026-08-28 安装）**：对同一区间跑双轴评审——Standards（是否符合仓库编码规范）与 Spec（是否符合源 issue/spec 要求），两轴并行子代理，结果并排报告。触发方式：`/code-review <commit|branch|tag|merge-base>`。
