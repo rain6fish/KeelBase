@@ -73,8 +73,11 @@ report the same packages twice. `isShadowed` skips any lockfile whose directory 
   with "no offline version of the OSV database is available" and writes an empty BOM.
   `scripts/check-sbom-coverage.mjs` derives the expected set from the scanner's own `Scanned …` lines
   (7 lockfiles; the shadowed `Front-Taro/pnpm-lock.yaml` is reported, not demanded) and requires one marker
-  component per tree. The document is uploaded as the `keelbase-sbom` artifact. Attaching it to a GitHub
-  Release is **not** implemented — that is a decision still open.
+  component per tree. Paths inside an installed `node_modules` tree are dropped before the comparison —
+  `--no-ignore` makes the scanner walk into them, and they are output of the declared lockfiles, not
+  sources; a directory that merely starts with the same word stays in scope. The document is uploaded as
+  the `keelbase-sbom` artifact. Attaching it to a GitHub Release is **not** implemented — that is a
+  decision still open.
 
 ### Commands added by this slice
 
@@ -430,8 +433,10 @@ describe them as accepted risk.
   不带它时输出只含「有漏洞的组件」（2026-11-10 实测：74 个组件 vs 带上后的 2631 个），那是漏洞报告、
   不是清单。`--offline` 不可用 —— 它以 127 退出并报「没有离线 OSV 数据库」，只写出一份空 BOM。
   `scripts/check-sbom-coverage.mjs` 从扫描器自己的 `Scanned …` 行取期望集合（7 份锁文件；被遮蔽的
-  `Front-Taro/pnpm-lock.yaml` 只报告、不要求），并要求每棵树有一个标记组件。文档作为 `keelbase-sbom`
-  产物上传。把它附到 GitHub Release **尚未**实现 —— 那是一个仍未定的决定。
+  `Front-Taro/pnpm-lock.yaml` 只报告、不要求），并要求每棵树有一个标记组件。落在已安装 `node_modules`
+  树里的路径在比对前被剔除 —— `--no-ignore` 让扫描器走了进去，而它们是已声明锁文件的产物、不是来源；
+  只是以同一个词开头的目录仍在射程内。文档作为 `keelbase-sbom` 产物上传。把它附到
+  GitHub Release **尚未**实现 —— 那是一个仍未定的决定。
 
 ### 本次新增的命令
 

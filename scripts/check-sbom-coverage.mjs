@@ -9,6 +9,12 @@
  * names every lockfile it read — this check reads that log, compares it with the expected set, and
  * requires one marker component per tree in the BOM.
  *
+ * Installed dependency trees are out of scope: the SBOM step passes `--no-ignore` (a checkout can itself
+ * sit under a gitignored path), so the scanner also walks into `node_modules` and reports a few package
+ * directories there as `Scanned … (0 packages)`. Those are output of the tree's own lockfiles, not
+ * sources; this check drops them before the set comparison, while a path that merely starts with the
+ * same word (`node_modules-backup/…`) is still an undeclared scan object.
+ *
  * Six of the seven lockfiles carry a package that appears in no other tree, so a missing marker proves
  * the tree is absent. The contract submodule (six packages) has no such marker — every one of its
  * packages also appears elsewhere — so its coverage is the scanner's own `Scanned …` line, made
@@ -20,6 +26,11 @@
  * 一份悄悄少覆盖的 SBOM 比没有 SBOM 更糟：它对「X 在不在我们树里」给出自信的「不在」。扫描器与门禁是同一个，
  * 它自己的进度日志会点名读过的每一份锁文件 —— 本检查读那份日志、与期望集合比对，并要求 BOM 里每棵树有一个
  * 标记包。
+ *
+ * 已安装的依赖树不在射程内：SBOM 步骤传了 `--no-ignore`（检出本身可能落在被忽略的路径下），扫描器因此也会
+ * 爬进 `node_modules`，并在那里把少数包目录报成 `Scanned …（0 packages）`。它们是本树锁文件的产物、不是
+ * 来源；本检查在集合比对前把它们剔除，而只是以同一个词开头的路径（`node_modules-backup/…`）仍算未声明的
+ * 扫描对象。
  *
  * 七份锁文件里有六份带一个只在本树出现的包，标记缺失即证明该树没进 BOM。契约子模块（六个包）没有这样的
  * 标记 —— 它的每个包在别处也出现 —— 所以它的覆盖以扫描器自己的 `Scanned …` 行为证，靠集合比对强制。
@@ -74,6 +85,20 @@ function isShadowed(file) {
   return fs.existsSync(path.join(ROOT, path.dirname(file), 'package-lock.json'));
 }
 
+/**
+ * A path inside an installed dependency tree is output of this repository's own lockfiles, not a source
+ * lockfile: the scanner only reaches it because the SBOM step passes `--no-ignore`, and every such entry
+ * it reports there carries 0 packages. Matching a whole path segment keeps `node_modules-backup/…` a
+ * source, so an install directory cannot be used to smuggle an undeclared lockfile past the gate.
+ *
+ * 位于已安装依赖树内的路径是本仓锁文件的产物，不是来源锁文件：扫描器只因 SBOM 步骤传了 `--no-ignore`
+ * 才走到那里，而且它在那里报的每一条都是 0 个包。按整个路径段匹配，`node_modules-backup/…` 仍算来源，
+ * 一个安装目录因此无法把未声明的锁文件偷偷带过门禁。
+ */
+function isInstalledDependencyTree(file) {
+  return file.split('/').includes('node_modules');
+}
+
 /** Component names from `name`/`group` and the purl, which URL-encodes scoped npm names. */
 function componentNames(bom) {
   const names = new Set();
@@ -113,8 +138,10 @@ function check({ sbomPath, logPath }) {
 
   const problems = [];
   const all = parseScanLog(log);
-  const discovered = all.filter((entry) => !isShadowed(entry.file));
-  const skipped = all.filter((entry) => isShadowed(entry.file));
+  const installed = all.filter((entry) => isInstalledDependencyTree(entry.file));
+  const sources = all.filter((entry) => !isInstalledDependencyTree(entry.file));
+  const discovered = sources.filter((entry) => !isShadowed(entry.file));
+  const skipped = sources.filter((entry) => isShadowed(entry.file));
   const names = componentNames(bom);
 
   for (const entry of discovered) {
@@ -132,7 +159,7 @@ function check({ sbomPath, logPath }) {
     }
   }
 
-  return { status: problems.length ? 1 : 0, problems, components: bom.components.length, discovered, skipped };
+  return { status: problems.length ? 1 : 0, problems, components: bom.components.length, discovered, skipped, installed };
 }
 
 function selftest() {
@@ -190,6 +217,28 @@ function selftest() {
   result = check({ sbomPath, logPath });
   checkCase('green: the shadowed pnpm lockfile is reported, not demanded', result.status === 0 && result.skipped.length === 1, result);
 
+  write(
+    asComponents(markers),
+    [...expected, 'Scanned Server-NestJS/node_modules/better-sqlite3/deps/sqlite3 file and found 0 packages'],
+  );
+  result = check({ sbomPath, logPath });
+  checkCase(
+    'green: a path inside an installed dependency tree is out of scope, not undeclared',
+    result.status === 0 && result.installed.length === 1,
+    result,
+  );
+
+  write(
+    asComponents(markers),
+    [...expected, 'Scanned Server-NestJS/node_modules-backup/package-lock.json file and found 3 packages'],
+  );
+  result = check({ sbomPath, logPath });
+  checkCase(
+    'red: a sibling directory that merely starts with "node_modules" is still undeclared',
+    result.status === 1 && result.problems.some((p) => p.includes('node_modules-backup/package-lock.json')),
+    result,
+  );
+
   fs.writeFileSync(sbomPath, '{"bomFormat":"SPDX"}');
   fs.writeFileSync(logPath, '');
   result = check({ sbomPath, logPath });
@@ -200,7 +249,7 @@ function selftest() {
     console.error(`[sbom-coverage] self-test: ${failures} expectation(s) not met`);
     process.exit(1);
   }
-  console.log('[sbom-coverage] self-test: coverage, drift and the shadowed lockfile all behave as specified');
+  console.log('[sbom-coverage] self-test: coverage, drift, the shadowed lockfile and installed dependency trees all behave as specified');
 }
 
 function arg(name, fallback) {
@@ -217,6 +266,7 @@ if (process.argv.includes('--selftest')) {
 
   for (const entry of result.discovered || []) console.log(`[sbom-coverage] scanned ${entry.file} (${entry.packages} packages)`);
   for (const entry of result.skipped || []) console.log(`[sbom-coverage] skipped shadowed ${entry.file}`);
+  for (const entry of result.installed || []) console.log(`[sbom-coverage] out of scope (installed dependency tree): ${entry.file}`);
   if (typeof result.components === 'number') console.log(`[sbom-coverage] BOM components: ${result.components}`);
 
   if (result.status === 2) {
