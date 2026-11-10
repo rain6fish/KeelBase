@@ -154,9 +154,12 @@ describe('Cross-entry decision consistency (T5)', () => {
     expect(snap.tool).toBe('query_events');
 
     // 依据同源：快照携带的「为何允许」与授权解释器对同一 tool+user 的判定一致
+    // The snapshot records the field-domain check from the args this call carried; the same (empty)
+    // args keep the comparison on the same inputs.
+    // 快照记录的是本次调用参数产生的字段域检查；传同一份（空）参数，使比对基于同一组输入。
     const reasons = await app
       .get(AuthorizationExplainerService)
-      .getAuthorizationReasons('query_events', String(mcpUserId), false);
+      .getAuthorizationReasons('query_events', String(mcpUserId), false, undefined, {});
     expect(snap.checks).toEqual(reasons.checks);
     expect(snap.riskLevel).toBe(reasons.riskLevel);
     expect(snap.strategy).toBe(reasons.riskStrategy);
