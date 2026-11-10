@@ -185,12 +185,25 @@ OSV_SCANNER=/tmp/osv-scanner node scripts/check-dependency-scan.mjs --verbose
 On Windows the release asset is `osv-scanner_windows_amd64.exe`, with sha256
 `9964ed64ec9a387391eb4cc006ad5c531154821aef29b793e02c448de4686438`.
 
+The binary can live anywhere; the gate only needs its path. This checkout keeps it off `PATH` at
+`D:/Rain6fish/.tools/osv-scanner/osv-scanner.exe` — 2.7.0, the version CI pins, with the sha256 above —
+and points at it per run:
+
+```bash
+OSV_SCANNER="D:/Rain6fish/.tools/osv-scanner/osv-scanner.exe" node scripts/check-dependency-scan.mjs
+```
+
+With neither `OSV_SCANNER` nor an `osv-scanner` on `PATH`, the gate exits **2** and prints
+`未核 (unverified) — osv-scanner could not be run (ENOENT)`. That is neither a pass nor a finding: the
+tree was never scanned. Measured 2026-11-10.
+
 One operational fact, measured 2026-11-08: `osv-scanner` does not read a tree that lives under a
 `.claude/` directory. A lockfile placed under `…/.probe-plain/` was read (1 package); the same file under
-`…/.claude/probe-plain/` was not read (0 packages). Desktop-app worktrees are created at
-`.claude/worktrees/<name>`, so running
-the gate from one reports "No package sources found" and the gate exits 2 as **未核** — correctly, since
-it cannot claim a clean tree. Run it from a plain checkout to get a reading.
+`…/.claude/probe-plain/` was not read (0 packages). The gate compensates: when the recursive walk finds
+no package sources it retries with `--no-ignore` (`scripts/check-dependency-scan.mjs:404`), so a run from
+a desktop-app worktree at `.claude/worktrees/<name>` still yields a real reading. An exit 2 from a
+worktree now means something else — the retry also found nothing, the OSV API was unreachable, or the
+binary was missing — not that such a checkout cannot be read.
 
 **Not in `npm run check:all`.** `check-all.mjs` runs only `check:*` scripts (`scripts/check-all.mjs:56`)
 and the gate is not registered as one; a local skip would print as a pass in that summary table. The same
@@ -519,11 +532,24 @@ OSV_SCANNER=/tmp/osv-scanner node scripts/check-dependency-scan.mjs --verbose
 Windows 上的发布件是 `osv-scanner_windows_amd64.exe`，sha256 为
 `9964ed64ec9a387391eb4cc006ad5c531154821aef29b793e02c448de4686438`。
 
+二进制放哪都行，门禁只要它的路径。本检出把它放在 `PATH` 之外 ——
+`D:/Rain6fish/.tools/osv-scanner/osv-scanner.exe`（2.7.0，即 CI 钉住的版本，sha256 见上）—— 每次运行
+指过去：
+
+```bash
+OSV_SCANNER="D:/Rain6fish/.tools/osv-scanner/osv-scanner.exe" node scripts/check-dependency-scan.mjs
+```
+
+既没有 `OSV_SCANNER`、`PATH` 上也没有 `osv-scanner` 时，门禁以 **2** 退出并打印
+`未核 (unverified) — osv-scanner could not be run (ENOENT)`。它既不是通过也不是发现：这棵树根本没被扫过。
+2026-11-10 实测。
+
 一条 2026-11-08 实测的操作事实：`osv-scanner` 不读位于 `.claude/` 目录之下的树。放在
 `…/.probe-plain/` 下的锁文件被读到（1 个包），同一份放在 `…/.claude/probe-plain/` 下则没被读到
-（0 个包）。桌面应用把工作树建在
-`.claude/worktrees/<名字>`，所以从那里跑门禁会报「没有找到包源」，门禁以 2 退出、报**未核** —— 这是对的，
-因为它无法声称这棵树是干净的。要拿到读数，请在普通检出里跑。
+（0 个包）。门禁对此有补偿：走查找不到包源时会以 `--no-ignore` 重试
+（`scripts/check-dependency-scan.mjs:404`），因此在 `.claude/worktrees/<名字>` 下的桌面应用工作树里跑
+**仍能得到真实读数**。从工作树里以 2 退出，现在意味着别的缘故 —— 重试后仍找不到、OSV API 不通，或二进制
+缺失 —— 不再意味着这类检出读不了。
 
 **它不进 `npm run check:all`。** `check-all.mjs` 只跑 `check:*` 脚本（`scripts/check-all.mjs:56`），
 而这道门没有注册成其中之一；本地跳过会在那张汇总表里读起来与通过一模一样。`migration-consistency-postgres`
