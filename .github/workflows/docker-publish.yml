@@ -10,6 +10,9 @@
 #
 # 构建策略：flutter-action 在 runner 宿主机构建 Flutter web（build/web），
 # Dockerfile.single 的 flutter-build stage 是 scratch COPY 该产物 —— 与本机一致、Linux 稳定。
+#
+# 发布顺序：build（不推送）→ Trivy 扫描 → push。扫描判红时，推送这一步根本不会执行。
+# Publish order: build (no push) → Trivy scan → push. A red scan means the push step never runs.
 
 name: Docker Publish
 
@@ -21,6 +24,13 @@ on:
 env:
   NODE_VERSION: '22'
   IMAGE_NAME: ghcr.io/rain6fish/keelbase
+  # Trivy scans the built image before anything is pushed. The action is pinned by commit (in `uses:`,
+  # which cannot take an expression) and the Trivy binary by version, so the verdict cannot change under
+  # a floating tag. The DB timestamp is recorded in the log below the same way.
+  # Trivy 在推送之前扫描构建出的镜像。action 按提交钉住（`uses:` 不接受表达式）、Trivy 二进制按版本钉住，
+  # 结论不会随浮动标签而变。数据库时间戳同样在下面写进日志。
+  TRIVY_VERSION: v0.76.2
+  TRIVY_CACHE_DIR: ${{ github.workspace }}/.cache/trivy
 
 jobs:
   publish:
@@ -91,10 +101,94 @@ jobs:
           fi
           echo "tags=$TAGS" >> "$GITHUB_OUTPUT"
 
-      - name: Build and push single-container image
+      # Build only — nothing is pushed yet. `load: true` puts the image in the local Docker daemon so
+      # Trivy can scan it by tag; the publish tags are applied here too, so the push step below needs no
+      # re-tagging. A failing scan stops the job and the push step never runs.
+      # 只构建 —— 此时还没有任何推送。`load: true` 把镜像装进本地 Docker，Trivy 可按标签扫描；发布标签也一并
+      # 打上，下面的推送步骤就不必再重打标签。扫描判红则 job 停下，推送步骤根本不会执行。
+      - name: Build single-container image (no push)
         uses: docker/build-push-action@v6
         with:
           context: .
           file: Dockerfile.single
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          push: false
+          load: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:scan
+            ${{ steps.meta.outputs.tags }}
+
+      # Report first, gate second: the report step installs Trivy and downloads the DB, so the gate step
+      # runs with a warm cache and the version/timestamp recording below happens before any red can stop
+      # the job. `--ignore-unfixed` in the gate would hide unfixed findings; this step prints them.
+      # 先报告、后判红：报告这一步装好 Trivy 并下载数据库，判红那一步因此是热缓存，而且下面的版本/时间戳记录
+      # 发生在任何红之前。判红那一步的 `--ignore-unfixed` 会把无修复的发现藏起来 —— 这一步把它们打印出来。
+      - name: Scan image — report HIGH/CRITICAL (does not fail)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25   # v0.36.0
+        with:
+          scan-type: image
+          image-ref: ${{ env.IMAGE_NAME }}:scan
+          version: ${{ env.TRIVY_VERSION }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: false
+          exit-code: '0'
+          format: json
+          output: trivy-high-critical.json
+          cache: true
+          cache-dir: ${{ env.TRIVY_CACHE_DIR }}
+
+      - name: Report findings with no fixed version
+        run: node scripts/trivy-unfixed-report.mjs trivy-high-critical.json
+
+      - name: Record Trivy version and vulnerability DB timestamp
+        shell: bash
+        run: |
+          set -euo pipefail
+          trivy --version
+          META="$TRIVY_CACHE_DIR/db/metadata.json"
+          if [ ! -f "$META" ]; then
+            echo "::error::Trivy DB metadata not found at $META — the scan below cannot be attributed to a database"
+            exit 1
+          fi
+          echo "Trivy DB metadata: $(cat "$META")"
+
+      # Fail on HIGH/CRITICAL **with a fix available**. Unfixed findings were reported by the step above
+      # and do not block a publish — otherwise an image could never ship while upstream owes a fix.
+      # Exceptions live in `.trivyignore.yaml`; `npm run check:trivyignore` requires a statement and an
+      # expiry on every entry.
+      #
+      # Measured 2026-11-10 with these exact settings: the pinned `node:22-alpine` base currently fails
+      # with 10 fixable HIGH in npm's bundled node_modules (OS packages clean); `alpine:3.24` is clean and
+      # `node:14-alpine` exits 1. See docs/manual/supply-chain.md §1/§7 — bumping the base digest or
+      # accepting a triaged exception is a decision, not something this workflow does silently.
+      #
+      # 只对**有修复版本**的 HIGH/CRITICAL 判红。无修复的发现由上面那一步报告，不阻止发布 —— 否则在上游
+      # 补丁到来之前镜像永远发不出去。例外写在 `.trivyignore.yaml`；`npm run check:trivyignore` 要求每条都带
+      # 理由与到期日。
+      #
+      # 2026-11-10 以完全相同的一组设置实测：钉住的 `node:22-alpine` 基础当前判红，npm 自带 node_modules 里
+      # 有 10 条有修复的 HIGH（操作系统包干净）；`alpine:3.24` 干净，`node:14-alpine` 以 1 退出。
+      # 见 docs/manual/supply-chain.md §1/§7 —— 升级基础摘要还是登记一条有期限的例外，是需要人裁决的事，
+      # 不是这个工作流会悄悄做的事。
+      - name: Scan image — fail on fixable HIGH/CRITICAL
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25   # v0.36.0
+        with:
+          scan-type: image
+          image-ref: ${{ env.IMAGE_NAME }}:scan
+          version: ${{ env.TRIVY_VERSION }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+          format: table
+          trivyignores: .trivyignore.yaml
+          cache: true
+          cache-dir: ${{ env.TRIVY_CACHE_DIR }}
+
+      - name: Push scanned image
+        shell: bash
+        run: |
+          set -euo pipefail
+          IFS=',' read -ra TAGS <<< "${{ steps.meta.outputs.tags }}"
+          for tag in "${TAGS[@]}"; do
+            echo "pushing $tag"
+            docker push "$tag"
+          done

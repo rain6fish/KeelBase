@@ -34,9 +34,21 @@
           <!-- AW-2: the decision buttons exist only for the role allowed to decide. -->
           <!-- AW-2：裁决按钮只对有权裁决的角色出现。 -->
           <template v-if="canDecide">
-            <el-button size="small" type="success" :loading="actingToken === item.token" @click="onDecide(item, 'approve')">
+            <!-- The server refuses a self-approval, so do not offer it here. Declining one's own request
+                 is allowed, so that button stays. -->
+            <!-- 服务端拒绝自批，故这里不提供「批准」；自拒是允许的，那个按钮保留。 -->
+            <el-button
+              v-if="!isOwnRequest(item)"
+              size="small"
+              type="success"
+              :loading="actingToken === item.token"
+              @click="onDecide(item, 'approve')"
+            >
               {{ t('aiApprovalsApprove') }}
             </el-button>
+            <span v-else class="text-caption text-medium-emphasis" style="margin-right:8px">
+              {{ t('aiApprovalsSelfApproveBlocked') }}
+            </span>
             <el-button size="small" type="danger" plain :loading="actingToken === item.token" @click="onDecide(item, 'decline')">
               {{ t('aiApprovalsDecline') }}
             </el-button>
@@ -124,6 +136,15 @@ const auth = useAuthStore()
 // the role reads the record, it does not rule on it.
 // AW-2：审计读者读队列的两半；批准、拒绝与重试仍是管理员专属 —— 这个角色读记录，不裁决。
 const canDecide = computed(() => auth.isAdmin)
+
+// `operatorId` is a string on the wire (the server stores `String(user.sub)`), while the auth store
+// keeps `user.id` as a number — compare in one shape, not two.
+// `operatorId` 在 wire 上是字符串（服务端存 `String(user.sub)`），而 auth store 的 `user.id` 是数字 ——
+// 两边按同一种形状比较，而不是各按各的。
+const currentUserId = computed(() => (auth.user?.id != null ? String(auth.user.id) : ''))
+function isOwnRequest(item: AiApprovalRequest) {
+  return currentUserId.value !== '' && item.operatorId === currentUserId.value
+}
 
 const pending = ref<AiApprovalRequest[]>([])
 const decided = ref<AiApprovalRequest[]>([])

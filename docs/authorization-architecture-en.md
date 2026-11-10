@@ -132,6 +132,16 @@ User request → JWT authentication (L1)
 
 > Permission decisions happen at **runtime**, not by relying on the AI "remembering rules." A denial is not an anomaly — it is the system working correctly; the denial reason flows structurally into the decision trace and audit.
 
+### 4.1 Whose name the R4 approval is recorded under
+
+R4 is the one authorization path that decides in the **standalone governance service** and calls back into the
+business system to execute (§6, the CONF-2 row). The decision is itself an audited act: the approver leaves a
+`tool_confirmation` row under their own identity (the same shape an inline confirmation writes), the execution
+row's note names them as `name (#id)`, and the audit read face (`approverName` on the `approval` leg of
+`GET /audit/logs/:id/interpretation`) takes the name from that row in the same conversation — `null` when it is
+absent, with the read keeping the id and never inferring from a tool name plus a timestamp. Specification:
+[hs9-governance-policy.spec.md §4 rule 12](hs9-governance-policy.spec.md).
+
 ---
 
 ## 5. Relationship with the Application Protocol

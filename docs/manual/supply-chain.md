@@ -5,7 +5,9 @@ is scanned, what fails, where it runs, how base images are pinned, and what the 
 oblige. Every rule points at the file and line that implements it; where no mechanism exists, this
 document says so instead of describing one.
 
-Read at commit `9b38afd2` (2026-11-08). The gate itself is not changed by this document.
+Read at commit `9b38afd2` (2026-11-08). The gate itself is not changed by this document. The image-pin
+half (§1, §3, §4, §7) was read on 2026-11-10, when the compose images and the CI service image were
+pinned and `check:pinned-images` added — that half is changed by this document.
 
 ---
 
@@ -15,8 +17,9 @@ Read at commit `9b38afd2` (2026-11-08). The gate itself is not changed by this d
 
 The supply-chain gate is one script, `scripts/check-dependency-scan.mjs`, plus a second, older check that
 predates it. The script runs `osv-scanner scan source -r <root>` (`scripts/check-dependency-scan.mjs:208-209`)
-with the root set to the repository directory (`:68`). The scanner walks the file system, not
-`git ls-files`, which has three consequences:
+with the root set to the repository directory (`:68`). Two more checks were added on 2026-11-10 — an image
+scan in the publish workflow and an SBOM coverage check — and are described below. The scanner walks the
+file system, not `git ls-files`, which has three consequences:
 
 - every lockfile in the tree is read, including one inside an initialised submodule;
 - on a local run, files that are not committed are read too; CI checks out a clean tree;
@@ -42,15 +45,54 @@ report the same packages twice. `isShadowed` skips any lockfile whose directory 
 `package-lock.json` (`scripts/check-dependency-scan.mjs:144-149`), and the run names what it skipped
 (`:320`).
 
+### Beyond the lockfiles (2026-11-10)
+
+- **The built image is scanned before it is published.** `.github/workflows/docker-publish.yml` builds
+  without pushing (`load: true`), runs Trivy (action pinned by commit `ed142fd0…` = v0.36.0, binary pinned to
+  `v0.76.2`), and pushes only if the scan exits 0. The gate fails on `HIGH`/`CRITICAL` **with a fix
+  available** (`--ignore-unfixed`); findings with no fix are printed by `scripts/trivy-unfixed-report.mjs`
+  and do not block. The Trivy version and vulnerability-DB timestamp are printed before the gate runs.
+  Accepted exceptions live in `.trivyignore.yaml`, and `npm run check:trivyignore` requires a `statement`
+  and a future `expired_at` on every entry. **Measured 2026-11-10** with these exact settings:
+  `alpine:3.24@sha256:3f4d…` exits 0; `node:14-alpine` exits 1 (38 fixable HIGH/CRITICAL); the pinned
+  `node:22-alpine@sha256:0e17…` base exits 1 with 10 fixable HIGH in npm's bundled `node_modules` (OS
+  packages clean). The last reading means the gate as written would block the next publish until that base
+  is bumped or an exception is triaged — a decision, not a silent default.
+- **Development-dependency findings are gated against the baseline.** Every entry carries
+  `scope: production | dev`, which is part of the matching key, and `scripts/check-dependency-scan.mjs`
+  gates both scopes by default; `--no-dev` gives the old recorded-only reading for one run. The reading
+  this slice produced on 2026-11-10 (7 lockfiles, 3466 packages): **9 production / 97 dev-only**
+  high-critical known, **0 new** in either scope. Backend dev dependencies are **shipped and executed** in
+  the compose deployment (`npm ci --include=dev`, the whole `node_modules` is copied, and `npx ts-node`
+  runs at deploy time), so a future `Server-NestJS` dev finding is a production finding in substance; that
+  tree has none today.
+- **The SBOM is one full-tree CycloneDX 1.6 document.** CI runs the pinned scanner with
+  `scan source -r … --format cyclonedx-1-6 --all-packages --no-ignore`. `--all-packages` is required:
+  without it the output contains only components that have vulnerabilities (74 components vs 2631 on
+  2026-11-10), which is a vulnerability report, not an inventory. `--offline` cannot be used — it exits 127
+  with "no offline version of the OSV database is available" and writes an empty BOM.
+  `scripts/check-sbom-coverage.mjs` derives the expected set from the scanner's own `Scanned …` lines
+  (7 lockfiles; the shadowed `Front-Taro/pnpm-lock.yaml` is reported, not demanded) and requires one marker
+  component per tree. The document is uploaded as the `keelbase-sbom` artifact. Attaching it to a GitHub
+  Release is **not** implemented — that is a decision still open.
+
+### Commands added by this slice
+
+```bash
+node scripts/check-dependency-scan.mjs --no-dev
+node scripts/check-trivyignore.mjs [--selftest]
+node scripts/trivy-unfixed-report.mjs trivy-high-critical.json
+node scripts/check-sbom-coverage.mjs [--selftest] [--sbom <path>] [--scan-log <path>]
+```
+
 Outside the scope of this gate:
 
-- **Image layers and OS packages.** Nothing scans a built image; `.github/workflows/ci.yml` never builds
-  one (its only mention of Docker is a comment at `:962`). Images are built by
-  `.github/workflows/docker-publish.yml:98` on tag pushes and manual dispatch (`:14-17`).
-- **Compose run-time images.** `image:` entries are not lockfiles: `docker-compose.yml:10`
-  (`pgvector/pgvector:pg17`), `:27` (`redis:7-alpine`), `:160` (`ollama/ollama:latest`), and
-  `docker-compose.observability.yml:26,34,52,60` (Prometheus, Grafana, Jaeger, Loki). None is pinned.
-- **Development dependencies.** Scanned, counted and reported, not gated (`:24-25`, `:310`).
+- **Image layers and OS packages.** The dependency scanner does not read images. A separate scan covers
+  the image built from `Dockerfile.single` before it is pushed (§7); scheduled scans and the compose
+  `web` image are still open there.
+- **Compose run-time images and CI service images.** `image:` entries are not lockfiles, so the dependency
+  scanner does not read them. They are digest-pinned and gated separately (§4); that gate checks the pin,
+  it does not scan the image.
 - **Gradle.** `Front-Flutter/android/app/build.gradle.kts` is not a lockfile and no JVM scanner runs here.
 - **GitHub Actions versions.** Covered by Dependabot only, with `open-pull-requests-limit: 0`
   (`.github/dependabot.yml:70-77`) — an alerting channel, not a gate.
@@ -154,7 +196,15 @@ it cannot claim a clean tree. Run it from a plain checkout to get a reading.
 and the gate is not registered as one; a local skip would print as a pass in that summary table. The same
 reasoning excludes `migration-consistency-postgres`. CI is the runner (`scripts/check-dependency-scan.mjs:33-34`).
 
-## 4. Base images
+**The pinned-image gate is a separate job.** `check:pinned-images` runs in the `pinned-images` job at the
+end of `.github/workflows/ci.yml` with its own self-test, and — unlike the dependency scan — it is
+registered as a `check:*` script, so it is also part of `npm run check:all`. It sits at the end of the
+workflow on purpose: this document cites line numbers above it, and an insertion earlier in the file
+would silently invalidate every one of them.
+
+## 4. Pinned images — Dockerfiles, compose and CI services
+
+### Base images
 
 Two Dockerfiles, four references, each pinned by digest. Each digest was read at pin time and verified
 against the registry and a smoke build when it was pinned.
@@ -171,17 +221,64 @@ The reason is written in both files (`Dockerfile:1-4`, `Dockerfile.single:7-10`)
 underneath a rebuild, and a container built before the move keeps the base it was created from, with
 nothing in CI saying so.
 
-**Upgrading**, also written beside the pins (`Dockerfile:6-11`, `Dockerfile.single:13-18`):
-
-1. `docker pull <tag>`
-2. `docker inspect <tag> --format '{{index .RepoDigests 0}}'`
-3. confirm what is inside (`docker run --rm --entrypoint node <tag> --version`)
-4. replace the digest and rebuild.
-
-Never copy a digest out of a report: tags move, and an older read points at an older image.
+**Upgrading a base image:** the steps are written beside the pins (`Dockerfile:6-11`,
+`Dockerfile.single:13-18`) and are the same four steps as the compose procedure below, ending in a
+rebuild instead of a compose-file edit.
 
 `Dockerfile.single` is the image published to `ghcr.io` (`.github/workflows/docker-publish.yml:98`; the
 file says so at `Dockerfile.single:12-13`), so its digest is what users of the published image receive.
+
+### Compose images
+
+Eight `image:` entries in three compose files, all pinned on 2026-11-10. Each entry was a floating tag
+before that; the five `latest` ones were resolved to the version tag that currently carries the same
+digest, so pinning changed nothing at pin time.
+
+| Reference | Digest | Where |
+|---|---|---|
+| `pgvector/pgvector:pg17` | `sha256:7d0a41464797aeb9862dfdc0bbf1526b82cfd324cdd8036df19e3545f4a9ccb8` | `docker-compose.yml:18` |
+| `redis:7-alpine` | `sha256:c5d34a98396a4775e223c74e929162c35c5a2182901ba26b50ade939941ce14b` | `docker-compose.yml:35` |
+| `ollama/ollama:0.40.15` | `sha256:0e59999e0e8f9fd4e704bd788a89b7e4cad399367fb1365f8c102ac662288761` | `docker-compose.yml:168` |
+| `prom/prometheus:v3.16.0` | `sha256:e04987641b57704f408e31f6373ba4138ecf27cb4a165d24aabb6c38fddd0f06` | `docker-compose.observability.yml:31` |
+| `grafana/grafana:13.3.0` | `sha256:488984b716c0862639f91a698adbe2862677a5a07bad42da5f03f3030883b205` | `docker-compose.observability.yml:39` |
+| `jaegertracing/all-in-one:1.76.0` | `sha256:ab6f1a1f0fb49ea08bcd19f6b84f6081d0d44b364b6de148e1798eb5816bacac` | `docker-compose.observability.yml:57` |
+| `grafana/loki:3.7.9` | `sha256:0db216b630ae1f348a1584c67f3cead8b4c1fc839169a39501db664744158e28` | `docker-compose.observability.yml:65` |
+| `postgres:17-alpine` | `sha256:3540c0362c809df084ffac0ae69fe794515f9de92692f02178bcdce0ef0302ac` | `Server-NestJS/postgresql/docker-compose.db.yml:11` |
+
+### CI service container and the migration check
+
+The same `pgvector/pgvector:pg17` image also appears at `.github/workflows/ci.yml:142` (the
+`migration-consistency-postgres` service container) and as `IMAGE` in
+`Server-NestJS/scripts/check-pg-migration-consistency.mjs:25`. Both carry the compose digest
+(`sha256:7d0a…ccb8`), so all three sites describe one image. The workflow one is covered by the gate; the
+script constant is not a YAML pull reference and is pinned by hand.
+
+### The gate
+
+`scripts/check-pinned-images.mjs` (job `pinned-images`, §3). It fails on any pull reference with no
+`@sha256:<64 hex>`, names the file and line, and is exercised in both directions by
+`scripts/check-pinned-images.test.mjs`. Its scope is every YAML file that pulls: any `docker-compose*.yml`
+in the tree (skipping `node_modules`, `.git` and `.claude`), and `image:` inside a `services:` or
+`container:` block in `.github/workflows/*.yml` (a `run:` heredoc that says `image:` is text, and the
+tests pin that). Pull references in shell scripts and markdown it does not read — see §7.
+
+**Upgrading a pinned image.** The same rule as the Dockerfiles, same reason:
+
+1. read the version you intend to run, then its manifest-list digest from the registry at pin time —
+   `docker buildx imagetools inspect <repo>:<version>` prints `Digest:`; or use the registry API
+   (`auth.docker.io` token, then `registry-1.docker.io/v2/<repo>/manifests/<tag>`, whose
+   `Docker-Content-Digest` header and the sha256 of the response body must agree);
+2. confirm the tag you are writing resolves to that digest — re-read it and compare, or
+   `docker buildx imagetools inspect <repo>:<version>@sha256:<digest>`;
+3. replace `<version>` and the digest at **every** site listed above, then run
+   `npm run check:pinned-images`.
+
+Never copy a digest out of a report: tags move, and an older read points at an older image.
+
+**A tag that has moved since its pin is normal.** On 2026-11-10 `alpine:3.24` resolved to
+`sha256:f59a…71bf` while the Dockerfile pins `sha256:3f4d…630a` — the tag moved, the pinned image did
+not, which is the point. Both stay pullable; the pins are what the build and the offline bundle must
+stage.
 
 ## 5. Recorded exceptions — the baseline and its obligations
 
@@ -233,22 +330,37 @@ describe them as accepted risk.
   record the exception together with the reason in the same change.
 - **未核 (exit 2) is not a pass and is not an accepted state.** It means the tree was not verified
   (`:83-88`). Do not merge on it, and do not read it as clean.
-- **Moderate, low and dev-only findings are not stop conditions.** They are counted and printed
-  (`:310-311`, `:326`).
+- **Moderate and low findings are not stop conditions.** They are counted and printed. **Dev-only
+  high/critical findings are stop conditions** since 2026-11-10 unless the baseline records them (§1).
 
 ## 7. What this does not cover
 
-1. **Image-layer scanning.** No `trivy image` / `grype` runs anywhere, so CVEs in a base image's OS
-   packages are unreported.
-2. **Compose images still float**, including three `latest` tags (`docker-compose.yml:160`,
-   `docker-compose.observability.yml:26,34,52,60`).
-3. **Dev-dependency findings are not gated** — 97 high/critical at the 2026-11-08 reading.
-4. **The 39 baseline entries are debt, not a fix.**
-5. **The OSV API is unauthenticated** and rate-limited; the self-test adds three queries per CI run.
+1. **Image-layer scanning covers the published image, with limits.** The 2026-11-10 gate scans the image
+   built from `Dockerfile.single` before the push. Not covered: a **weekly scheduled** scan of the published
+   `:latest` and the two pinned bases (not added — a decision still open), and the compose `web` (nginx)
+   image, which is built per deploy. The currently pinned `node:22-alpine` base fails the gate (10 fixable
+   HIGH in npm's bundled modules), so the next publish needs a base bump or a triaged exception.
+2. **Compose images are pinned but not scanned.** Every compose image and the CI service image are
+   digest-pinned and gated by `check:pinned-images` (§4); that gate checks the pin, not the image, so a CVE
+   inside one of them is only seen when the same image is the release image scanned in item 1.
+3. **Dev-dependency findings are gated, but the debt is large and the toolchain is the fix.** 97 dev-only
+   rows are recorded with owner `maintainer` and expiry `2027-02-08`; 29 of them are `vm2@3.11.5`, which is
+   deprecated and has no fixed release, so only removing the Taro webpack5 runner clears them. A **new**
+   dev advisory is red; §6 records this as a stop condition.
+4. **The 106 baseline rows (9 production + 97 dev) are debt, not a fix.**
+5. **The OSV API is unauthenticated** and rate-limited; the self-test adds three queries per CI run, and the
+   full-tree SBOM generation is a second full scan of the same tree.
 6. **The `pubspec.lock` production closure is conservative** and can over-gate, never under-gate.
 7. **An npm v1 lockfile would gate everything**; none exists today.
-8. **The SBOM covers Server-NestJS only**, not the other six lockfiles.
+8. **The SBOM is full-tree CycloneDX, but it is not a verdict and is not attached to releases.** It covers
+   all 7 scanned lockfiles and is checked by `scripts/check-sbom-coverage.mjs`; nothing consumes it as a
+   vulnerability gate (the dependency gate is that), and attaching it to a GitHub Release is still an open
+   decision.
 9. **Required-check status is not in this tree.** Whether a red job blocks a merge is a GitHub setting.
+10. **Pull references outside YAML are not gated.** `deploy/deploy-offline.sh` checks staged images by tag,
+    `docs/manual/offline-deploy.md` §2.1 pins its `docker pull` lines to digests by hand, and the `IMAGE`
+    constant in `Server-NestJS/scripts/check-pg-migration-consistency.mjs:25` is a hand pin. The gate reads
+    YAML only; each of these can drift back to a floating tag without turning anything red.
 
 ---
 
@@ -257,7 +369,8 @@ describe them as accepted risk.
 ## 1. 射程 —— 扫什么
 
 供应链门禁是一个脚本 `scripts/check-dependency-scan.mjs`，外加一条早于它存在、被原样保留的旧检查。
-脚本执行 `osv-scanner scan source -r <根>`（`scripts/check-dependency-scan.mjs:208-209`），根为仓库目录
+2026-11-10 又加了两道 —— 发布工作流里的镜像扫描、以及 SBOM 覆盖检查 —— 见下文。脚本执行
+`osv-scanner scan source -r <根>`（`scripts/check-dependency-scan.mjs:208-209`），根为仓库目录
 （`:68`）。扫描器走的是文件系统，不是 `git ls-files`，由此有三个后果：
 
 - 树里每一份锁文件都会被读，包括已初始化子模块里的那一份；
@@ -283,15 +396,45 @@ describe them as accepted risk.
 `isShadowed` 会跳过「同目录另有 `package-lock.json`」的锁文件
 （`scripts/check-dependency-scan.mjs:144-149`），运行输出里也会点名跳过了哪些（`:320`）。
 
+### 锁文件之外（2026-11-10）
+
+- **构建出的镜像在发布之前被扫描。** `.github/workflows/docker-publish.yml` 只构建、不推送（`load: true`），
+  跑 Trivy（action 按提交钉住 `ed142fd0…` = v0.36.0，二进制钉住 `v0.76.2`），只有扫描以 0 退出才推送。
+  门禁只对**有修复版本**的 `HIGH`/`CRITICAL` 判红（`--ignore-unfixed`）；无修复的发现由
+  `scripts/trivy-unfixed-report.mjs` 打印，不阻止发布。Trivy 版本与漏洞库时间戳在判红之前写进日志。
+  已接受的例外写在 `.trivyignore.yaml`，`npm run check:trivyignore` 要求每条都有 `statement` 与未来的
+  `expired_at`。**2026-11-10 以完全相同的一组设置实测**：`alpine:3.24@sha256:3f4d…` 以 0 退出；
+  `node:14-alpine` 以 1 退出（38 条有修复的 HIGH/CRITICAL）；钉住的 `node:22-alpine@sha256:0e17…` 基础以 1
+  退出，npm 自带的 `node_modules` 里有 10 条有修复的 HIGH（操作系统包干净）。最后这个读数意味着：按现在
+  这样写，门禁会挡住下一次发布，直到升级该基础或登记一条有期限的例外 —— 这是需要裁决的事，不是默认行为。
+- **开发依赖的发现同样按基线判红。** 每条基线带 `scope: production | dev`，并计入匹配键；
+  `scripts/check-dependency-scan.mjs` 默认两个作用域都判红，`--no-dev` 用于「只记录、不判红」的那一次运行。
+  本次（2026-11-10，7 份锁文件、3466 个包）的读数是：生产 **9 条已知**、开发 **97 条已知**，两边 **0 条新增**。
+  后端开发依赖在编排部署里**会被打进镜像并在部署时执行**（`npm ci --include=dev`、整个 `node_modules` 被复制、
+  部署时跑 `npx ts-node`），所以将来 `Server-NestJS` 的一条开发发现，实质上就是生产发现；该树今天没有。
+- **SBOM 是一份全仓 CycloneDX 1.6 文档。** CI 用钉住的扫描器跑
+  `scan source -r … --format cyclonedx-1-6 --all-packages --no-ignore`。`--all-packages` 是必需的：
+  不带它时输出只含「有漏洞的组件」（2026-11-10 实测：74 个组件 vs 带上后的 2631 个），那是漏洞报告、
+  不是清单。`--offline` 不可用 —— 它以 127 退出并报「没有离线 OSV 数据库」，只写出一份空 BOM。
+  `scripts/check-sbom-coverage.mjs` 从扫描器自己的 `Scanned …` 行取期望集合（7 份锁文件；被遮蔽的
+  `Front-Taro/pnpm-lock.yaml` 只报告、不要求），并要求每棵树有一个标记组件。文档作为 `keelbase-sbom`
+  产物上传。把它附到 GitHub Release **尚未**实现 —— 那是一个仍未定的决定。
+
+### 本次新增的命令
+
+```bash
+node scripts/check-dependency-scan.mjs --no-dev
+node scripts/check-trivyignore.mjs [--selftest]
+node scripts/trivy-unfixed-report.mjs trivy-high-critical.json
+node scripts/check-sbom-coverage.mjs [--selftest] [--sbom <path>] [--scan-log <path>]
+```
+
 本门禁不覆盖的部分：
 
-- **镜像层与操作系统包。** 没有任何东西扫描构建出的镜像；`.github/workflows/ci.yml` 根本不构建镜像
-  （其中唯一提到 Docker 的地方是 `:962` 的一句注释）。镜像由
-  `.github/workflows/docker-publish.yml:98` 在打 tag 与手动触发时构建（`:14-17`）。
-- **编排里的运行时镜像。** `image:` 不是锁文件：`docker-compose.yml:10`
-  （`pgvector/pgvector:pg17`）、`:27`（`redis:7-alpine`）、`:160`（`ollama/ollama:latest`），以及
-  `docker-compose.observability.yml:26,34,52,60`（Prometheus、Grafana、Jaeger、Loki）。它们都没有钉摘要。
-- **开发依赖。** 会扫描、会计数、会报告，但不判红（`:24-25`、`:310`）。
+- **镜像层与操作系统包。** 依赖扫描器不读镜像。另有一道门禁在推送前扫描由 `Dockerfile.single` 构建出的
+  镜像（见 §7）；定时扫描与 compose 的 `web` 镜像仍未覆盖。
+- **编排里的运行时镜像与 CI service 镜像。** `image:` 不是锁文件，依赖扫描器不读它们。它们已按摘要钉住、
+  由另一道门禁单独守（§4）；那道门禁查的是「钉没钉」，不是「镜像里有没有洞」。
 - **Gradle。** `Front-Flutter/android/app/build.gradle.kts` 不是锁文件，本仓也没有 JVM 扫描器。
 - **GitHub Actions 的版本。** 只由 Dependabot 覆盖，且 `open-pull-requests-limit: 0`
   （`.github/dependabot.yml:70-77`）—— 那是告警通道，不是门禁。
@@ -386,7 +529,14 @@ Windows 上的发布件是 `osv-scanner_windows_amd64.exe`，sha256 为
 而这道门没有注册成其中之一；本地跳过会在那张汇总表里读起来与通过一模一样。`migration-consistency-postgres`
 被排除是同一个理由。跑它的是 CI（`scripts/check-dependency-scan.mjs:33-34`）。
 
-## 4. 基础镜像
+**钉住镜像的门禁是另一个 job。** `check:pinned-images` 在 `.github/workflows/ci.yml` 末尾的
+`pinned-images` job 里跑，自带自检；而且与依赖扫描不同，它注册成了 `check:*` 脚本，所以也在
+`npm run check:all` 里。它有意放在工作流末尾：本文引用的是它上面的行号，插在前面会让那些行号**全部**
+悄悄失效。
+
+## 4. 钉住的镜像 —— Dockerfile、编排与 CI service
+
+### 基础镜像
 
 两个 Dockerfile，四处引用，全部按摘要钉住。摘要在钉住那一刻读出，并对过镜像仓库与一次冒烟构建。
 
@@ -400,17 +550,59 @@ Windows 上的发布件是 `osv-scanner_windows_amd64.exe`，sha256 为
 理由写在两个文件里（`Dockerfile:1-4`、`Dockerfile.single:7-10`）：浮动标签会在重建之下悄悄换掉，而在换掉之前
 构建出的容器留着它被创建时那份基础镜像，CI 对此什么也不会说。
 
-**升级做法**，同样写在钉子旁边（`Dockerfile:6-11`、`Dockerfile.single:13-18`）：
-
-1. `docker pull <标签>`
-2. `docker inspect <标签> --format '{{index .RepoDigests 0}}'`
-3. 确认里面是什么（`docker run --rm --entrypoint node <标签> --version`）
-4. 替换摘要并重建。
-
-不要把某份报告里的摘要抄过来：标签会移动，抄来的旧摘要指向旧镜像。
+**升级基础镜像：** 做法写在钉子旁边（`Dockerfile:6-11`、`Dockerfile.single:13-18`），与下面的编排做法是同
+样的四步，最后以重建收尾，而不是改编排文件。
 
 `Dockerfile.single` 就是发布到 `ghcr.io` 的那个镜像（`.github/workflows/docker-publish.yml:98`；
 文件自身在 `Dockerfile.single:12-13` 也这么说），所以它的摘要就是已发布镜像的用户真正拿到的东西。
+
+### 编排镜像
+
+三个编排文件里的八条 `image:`，全部在 2026-11-10 钉住。在此之前每条都是浮动标签；其中五条 `latest` 已解析
+成**当前与它同摘要的那个版本标签**，所以钉住那一刻行为没有任何变化。
+
+| 引用 | 摘要 | 位置 |
+|---|---|---|
+| `pgvector/pgvector:pg17` | `sha256:7d0a41464797aeb9862dfdc0bbf1526b82cfd324cdd8036df19e3545f4a9ccb8` | `docker-compose.yml:18` |
+| `redis:7-alpine` | `sha256:c5d34a98396a4775e223c74e929162c35c5a2182901ba26b50ade939941ce14b` | `docker-compose.yml:35` |
+| `ollama/ollama:0.40.15` | `sha256:0e59999e0e8f9fd4e704bd788a89b7e4cad399367fb1365f8c102ac662288761` | `docker-compose.yml:168` |
+| `prom/prometheus:v3.16.0` | `sha256:e04987641b57704f408e31f6373ba4138ecf27cb4a165d24aabb6c38fddd0f06` | `docker-compose.observability.yml:31` |
+| `grafana/grafana:13.3.0` | `sha256:488984b716c0862639f91a698adbe2862677a5a07bad42da5f03f3030883b205` | `docker-compose.observability.yml:39` |
+| `jaegertracing/all-in-one:1.76.0` | `sha256:ab6f1a1f0fb49ea08bcd19f6b84f6081d0d44b364b6de148e1798eb5816bacac` | `docker-compose.observability.yml:57` |
+| `grafana/loki:3.7.9` | `sha256:0db216b630ae1f348a1584c67f3cead8b4c1fc839169a39501db664744158e28` | `docker-compose.observability.yml:65` |
+| `postgres:17-alpine` | `sha256:3540c0362c809df084ffac0ae69fe794515f9de92692f02178bcdce0ef0302ac` | `Server-NestJS/postgresql/docker-compose.db.yml:11` |
+
+### CI service 容器与迁移检查
+
+同一个 `pgvector/pgvector:pg17` 还出现在 `.github/workflows/ci.yml:142`
+（`migration-consistency-postgres` 的 service 容器）与
+`Server-NestJS/scripts/check-pg-migration-consistency.mjs:25` 的 `IMAGE` 常量。两处都带编排用的那个摘要
+（`sha256:7d0a…ccb8`），于是三处描述的是同一个镜像。工作流那一处由门禁覆盖；脚本常量不是 YAML 拉取
+引用，是手工钉的。
+
+### 门禁
+
+`scripts/check-pinned-images.mjs`（job `pinned-images`，见 §3）。任何拉取引用只要没有
+`@sha256:<64 位十六进制>` 就判红，并点名文件与行号；两个方向都由 `scripts/check-pinned-images.test.mjs`
+覆盖。射程是所有会拉取的 YAML：树内任意 `docker-compose*.yml`（跳过 `node_modules`、`.git` 与
+`.claude`），以及 `.github/workflows/*.yml` 里 `services:` 或 `container:` 块内的 `image:`（`run:` 的
+heredoc 写着 `image:` 只是文本，测试里钉住了这一点）。shell 脚本与 markdown 里的拉取引用它不读 —— 见 §7。
+
+**升级一个已钉住的镜像。** 与 Dockerfile 同一条规则、同一个理由：
+
+1. 先确定要跑的版本，再在钉的时候从镜像仓库读出它的清单列表摘要 ——
+   `docker buildx imagetools inspect <仓>:<版本>` 会打印 `Digest:`；或用 registry API
+   （向 `auth.docker.io` 取 token，再请求 `registry-1.docker.io/v2/<仓>/manifests/<标签>`，
+   其 `Docker-Content-Digest` 响应头与响应体的 sha256 必须一致）；
+2. 确认你要写的那个标签解析到的正是这个摘要 —— 重读一次比对，或
+   `docker buildx imagetools inspect <仓>:<版本>@sha256:<摘要>`；
+3. 在上文列出的**每一处**替换 `<版本>` 与摘要，然后跑 `npm run check:pinned-images`。
+
+不要把某份报告里的摘要抄过来：标签会移动，抄来的旧摘要指向旧镜像。
+
+**钉住之后标签移动是正常的。** 2026-11-10 读数里 `alpine:3.24` 已解析到 `sha256:f59a…71bf`，而
+Dockerfile 钉的是 `sha256:3f4d…630a` —— 标签动了、被钉住的镜像没动，这正是钉子的意义。两者都仍可拉取；
+构建与离线包要预置的是**钉住的那个**。
 
 ## 5. 已登记的例外 —— 基线与其义务
 
@@ -455,17 +647,30 @@ Windows 上的发布件是 `osv-scanner_windows_amd64.exe`，sha256 为
   **不得合并。** 处理方式是升级该依赖，或在同一次改动里登记例外并写明理由。
 - **未核（退出码 2）不是通过，也不是可接受的状态。** 它的意思是这棵树没有被核过（`:83-88`）。
   不要凭它合并，也不要把它读成干净。
-- **中危、低危与仅开发依赖的发现，不是停止条件。** 它们会被计数并打印（`:310-311`、`:326`）。
+- **中危与低危发现不是停止条件。** 它们会被计数并打印。**仅开发依赖的高危/严重发现自 2026-11-10 起是
+  停止条件**，除非基线已登记（见 §1）。
 
 ## 7. 未覆盖项
 
-1. **镜像层扫描。** 任何地方都没有 `trivy image` / `grype`，所以基础镜像里操作系统包的 CVE 不会被报。
-2. **编排镜像仍然浮动**，其中三个带 `latest`（`docker-compose.yml:160`、
-   `docker-compose.observability.yml:26,34,52,60`）。
-3. **开发依赖的发现不判红** —— 2026-11-08 这次读数是 97 条高/严重。
-4. **那 39 条基线是债，不是修复。**
-5. **OSV API 是匿名的**，受速率限制；自检每次 CI 再多三条查询。
+1. **镜像层扫描覆盖的是已发布镜像，且仍有边界。** 2026-11-10 这道门扫描 `Dockerfile.single` 构建出的镜像、
+   **在推送之前**。未覆盖：对已发布 `:latest` 与两个钉住基础的**每周定时**扫描（未加 —— 仍是待定事项），
+   以及 compose 的 `web`（nginx）镜像（按次部署构建）。当前钉住的 `node:22-alpine` 基础会判红
+   （npm 自带模块里 10 条有修复的 HIGH），所以下一次发布要么升级基础、要么登记一条有期限的例外。
+2. **编排镜像已钉摘要，但没有被扫描。** 每个编排镜像与 CI service 镜像都已钉住，由 `check:pinned-images`
+   守着（§4）；那道门禁查的是「钉没钉」，不是「镜像里有没有洞」，所以只有它与第 1 条里被扫的发布镜像
+   是同一个镜像时，里面的 CVE 才会被看见。
+3. **开发依赖的发现已判红，但债很大、解法在工具链。** 97 条仅开发期的条目已登记，责任人 `maintainer`、
+   到期 `2027-02-08`；其中 29 条是 `vm2@3.11.5` —— 它已废弃且没有修复版本，只有移除 Taro 的 webpack5
+   runner 才能清掉。**新增**的开发期公告会判红；§6 已把这一条写成停止条件。
+4. **那 106 条基线（生产 9 + 开发 97）是债，不是修复。**
+5. **OSV API 是匿名的**，受速率限制；自检每次 CI 再多三条查询，而全仓 SBOM 生成是对同一棵树再扫一遍。
 6. **`pubspec.lock` 的生产闭包是保守的**，可能多判，不会漏判。
 7. **npm v1 锁文件会让全部发现都判红**；今天没有这种文件。
-8. **SBOM 只覆盖 Server-NestJS**，不含另外六份锁文件。
+8. **SBOM 是全仓 CycloneDX，但它不是判定、也没有附到 Release。** 它覆盖全部 7 份被扫的锁文件，由
+   `scripts/check-sbom-coverage.mjs` 检查；没有任何东西把它当作漏洞门禁（漏洞判定是依赖门禁），
+   是否附到 GitHub Release 仍是待定决定。
 9. **必过检查的状态不在本树里。** 红的 job 是否阻止合并，是 GitHub 上的设置。
+10. **YAML 之外的拉取引用不进本门禁。** `deploy/deploy-offline.sh` 按标签查已预置的镜像、
+    `docs/manual/offline-deploy.md` §2.1 的 `docker pull` 行是按摘要手工钉的、
+    `Server-NestJS/scripts/check-pg-migration-consistency.mjs:25` 的 `IMAGE` 常量也是手工钉的。门禁只读
+    YAML；这几处都可能悄悄漂回浮动标签而不让任何东西变红。

@@ -139,7 +139,7 @@ jobs:
         working-directory: Server-NestJS
     services:
       postgres:
-        image: pgvector/pgvector:pg17
+        image: pgvector/pgvector:pg17@sha256:7d0a41464797aeb9862dfdc0bbf1526b82cfd324cdd8036df19e3545f4a9ccb8
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -762,14 +762,6 @@ jobs:
       # 生产依赖漏洞审计：high/critical 即失败（2026-08-20 已清零 4 个 high，含 @nestjs/swagger→js-yaml/fast-uri）
       - name: 依赖漏洞审计
         run: npm audit --omit=dev --audit-level=high
-      # SBOM（SPDX）生成并上传，供供应链核查（npm sbom 输出到 stdout，重定向落盘；--output 不写文件）
-      - name: 生成 SBOM
-        run: npm sbom --sbom-format spdx --omit=dev > sbom.spdx.json
-      - uses: actions/upload-artifact@v5
-        with:
-          name: keelbase-sbom
-          path: Server-NestJS/sbom.spdx.json
-          if-no-files-found: error
 
       # Every lockfile in the tree, not just `Server-NestJS`: the two web consoles, the Taro app and the
       # Flutter app were never audited, so an advisory in any of them could reach `main` silently.
@@ -797,7 +789,64 @@ jobs:
           echo "${OSV_SCANNER_SHA256}  $RUNNER_TEMP/osv-scanner" | sha256sum -c -
           chmod +x "$RUNNER_TEMP/osv-scanner"
           "$RUNNER_TEMP/osv-scanner" --version
-      - name: Dependency scan (high/critical in production fails)
+
+      # Full-tree SBOM: one CycloneDX 1.6 document for every lockfile the gate scans. `--all-packages`
+      # is required — without it osv-scanner writes only the components that have vulnerabilities, which
+      # is a vulnerability report, not an inventory (measured 2026-11-10: 74 components without the flag,
+      # 2631 with it). `--offline` does not work either: it exits 127 with "no offline version of the OSV
+      # database is available" and writes an empty BOM. Exit 1 means "vulnerabilities found" and is
+      # accepted here; the gate below is the verdict.
+      #
+      # 全仓一份 SBOM：门禁扫描的每一份锁文件都进同一份 CycloneDX 1.6 文档。必须带 `--all-packages` ——
+      # 不带它时 osv-scanner 只写「有漏洞的组件」，那是漏洞报告、不是清单（2026-11-10 实测：不带 74 个组件，
+      # 带了 2631 个）。`--offline` 也不可用：它以 127 退出并报「没有离线 OSV 数据库」，只写出一份空 BOM。
+      # 退出码 1 表示「找到漏洞」，这里接受；判定归下面的门禁。
+      - name: Generate SBOM (full tree, CycloneDX 1.6)
+        working-directory: .
+        env:
+          OSV_SCANNER: ${{ runner.temp }}/osv-scanner
+        run: |
+          set -euo pipefail
+          set +e
+          "$OSV_SCANNER" scan source -r "$GITHUB_WORKSPACE" --format cyclonedx-1-6 --all-packages --no-ignore \
+            --output-file "$GITHUB_WORKSPACE/sbom.cdx.json" > "$GITHUB_WORKSPACE/sbom-scan.log" 2>&1
+          rc=$?
+          set -e
+          cat "$GITHUB_WORKSPACE/sbom-scan.log"
+          if [ "$rc" -ne 0 ] && [ "$rc" -ne 1 ]; then
+            echo "::error::osv-scanner SBOM generation exited $rc (0 = clean, 1 = findings; anything else is not a scan)"
+            exit "$rc"
+          fi
+
+      # An SBOM that silently covers less than the gate is worse than none. The check derives coverage
+      # from the scanner's own `Scanned …` lines and requires a marker component per tree.
+      # 一份悄悄少覆盖的 SBOM 比没有更糟。本检查从扫描器自己的 `Scanned …` 行取覆盖，并要求每棵树有标记组件。
+      - name: Check SBOM covers every scanned lockfile
+        working-directory: .
+        run: |
+          node scripts/check-sbom-coverage.mjs --selftest
+          node scripts/check-sbom-coverage.mjs
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: keelbase-sbom
+          path: |
+            sbom.cdx.json
+            sbom-scan.log
+          if-no-files-found: error
+
+      # Image-scan exceptions live in `.trivyignore.yaml`, which the publish workflow hands to Trivy.
+      # The same parser is checked here, and the selftest proves it still names a missing statement, a
+      # missing expiry and a past expiry.
+      # 镜像扫描的例外写在 `.trivyignore.yaml`，发布工作流会把它交给 Trivy。这里跑的是同一个解析器；
+      # 自检证明它仍会点名「缺理由」「缺到期日」与「已过期」。
+      - name: Trivy ignore-list guard (selftest + real file)
+        working-directory: .
+        run: |
+          node scripts/check-trivyignore.mjs --selftest
+          node scripts/check-trivyignore.mjs
+
+      - name: Dependency scan (high/critical outside the baseline fails)
         working-directory: .
         env:
           OSV_SCANNER: ${{ runner.temp }}/osv-scanner
@@ -999,3 +1048,23 @@ jobs:
           name: coverage-flutter
           path: Front-Flutter/coverage/lcov.info
           if-no-files-found: warn
+
+  # Every image pulled by a YAML file — compose entries and this file's own service container — must carry
+  # `@sha256:`. Nine floated (five on `latest`) until 2026-11-10: the same file could resolve a different
+  # image next week, and nothing said so. Kept at the end of the file on purpose —
+  # docs/manual/supply-chain.md cites lines above it.
+  #
+  # 每个由 YAML 拉取的镜像 —— 编排条目与本文件自己的 service 容器 —— 都必须带 `@sha256:`。在此之前有九条
+  # 浮动（其中五条是 `latest`）：同一份文件下周可能解析出另一个镜像，而没有任何东西会说。有意放在文件
+  # 末尾 —— docs/manual/supply-chain.md 引用的是它上面的行号。
+  pinned-images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: true
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: node scripts/check-pinned-images.mjs
+      - run: node --test scripts/check-pinned-images.test.mjs
