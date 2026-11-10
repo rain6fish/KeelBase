@@ -31,7 +31,13 @@ vi.mock('@/stores/snackbar', () => ({
 // AW-2: the view reads `auth.isAdmin`; default to admin so the existing decision-path assertions still
 // exercise the admin UI, and flip it to test the auditor's read-only rendering.
 // AW-2：视图读 `auth.isAdmin`；默认 admin 让既有裁决路径断言照旧，翻转后测审计读者的只读渲染。
-const authState = vi.hoisted(() => ({ isAdmin: true, isAuditor: false }))
+// `user.id` is the number the view compares against `operatorId` (a string on the wire); the existing
+// fixtures use non-numeric operator ids, so they stay other people's rows.
+const authState = vi.hoisted(() => ({
+  isAdmin: true,
+  isAuditor: false,
+  user: { id: 1 } as { id: number } | null,
+}))
 vi.mock('@/stores/auth', () => ({ useAuthStore: () => authState }))
 
 import ElementPlus from 'element-plus'
@@ -63,6 +69,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   authState.isAdmin = true
   authState.isAuditor = false
+  authState.user = { id: 1 }
 })
 
 describe('AiApprovalsView', () => {
@@ -156,6 +163,47 @@ describe('AiApprovalsView', () => {
     expect(wrapper.find('.app-table-stub .el-button--success').exists()).toBe(false)
     expect(wrapper.find('.app-table-stub .el-button--danger').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('重试执行')
+  })
+
+  // U2：服务端拒绝自批（decideApproval: operatorId === approverId → cannot self-approve），
+  // 所以「批准」不能出现在自己发起的待批行上；「拒绝」后端不拦，照常可用。
+  const pendingRow = (extra: Record<string, unknown> = {}) => ({
+    id: 1,
+    token: 'tok-self',
+    toolName: 'create_event',
+    args: '{}',
+    operatorId: '1',
+    conversationId: null,
+    riskLevel: 'R4',
+    status: 'pending',
+    createdAt: '2026-08-21',
+    ...extra,
+  })
+
+  it('管理员：他人发起的待批行 → 批准与拒绝都可点', async () => {
+    approvalsMock.mockResolvedValue([pendingRow({ operatorId: '2' })])
+    decidedMock.mockResolvedValue([])
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.find('.app-table-stub .el-button--success').exists()).toBe(true)
+    expect(wrapper.find('.app-table-stub .el-button--danger').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('本人不能批准自己发起的请求')
+  })
+
+  it('管理员：自己发起的待批行 → 不渲染「批准」，保留「拒绝」，并说明原因', async () => {
+    approvalsMock.mockResolvedValue([pendingRow({ operatorId: '1' })])
+    decidedMock.mockResolvedValue([])
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.find('.app-table-stub .el-button--success').exists()).toBe(false)
+    const decline = wrapper.find('.app-table-stub .el-button--danger')
+    expect(decline.exists()).toBe(true)
+    expect(decline.text()).toContain('拒绝')
+    expect(wrapper.text()).toContain('本人不能批准自己发起的请求')
   })
 
   it('加载失败 → snackbar.error 提示', async () => {
