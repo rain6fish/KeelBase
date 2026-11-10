@@ -158,8 +158,11 @@ jobs:
       #
       # Measured 2026-11-10 with these exact settings: the pinned `node:22-alpine` base currently fails
       # with 10 fixable HIGH in npm's bundled node_modules (OS packages clean); `alpine:3.24` is clean and
-      # `node:14-alpine` exits 1. See docs/manual/supply-chain.md §1/§7 — bumping the base digest or
-      # accepting a triaged exception is a decision, not something this workflow does silently.
+      # `node:14-alpine` exits 1. Those readings are of the **base**; the image this workflow ships is
+      # scanned after `Dockerfile.single`'s `single` stage drops the base's bundled npm, and it exits 0
+      # with 0 findings (2026-11-10, same settings). See docs/manual/supply-chain.md §1/§7 — if a future
+      # base brings findings of its own, bumping the digest or accepting a triaged exception is a
+      # decision, not something this workflow does silently.
       #
       # 只对**有修复版本**的 HIGH/CRITICAL 判红。无修复的发现由上面那一步报告，不阻止发布 —— 否则在上游
       # 补丁到来之前镜像永远发不出去。例外写在 `.trivyignore.yaml`；`npm run check:trivyignore` 要求每条都带
@@ -167,8 +170,10 @@ jobs:
       #
       # 2026-11-10 以完全相同的一组设置实测：钉住的 `node:22-alpine` 基础当前判红，npm 自带 node_modules 里
       # 有 10 条有修复的 HIGH（操作系统包干净）；`alpine:3.24` 干净，`node:14-alpine` 以 1 退出。
-      # 见 docs/manual/supply-chain.md §1/§7 —— 升级基础摘要还是登记一条有期限的例外，是需要人裁决的事，
-      # 不是这个工作流会悄悄做的事。
+      # 这几个读数是**基础镜像**的；本工作流发布的镜像在 `Dockerfile.single` 的 `single` 阶段删掉基础自带的
+      # npm 之后才被扫描，2026-11-10 以同一组设置实测以 0 退出、0 条发现。
+      # 见 docs/manual/supply-chain.md §1/§7 —— 将来若有新基础自带发现，升级摘要还是登记一条有期限的例外，
+      # 仍是需要人裁决的事，不是这个工作流会悄悄做的事。
       - name: Scan image — fail on fixable HIGH/CRITICAL
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25   # v0.36.0
         with:

@@ -56,8 +56,14 @@ report the same packages twice. `isShadowed` skips any lockfile whose directory 
   and a future `expired_at` on every entry. **Measured 2026-11-10** with these exact settings:
   `alpine:3.24@sha256:3f4d…` exits 0; `node:14-alpine` exits 1 (38 fixable HIGH/CRITICAL); the pinned
   `node:22-alpine@sha256:0e17…` base exits 1 with 10 fixable HIGH in npm's bundled `node_modules` (OS
-  packages clean). The last reading means the gate as written would block the next publish until that base
-  is bumped or an exception is triaged — a decision, not a silent default.
+  packages clean). **No tag bump clears that:** on 2026-11-10 `node:22-alpine`'s own digest **is** the pin,
+  `22-alpine3.23` and `22-slim` reproduce the same 10, and `24-alpine` still reads 6 (`brace-expansion`,
+  `undici`). All 10 live in the base's `/usr/local/lib/node_modules/npm`, which the runtime never
+  executes, so `Dockerfile.single`'s `single` stage deletes that directory and the `npm`/`npx` shims.
+  **Re-measured on `main` 2026-11-10 against a build of that file with the gate's settings: exit 0, 0
+  findings** — the same command still exits 1 with 10 against the untouched base, so that is a fix rather
+  than a loosened gate. The built container starts and `/api/v1/health` answers 200. `Dockerfile`'s
+  `server` stage keeps npm on purpose — `deploy.sh` runs `npx ts-node scripts/create-admin.ts` there.
 - **Development-dependency findings are gated against the baseline.** Every entry carries
   `scope: production | dev`, which is part of the matching key, and `scripts/check-dependency-scan.mjs`
   gates both scopes by default; `--no-dev` gives the old recorded-only reading for one run. The reading
@@ -418,8 +424,14 @@ describe them as accepted risk.
   已接受的例外写在 `.trivyignore.yaml`，`npm run check:trivyignore` 要求每条都有 `statement` 与未来的
   `expired_at`。**2026-11-10 以完全相同的一组设置实测**：`alpine:3.24@sha256:3f4d…` 以 0 退出；
   `node:14-alpine` 以 1 退出（38 条有修复的 HIGH/CRITICAL）；钉住的 `node:22-alpine@sha256:0e17…` 基础以 1
-  退出，npm 自带的 `node_modules` 里有 10 条有修复的 HIGH（操作系统包干净）。最后这个读数意味着：按现在
-  这样写，门禁会挡住下一次发布，直到升级该基础或登记一条有期限的例外 —— 这是需要裁决的事，不是默认行为。
+  退出，npm 自带的 `node_modules` 里有 10 条有修复的 HIGH（操作系统包干净）。**换标签也清不掉：** 2026-11-10
+  实测 `node:22-alpine` 标签自己的摘要**就是**钉住的那一枚，`22-alpine3.23` 与 `22-slim` 复现同样 10 条，
+  `24-alpine` 仍读 6 条（`brace-expansion`、`undici`）。这 10 条全在基础的
+  `/usr/local/lib/node_modules/npm` 里，而运行阶段从不执行它，故 `Dockerfile.single` 的 `single` 阶段删掉该目录
+  与 `npm`/`npx` 两个入口。**2026-11-10 在 `main` 上对该文件的构建按门禁设置复测：以 0 退出、0 条发现** ——
+  同一条命令扫未改的基础仍以 1 退出、10 条，所以这是修复而不是放宽门禁。构建出的容器能启动，
+  `/api/v1/health` 回 200。`Dockerfile` 的 `server` 阶段有意保留 npm —— `deploy.sh` 在那里执行
+  `npx ts-node scripts/create-admin.ts`。
 - **开发依赖的发现同样按基线判红。** 每条基线带 `scope: production | dev`，并计入匹配键；
   `scripts/check-dependency-scan.mjs` 默认两个作用域都判红，`--no-dev` 用于「只记录、不判红」的那一次运行。
   本次（2026-11-10，7 份锁文件、3466 个包）的读数是：生产 **9 条已知**、开发 **97 条已知**，两边 **0 条新增**。
