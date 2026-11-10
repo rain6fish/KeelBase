@@ -134,6 +134,14 @@ L5 Side-effect Governance ─ Confirmation / Idempotency / Revoke / Audit
 
 > 权限判断发生在**运行时**，不依赖 AI"记住规则"。被拒绝不是异常，而是系统正常工作——拒绝原因结构化进入决策轨迹与审计。
 
+### 4.1 R4 裁决记在谁名下 / Whose name the R4 approval is recorded under
+
+R4 是唯一在**独立治理服务**里裁决、再回调业务系统执行的授权路径（§6 的 CONF-2 行）。裁决本身是一次应被审计的
+行为：批准人在**自己名下**留一条 `tool_confirmation` 审计行（与会话内联确认同形），执行行的注记以
+`姓名 (#id)` 点名批准人；审计读面（`GET /audit/logs/:id/interpretation` 的 `approval` 腿）的 `approverName` 取自
+同一会话里批准人自己的那条行，取不到即为 `null`、读面回落 id，不按工具名加时间推断。规格见
+[hs9-governance-policy.spec.md §4 规则 12](hs9-governance-policy.spec.md)。
+
 ---
 
 ## 5. 与 Application Protocol 的关系
