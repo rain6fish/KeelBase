@@ -6,47 +6,39 @@
  *
  * The checks are each a CI job of their own — which is right for CI, where you want to see exactly which
  * one broke, and wrong for the moment before a push, where you want "is this tree clean". This is that
- * second thing: it runs each `check:*` script (plus `spec:check`) in sequence and reports a table, so a
- * change that trips one of them is visible locally instead of in CI.
+ * second thing: it runs each `check:*` script (plus `spec:check` and `conformance`) in sequence and reports
+ * a table, so a change that trips one of them is visible locally instead of in CI.
  *
  * A few checks need something this machine may not have (a sibling Java checkout for the vector sync, a
  * headless browser for the mobile preview). Those show as failures too — the summary names the script,
  * so a failure here means "run it yourself and read why", not necessarily "the tree is broken".
  *
- * One gate is deliberately not collected, and it is worth writing down why so the next audit does not
- * re-open it: the Postgres migration consistency check (`migration-consistency-postgres` in CI,
- * `npm run migration:consistency:pg` locally). It needs a live PostgreSQL — a throwaway container when
- * Docker is up, 31-45s measured, i.e. roughly this whole suite's runtime again. Local development is
- * sqlite-first, so on a machine without Docker it could only ever fail, which costs this instrument its
- * meaning; and skipping it here would be worse than omitting it, because this table prints one line per
- * gate and discards each gate's output on success — a skip would read exactly like a pass. The failure
- * class it would catch locally (an entity changed with no migration) is the one that left main red for
- * about ten hours; `check:entity-migrations` covers its table half statically and without a database,
- * and CI runs the Postgres half on every push. The place to run it by hand is
- * `docs/manual/delivery-recipe.md` §5, which names the prerequisite.
+ * **What a green run does not mean.** This table is the static half of the verification story: the unit
+ * suite, e2e, lint, the Postgres migration consistency check and the adversarial run are not in it, and a
+ * green line says nothing about them. Every run ends with a "not covered by this gate" section listing
+ * each of those entries with its command and why; the data behind it lives in `scripts/gate-coverage.mjs`,
+ * and `scripts/gate-coverage.test.mjs` turns red when a verification script appears without the
+ * declaration keeping up (2026-10-31 CTO weekly §13).
  *
  * 一条命令跑完全部仓内门禁、打印一张汇总表。
  *
  * 这些检查在 CI 里各是一个 job —— 对 CI 是对的（要看是哪一个红的），而**推送之前**你想要的其实是
- * 「这棵树干不干净」。本脚本就是后一件事：顺序跑每个 `check:*`（外加 `spec:check`）并汇总成表，于是
- * 触到某个门禁的改动在**本地**就看得见，而不是等到 CI。
+ * 「这棵树干不干净」。本脚本就是后一件事：顺序跑每个 `check:*`（外加 `spec:check` 与 `conformance`）并
+ * 汇总成表，于是触到某个门禁的改动在**本地**就看得见，而不是等到 CI。
  *
  * 有几项需要本机未必有的东西（向量同步要同级 Java 检出、移动预览要无头浏览器）——它们同样会显示为失败；
  * 汇总里带着脚本名，所以这里的红意思是「你自己跑一下看原因」，**不必然**是「树坏了」。
  *
- * 有一道门禁是**有意不收**的，理由写在这里，免得下一轮体检重新吵一遍：postgres 迁移一致性
- * （CI 的 `migration-consistency-postgres`，本地 `npm run migration:consistency:pg`）。它要一个**活的
- * PostgreSQL** —— Docker 在时起临时容器，实测 31-45s，差不多等于本套件目前的全部耗时。本地开发以 sqlite
- * 为主，于是没有 Docker 的机器上它只会**永远红**，那会把这个仪器的含义耗掉；而在这里**静默跳过**比不收更糟：
- * 这张表一道闸只打一行，且成功时**丢弃**该闸的输出 —— 跳过读起来与通过一模一样。它在本机能抓到的那个
- * 失败类（实体改了却没迁移）正是让 main 红了约十小时的那一类：其中「表」那一半已由 `check:entity-migrations`
- * **静态、无需数据库**地守住，postgres 那一半在每次推送时由 CI 跑。要手动跑它，位置写在
- * `docs/manual/delivery-recipe.md` §5，前置条件在那里点明了。
+ * **全绿不代表什么。** 这张表只是验证故事的**静态那一半**：单元套件、e2e、lint、Postgres 迁移一致性、
+ * 对抗实证都不在里面，一行绿对它们**什么也没说**。每次运行都以「本门未覆盖」一节收尾，逐条给出命令与
+ * 原因；数据在 `scripts/gate-coverage.mjs`，而 `scripts/gate-coverage.test.mjs` 会在「冒出一个验证脚本、
+ * 声明却没跟上」时判红（2026-10-31 CTO 周会 §13）。
  */
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { coveredNames, EXTRA_STEPS, NOT_COVERED, RELEASE_ONLY } from './gate-coverage.mjs';
 import { contractSubmoduleProblem, SUBMODULE_FIX } from './require-contract-submodule.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -58,14 +50,16 @@ const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'))
 // 需要 tag 与只存在于 tag 推送上的 CI 运行的门禁。`check:tag-lineage` 由
 // `.github/workflows/tag-lineage.yml` 在每次 `v*` 推送时跑；在一笔普通提交上把它放进本表，它只能回答
 // 「不是 tag」，而把这种回答打印成绿色，正是本仪器绝不能做的事。
-const releaseContext = new Set(['check:tag-lineage']);
+//
+// The set is exported by `gate-coverage.mjs` so the filter, the printed "not covered" section and the
+// guard test all use one definition.
+// 这个集合由 `gate-coverage.mjs` 导出，于是本过滤、「未覆盖」打印与守卫测试用的是同一份定义。
+const releaseContext = RELEASE_ONLY;
 
-const names = Object.keys(pkg.scripts)
-  .filter((n) => n.startsWith('check:') && n !== 'check:all' && !releaseContext.has(n))
-  .concat(['spec:check'])
-  .sort();
+const names = coveredNames(pkg, { exclude: releaseContext });
+const steps = names.concat(EXTRA_STEPS.map((s) => s.label));
 
-const width = Math.max(...names.map((n) => n.length));
+const width = Math.max(...steps.map((n) => n.length));
 const failures = [];
 const started = Date.now();
 
@@ -118,25 +112,55 @@ if (prerequisites.length > 0) {
   );
 }
 
-for (const name of names) {
-  process.stdout.write(`▶ ${name.padEnd(width)} `);
+function runStep(label, cwd, script) {
+  process.stdout.write(`▶ ${label.padEnd(width)} `);
   const t0 = Date.now();
   try {
-    execFileSync('npm', ['run', '--silent', name], { cwd: ROOT, stdio: 'pipe', shell: true });
+    execFileSync('npm', ['run', '--silent', script], { cwd, stdio: 'pipe', shell: true });
     console.log(`✓  ${((Date.now() - t0) / 1000).toFixed(1)}s`);
   } catch (err) {
     const out = `${err.stdout ?? ''}${err.stderr ?? ''}`.trim().split('\n').slice(-6).join('\n    ');
     console.log(`✗  ${((Date.now() - t0) / 1000).toFixed(1)}s`);
     console.log(`    ${out}`);
-    failures.push(name);
+    failures.push(label);
   }
 }
 
+for (const name of names) runStep(name, ROOT, name);
+for (const step of EXTRA_STEPS) runStep(step.label, path.join(ROOT, step.cwd), step.npm);
+
+/**
+ * The half this table cannot show. Printed on every run — pass or fail — because the reader who sees a
+ * green table is exactly the one about to assume it covered more than it did. Reasons are not restated
+ * here: they live next to the data in `scripts/gate-coverage.mjs`, where the guard test can check whether
+ * they are still true.
+ *
+ * 这张表**显示不了**的那一半。每次运行都打印 —— 通过与否都一样 —— 因为看见一张绿表的读者，正是最容易以为
+ * 它覆盖得更多的人。原因不在这里复述：它们在 `scripts/gate-coverage.mjs` 里、紧挨着数据，守卫测试才检查得了
+ * 它们是否仍然成立。
+ */
+function printNotCovered() {
+  console.log('\n── 本门未覆盖 / not covered by this gate ──');
+  console.log('  上面那张表**不跑**下面这些 —— 它全绿，不代表这些也过了。');
+  console.log('  The table above does **not** run these — a green table is not a pass for any of them.');
+  for (const e of NOT_COVERED) {
+    console.log(`\n  ✗ ${e.commands.join('  ·  ')}`);
+    if (e.alsoCovers?.length) console.log(`      也含 / also covers: ${e.alsoCovers.join(' · ')}`);
+    console.log(`      ${e.reason.zh}`);
+    console.log(`      ${e.reason.en}`);
+  }
+  console.log('\n  清单与原因的单源：scripts/gate-coverage.mjs（守卫测试 node --test scripts/gate-coverage.test.mjs）。');
+  console.log('  Single source for this list and its reasons: scripts/gate-coverage.mjs (guard test as above).');
+}
+
+printNotCovered();
+
+const total = steps.length;
 const secs = ((Date.now() - started) / 1000).toFixed(1);
 if (failures.length > 0) {
-  console.error(`\n[check-all] ${names.length - failures.length}/${names.length} 通过，${failures.length} 未过（${secs}s）：`);
+  console.error(`\n[check-all] ${total - failures.length}/${total} 通过，${failures.length} 未过（${secs}s）：`);
   for (const f of failures) console.error(`  ✗ ${f}`);
   console.error(`\n逐条单跑看原因：npm run <名字>。\nRun one on its own for the detail: npm run <name>.\n`);
   process.exit(1);
 }
-console.log(`\n[check-all] ${names.length}/${names.length} 全过（${secs}s）`);
+console.log(`\n[check-all] ${total}/${total} 全过（${secs}s）`);
