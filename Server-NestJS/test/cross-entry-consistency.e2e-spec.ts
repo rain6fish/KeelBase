@@ -122,7 +122,8 @@ describe('Cross-entry decision consistency (T5)', () => {
   });
 
   it('④ allow 依据跨入口同形——MCP 读工具成功也写放行快照，且与既定判定同源（T5）', async () => {
-    const res = await mcpCall('query_events', {}).expect(201);
+    const callArgs = {};
+    const res = await mcpCall('query_events', callArgs).expect(201);
     expect(res.body.error).toBeUndefined();
 
     // 直读审计行取 authorization（列表 DTO 不透出该列）
@@ -154,9 +155,15 @@ describe('Cross-entry decision consistency (T5)', () => {
     expect(snap.tool).toBe('query_events');
 
     // 依据同源：快照携带的「为何允许」与授权解释器对同一 tool+user 的判定一致
+    // The same inputs the MCP door hands the explainer — it passes this call's arguments, so the
+    // field-domain decision is recorded. Comparing against a call that omits them would compare two
+    // different questions, not two sources for one answer.
+    //
+    // 与 MCP 门交给解释器的输入一致：门传本次调用参数，故会记下字段域判定。拿不带参数的调用去比，
+    // 比的是两个不同的问题，而不是同一个答案的两个来源。
     const reasons = await app
       .get(AuthorizationExplainerService)
-      .getAuthorizationReasons('query_events', String(mcpUserId), false);
+      .getAuthorizationReasons('query_events', String(mcpUserId), false, undefined, callArgs);
     expect(snap.checks).toEqual(reasons.checks);
     expect(snap.riskLevel).toBe(reasons.riskLevel);
     expect(snap.strategy).toBe(reasons.riskStrategy);
