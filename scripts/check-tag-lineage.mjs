@@ -40,6 +40,16 @@ function run(command, args) {
   return execFileSync(command, args, { encoding: 'utf8' }).trim()
 }
 
+// Test-only seam: KEELBASE_TAG_LINEAGE_GH names a Node script run instead of `gh`, so
+// scripts/check-tag-lineage.test.mjs can answer without network or a real `gh`. Production never sets
+// it, and unset means `gh` itself is what runs — the default is unchanged.
+// 仅测试用：KEELBASE_TAG_LINEAGE_GH 指向一个替代 `gh` 的 Node 脚本，使测试无需联网或真 `gh` 即可作答。
+// 生产环境从不设置它；未设置时跑的就是 `gh` 本身 —— 默认行为不变。
+function runGh(args) {
+  const fixture = process.env.KEELBASE_TAG_LINEAGE_GH
+  return fixture ? run(process.execPath, [fixture, ...args]) : run('gh', args)
+}
+
 function stop(code, message) {
   const label = code === 0 ? 'OK' : code === 1 ? 'FAIL' : 'UNKNOWN'
   console.error(`${label} ${message}`)
@@ -83,7 +93,7 @@ try {
 const workflow = value('--workflow', 'CI')
 let raw
 try {
-  raw = run('gh', ['run', 'list', '--commit', commit, '--workflow', workflow, '--limit', '20', '--json', 'status,conclusion'])
+  raw = runGh(['run', 'list', '--commit', commit, '--workflow', workflow, '--limit', '20', '--json', 'status,conclusion'])
 } catch (error) {
   stop(2, `cannot read CI runs for ${commit}: ${error.message} / 读不出 ${commit} 的 CI 运行记录`)
 }
