@@ -1,0 +1,15 @@
+# Accepted image-scan exceptions. Trivy reads this file before the publish gate fails.
+# Every entry must carry:
+#   id:          the vulnerability id Trivy prints (CVE-… / GHSA-…)
+#   statement:   why this finding is accepted and who owns it (write it on one line)
+#   expired_at:  YYYY-MM-DD (+08); an expired entry is a red check, and Trivy stops honouring it
+# `node scripts/check-trivyignore.mjs` enforces the three fields; the parser understands only this
+# subset — no block scalars, no unknown keys.
+#
+# 已接受的镜像扫描例外。Trivy 在发布门禁判红之前会先读这份文件。
+# 每条必须带：
+#   id:          Trivy 打印的漏洞编号（CVE-… / GHSA-…）
+#   statement:   为何接受这条发现、谁负责（写成一行）
+#   expired_at:  YYYY-MM-DD（+08）；过期即判红，Trivy 也不再采纳这条
+# `node scripts/check-trivyignore.mjs` 强制这三个字段；解析器只懂这个子集 —— 不支持块标量、不接受未知键。
+vulnerabilities: []

@@ -17,8 +17,9 @@ pinned and `check:pinned-images` added — that half is changed by this document
 
 The supply-chain gate is one script, `scripts/check-dependency-scan.mjs`, plus a second, older check that
 predates it. The script runs `osv-scanner scan source -r <root>` (`scripts/check-dependency-scan.mjs:208-209`)
-with the root set to the repository directory (`:68`). The scanner walks the file system, not
-`git ls-files`, which has three consequences:
+with the root set to the repository directory (`:68`). Two more checks were added on 2026-11-10 — an image
+scan in the publish workflow and an SBOM coverage check — and are described below. The scanner walks the
+file system, not `git ls-files`, which has three consequences:
 
 - every lockfile in the tree is read, including one inside an initialised submodule;
 - on a local run, files that are not committed are read too; CI checks out a clean tree;
@@ -44,15 +45,54 @@ report the same packages twice. `isShadowed` skips any lockfile whose directory 
 `package-lock.json` (`scripts/check-dependency-scan.mjs:144-149`), and the run names what it skipped
 (`:320`).
 
+### Beyond the lockfiles (2026-11-10)
+
+- **The built image is scanned before it is published.** `.github/workflows/docker-publish.yml` builds
+  without pushing (`load: true`), runs Trivy (action pinned by commit `ed142fd0…` = v0.36.0, binary pinned to
+  `v0.76.2`), and pushes only if the scan exits 0. The gate fails on `HIGH`/`CRITICAL` **with a fix
+  available** (`--ignore-unfixed`); findings with no fix are printed by `scripts/trivy-unfixed-report.mjs`
+  and do not block. The Trivy version and vulnerability-DB timestamp are printed before the gate runs.
+  Accepted exceptions live in `.trivyignore.yaml`, and `npm run check:trivyignore` requires a `statement`
+  and a future `expired_at` on every entry. **Measured 2026-11-10** with these exact settings:
+  `alpine:3.24@sha256:3f4d…` exits 0; `node:14-alpine` exits 1 (38 fixable HIGH/CRITICAL); the pinned
+  `node:22-alpine@sha256:0e17…` base exits 1 with 10 fixable HIGH in npm's bundled `node_modules` (OS
+  packages clean). The last reading means the gate as written would block the next publish until that base
+  is bumped or an exception is triaged — a decision, not a silent default.
+- **Development-dependency findings are gated against the baseline.** Every entry carries
+  `scope: production | dev`, which is part of the matching key, and `scripts/check-dependency-scan.mjs`
+  gates both scopes by default; `--no-dev` gives the old recorded-only reading for one run. The reading
+  this slice produced on 2026-11-10 (7 lockfiles, 3466 packages): **9 production / 97 dev-only**
+  high-critical known, **0 new** in either scope. Backend dev dependencies are **shipped and executed** in
+  the compose deployment (`npm ci --include=dev`, the whole `node_modules` is copied, and `npx ts-node`
+  runs at deploy time), so a future `Server-NestJS` dev finding is a production finding in substance; that
+  tree has none today.
+- **The SBOM is one full-tree CycloneDX 1.6 document.** CI runs the pinned scanner with
+  `scan source -r … --format cyclonedx-1-6 --all-packages --no-ignore`. `--all-packages` is required:
+  without it the output contains only components that have vulnerabilities (74 components vs 2631 on
+  2026-11-10), which is a vulnerability report, not an inventory. `--offline` cannot be used — it exits 127
+  with "no offline version of the OSV database is available" and writes an empty BOM.
+  `scripts/check-sbom-coverage.mjs` derives the expected set from the scanner's own `Scanned …` lines
+  (7 lockfiles; the shadowed `Front-Taro/pnpm-lock.yaml` is reported, not demanded) and requires one marker
+  component per tree. The document is uploaded as the `keelbase-sbom` artifact. Attaching it to a GitHub
+  Release is **not** implemented — that is a decision still open.
+
+### Commands added by this slice
+
+```bash
+node scripts/check-dependency-scan.mjs --no-dev
+node scripts/check-trivyignore.mjs [--selftest]
+node scripts/trivy-unfixed-report.mjs trivy-high-critical.json
+node scripts/check-sbom-coverage.mjs [--selftest] [--sbom <path>] [--scan-log <path>]
+```
+
 Outside the scope of this gate:
 
-- **Image layers and OS packages.** Nothing scans a built image; `.github/workflows/ci.yml` never builds
-  one (its only mention of Docker is a comment at `:962`). Images are built by
-  `.github/workflows/docker-publish.yml:98` on tag pushes and manual dispatch (`:14-17`).
+- **Image layers and OS packages.** The dependency scanner does not read images. A separate scan covers
+  the image built from `Dockerfile.single` before it is pushed (§7); scheduled scans and the compose
+  `web` image are still open there.
 - **Compose run-time images and CI service images.** `image:` entries are not lockfiles, so the dependency
   scanner does not read them. They are digest-pinned and gated separately (§4); that gate checks the pin,
   it does not scan the image.
-- **Development dependencies.** Scanned, counted and reported, not gated (`:24-25`, `:310`).
 - **Gradle.** `Front-Flutter/android/app/build.gradle.kts` is not a lockfile and no JVM scanner runs here.
 - **GitHub Actions versions.** Covered by Dependabot only, with `open-pull-requests-limit: 0`
   (`.github/dependabot.yml:70-77`) — an alerting channel, not a gate.
@@ -290,24 +330,37 @@ describe them as accepted risk.
   record the exception together with the reason in the same change.
 - **未核 (exit 2) is not a pass and is not an accepted state.** It means the tree was not verified
   (`:83-88`). Do not merge on it, and do not read it as clean.
-- **Moderate, low and dev-only findings are not stop conditions.** They are counted and printed
-  (`:310-311`, `:326`).
+- **Moderate and low findings are not stop conditions.** They are counted and printed. **Dev-only
+  high/critical findings are stop conditions** since 2026-11-10 unless the baseline records them (§1).
 
 ## 7. What this does not cover
 
-1. **Image-layer scanning.** No `trivy image` / `grype` runs anywhere, so CVEs in a base image's OS
-   packages are unreported — compose images included: the compose gate checks the pin, not the image.
-2. **Dev-dependency findings are not gated** — 97 high/critical at the 2026-11-08 reading.
-3. **The 39 baseline entries are debt, not a fix.**
-4. **The OSV API is unauthenticated** and rate-limited; the self-test adds three queries per CI run.
-5. **The `pubspec.lock` production closure is conservative** and can over-gate, never under-gate.
-6. **An npm v1 lockfile would gate everything**; none exists today.
-7. **The SBOM covers Server-NestJS only**, not the other six lockfiles.
-8. **Required-check status is not in this tree.** Whether a red job blocks a merge is a GitHub setting.
-9. **Pull references outside YAML are not gated.** `deploy/deploy-offline.sh` checks images by tag,
-   `docs/manual/offline-deploy.md` §2.1 pins its `docker pull` lines by hand, and the `IMAGE` constant in
-   `Server-NestJS/scripts/check-pg-migration-consistency.mjs:25` is a hand pin. The gate reads YAML only;
-   each of these can drift back to a floating tag without turning anything red.
+1. **Image-layer scanning covers the published image, with limits.** The 2026-11-10 gate scans the image
+   built from `Dockerfile.single` before the push. Not covered: a **weekly scheduled** scan of the published
+   `:latest` and the two pinned bases (not added — a decision still open), and the compose `web` (nginx)
+   image, which is built per deploy. The currently pinned `node:22-alpine` base fails the gate (10 fixable
+   HIGH in npm's bundled modules), so the next publish needs a base bump or a triaged exception.
+2. **Compose images are pinned but not scanned.** Every compose image and the CI service image are
+   digest-pinned and gated by `check:pinned-images` (§4); that gate checks the pin, not the image, so a CVE
+   inside one of them is only seen when the same image is the release image scanned in item 1.
+3. **Dev-dependency findings are gated, but the debt is large and the toolchain is the fix.** 97 dev-only
+   rows are recorded with owner `maintainer` and expiry `2027-02-08`; 29 of them are `vm2@3.11.5`, which is
+   deprecated and has no fixed release, so only removing the Taro webpack5 runner clears them. A **new**
+   dev advisory is red; §6 records this as a stop condition.
+4. **The 106 baseline rows (9 production + 97 dev) are debt, not a fix.**
+5. **The OSV API is unauthenticated** and rate-limited; the self-test adds three queries per CI run, and the
+   full-tree SBOM generation is a second full scan of the same tree.
+6. **The `pubspec.lock` production closure is conservative** and can over-gate, never under-gate.
+7. **An npm v1 lockfile would gate everything**; none exists today.
+8. **The SBOM is full-tree CycloneDX, but it is not a verdict and is not attached to releases.** It covers
+   all 7 scanned lockfiles and is checked by `scripts/check-sbom-coverage.mjs`; nothing consumes it as a
+   vulnerability gate (the dependency gate is that), and attaching it to a GitHub Release is still an open
+   decision.
+9. **Required-check status is not in this tree.** Whether a red job blocks a merge is a GitHub setting.
+10. **Pull references outside YAML are not gated.** `deploy/deploy-offline.sh` checks staged images by tag,
+    `docs/manual/offline-deploy.md` §2.1 pins its `docker pull` lines to digests by hand, and the `IMAGE`
+    constant in `Server-NestJS/scripts/check-pg-migration-consistency.mjs:25` is a hand pin. The gate reads
+    YAML only; each of these can drift back to a floating tag without turning anything red.
 
 ---
 
@@ -316,7 +369,8 @@ describe them as accepted risk.
 ## 1. 射程 —— 扫什么
 
 供应链门禁是一个脚本 `scripts/check-dependency-scan.mjs`，外加一条早于它存在、被原样保留的旧检查。
-脚本执行 `osv-scanner scan source -r <根>`（`scripts/check-dependency-scan.mjs:208-209`），根为仓库目录
+2026-11-10 又加了两道 —— 发布工作流里的镜像扫描、以及 SBOM 覆盖检查 —— 见下文。脚本执行
+`osv-scanner scan source -r <根>`（`scripts/check-dependency-scan.mjs:208-209`），根为仓库目录
 （`:68`）。扫描器走的是文件系统，不是 `git ls-files`，由此有三个后果：
 
 - 树里每一份锁文件都会被读，包括已初始化子模块里的那一份；
@@ -342,14 +396,45 @@ describe them as accepted risk.
 `isShadowed` 会跳过「同目录另有 `package-lock.json`」的锁文件
 （`scripts/check-dependency-scan.mjs:144-149`），运行输出里也会点名跳过了哪些（`:320`）。
 
+### 锁文件之外（2026-11-10）
+
+- **构建出的镜像在发布之前被扫描。** `.github/workflows/docker-publish.yml` 只构建、不推送（`load: true`），
+  跑 Trivy（action 按提交钉住 `ed142fd0…` = v0.36.0，二进制钉住 `v0.76.2`），只有扫描以 0 退出才推送。
+  门禁只对**有修复版本**的 `HIGH`/`CRITICAL` 判红（`--ignore-unfixed`）；无修复的发现由
+  `scripts/trivy-unfixed-report.mjs` 打印，不阻止发布。Trivy 版本与漏洞库时间戳在判红之前写进日志。
+  已接受的例外写在 `.trivyignore.yaml`，`npm run check:trivyignore` 要求每条都有 `statement` 与未来的
+  `expired_at`。**2026-11-10 以完全相同的一组设置实测**：`alpine:3.24@sha256:3f4d…` 以 0 退出；
+  `node:14-alpine` 以 1 退出（38 条有修复的 HIGH/CRITICAL）；钉住的 `node:22-alpine@sha256:0e17…` 基础以 1
+  退出，npm 自带的 `node_modules` 里有 10 条有修复的 HIGH（操作系统包干净）。最后这个读数意味着：按现在
+  这样写，门禁会挡住下一次发布，直到升级该基础或登记一条有期限的例外 —— 这是需要裁决的事，不是默认行为。
+- **开发依赖的发现同样按基线判红。** 每条基线带 `scope: production | dev`，并计入匹配键；
+  `scripts/check-dependency-scan.mjs` 默认两个作用域都判红，`--no-dev` 用于「只记录、不判红」的那一次运行。
+  本次（2026-11-10，7 份锁文件、3466 个包）的读数是：生产 **9 条已知**、开发 **97 条已知**，两边 **0 条新增**。
+  后端开发依赖在编排部署里**会被打进镜像并在部署时执行**（`npm ci --include=dev`、整个 `node_modules` 被复制、
+  部署时跑 `npx ts-node`），所以将来 `Server-NestJS` 的一条开发发现，实质上就是生产发现；该树今天没有。
+- **SBOM 是一份全仓 CycloneDX 1.6 文档。** CI 用钉住的扫描器跑
+  `scan source -r … --format cyclonedx-1-6 --all-packages --no-ignore`。`--all-packages` 是必需的：
+  不带它时输出只含「有漏洞的组件」（2026-11-10 实测：74 个组件 vs 带上后的 2631 个），那是漏洞报告、
+  不是清单。`--offline` 不可用 —— 它以 127 退出并报「没有离线 OSV 数据库」，只写出一份空 BOM。
+  `scripts/check-sbom-coverage.mjs` 从扫描器自己的 `Scanned …` 行取期望集合（7 份锁文件；被遮蔽的
+  `Front-Taro/pnpm-lock.yaml` 只报告、不要求），并要求每棵树有一个标记组件。文档作为 `keelbase-sbom`
+  产物上传。把它附到 GitHub Release **尚未**实现 —— 那是一个仍未定的决定。
+
+### 本次新增的命令
+
+```bash
+node scripts/check-dependency-scan.mjs --no-dev
+node scripts/check-trivyignore.mjs [--selftest]
+node scripts/trivy-unfixed-report.mjs trivy-high-critical.json
+node scripts/check-sbom-coverage.mjs [--selftest] [--sbom <path>] [--scan-log <path>]
+```
+
 本门禁不覆盖的部分：
 
-- **镜像层与操作系统包。** 没有任何东西扫描构建出的镜像；`.github/workflows/ci.yml` 根本不构建镜像
-  （其中唯一提到 Docker 的地方是 `:962` 的一句注释）。镜像由
-  `.github/workflows/docker-publish.yml:98` 在打 tag 与手动触发时构建（`:14-17`）。
+- **镜像层与操作系统包。** 依赖扫描器不读镜像。另有一道门禁在推送前扫描由 `Dockerfile.single` 构建出的
+  镜像（见 §7）；定时扫描与 compose 的 `web` 镜像仍未覆盖。
 - **编排里的运行时镜像与 CI service 镜像。** `image:` 不是锁文件，依赖扫描器不读它们。它们已按摘要钉住、
   由另一道门禁单独守（§4）；那道门禁查的是「钉没钉」，不是「镜像里有没有洞」。
-- **开发依赖。** 会扫描、会计数、会报告，但不判红（`:24-25`、`:310`）。
 - **Gradle。** `Front-Flutter/android/app/build.gradle.kts` 不是锁文件，本仓也没有 JVM 扫描器。
 - **GitHub Actions 的版本。** 只由 Dependabot 覆盖，且 `open-pull-requests-limit: 0`
   （`.github/dependabot.yml:70-77`）—— 那是告警通道，不是门禁。
@@ -562,20 +647,30 @@ Dockerfile 钉的是 `sha256:3f4d…630a` —— 标签动了、被钉住的镜�
   **不得合并。** 处理方式是升级该依赖，或在同一次改动里登记例外并写明理由。
 - **未核（退出码 2）不是通过，也不是可接受的状态。** 它的意思是这棵树没有被核过（`:83-88`）。
   不要凭它合并，也不要把它读成干净。
-- **中危、低危与仅开发依赖的发现，不是停止条件。** 它们会被计数并打印（`:310-311`、`:326`）。
+- **中危与低危发现不是停止条件。** 它们会被计数并打印。**仅开发依赖的高危/严重发现自 2026-11-10 起是
+  停止条件**，除非基线已登记（见 §1）。
 
 ## 7. 未覆盖项
 
-1. **镜像层扫描。** 任何地方都没有 `trivy image` / `grype`，所以基础镜像里操作系统包的 CVE 不会被报 ——
-   编排镜像同样如此：编排门禁查的是钉没钉，不是镜像里有没有洞。
-2. **开发依赖的发现不判红** —— 2026-11-08 这次读数是 97 条高/严重。
-3. **那 39 条基线是债，不是修复。**
-4. **OSV API 是匿名的**，受速率限制；自检每次 CI 再多三条查询。
-5. **`pubspec.lock` 的生产闭包是保守的**，可能多判，不会漏判。
-6. **npm v1 锁文件会让全部发现都判红**；今天没有这种文件。
-7. **SBOM 只覆盖 Server-NestJS**，不含另外六份锁文件。
-8. **必过检查的状态不在本树里。** 红的 job 是否阻止合并，是 GitHub 上的设置。
-9. **YAML 之外的拉取引用不进本门禁。** `deploy/deploy-offline.sh` 按标签查镜像、
-   `docs/manual/offline-deploy.md` §2.1 的 `docker pull` 行是手工钉的、
-   `Server-NestJS/scripts/check-pg-migration-consistency.mjs:25` 的 `IMAGE` 常量也是手工钉的。门禁只读
-   YAML；这三处都可能悄悄漂回浮动标签而不让任何东西变红。
+1. **镜像层扫描覆盖的是已发布镜像，且仍有边界。** 2026-11-10 这道门扫描 `Dockerfile.single` 构建出的镜像、
+   **在推送之前**。未覆盖：对已发布 `:latest` 与两个钉住基础的**每周定时**扫描（未加 —— 仍是待定事项），
+   以及 compose 的 `web`（nginx）镜像（按次部署构建）。当前钉住的 `node:22-alpine` 基础会判红
+   （npm 自带模块里 10 条有修复的 HIGH），所以下一次发布要么升级基础、要么登记一条有期限的例外。
+2. **编排镜像已钉摘要，但没有被扫描。** 每个编排镜像与 CI service 镜像都已钉住，由 `check:pinned-images`
+   守着（§4）；那道门禁查的是「钉没钉」，不是「镜像里有没有洞」，所以只有它与第 1 条里被扫的发布镜像
+   是同一个镜像时，里面的 CVE 才会被看见。
+3. **开发依赖的发现已判红，但债很大、解法在工具链。** 97 条仅开发期的条目已登记，责任人 `maintainer`、
+   到期 `2027-02-08`；其中 29 条是 `vm2@3.11.5` —— 它已废弃且没有修复版本，只有移除 Taro 的 webpack5
+   runner 才能清掉。**新增**的开发期公告会判红；§6 已把这一条写成停止条件。
+4. **那 106 条基线（生产 9 + 开发 97）是债，不是修复。**
+5. **OSV API 是匿名的**，受速率限制；自检每次 CI 再多三条查询，而全仓 SBOM 生成是对同一棵树再扫一遍。
+6. **`pubspec.lock` 的生产闭包是保守的**，可能多判，不会漏判。
+7. **npm v1 锁文件会让全部发现都判红**；今天没有这种文件。
+8. **SBOM 是全仓 CycloneDX，但它不是判定、也没有附到 Release。** 它覆盖全部 7 份被扫的锁文件，由
+   `scripts/check-sbom-coverage.mjs` 检查；没有任何东西把它当作漏洞门禁（漏洞判定是依赖门禁），
+   是否附到 GitHub Release 仍是待定决定。
+9. **必过检查的状态不在本树里。** 红的 job 是否阻止合并，是 GitHub 上的设置。
+10. **YAML 之外的拉取引用不进本门禁。** `deploy/deploy-offline.sh` 按标签查已预置的镜像、
+    `docs/manual/offline-deploy.md` §2.1 的 `docker pull` 行是按摘要手工钉的、
+    `Server-NestJS/scripts/check-pg-migration-consistency.mjs:25` 的 `IMAGE` 常量也是手工钉的。门禁只读
+    YAML；这几处都可能悄悄漂回浮动标签而不让任何东西变红。
