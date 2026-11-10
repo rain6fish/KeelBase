@@ -190,8 +190,8 @@ file says so at `Dockerfile.single:12-13`), so its digest is what users of the p
 
 ### Compose images
 
-Seven `image:` entries in two compose files, all pinned on 2026-11-10. Each entry was a floating tag
-before that; the three `latest` ones were resolved to the version tag that currently carries the same
+Eight `image:` entries in three compose files, all pinned on 2026-11-10. Each entry was a floating tag
+before that; the five `latest` ones were resolved to the version tag that currently carries the same
 digest, so pinning changed nothing at pin time.
 
 | Reference | Digest | Where |
@@ -203,12 +203,13 @@ digest, so pinning changed nothing at pin time.
 | `grafana/grafana:13.3.0` | `sha256:488984b716c0862639f91a698adbe2862677a5a07bad42da5f03f3030883b205` | `docker-compose.observability.yml:39` |
 | `jaegertracing/all-in-one:1.76.0` | `sha256:ab6f1a1f0fb49ea08bcd19f6b84f6081d0d44b364b6de148e1798eb5816bacac` | `docker-compose.observability.yml:57` |
 | `grafana/loki:3.7.9` | `sha256:0db216b630ae1f348a1584c67f3cead8b4c1fc839169a39501db664744158e28` | `docker-compose.observability.yml:65` |
+| `postgres:17-alpine` | `sha256:3540c0362c809df084ffac0ae69fe794515f9de92692f02178bcdce0ef0302ac` | `Server-NestJS/postgresql/docker-compose.db.yml:11` |
 
 ### CI service container and the migration check
 
 The same `pgvector/pgvector:pg17` image also appears at `.github/workflows/ci.yml:142` (the
 `migration-consistency-postgres` service container) and as `IMAGE` in
-`Server-NestJS/scripts/check-pg-migration-consistency.mjs:23`. Both carry the compose digest
+`Server-NestJS/scripts/check-pg-migration-consistency.mjs:25`. Both carry the compose digest
 (`sha256:7d0a…ccb8`), so all three sites describe one image. The workflow one is covered by the gate; the
 script constant is not a YAML pull reference and is pinned by hand.
 
@@ -216,10 +217,10 @@ script constant is not a YAML pull reference and is pinned by hand.
 
 `scripts/check-pinned-images.mjs` (job `pinned-images`, §3). It fails on any pull reference with no
 `@sha256:<64 hex>`, names the file and line, and is exercised in both directions by
-`scripts/check-pinned-images.test.mjs`. Its scope is every YAML file that pulls: `docker-compose*.yml` at
-the root, and `image:` inside a `services:` or `container:` block in `.github/workflows/*.yml` (a `run:`
-heredoc that says `image:` is text, and the tests pin that). Pull references in shell scripts and
-markdown it does not read — see §7.
+`scripts/check-pinned-images.test.mjs`. Its scope is every YAML file that pulls: any `docker-compose*.yml`
+in the tree (skipping `node_modules`, `.git` and `.claude`), and `image:` inside a `services:` or
+`container:` block in `.github/workflows/*.yml` (a `run:` heredoc that says `image:` is text, and the
+tests pin that). Pull references in shell scripts and markdown it does not read — see §7.
 
 **Upgrading a pinned image.** The same rule as the Dockerfiles, same reason:
 
@@ -305,7 +306,7 @@ describe them as accepted risk.
 8. **Required-check status is not in this tree.** Whether a red job blocks a merge is a GitHub setting.
 9. **Pull references outside YAML are not gated.** `deploy/deploy-offline.sh` checks images by tag,
    `docs/manual/offline-deploy.md` §2.1 pins its `docker pull` lines by hand, and the `IMAGE` constant in
-   `Server-NestJS/scripts/check-pg-migration-consistency.mjs:23` is a hand pin. The gate reads YAML only;
+   `Server-NestJS/scripts/check-pg-migration-consistency.mjs:25` is a hand pin. The gate reads YAML only;
    each of these can drift back to a floating tag without turning anything red.
 
 ---
@@ -472,7 +473,7 @@ Windows 上的发布件是 `osv-scanner_windows_amd64.exe`，sha256 为
 
 ### 编排镜像
 
-两个编排文件里的七条 `image:`，全部在 2026-11-10 钉住。在此之前每条都是浮动标签；其中三条 `latest` 已解析
+三个编排文件里的八条 `image:`，全部在 2026-11-10 钉住。在此之前每条都是浮动标签；其中五条 `latest` 已解析
 成**当前与它同摘要的那个版本标签**，所以钉住那一刻行为没有任何变化。
 
 | 引用 | 摘要 | 位置 |
@@ -484,12 +485,13 @@ Windows 上的发布件是 `osv-scanner_windows_amd64.exe`，sha256 为
 | `grafana/grafana:13.3.0` | `sha256:488984b716c0862639f91a698adbe2862677a5a07bad42da5f03f3030883b205` | `docker-compose.observability.yml:39` |
 | `jaegertracing/all-in-one:1.76.0` | `sha256:ab6f1a1f0fb49ea08bcd19f6b84f6081d0d44b364b6de148e1798eb5816bacac` | `docker-compose.observability.yml:57` |
 | `grafana/loki:3.7.9` | `sha256:0db216b630ae1f348a1584c67f3cead8b4c1fc839169a39501db664744158e28` | `docker-compose.observability.yml:65` |
+| `postgres:17-alpine` | `sha256:3540c0362c809df084ffac0ae69fe794515f9de92692f02178bcdce0ef0302ac` | `Server-NestJS/postgresql/docker-compose.db.yml:11` |
 
 ### CI service 容器与迁移检查
 
 同一个 `pgvector/pgvector:pg17` 还出现在 `.github/workflows/ci.yml:142`
 （`migration-consistency-postgres` 的 service 容器）与
-`Server-NestJS/scripts/check-pg-migration-consistency.mjs:23` 的 `IMAGE` 常量。两处都带编排用的那个摘要
+`Server-NestJS/scripts/check-pg-migration-consistency.mjs:25` 的 `IMAGE` 常量。两处都带编排用的那个摘要
 （`sha256:7d0a…ccb8`），于是三处描述的是同一个镜像。工作流那一处由门禁覆盖；脚本常量不是 YAML 拉取
 引用，是手工钉的。
 
@@ -497,9 +499,9 @@ Windows 上的发布件是 `osv-scanner_windows_amd64.exe`，sha256 为
 
 `scripts/check-pinned-images.mjs`（job `pinned-images`，见 §3）。任何拉取引用只要没有
 `@sha256:<64 位十六进制>` 就判红，并点名文件与行号；两个方向都由 `scripts/check-pinned-images.test.mjs`
-覆盖。射程是所有会拉取的 YAML：根目录的 `docker-compose*.yml`，以及 `.github/workflows/*.yml` 里
-`services:` 或 `container:` 块内的 `image:`（`run:` 的 heredoc 写着 `image:` 只是文本，测试里钉住了
-这一点）。shell 脚本与 markdown 里的拉取引用它不读 —— 见 §7。
+覆盖。射程是所有会拉取的 YAML：树内任意 `docker-compose*.yml`（跳过 `node_modules`、`.git` 与
+`.claude`），以及 `.github/workflows/*.yml` 里 `services:` 或 `container:` 块内的 `image:`（`run:` 的
+heredoc 写着 `image:` 只是文本，测试里钉住了这一点）。shell 脚本与 markdown 里的拉取引用它不读 —— 见 §7。
 
 **升级一个已钉住的镜像。** 与 Dockerfile 同一条规则、同一个理由：
 
@@ -575,5 +577,5 @@ Dockerfile 钉的是 `sha256:3f4d…630a` —— 标签动了、被钉住的镜�
 8. **必过检查的状态不在本树里。** 红的 job 是否阻止合并，是 GitHub 上的设置。
 9. **YAML 之外的拉取引用不进本门禁。** `deploy/deploy-offline.sh` 按标签查镜像、
    `docs/manual/offline-deploy.md` §2.1 的 `docker pull` 行是手工钉的、
-   `Server-NestJS/scripts/check-pg-migration-consistency.mjs:23` 的 `IMAGE` 常量也是手工钉的。门禁只读
+   `Server-NestJS/scripts/check-pg-migration-consistency.mjs:25` 的 `IMAGE` 常量也是手工钉的。门禁只读
    YAML；这三处都可能悄悄漂回浮动标签而不让任何东西变红。

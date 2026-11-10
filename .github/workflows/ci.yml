@@ -1001,12 +1001,12 @@ jobs:
           if-no-files-found: warn
 
   # Every image pulled by a YAML file — compose entries and this file's own service container — must carry
-  # `@sha256:`. Eight floated (three on `latest`) until 2026-11-10: the same file could resolve a different
+  # `@sha256:`. Nine floated (five on `latest`) until 2026-11-10: the same file could resolve a different
   # image next week, and nothing said so. Kept at the end of the file on purpose —
   # docs/manual/supply-chain.md cites lines above it.
   #
-  # 每个由 YAML 拉取的镜像 —— 编排条目与本文件自己的 service 容器 —— 都必须带 `@sha256:`。在此之前有八条
-  # 浮动（其中三条是 `latest`）：同一份文件下周可能解析出另一个镜像，而没有任何东西会说。有意放在文件
+  # 每个由 YAML 拉取的镜像 —— 编排条目与本文件自己的 service 容器 —— 都必须带 `@sha256:`。在此之前有九条
+  # 浮动（其中五条是 `latest`）：同一份文件下周可能解析出另一个镜像，而没有任何东西会说。有意放在文件
   # 末尾 —— docs/manual/supply-chain.md 引用的是它上面的行号。
   pinned-images:
     runs-on: ubuntu-latest

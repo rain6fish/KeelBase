@@ -96,6 +96,24 @@ test('every compose file is scanned, not just the first', () => {
   assert.doesNotMatch(r.out, /✗ docker-compose\.yml/);
 });
 
+test('a nested compose file is scanned too, naming its path', () => {
+  const r = run({
+    [join('Server-NestJS', 'postgresql', 'docker-compose.db.yml')]: compose('image: postgres:17-alpine'),
+  });
+  assert.equal(r.status, 1);
+  assert.match(r.out, /docker-compose\.db\.yml:3/);
+  assert.match(r.out, /postgres:17-alpine/);
+});
+
+test('a compose file under node_modules or a dot-directory is not this tree', () => {
+  const r = run({
+    'docker-compose.yml': compose(`image: redis:7-alpine@${DIGEST}`),
+    [join('node_modules', 'pkg', 'docker-compose.yml')]: compose('image: redis:7-alpine'),
+    [join('.claude', 'worktrees', 'w', 'docker-compose.yml')]: compose('image: redis:7-alpine'),
+  });
+  assert.equal(r.status, 0);
+});
+
 test('a floating service image in a workflow goes red, naming the file and line', () => {
   const r = run({
     [join(WORKFLOW, 'ci.yml')]: workflow('pgvector/pgvector:pg17'),

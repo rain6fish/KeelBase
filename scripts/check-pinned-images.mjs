@@ -9,11 +9,12 @@
  * says which. The Dockerfiles were pinned for exactly this reason (docs/manual/supply-chain.md §4); the
  * compose files and the CI service image were not, and that gap is what this gate closes. Its criterion
  * is mechanical on purpose — the digest has to be present and well-formed — because the alternative,
- * trusting a human to notice, is what let seven entries float.
+ * trusting a human to notice, is what let eight entries float.
  *
- * Scope: `docker-compose*.yml` at the root, and `image:` inside a `services:` or `container:` block in
- * `.github/workflows/*.yml`. Nothing else in a workflow is a pull reference — a `run:` heredoc that
- * mentions `image:` is text — so the workflow scan follows those blocks instead of every line.
+ * Scope: any `docker-compose*.yml` in the tree (dot-directories and `node_modules` are skipped), and
+ * `image:` inside a `services:` or `container:` block in `.github/workflows/*.yml`. Nothing else in a
+ * workflow is a pull reference — a `run:` heredoc that mentions `image:` is text — so the workflow scan
+ * follows those blocks instead of every line.
  *
  * It checks the reference, not the registry: whether the digest still points at the version the tag names
  * is answered at pin time (read the manifest, hash it, compare — §4), not on every CI run. Checking the
@@ -25,11 +26,11 @@
  * 浮动标签不是版本：`docker compose up` 与 CI 的 service 容器都会重新解析它，于是同一份文件今天跑一个
  * 镜像、下周跑另一个，而本仓对此什么也不会说。Dockerfile 正是因为这个理由钉住了
  * （docs/manual/supply-chain.md §4），编排文件与 CI service 镜像没钉，本闸补的就是这个缺口。判据有意做成
- * 机械的 —— 摘要必须存在且形状合法 —— 因为「靠人注意」正是让七条一直浮动的原因。
+ * 机械的 —— 摘要必须存在且形状合法 —— 因为「靠人注意」正是让八条一直浮动的原因。
  *
- * 射程：根目录的 `docker-compose*.yml`，以及 `.github/workflows/*.yml` 里 `services:` 或 `container:`
- * 块内的 `image:`。工作流里其余写着 `image:` 的地方都不是拉取引用 —— `run:` 的 heredoc 只是文本 ——
- * 所以工作流扫描跟着这些块走，而不是逐行匹配。
+ * 射程：树内任意 `docker-compose*.yml`（跳过点目录与 `node_modules`），以及 `.github/workflows/*.yml`
+ * 里 `services:` 或 `container:` 块内的 `image:`。工作流里其余写着 `image:` 的地方都不是拉取引用 ——
+ * `run:` 的 heredoc 只是文本 —— 所以工作流扫描跟着这些块走，而不是逐行匹配。
  *
  * 它只查引用，不查镜像仓库：摘要是否仍指向标签所声称的那个版本，在**钉的时候**回答（读清单、算哈希、
  * 比对 —— §4），而不是每次 CI。在这里查仓库会让本闸依赖网络，把一次红构建变成陌生人的一次故障。
@@ -49,12 +50,27 @@ const REPO_ROOT = path.resolve(path.dirname(SELF), '..');
 const DIGEST = /@sha256:[0-9a-f]{64}$/;
 const WORKFLOWS = path.join('.github', 'workflows');
 
-/** Compose files in `<root>` — top level only, the place this repository keeps them.  `<root>` 顶层（本仓只放在这里）。 */
+/**
+ * Compose files anywhere under `<root>`, as paths relative to it. Dot-directories and `node_modules` are
+ * skipped: a worktree copy or an installed package is not this tree's pull reference.
+ * `<root>` 下任意层的编排文件，返回相对路径。点目录与 `node_modules` 跳过：worktree 副本或装好的包不是
+ * 本树的拉取引用。
+ */
 export function composeFiles(root) {
-  return fs
-    .readdirSync(root)
-    .filter((f) => /^docker-compose.*\.ya?ml$/.test(f))
-    .sort();
+  const found = [];
+  const walk = (dir, rel) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const child = rel ? path.join(rel, entry.name) : entry.name;
+      if (entry.isDirectory()) {
+        if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue;
+        walk(path.join(dir, entry.name), child);
+      } else if (/^docker-compose.*\.ya?ml$/.test(entry.name)) {
+        found.push(child);
+      }
+    }
+  };
+  walk(root, '');
+  return found.sort();
 }
 
 /** Workflow files in `<root>`, or none.  `<root>` 下的工作流文件，没有则为空。 */
