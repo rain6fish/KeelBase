@@ -65,6 +65,7 @@
     "check:navigation-parity": "node scripts/check-navigation-parity.mjs",
     "check:protocol-vectors": "node scripts/require-contract-submodule.mjs && node Server-NestJS/scripts/generate-protocol-vectors.mjs --check",
     "check:keelbase-init": "node scripts/keelbase-init.mjs inspect && node scripts/keelbase-init.mjs doctor",
+    "check:trivyignore": "node scripts/check-trivyignore.mjs",
     "check:gates-wired": "node scripts/check-gates-wired.mjs",
     "check:all": "node scripts/check-all.mjs"
   },

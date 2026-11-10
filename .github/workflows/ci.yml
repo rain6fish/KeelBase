@@ -797,6 +797,17 @@ jobs:
           echo "${OSV_SCANNER_SHA256}  $RUNNER_TEMP/osv-scanner" | sha256sum -c -
           chmod +x "$RUNNER_TEMP/osv-scanner"
           "$RUNNER_TEMP/osv-scanner" --version
+      # Image-scan exceptions live in `.trivyignore.yaml`, which the publish workflow hands to Trivy.
+      # The same parser is checked here, and the selftest proves it still names a missing statement, a
+      # missing expiry and a past expiry.
+      # 镜像扫描的例外写在 `.trivyignore.yaml`，发布工作流会把它交给 Trivy。这里跑的是同一个解析器；
+      # 自检证明它仍会点名「缺理由」「缺到期日」与「已过期」。
+      - name: Trivy ignore-list guard (selftest + real file)
+        working-directory: .
+        run: |
+          node scripts/check-trivyignore.mjs --selftest
+          node scripts/check-trivyignore.mjs
+
       - name: Dependency scan (high/critical in production fails)
         working-directory: .
         env:
