@@ -21,12 +21,15 @@
  *
  * 2. **The severity policy is the one the project already had.** `npm audit --omit=dev
  *    --audit-level=high` gates production dependencies at high. This gate keeps that line: high and
- *    critical in the production closure fail; everything else is counted and reported. Development
- *    dependencies are reported but not gated — see the coverage limits in the handoff report.
+ *    critical in the production closure fail. Development dependencies are gated against the same
+ *    baseline (`scope: "dev"`) since 2026-11-10 — a build tool that executes in CI is a supply-chain
+ *    path even when its package is not in the shipped bundle. `--no-dev` keeps the old reading for one
+ *    run when the dev baseline itself is what is being inspected. Moderate/low findings are counted and
+ *    reported, never gated.
  *
  * 3. **Existing debt is recorded, not silenced.** The tree already carries high-severity findings in
- *    shipped front-end dependencies. Failing on them from day one would paint the job permanently red,
- *    and a permanently red gate is a gate nobody reads. They live in
+ *    shipped front-end dependencies and in build tooling. Failing on them from day one would paint the
+ *    job permanently red, and a permanently red gate is a gate nobody reads. They live in
  *    `scripts/dependency-scan-baseline.json`; anything *not* in that file fails. `--update-baseline`
  *    regenerates it, and entries that no longer fire are reported so the file cannot quietly rot.
  *    Every entry also carries `reason`, `owner` and `expiry` (YYYY-MM-DD, +08): an exception nobody
@@ -57,11 +60,12 @@
  *    一律判为**未核** —— 是一次说明理由的红，绝不是通过。
  *
  * 2. **严重度口径沿用项目已有的那条。** `npm audit --omit=dev --audit-level=high` 对生产依赖按 high 判红。
- *    本门禁守同一条线：生产闭包里的 high / critical 判红；其余照实计数并报告。开发依赖只报告、不判红 ——
- *    覆盖边界写在交接件里。
+ *    本门禁守同一条线：生产闭包里的 high / critical 判红。开发依赖自 2026-11-10 起按同一份基线的
+ *    `scope: "dev"` 条目判红 —— 在 CI 里执行的构建工具是一条供应链通路，即便它的包不进产物。`--no-dev`
+ *    用于「正在检视开发基线本身」的那一次运行，保留旧的读法。中危 / 低危照实计数并报告，永不判红。
  *
- * 3. **存量债是登记，不是消音。** 这棵树目前确实带着一批已发布前端依赖的 high 级发现。第一天就对它们判红，
- *    会让这个 job 长期挂着红，而长期红着的门禁没人看。它们登记在
+ * 3. **存量债是登记，不是消音。** 这棵树目前确实带着一批已发布前端依赖与构建工具链的 high 级发现。第一天
+ *    就对它们判红，会让这个 job 长期挂着红，而长期红着的门禁没人看。它们登记在
  *    `scripts/dependency-scan-baseline.json` 里；**不在**该文件里的一律判红。`--update-baseline` 重生成它，
  *    并报出不再触发的陈旧条目，免得这份文件悄悄烂掉。每条还必须带 `reason`、`owner`、`expiry`
  *    （YYYY-MM-DD，+08）：无人重新裁决的例外不能变成永久例外，缺任一项或已过期都判红并点名。
@@ -276,8 +280,20 @@ function runScanner(dir, env, { noIgnore = false } = {}) {
   return { report, scanned, outFile, stderr };
 }
 
+/**
+ * Scope is part of the key: the same advisory in the same package can be a production finding in one
+ * tree and a dev-only finding in another, and accepting one must not accept the other. Entries written
+ * before the field existed were all production findings, so they read as production.
+ *
+ * scope 计入匹配键：同一条公告、同一个包，在一棵树里是生产发现、在另一棵树里可能只是开发发现 ——
+ * 接受其中一个不等于接受另一个。字段出现之前写下的条目都是生产发现，故按生产读。
+ */
+function scopeOf(entry) {
+  return entry.scope === 'dev' ? 'dev' : 'production';
+}
+
 function baselineKey(entry) {
-  return `${entry.lockfile}|${entry.package}|${entry.id}`;
+  return `${scopeOf(entry)}|${entry.lockfile}|${entry.package}|${entry.id}`;
 }
 
 function loadBaseline() {
@@ -304,7 +320,7 @@ function todayInShanghai() {
 function baselineProblems(entries, today = todayInShanghai()) {
   const problems = [];
   for (const entry of entries) {
-    const key = `${entry.lockfile} ${entry.package}@${entry.version} ${entry.id}`;
+    const key = `${scopeOf(entry)} ${entry.lockfile} ${entry.package}@${entry.version} ${entry.id}`;
     const missing = TRIAGE_FIELDS.filter((field) => typeof entry[field] !== 'string' || entry[field].trim() === '');
     if (missing.length) {
       problems.push({ key, kind: 'missing', detail: `missing ${missing.join(', ')}` });
@@ -332,10 +348,15 @@ function printBaselineProblems(problems) {
 }
 
 /**
- * Every reported group, classified. Gated means "would fail if it is not in the baseline".
- * 扫描器报出的每一组，逐条归类。「受门禁约束」= 不在基线里就判红。
+ * Every reported group, classified. Gated means "would fail if it is not in the baseline". Development
+ * findings are gated unless the caller turned that off, but `gateCandidate` records the policy
+ * independent of the switch so stale-entry detection does not confuse "not gated this run" with "no
+ * longer fires".
+ *
+ * 扫描器报出的每一组，逐条归类。「受门禁约束」= 不在基线里就判红。开发依赖的发现默认同样受约束；
+ * 调用方可以关掉。`gateCandidate` 记录的是**策略**、与开关无关，免得把「这一次没判」误读成「不再触发」。
  */
-function classify(report) {
+function classify(report, { gateDev = true } = {}) {
   const findings = [];
   const skipped = new Set();
   const prodCache = new Map();
@@ -355,6 +376,7 @@ function classify(report) {
       const inProduction = prodNames === null ? true : prodNames.has(name);
       for (const group of pkg.groups || []) {
         const band = severityBand(group.max_severity);
+        const inGatedBand = GATED_BANDS.has(band);
         findings.push({
           lockfile,
           package: name,
@@ -363,7 +385,9 @@ function classify(report) {
           aliases: group.ids || [],
           band,
           production: inProduction,
-          gated: inProduction && GATED_BANDS.has(band),
+          scope: inProduction ? 'production' : 'dev',
+          gateCandidate: inGatedBand,
+          gated: inGatedBand && (inProduction || gateDev),
         });
       }
     }
@@ -371,7 +395,7 @@ function classify(report) {
   return { findings, skipped };
 }
 
-async function evaluate(dir, baseline) {
+async function evaluate(dir, baseline, { gateDev = true } = {}) {
   const probeProblem = await probeOsvApi();
   if (probeProblem) unverified(probeProblem);
 
@@ -382,55 +406,81 @@ async function evaluate(dir, baseline) {
     if (scan.noSources) unverified('osv-scanner found no package sources in this tree, with or without .gitignore');
   }
   const { report, scanned, outFile, stderr } = scan;
-  const { findings, skipped } = classify(report);
+  const { findings, skipped } = classify(report, { gateDev });
 
   const counts = { CRITICAL: 0, HIGH: 0, MODERATE: 0, LOW: 0, UNKNOWN: 0 };
   for (const f of findings) counts[f.band] += 1;
 
   const gated = findings.filter((f) => f.gated);
-  const fresh = gated.filter((f) => !baseline.has(`${f.lockfile}|${f.package}|${f.id}`));
-  const known = gated.filter((f) => baseline.has(`${f.lockfile}|${f.package}|${f.id}`));
-  const devOnly = findings.filter((f) => !f.production && GATED_BANDS.has(f.band));
+  const fresh = gated.filter((f) => !baseline.has(baselineKey(f)));
+  const prodGated = gated.filter((f) => f.scope === 'production');
+  const prodFresh = prodGated.filter((f) => !baseline.has(baselineKey(f)));
+  const dev = findings.filter((f) => f.scope === 'dev' && f.gateCandidate);
+  const devBaselined = dev.filter((f) => baseline.has(baselineKey(f)));
+  const devFresh = dev.filter((f) => !baseline.has(baselineKey(f)));
   const lower = findings.filter((f) => !GATED_BANDS.has(f.band));
 
-  return { scanned, skipped, counts, gated, fresh, known, devOnly, lower, outFile, stderr };
+  return {
+    scanned,
+    skipped,
+    counts,
+    gated,
+    fresh,
+    prodGated,
+    prodFresh,
+    gateCandidates: findings.filter((f) => f.gateCandidate),
+    dev,
+    devBaselined,
+    devFresh,
+    lower,
+    outFile,
+    stderr,
+  };
 }
 
-function report(ev, { verbose }) {
+function report(ev, { verbose, gateDev }) {
   const covered = ev.scanned.filter((s) => !isShadowed(s.abs));
   log(`scanned ${covered.length} lockfile(s):`);
   for (const s of covered) log(`  - ${s.file} (${s.packages} packages)`);
   if (ev.skipped.size) log(`skipped ${ev.skipped.size} shadowed lockfile(s) (a package-lock.json covers the same directory): ${[...ev.skipped].join(', ')}`);
 
-  const fmt = (list) => `${list.length}`;
-  log(`high/critical in production dependencies: ${fmt(ev.known)} known, ${fmt(ev.fresh)} new`);
-  log(`high/critical in dev-only dependencies: ${fmt(ev.devOnly)} (recorded, not gated — same line as \`npm audit --omit=dev\`)`);
-  log(`moderate/low: ${fmt(ev.lower)} (recorded, not gated)`);
+  const prodKnown = ev.prodGated.length - ev.prodFresh.length;
+  log(`high/critical in production dependencies: ${prodKnown} known, ${ev.prodFresh.length} new`);
+  log(
+    `high/critical in dev-only dependencies: ${ev.devBaselined.length} known, ${ev.devFresh.length} new` +
+      (gateDev ? ' (gated against the same baseline)' : ' (recorded, not gated — --no-dev)'),
+  );
+  log(`moderate/low: ${ev.lower.length} (recorded, not gated)`);
   log(`all severities reported: critical ${ev.counts.CRITICAL}, high ${ev.counts.HIGH}, moderate ${ev.counts.MODERATE}, low ${ev.counts.LOW}, unknown ${ev.counts.UNKNOWN}`);
 
-  if (verbose && ev.devOnly.length) {
+  if (verbose && ev.dev.length) {
     log('dev-only high/critical findings (top 10, full list in the artifact):');
-    for (const f of ev.devOnly.slice(0, 10)) log(`  - ${f.lockfile} ${f.package}@${f.version} ${f.id} [${f.band}]`);
-    if (ev.devOnly.length > 10) log(`  ... ${ev.devOnly.length - 10} more`);
+    for (const f of ev.dev.slice(0, 10)) log(`  - ${f.lockfile} ${f.package}@${f.version} ${f.id} [${f.band}]`);
+    if (ev.dev.length > 10) log(`  ... ${ev.dev.length - 10} more`);
   }
 }
 
 function printFresh(list) {
-  fail(`FAIL — ${list.length} high/critical finding(s) in production dependencies that the baseline does not record:`);
+  fail(`FAIL — ${list.length} high/critical finding(s) that the baseline does not record:`);
   for (const f of list) {
-    fail(`  - ${f.lockfile} ${f.package}@${f.version} ${f.aliases.join(', ')} [${f.band}]`);
+    fail(`  - [${f.scope}] ${f.lockfile} ${f.package}@${f.version} ${f.aliases.join(', ')} [${f.band}]`);
   }
-  fail('FAIL — 生产依赖里有上面这些基线未登记的高危/严重发现。');
+  fail('FAIL — 上面这些基线未登记的高危/严重发现（生产与开发依赖一并算）。');
   fail('Either upgrade the dependency, or record the exception with `--update-baseline` and give it a reason, an owner and an expiry.');
   fail('请升级该依赖；确实要保留的，跑 `--update-baseline` 登记，并补上理由、责任人与到期日。');
 }
 
 function writeBaseline(ev, previousEntries = []) {
   const previous = new Map(previousEntries.map((entry) => [baselineKey(entry), entry]));
-  const findings = ev.gated
+  // `gateCandidates`, not `gated`: the file records the policy (production + dev, gated bands), so a run
+  // with `--no-dev` cannot silently drop every dev row from the baseline.
+  // 写的是 `gateCandidates` 而不是 `gated`：文件记录的是**策略**（生产 + 开发、受约束分档），
+  // 于是带 `--no-dev` 的一次运行不会悄悄把所有开发条目从基线里抹掉。
+  const findings = ev.gateCandidates
     .map((f) => {
-      const old = previous.get(`${f.lockfile}|${f.package}|${f.id}`) || {};
+      const old = previous.get(baselineKey(f)) || {};
       return {
+        scope: f.scope,
         lockfile: f.lockfile,
         package: f.package,
         version: f.version,
@@ -444,10 +494,10 @@ function writeBaseline(ev, previousEntries = []) {
         expiry: old.expiry || '',
       };
     })
-    .sort((a, b) => `${a.lockfile}|${a.package}|${a.id}`.localeCompare(`${b.lockfile}|${b.package}|${b.id}`));
+    .sort((a, b) => baselineKey(a).localeCompare(baselineKey(b)));
   const payload = {
     _note:
-      'High/critical findings in production dependencies that existed when the gate landed, so the gate starts green and fails only on new ones. Each entry must carry `reason`, `owner` and `expiry` (YYYY-MM-DD, +08); the gate fails when any is missing or the expiry has passed. `--update-baseline` keeps existing triage and leaves new entries blank. Entries with no assigned owner expire at the current triage checkpoint (2026-11-12); re-decide or clear them by then. / 门禁落地时已存在的生产依赖高危/严重发现，使门禁从绿起步、只对新发现判红。每条必须带 `reason`、`owner`、`expiry`（YYYY-MM-DD，+08）；缺任一项或已过期，门禁判红。`--update-baseline` 保留既有 triage，新条目留空待补。无责任人的条目到期日取当前 triage 检查点（2026-11-12）；届时须重新裁决或清除。',
+      'High/critical findings that existed when the gate landed, so the gate starts green and fails only on new ones. `scope` is `production` or `dev`; it is part of the matching key, so accepting one does not accept the other. Each entry must carry `reason`, `owner` and `expiry` (YYYY-MM-DD, +08); the gate fails when any is missing or the expiry has passed. `--update-baseline` keeps existing triage and leaves new entries blank. Entries with no assigned owner expire at the current triage checkpoint (2026-11-12); re-decide or clear them by then. / 门禁落地时已存在的高危/严重发现，使门禁从绿起步、只对新发现判红。`scope` 取 `production` 或 `dev`，并入匹配键 —— 接受一个不等于接受另一个。每条必须带 `reason`、`owner`、`expiry`（YYYY-MM-DD，+08）；缺任一项或已过期，门禁判红。`--update-baseline` 保留既有 triage，新条目留空待补。无责任人的条目到期日取当前 triage 检查点（2026-11-12）；届时须重新裁决或清除。',
     generatedAt: new Date().toISOString().slice(0, 10),
     scanner: `osv-scanner v${SCANNER_PIN}`,
     findings,
@@ -457,7 +507,7 @@ function writeBaseline(ev, previousEntries = []) {
 }
 
 /** Both directions, on fixtures built in the OS temp dir — nothing vulnerable enters a repository lockfile. */
-function fixture(dir, pkg, version) {
+function fixture(dir, pkg, version, { dev = false } = {}) {
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(
     path.join(dir, 'package-lock.json'),
@@ -468,7 +518,11 @@ function fixture(dir, pkg, version) {
         lockfileVersion: 3,
         requires: true,
         packages: {
-          '': { name: 'osv-gate-selftest-fixture', version: '1.0.0', dependencies: { [pkg]: version } },
+          '': {
+            name: 'osv-gate-selftest-fixture',
+            version: '1.0.0',
+            ...(dev ? { devDependencies: { [pkg]: version } } : { dependencies: { [pkg]: version } }),
+          },
           // `resolved` and `integrity` are what the npm lockfile parser needs to read a version at all;
           // without them the scanner reports "found 1 package" and then finds nothing.
           // 没有这两个字段，锁文件解析器读不出版本；扫描器会说「找到 1 个包」然后什么也报不出来。
@@ -476,6 +530,7 @@ function fixture(dir, pkg, version) {
             version,
             resolved: `https://registry.npmjs.org/${pkg}/-/${pkg}-${version}.tgz`,
             integrity: `sha512-${'A'.repeat(86)}==`,
+            ...(dev ? { dev: true } : {}),
           },
         },
       },
@@ -505,6 +560,36 @@ async function selftest() {
   fixture(path.join(tmp, 'fixed'), 'minimist', '1.2.6');
   const good = await evaluate(path.join(tmp, 'fixed'), empty);
   check('green: the fixed pin passes', good.fresh.length === 0 && good.gated.length === 0, `${good.fresh.length} new, ${good.gated.length} gated`);
+
+  // Development findings are gated against the same baseline since 2026-11-10. The same vulnerable pin,
+  // marked dev:true, must be red with an empty baseline, green once its dev-scoped row is present, and
+  // merely recorded under `--no-dev`. A production-scoped row must not accept it: scope is part of the key.
+  // 开发依赖的发现自 2026-11-10 起按同一份基线判红。同一个带漏洞的钉住版本、标为 dev:true，在空基线下
+  // 必须判红；补上 dev 作用域的那一条后转绿；带 `--no-dev` 时只记录。生产作用域的条目**不能**接受它 ——
+  // 作用域是匹配键的一部分。
+  const devDir = path.join(tmp, 'dev-vulnerable');
+  fixture(devDir, 'minimist', '1.2.5', { dev: true });
+  const devBad = await evaluate(devDir, empty);
+  check(
+    'red: a dev-only high/critical finding fails when dev gating is on',
+    devBad.fresh.length > 0 && devBad.fresh.every((f) => f.scope === 'dev'),
+    `${devBad.fresh.length} new (${devBad.fresh.map((f) => f.scope).join(', ') || 'none'})`,
+  );
+  const devOptOut = await evaluate(devDir, empty, { gateDev: false });
+  check('green: --no-dev records dev findings instead of failing', devOptOut.fresh.length === 0, `${devOptOut.fresh.length} new`);
+
+  const devEntry = devBad.fresh[0] || { scope: 'dev', lockfile: 'x', package: 'minimist', id: 'x' };
+  const devBaseline = new Map([[baselineKey(devEntry), devEntry]]);
+  const devBaselined = await evaluate(devDir, devBaseline);
+  check('green: a dev-scoped baseline row accepts the dev finding', devBaselined.fresh.length === 0, `${devBaselined.fresh.length} new`);
+
+  const prodScoped = new Map([[baselineKey({ ...devEntry, scope: 'production' }), { ...devEntry, scope: 'production' }]]);
+  const crossScope = await evaluate(devDir, prodScoped);
+  check(
+    'red: a production-scoped baseline row does not accept a dev finding',
+    crossScope.fresh.length > 0,
+    `${crossScope.fresh.length} new`,
+  );
 
   // The recursive walk must reach a lockfile one level down, and it must do so even when the checkout
   // itself sits under a path its enclosing repository ignores — the desktop app puts worktrees at
@@ -549,6 +634,12 @@ async function selftest() {
   );
   const clean = baselineProblems([complete], '2026-11-08');
   check('green: a complete, unexpired baseline entry passes', clean.length === 0, JSON.stringify(clean));
+  const expiredDev = baselineProblems([{ ...complete, scope: 'dev', expiry: '2026-11-01' }], '2026-11-08');
+  check(
+    'red: an expired dev baseline entry is named with its scope and date',
+    expiredDev.length === 1 && expiredDev[0].key.startsWith('dev ') && expiredDev[0].detail.includes('2026-11-01'),
+    expiredDev[0] ? `${expiredDev[0].key} — ${expiredDev[0].detail}` : 'no problem reported',
+  );
 
   // The offline case must be a red "未核", not a green "zero findings".
   // 断网必须是红的「未核」，不能是绿的「零发现」。
@@ -575,11 +666,12 @@ async function main() {
 
   const { entries, map: baseline } = loadBaseline();
   const verbose = args.includes('--verbose');
+  const gateDev = !args.includes('--no-dev');
 
   if (args.includes('--update-baseline')) {
-    const ev = await evaluate(ROOT, baseline);
+    const ev = await evaluate(ROOT, baseline, { gateDev });
     writeBaseline(ev, entries);
-    report(ev, { verbose });
+    report(ev, { verbose, gateDev });
     log('baseline updated; re-run without --update-baseline to see the gated verdict');
     return;
   }
@@ -593,11 +685,14 @@ async function main() {
     process.exit(1);
   }
 
-  const ev = await evaluate(ROOT, baseline);
-  report(ev, { verbose });
+  const ev = await evaluate(ROOT, baseline, { gateDev });
+  report(ev, { verbose, gateDev });
 
+  // Staleness is about the policy, not this run's switch: `--no-dev` does not make every dev row stale.
+  // 陈旧与否看策略，不看这一次的开关：`--no-dev` 不会让所有开发条目变成陈旧。
   const baselineKeys = new Set(baseline.keys());
-  const stale = [...baselineKeys].filter((key) => !ev.gated.some((f) => `${f.lockfile}|${f.package}|${f.id}` === key));
+  const candidateKeys = new Set(ev.gateCandidates.map(baselineKey));
+  const stale = [...baselineKeys].filter((key) => !candidateKeys.has(key));
   if (stale.length) {
     log(`${stale.length} baseline entr(y/ies) no longer fire — prune them with --update-baseline:`);
     for (const key of stale.slice(0, 10)) log(`  - ${key}`);
@@ -607,8 +702,8 @@ async function main() {
     printFresh(ev.fresh);
     process.exit(1);
   }
-  log('PASS — no high/critical finding in production dependencies outside the baseline');
-  log('通过 —— 生产依赖里没有基线之外的高危/严重发现');
+  log('PASS — no high/critical finding in production or development dependencies outside the baseline');
+  log('通过 —— 生产与开发依赖里都没有基线之外的高危/严重发现');
 }
 
 main().catch((err) => {
