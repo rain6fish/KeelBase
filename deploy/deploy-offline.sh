@@ -15,6 +15,13 @@
 #   pgvector/pgvector:pg17  redis:7-alpine  node:22-alpine  alpine:3.24
 #   本基座镜像（build 产物）
 #
+# 拉取时按摘要钉住 —— 摘要见 docs/manual/offline-deploy.md §2.1 与 docs/manual/supply-chain.md §4。
+# 下面的存在性检查仍按**标签**找本地镜像：`docker image inspect` 按标签/ID 匹配，带摘要是另一回事；
+# 而按 `<标签>@sha256:<摘要>` 拉下来的镜像同时带标签与 RepoDigest，所以标签检查依然成立。
+# Pin the pulls by digest — the values are in docs/manual/offline-deploy.md §2.1 and supply-chain.md §4.
+# The presence check below still looks images up by **tag**: `docker image inspect` matches tags/IDs, while
+# an image pulled as `<tag>@sha256:<digest>` carries both the tag and the RepoDigest, so the check holds.
+#
 # ⚠ 2026-09-26：web 基座由官方 `nginx:alpine` 换成 `alpine:3.24` + `apk add nginx nginx-mod-http-brotli`
 #   （为了上 brotli，见 Dockerfile web 阶段）。**因此离线环境除了预置 `alpine:3.24`，还必须有那两个
 #   apk 包**——`apk add` 需要软件源。最稳的离线做法是**别在内网 build web 镜像**，直接在有网机器上

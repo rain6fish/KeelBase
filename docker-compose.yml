@@ -1,5 +1,13 @@
 ﻿version: '3.8'
 
+# Images are pinned to a digest (`tag@sha256:...`): a floating tag moves underneath a `docker compose
+# up`, and nothing in CI would say so. Read a new digest from the registry, never from a report —
+# registry API or `docker buildx imagetools inspect`, then `docker buildx imagetools inspect <ref>`
+# to confirm. Procedure: docs/manual/supply-chain.md §4.
+# 镜像按摘要钉住（`tag@sha256:...`）：浮动标签会在 `docker compose up` 之下换掉，CI 对此什么也不会说。
+# 新摘要要从镜像仓库现读，别抄报告 —— 用 registry API 或 `docker buildx imagetools inspect`，
+# 再用 `docker buildx imagetools inspect <ref>` 确认。做法见 docs/manual/supply-chain.md §4。
+
 services:
   postgres:
     # Without this, one daemon restart or host reboot leaves the database stopped and both demo
@@ -7,7 +15,7 @@ services:
     # 没有它，一次 daemon 重启或宿主重启就会把库留在停止状态，两个 demo 部署全停，直到有人手工起它。
     restart: unless-stopped
     # pgvector 官方镜像（含 pgvector 扩展，用于 RAG 向量检索 AI-5）
-    image: pgvector/pgvector:pg17
+    image: pgvector/pgvector:pg17@sha256:7d0a41464797aeb9862dfdc0bbf1526b82cfd324cdd8036df19e3545f4a9ccb8
     # 从 .env.production 读 POSTGRES_DB/POSTGRES_USER/POSTGRES_PASSWORD（与 server 的 DB_* 同步）
     env_file:
       - ./Server-NestJS/.env.production
@@ -24,7 +32,7 @@ services:
   redis:
     # Same reason as postgres above. / 与上面的 postgres 同一条理由。
     restart: unless-stopped
-    image: redis:7-alpine
+    image: redis:7-alpine@sha256:c5d34a98396a4775e223c74e929162c35c5a2182901ba26b50ade939941ce14b
     # loopback-only 暴露：仅本机 localhost:6379（本地宿主开发 server/e2e 需连 Redis）。
     # 容器内 server 仍走内部网络 redis://redis:6379；生产不绑 0.0.0.0，避免外网暴露。
     ports:
@@ -157,7 +165,7 @@ services:
   # 注意：中国网络拉 Docker Hub ollama 镜像可能受限；也可用宿主机原生 Ollama
   #       （OLLAMA_BASE_URL=http://host.docker.internal:11434 指向宿主，见 verify-private-ai.sh）。
   ollama:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.40.15@sha256:0e59999e0e8f9fd4e704bd788a89b7e4cad399367fb1365f8c102ac662288761
     profiles: ["private-ai"]
     ports:
       - "11434:11434"

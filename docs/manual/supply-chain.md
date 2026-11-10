@@ -5,7 +5,9 @@ is scanned, what fails, where it runs, how base images are pinned, and what the 
 oblige. Every rule points at the file and line that implements it; where no mechanism exists, this
 document says so instead of describing one.
 
-Read at commit `9b38afd2` (2026-11-08). The gate itself is not changed by this document.
+Read at commit `9b38afd2` (2026-11-08). The gate itself is not changed by this document. The image-pin
+half (§1, §3, §4, §7) was read on 2026-11-10, when the compose images and the CI service image were
+pinned and `check:pinned-images` added — that half is changed by this document.
 
 ---
 
@@ -47,9 +49,9 @@ Outside the scope of this gate:
 - **Image layers and OS packages.** Nothing scans a built image; `.github/workflows/ci.yml` never builds
   one (its only mention of Docker is a comment at `:962`). Images are built by
   `.github/workflows/docker-publish.yml:98` on tag pushes and manual dispatch (`:14-17`).
-- **Compose run-time images.** `image:` entries are not lockfiles: `docker-compose.yml:10`
-  (`pgvector/pgvector:pg17`), `:27` (`redis:7-alpine`), `:160` (`ollama/ollama:latest`), and
-  `docker-compose.observability.yml:26,34,52,60` (Prometheus, Grafana, Jaeger, Loki). None is pinned.
+- **Compose run-time images and CI service images.** `image:` entries are not lockfiles, so the dependency
+  scanner does not read them. They are digest-pinned and gated separately (§4); that gate checks the pin,
+  it does not scan the image.
 - **Development dependencies.** Scanned, counted and reported, not gated (`:24-25`, `:310`).
 - **Gradle.** `Front-Flutter/android/app/build.gradle.kts` is not a lockfile and no JVM scanner runs here.
 - **GitHub Actions versions.** Covered by Dependabot only, with `open-pull-requests-limit: 0`
@@ -154,7 +156,15 @@ it cannot claim a clean tree. Run it from a plain checkout to get a reading.
 and the gate is not registered as one; a local skip would print as a pass in that summary table. The same
 reasoning excludes `migration-consistency-postgres`. CI is the runner (`scripts/check-dependency-scan.mjs:33-34`).
 
-## 4. Base images
+**The pinned-image gate is a separate job.** `check:pinned-images` runs in the `pinned-images` job at the
+end of `.github/workflows/ci.yml` with its own self-test, and — unlike the dependency scan — it is
+registered as a `check:*` script, so it is also part of `npm run check:all`. It sits at the end of the
+workflow on purpose: this document cites line numbers above it, and an insertion earlier in the file
+would silently invalidate every one of them.
+
+## 4. Pinned images — Dockerfiles, compose and CI services
+
+### Base images
 
 Two Dockerfiles, four references, each pinned by digest. Each digest was read at pin time and verified
 against the registry and a smoke build when it was pinned.
@@ -171,17 +181,64 @@ The reason is written in both files (`Dockerfile:1-4`, `Dockerfile.single:7-10`)
 underneath a rebuild, and a container built before the move keeps the base it was created from, with
 nothing in CI saying so.
 
-**Upgrading**, also written beside the pins (`Dockerfile:6-11`, `Dockerfile.single:13-18`):
-
-1. `docker pull <tag>`
-2. `docker inspect <tag> --format '{{index .RepoDigests 0}}'`
-3. confirm what is inside (`docker run --rm --entrypoint node <tag> --version`)
-4. replace the digest and rebuild.
-
-Never copy a digest out of a report: tags move, and an older read points at an older image.
+**Upgrading a base image:** the steps are written beside the pins (`Dockerfile:6-11`,
+`Dockerfile.single:13-18`) and are the same four steps as the compose procedure below, ending in a
+rebuild instead of a compose-file edit.
 
 `Dockerfile.single` is the image published to `ghcr.io` (`.github/workflows/docker-publish.yml:98`; the
 file says so at `Dockerfile.single:12-13`), so its digest is what users of the published image receive.
+
+### Compose images
+
+Eight `image:` entries in three compose files, all pinned on 2026-11-10. Each entry was a floating tag
+before that; the five `latest` ones were resolved to the version tag that currently carries the same
+digest, so pinning changed nothing at pin time.
+
+| Reference | Digest | Where |
+|---|---|---|
+| `pgvector/pgvector:pg17` | `sha256:7d0a41464797aeb9862dfdc0bbf1526b82cfd324cdd8036df19e3545f4a9ccb8` | `docker-compose.yml:18` |
+| `redis:7-alpine` | `sha256:c5d34a98396a4775e223c74e929162c35c5a2182901ba26b50ade939941ce14b` | `docker-compose.yml:35` |
+| `ollama/ollama:0.40.15` | `sha256:0e59999e0e8f9fd4e704bd788a89b7e4cad399367fb1365f8c102ac662288761` | `docker-compose.yml:168` |
+| `prom/prometheus:v3.16.0` | `sha256:e04987641b57704f408e31f6373ba4138ecf27cb4a165d24aabb6c38fddd0f06` | `docker-compose.observability.yml:31` |
+| `grafana/grafana:13.3.0` | `sha256:488984b716c0862639f91a698adbe2862677a5a07bad42da5f03f3030883b205` | `docker-compose.observability.yml:39` |
+| `jaegertracing/all-in-one:1.76.0` | `sha256:ab6f1a1f0fb49ea08bcd19f6b84f6081d0d44b364b6de148e1798eb5816bacac` | `docker-compose.observability.yml:57` |
+| `grafana/loki:3.7.9` | `sha256:0db216b630ae1f348a1584c67f3cead8b4c1fc839169a39501db664744158e28` | `docker-compose.observability.yml:65` |
+| `postgres:17-alpine` | `sha256:3540c0362c809df084ffac0ae69fe794515f9de92692f02178bcdce0ef0302ac` | `Server-NestJS/postgresql/docker-compose.db.yml:11` |
+
+### CI service container and the migration check
+
+The same `pgvector/pgvector:pg17` image also appears at `.github/workflows/ci.yml:142` (the
+`migration-consistency-postgres` service container) and as `IMAGE` in
+`Server-NestJS/scripts/check-pg-migration-consistency.mjs:25`. Both carry the compose digest
+(`sha256:7d0a…ccb8`), so all three sites describe one image. The workflow one is covered by the gate; the
+script constant is not a YAML pull reference and is pinned by hand.
+
+### The gate
+
+`scripts/check-pinned-images.mjs` (job `pinned-images`, §3). It fails on any pull reference with no
+`@sha256:<64 hex>`, names the file and line, and is exercised in both directions by
+`scripts/check-pinned-images.test.mjs`. Its scope is every YAML file that pulls: any `docker-compose*.yml`
+in the tree (skipping `node_modules`, `.git` and `.claude`), and `image:` inside a `services:` or
+`container:` block in `.github/workflows/*.yml` (a `run:` heredoc that says `image:` is text, and the
+tests pin that). Pull references in shell scripts and markdown it does not read — see §7.
+
+**Upgrading a pinned image.** The same rule as the Dockerfiles, same reason:
+
+1. read the version you intend to run, then its manifest-list digest from the registry at pin time —
+   `docker buildx imagetools inspect <repo>:<version>` prints `Digest:`; or use the registry API
+   (`auth.docker.io` token, then `registry-1.docker.io/v2/<repo>/manifests/<tag>`, whose
+   `Docker-Content-Digest` header and the sha256 of the response body must agree);
+2. confirm the tag you are writing resolves to that digest — re-read it and compare, or
+   `docker buildx imagetools inspect <repo>:<version>@sha256:<digest>`;
+3. replace `<version>` and the digest at **every** site listed above, then run
+   `npm run check:pinned-images`.
+
+Never copy a digest out of a report: tags move, and an older read points at an older image.
+
+**A tag that has moved since its pin is normal.** On 2026-11-10 `alpine:3.24` resolved to
+`sha256:f59a…71bf` while the Dockerfile pins `sha256:3f4d…630a` — the tag moved, the pinned image did
+not, which is the point. Both stay pullable; the pins are what the build and the offline bundle must
+stage.
 
 ## 5. Recorded exceptions — the baseline and its obligations
 
@@ -239,16 +296,18 @@ describe them as accepted risk.
 ## 7. What this does not cover
 
 1. **Image-layer scanning.** No `trivy image` / `grype` runs anywhere, so CVEs in a base image's OS
-   packages are unreported.
-2. **Compose images still float**, including three `latest` tags (`docker-compose.yml:160`,
-   `docker-compose.observability.yml:26,34,52,60`).
-3. **Dev-dependency findings are not gated** — 97 high/critical at the 2026-11-08 reading.
-4. **The 39 baseline entries are debt, not a fix.**
-5. **The OSV API is unauthenticated** and rate-limited; the self-test adds three queries per CI run.
-6. **The `pubspec.lock` production closure is conservative** and can over-gate, never under-gate.
-7. **An npm v1 lockfile would gate everything**; none exists today.
-8. **The SBOM covers Server-NestJS only**, not the other six lockfiles.
-9. **Required-check status is not in this tree.** Whether a red job blocks a merge is a GitHub setting.
+   packages are unreported — compose images included: the compose gate checks the pin, not the image.
+2. **Dev-dependency findings are not gated** — 97 high/critical at the 2026-11-08 reading.
+3. **The 39 baseline entries are debt, not a fix.**
+4. **The OSV API is unauthenticated** and rate-limited; the self-test adds three queries per CI run.
+5. **The `pubspec.lock` production closure is conservative** and can over-gate, never under-gate.
+6. **An npm v1 lockfile would gate everything**; none exists today.
+7. **The SBOM covers Server-NestJS only**, not the other six lockfiles.
+8. **Required-check status is not in this tree.** Whether a red job blocks a merge is a GitHub setting.
+9. **Pull references outside YAML are not gated.** `deploy/deploy-offline.sh` checks images by tag,
+   `docs/manual/offline-deploy.md` §2.1 pins its `docker pull` lines by hand, and the `IMAGE` constant in
+   `Server-NestJS/scripts/check-pg-migration-consistency.mjs:25` is a hand pin. The gate reads YAML only;
+   each of these can drift back to a floating tag without turning anything red.
 
 ---
 
@@ -288,9 +347,8 @@ describe them as accepted risk.
 - **镜像层与操作系统包。** 没有任何东西扫描构建出的镜像；`.github/workflows/ci.yml` 根本不构建镜像
   （其中唯一提到 Docker 的地方是 `:962` 的一句注释）。镜像由
   `.github/workflows/docker-publish.yml:98` 在打 tag 与手动触发时构建（`:14-17`）。
-- **编排里的运行时镜像。** `image:` 不是锁文件：`docker-compose.yml:10`
-  （`pgvector/pgvector:pg17`）、`:27`（`redis:7-alpine`）、`:160`（`ollama/ollama:latest`），以及
-  `docker-compose.observability.yml:26,34,52,60`（Prometheus、Grafana、Jaeger、Loki）。它们都没有钉摘要。
+- **编排里的运行时镜像与 CI service 镜像。** `image:` 不是锁文件，依赖扫描器不读它们。它们已按摘要钉住、
+  由另一道门禁单独守（§4）；那道门禁查的是「钉没钉」，不是「镜像里有没有洞」。
 - **开发依赖。** 会扫描、会计数、会报告，但不判红（`:24-25`、`:310`）。
 - **Gradle。** `Front-Flutter/android/app/build.gradle.kts` 不是锁文件，本仓也没有 JVM 扫描器。
 - **GitHub Actions 的版本。** 只由 Dependabot 覆盖，且 `open-pull-requests-limit: 0`
@@ -386,7 +444,14 @@ Windows 上的发布件是 `osv-scanner_windows_amd64.exe`，sha256 为
 而这道门没有注册成其中之一；本地跳过会在那张汇总表里读起来与通过一模一样。`migration-consistency-postgres`
 被排除是同一个理由。跑它的是 CI（`scripts/check-dependency-scan.mjs:33-34`）。
 
-## 4. 基础镜像
+**钉住镜像的门禁是另一个 job。** `check:pinned-images` 在 `.github/workflows/ci.yml` 末尾的
+`pinned-images` job 里跑，自带自检；而且与依赖扫描不同，它注册成了 `check:*` 脚本，所以也在
+`npm run check:all` 里。它有意放在工作流末尾：本文引用的是它上面的行号，插在前面会让那些行号**全部**
+悄悄失效。
+
+## 4. 钉住的镜像 —— Dockerfile、编排与 CI service
+
+### 基础镜像
 
 两个 Dockerfile，四处引用，全部按摘要钉住。摘要在钉住那一刻读出，并对过镜像仓库与一次冒烟构建。
 
@@ -400,17 +465,59 @@ Windows 上的发布件是 `osv-scanner_windows_amd64.exe`，sha256 为
 理由写在两个文件里（`Dockerfile:1-4`、`Dockerfile.single:7-10`）：浮动标签会在重建之下悄悄换掉，而在换掉之前
 构建出的容器留着它被创建时那份基础镜像，CI 对此什么也不会说。
 
-**升级做法**，同样写在钉子旁边（`Dockerfile:6-11`、`Dockerfile.single:13-18`）：
-
-1. `docker pull <标签>`
-2. `docker inspect <标签> --format '{{index .RepoDigests 0}}'`
-3. 确认里面是什么（`docker run --rm --entrypoint node <标签> --version`）
-4. 替换摘要并重建。
-
-不要把某份报告里的摘要抄过来：标签会移动，抄来的旧摘要指向旧镜像。
+**升级基础镜像：** 做法写在钉子旁边（`Dockerfile:6-11`、`Dockerfile.single:13-18`），与下面的编排做法是同
+样的四步，最后以重建收尾，而不是改编排文件。
 
 `Dockerfile.single` 就是发布到 `ghcr.io` 的那个镜像（`.github/workflows/docker-publish.yml:98`；
 文件自身在 `Dockerfile.single:12-13` 也这么说），所以它的摘要就是已发布镜像的用户真正拿到的东西。
+
+### 编排镜像
+
+三个编排文件里的八条 `image:`，全部在 2026-11-10 钉住。在此之前每条都是浮动标签；其中五条 `latest` 已解析
+成**当前与它同摘要的那个版本标签**，所以钉住那一刻行为没有任何变化。
+
+| 引用 | 摘要 | 位置 |
+|---|---|---|
+| `pgvector/pgvector:pg17` | `sha256:7d0a41464797aeb9862dfdc0bbf1526b82cfd324cdd8036df19e3545f4a9ccb8` | `docker-compose.yml:18` |
+| `redis:7-alpine` | `sha256:c5d34a98396a4775e223c74e929162c35c5a2182901ba26b50ade939941ce14b` | `docker-compose.yml:35` |
+| `ollama/ollama:0.40.15` | `sha256:0e59999e0e8f9fd4e704bd788a89b7e4cad399367fb1365f8c102ac662288761` | `docker-compose.yml:168` |
+| `prom/prometheus:v3.16.0` | `sha256:e04987641b57704f408e31f6373ba4138ecf27cb4a165d24aabb6c38fddd0f06` | `docker-compose.observability.yml:31` |
+| `grafana/grafana:13.3.0` | `sha256:488984b716c0862639f91a698adbe2862677a5a07bad42da5f03f3030883b205` | `docker-compose.observability.yml:39` |
+| `jaegertracing/all-in-one:1.76.0` | `sha256:ab6f1a1f0fb49ea08bcd19f6b84f6081d0d44b364b6de148e1798eb5816bacac` | `docker-compose.observability.yml:57` |
+| `grafana/loki:3.7.9` | `sha256:0db216b630ae1f348a1584c67f3cead8b4c1fc839169a39501db664744158e28` | `docker-compose.observability.yml:65` |
+| `postgres:17-alpine` | `sha256:3540c0362c809df084ffac0ae69fe794515f9de92692f02178bcdce0ef0302ac` | `Server-NestJS/postgresql/docker-compose.db.yml:11` |
+
+### CI service 容器与迁移检查
+
+同一个 `pgvector/pgvector:pg17` 还出现在 `.github/workflows/ci.yml:142`
+（`migration-consistency-postgres` 的 service 容器）与
+`Server-NestJS/scripts/check-pg-migration-consistency.mjs:25` 的 `IMAGE` 常量。两处都带编排用的那个摘要
+（`sha256:7d0a…ccb8`），于是三处描述的是同一个镜像。工作流那一处由门禁覆盖；脚本常量不是 YAML 拉取
+引用，是手工钉的。
+
+### 门禁
+
+`scripts/check-pinned-images.mjs`（job `pinned-images`，见 §3）。任何拉取引用只要没有
+`@sha256:<64 位十六进制>` 就判红，并点名文件与行号；两个方向都由 `scripts/check-pinned-images.test.mjs`
+覆盖。射程是所有会拉取的 YAML：树内任意 `docker-compose*.yml`（跳过 `node_modules`、`.git` 与
+`.claude`），以及 `.github/workflows/*.yml` 里 `services:` 或 `container:` 块内的 `image:`（`run:` 的
+heredoc 写着 `image:` 只是文本，测试里钉住了这一点）。shell 脚本与 markdown 里的拉取引用它不读 —— 见 §7。
+
+**升级一个已钉住的镜像。** 与 Dockerfile 同一条规则、同一个理由：
+
+1. 先确定要跑的版本，再在钉的时候从镜像仓库读出它的清单列表摘要 ——
+   `docker buildx imagetools inspect <仓>:<版本>` 会打印 `Digest:`；或用 registry API
+   （向 `auth.docker.io` 取 token，再请求 `registry-1.docker.io/v2/<仓>/manifests/<标签>`，
+   其 `Docker-Content-Digest` 响应头与响应体的 sha256 必须一致）；
+2. 确认你要写的那个标签解析到的正是这个摘要 —— 重读一次比对，或
+   `docker buildx imagetools inspect <仓>:<版本>@sha256:<摘要>`；
+3. 在上文列出的**每一处**替换 `<版本>` 与摘要，然后跑 `npm run check:pinned-images`。
+
+不要把某份报告里的摘要抄过来：标签会移动，抄来的旧摘要指向旧镜像。
+
+**钉住之后标签移动是正常的。** 2026-11-10 读数里 `alpine:3.24` 已解析到 `sha256:f59a…71bf`，而
+Dockerfile 钉的是 `sha256:3f4d…630a` —— 标签动了、被钉住的镜像没动，这正是钉子的意义。两者都仍可拉取；
+构建与离线包要预置的是**钉住的那个**。
 
 ## 5. 已登记的例外 —— 基线与其义务
 
@@ -459,13 +566,16 @@ Windows 上的发布件是 `osv-scanner_windows_amd64.exe`，sha256 为
 
 ## 7. 未覆盖项
 
-1. **镜像层扫描。** 任何地方都没有 `trivy image` / `grype`，所以基础镜像里操作系统包的 CVE 不会被报。
-2. **编排镜像仍然浮动**，其中三个带 `latest`（`docker-compose.yml:160`、
-   `docker-compose.observability.yml:26,34,52,60`）。
-3. **开发依赖的发现不判红** —— 2026-11-08 这次读数是 97 条高/严重。
-4. **那 39 条基线是债，不是修复。**
-5. **OSV API 是匿名的**，受速率限制；自检每次 CI 再多三条查询。
-6. **`pubspec.lock` 的生产闭包是保守的**，可能多判，不会漏判。
-7. **npm v1 锁文件会让全部发现都判红**；今天没有这种文件。
-8. **SBOM 只覆盖 Server-NestJS**，不含另外六份锁文件。
-9. **必过检查的状态不在本树里。** 红的 job 是否阻止合并，是 GitHub 上的设置。
+1. **镜像层扫描。** 任何地方都没有 `trivy image` / `grype`，所以基础镜像里操作系统包的 CVE 不会被报 ——
+   编排镜像同样如此：编排门禁查的是钉没钉，不是镜像里有没有洞。
+2. **开发依赖的发现不判红** —— 2026-11-08 这次读数是 97 条高/严重。
+3. **那 39 条基线是债，不是修复。**
+4. **OSV API 是匿名的**，受速率限制；自检每次 CI 再多三条查询。
+5. **`pubspec.lock` 的生产闭包是保守的**，可能多判，不会漏判。
+6. **npm v1 锁文件会让全部发现都判红**；今天没有这种文件。
+7. **SBOM 只覆盖 Server-NestJS**，不含另外六份锁文件。
+8. **必过检查的状态不在本树里。** 红的 job 是否阻止合并，是 GitHub 上的设置。
+9. **YAML 之外的拉取引用不进本门禁。** `deploy/deploy-offline.sh` 按标签查镜像、
+   `docs/manual/offline-deploy.md` §2.1 的 `docker pull` 行是手工钉的、
+   `Server-NestJS/scripts/check-pg-migration-consistency.mjs:25` 的 `IMAGE` 常量也是手工钉的。门禁只读
+   YAML；这三处都可能悄悄漂回浮动标签而不让任何东西变红。
