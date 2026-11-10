@@ -96,6 +96,24 @@ export interface AuditReviewStatus {
   unreviewedRanges: UnreviewedRange[];
   /** Most recent receipts, newest first. */
   receipts: AuditReviewReceipt[];
+  /**
+   * Valid receipts in the chain — the full set the coverage above was computed from. The returned
+   * `receipts` list is capped at `MAX_RECEIPTS_RETURNED`; this count is not.
+   * Unreadable receipts are not counted here: they cover nothing and are counted in `malformedReceipts`.
+   *
+   * 链上的**有效**回执总数 —— 上面覆盖区间就是从这整批算出的。返回的 `receipts` 清单受
+   * `MAX_RECEIPTS_RETURNED` 限制，这个计数不受。读不出来的回执不计入此数：它们不覆盖任何行，
+   * 单独计入 `malformedReceipts`。
+   */
+  receiptsTotal: number;
+  /**
+   * Set when the returned `receipts` list was cut at `MAX_RECEIPTS_RETURNED`. Unreadable receipts are
+   * not «truncation» — they are counted in `malformedReceipts` instead.
+   *
+   * 返回的 `receipts` 清单是否在 `MAX_RECEIPTS_RETURNED` 处被截断。读不出来的回执**不算**截断 ——
+   * 它们单独计入 `malformedReceipts`。
+   */
+  receiptsTruncated: boolean;
   /** Receipts whose claim could not be read; they cover nothing (fail-closed). */
   malformedReceipts: number;
   /** Set when `unreviewedRanges` was cut at `MAX_UNREVIEWED_RANGES`. */
@@ -252,11 +270,7 @@ export class AuditReviewService {
    */
   async status(): Promise<AuditReviewStatus> {
     const config = this.reviewConfig();
-    const receiptRows = await this.logRepo.find({
-      where: { action: AUDIT_REVIEW_ACTION },
-      order: { id: 'ASC' },
-      take: 2000,
-    });
+    const receiptRows = await this.loadReceiptRows();
     const receipts: AuditReviewReceipt[] = [];
     const covered: ReviewedRange[] = [];
     let malformed = 0;
@@ -296,6 +310,8 @@ export class AuditReviewService {
       reviewedRanges,
       unreviewedRanges: unreviewedRanges.ranges,
       receipts: receipts.slice(-MAX_RECEIPTS_RETURNED).reverse(),
+      receiptsTotal: receipts.length,
+      receiptsTruncated: receipts.length > MAX_RECEIPTS_RETURNED,
       malformedReceipts: malformed,
       truncated: unreviewedRanges.truncated,
     };
@@ -334,18 +350,28 @@ export class AuditReviewService {
   }
 
   private async coveredRanges(): Promise<ReviewedRange[]> {
-    const rows = await this.logRepo.find({
-      select: { detail: true },
-      where: { action: AUDIT_REVIEW_ACTION },
-      order: { id: 'ASC' },
-      take: 2000,
-    });
+    const rows = await this.loadReceiptRows();
     const ranges: ReviewedRange[] = [];
     for (const row of rows) {
       const claim = parseClaim(row.detail);
       if (claim) ranges.push({ fromId: claim.fromId, throughId: claim.throughId });
     }
     return ranges;
+  }
+
+  /**
+   * Every receipt row. Receipts are **sparse** rows, so the whole set is read: reading only the
+   * oldest N would drop a newer genuine receipt out of the window and silently shrink what counts
+   * as reviewed — the exact failure a read-side integrity claim must not have.
+   *
+   * 全部回执行。回执是**稀疏**行，故整批读出：只取最旧 N 条会让较新的真实回执落到窗口外，
+   * 静默缩小「已复核」的范围 —— 这正是读侧完整性声明绝不能有的失败。
+   */
+  private async loadReceiptRows(): Promise<AiAuditLog[]> {
+    return this.logRepo.find({
+      where: { action: AUDIT_REVIEW_ACTION },
+      order: { id: 'ASC' },
+    });
   }
 
   private async countWindow(

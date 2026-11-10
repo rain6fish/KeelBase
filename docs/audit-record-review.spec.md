@@ -77,6 +77,11 @@ This is the audit controller's **only write**: signing the receipt **is** the as
 2. Merge the ranges; unreviewed = `[1, maxId]` minus the covered ranges (receipt rows are not reviewable records);
 3. Each interval carries its record count and oldest timestamp.
 
+The read is **not** capped at an oldest-N window: receipts are sparse rows, and reading only the oldest N would silently let a newer genuine receipt fall out of the coverage computation. The returned `receipts` list is capped separately; `receiptsTotal` is the full count of valid receipts the coverage was computed from, and `receiptsTruncated` says whether the returned list was cut. `truncated` keeps its separate meaning: `unreviewedRanges` was cut. Malformed receipts cover nothing, are counted in `malformedReceipts`, and are not «truncation».
+
+读侧**不**按「最旧 N 条」截窗口：回执是稀疏行，只读最旧 N 条会让较新的真实回执悄悄掉出覆盖计算。返回的 `receipts` 清单另有限量；`receiptsTotal` 是参与覆盖计算的**全部有效回执**数，`receiptsTruncated` 说明返回清单是否被截断。`truncated` 保持原义：`unreviewedRanges` 被截断。坏回执不覆盖任何行，计入 `malformedReceipts`，**不算**截断。
+
+
 ---
 
 ## 6. 覆盖声明 / 6. Coverage statement

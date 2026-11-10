@@ -216,7 +216,13 @@ describe('AW-12 review status', () => {
       }),
     };
     return {
-      find: jest.fn(async () => opts.receipts),
+      // Honour `take` the way the database does (ASC order, so the oldest N), so a read that
+      // silently caps itself at an oldest-N window actually loses the newer rows here too.
+      // 像数据库那样兑现 `take`（ASC ⇒ 最旧 N 条），这样「悄悄只取最旧 N 条」的读法在这里也会真的
+      // 丢掉较新的行。
+      find: jest.fn(async (arg?: { take?: number }) =>
+        arg?.take ? opts.receipts.slice(0, arg.take) : opts.receipts,
+      ),
       count: jest.fn(async (arg?: unknown) => (arg ? opts.receipts.length : opts.totalRows)),
       createQueryBuilder: jest.fn(() => builder),
       builder,
@@ -250,12 +256,76 @@ describe('AW-12 review status', () => {
       { fromId: 6, throughId: 8, rows: 3, firstRowAt: '2026-11-01T00:00:00.000Z' },
     ]);
     expect(status.malformedReceipts).toBe(0);
+    expect(status.receiptsTotal).toBe(2);
+    expect(status.receiptsTruncated).toBe(false);
     // Newest first — the list is for a reader scanning recent attestations.
     // 最近的在前 —— 这份清单是给扫最近一次见证的读者看的。
     expect(status.receipts.map((r) => [r.fromId, r.throughId])).toEqual([
       [9, 9],
       [1, 5],
     ]);
+  });
+
+  it('caps the returned list but says so, while coverage still uses every receipt', async () => {
+    // 60 receipts — above MAX_RECEIPTS_RETURNED (50), each covering one separated position.
+    // 60 张回执 —— 超过 MAX_RECEIPTS_RETURNED（50），每张覆盖一个不相邻的链位。
+    const receipts = Array.from({ length: 60 }, (_, i) =>
+      receipt(i + 1, claimDetail(i * 2 + 1, i * 2 + 1)),
+    );
+    const repo = statusRepo({
+      receipts,
+      maxId: 120,
+      totalRows: 120,
+      rowsIn: () => 0,
+      coveredIn: () => 0,
+    });
+
+    const status = await serviceWith(repo).status();
+
+    expect(status.receiptsTotal).toBe(60);
+    expect(status.receiptsTruncated).toBe(true);
+    expect(status.receipts).toHaveLength(50);
+    // Newest first: positions 60 down to 11; the oldest ten are the ones not listed.
+    // 最近的在前：链位 60 到 11；最旧的十张不在清单里。
+    expect(status.receipts[0].id).toBe(60);
+    expect(status.receipts[status.receipts.length - 1].id).toBe(11);
+    // All 60 still contribute to coverage — the cap is on the list, not on the computation.
+    // 60 张全都参与覆盖计算 —— 上限只管清单，不管计算。
+    expect(status.reviewedRanges).toHaveLength(60);
+    expect(status.reviewedRanges).toContainEqual({ fromId: 119, throughId: 119 });
+    expect(status.unreviewedRanges).toEqual([]);
+  });
+
+  it('reads past the oldest 2000 receipts: a newer receipt still covers its rows', async () => {
+    // The old read took the oldest 2000 rows, so receipt 2001 — the one covering the tail — never
+    // entered the computation. This fake honours `take`, so that reading loses it here as well.
+    // 旧读法只取最旧 2000 条，于是覆盖链尾的第 2001 张回执根本没参与计算。这个假仓储兑现 `take`，
+    // 故旧读法在这里同样会丢掉它。
+    const receipts = [
+      ...Array.from({ length: 2000 }, (_, i) => receipt(i + 1, claimDetail(1, 5))),
+      receipt(2001, claimDetail(2000, 2100)),
+    ];
+    const repo = statusRepo({
+      receipts,
+      maxId: 2100,
+      totalRows: 2100,
+      rowsIn: () => 0,
+      coveredIn: () => 0,
+    });
+    const service = serviceWith(repo);
+
+    const status = await service.status();
+
+    expect(status.reviewedRanges).toEqual([
+      { fromId: 1, throughId: 5 },
+      { fromId: 2000, throughId: 2100 },
+    ]);
+    expect(status.receiptsTotal).toBe(2001);
+    expect(status.receiptsTruncated).toBe(true);
+    expect(status.receipts[0]).toMatchObject({ id: 2001, fromId: 2000, throughId: 2100 });
+    // The same «read every receipt» rule backs the per-row question.
+    // 「读全部回执」这条规则同样支撑按行的问题。
+    await expect(service.isRowCovered(2100)).resolves.toBe(true);
   });
 
   it('a receipt whose claim cannot be read covers nothing and is counted, not guessed', async () => {
@@ -272,6 +342,11 @@ describe('AW-12 review status', () => {
     expect(status.malformedReceipts).toBe(2);
     expect(status.reviewedRanges).toEqual([{ fromId: 4, throughId: 4 }]);
     expect(status.receipts).toHaveLength(1);
+    // Only the valid receipt counts as a receipt; the unreadable rows are no receipt (fail-closed),
+    // and their absence from the list is not «truncation».
+    // 只有有效回执才算回执；读不出来的行等于没有回执（fail-closed），它们不在清单里**不算**截断。
+    expect(status.receiptsTotal).toBe(1);
+    expect(status.receiptsTruncated).toBe(false);
     // Four positions, three consumed by (unreadable) receipts, one record reviewed ⇒ two left.
     expect(status.reviewableRows).toBe(1);
     expect(status.reviewedRows).toBe(1);
@@ -340,6 +415,8 @@ describe('AW-12 review status', () => {
     expect(status.totalRows).toBe(0);
     expect(status.unreviewedRanges).toEqual([]);
     expect(status.receipts).toEqual([]);
+    expect(status.receiptsTotal).toBe(0);
+    expect(status.receiptsTruncated).toBe(false);
     expect(status.truncated).toBe(false);
   });
 });
