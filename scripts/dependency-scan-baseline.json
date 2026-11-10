@@ -886,17 +886,6 @@
     {
       "scope": "dev",
       "lockfile": "Web-Admin-React/package-lock.json",
-      "package": "source-map-js",
-      "version": "1.2.1",
-      "id": "GHSA-68fv-2mgg-jv7q",
-      "severity": "HIGH",
-      "reason": "Dev-only (dev:true) instance reached through postcss. That chain is build/test tooling, not application code, so the package is not in the shipped bundle. Accepted until the chain is upgraded or the advisory is cleared.\n\n仅开发期（dev:true）实例，经 postcss 到达。该链路属于构建/测试工具，不是应用代码，故该包不进产物。接受至该链路升级或该公告被清除为止。",
-      "owner": "maintainer",
-      "expiry": "2027-02-08"
-    },
-    {
-      "scope": "dev",
-      "lockfile": "Web-Admin-React/package-lock.json",
       "package": "tinypool",
       "version": "1.1.1",
       "id": "GHSA-5gmw-xhrv-c9v3",
@@ -1067,50 +1056,6 @@
       "id": "GHSA-587h-7wmj-h5pm",
       "severity": "HIGH",
       "reason": "Dev-only (dev:true) instance reached through the root devDependencies (build tool). That chain is build/test tooling, not application code, so the package is not in the shipped bundle. Accepted until the chain is upgraded or the advisory is cleared.\n\n仅开发期（dev:true）实例，经 the root devDependencies (build tool) 到达。该链路属于构建/测试工具，不是应用代码，故该包不进产物。接受至该链路升级或该公告被清除为止。",
-      "owner": "maintainer",
-      "expiry": "2027-02-08"
-    },
-    {
-      "scope": "production",
-      "lockfile": "Front-Taro/package-lock.json",
-      "package": "brace-expansion",
-      "version": "1.1.18",
-      "id": "GHSA-6j4f-fj2g-mc7p",
-      "severity": "HIGH",
-      "reason": "Instance under @tarojs/plugin-doctor / depcheck has dev:true; build-only. Accepted on 2026-11-08 until the Taro build chain is upgraded.\n\n该实例在 @tarojs/plugin-doctor / depcheck 下，dev:true，仅构建期。2026-11-08 接受，至 Taro 构建链升级为止。",
-      "owner": "maintainer",
-      "expiry": "2027-02-08"
-    },
-    {
-      "scope": "production",
-      "lockfile": "Front-Taro/package-lock.json",
-      "package": "brace-expansion",
-      "version": "2.1.4",
-      "id": "GHSA-6j4f-fj2g-mc7p",
-      "severity": "HIGH",
-      "reason": "Instance under @tarojs/plugin-doctor / depcheck has dev:true; build-only. Accepted on 2026-11-08 until the Taro build chain is upgraded.\n\n该实例在 @tarojs/plugin-doctor / depcheck 下，dev:true，仅构建期。2026-11-08 接受，至 Taro 构建链升级为止。",
-      "owner": "maintainer",
-      "expiry": "2027-02-08"
-    },
-    {
-      "scope": "production",
-      "lockfile": "Front-Taro/package-lock.json",
-      "package": "brace-expansion",
-      "version": "1.1.18",
-      "id": "GHSA-qhr7-859c-m2p7",
-      "severity": "HIGH",
-      "reason": "Same dev-only instance as the GHSA-6j4f-fj2g-mc7p entry at 2.1.4 (@tarojs/plugin-doctor / depcheck, dev:true). Accepted on 2026-11-08.\n\n与 2.1.4 的 GHSA-6j4f-fj2g-mc7p 条目同一个仅开发期实例（@tarojs/plugin-doctor / depcheck，dev:true）。2026-11-08 接受。",
-      "owner": "maintainer",
-      "expiry": "2027-02-08"
-    },
-    {
-      "scope": "production",
-      "lockfile": "Front-Taro/package-lock.json",
-      "package": "brace-expansion",
-      "version": "2.1.4",
-      "id": "GHSA-qhr7-859c-m2p7",
-      "severity": "HIGH",
-      "reason": "Same dev-only instance as the GHSA-6j4f-fj2g-mc7p entry at 2.1.4 (@tarojs/plugin-doctor / depcheck, dev:true). Accepted on 2026-11-08.\n\n与 2.1.4 的 GHSA-6j4f-fj2g-mc7p 条目同一个仅开发期实例（@tarojs/plugin-doctor / depcheck，dev:true）。2026-11-08 接受。",
       "owner": "maintainer",
       "expiry": "2027-02-08"
     },
