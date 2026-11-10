@@ -23,15 +23,19 @@ Related manuals / 相关手册：
 ### 2.1 Stage Images on a Connected Machine / 在可联网机器预置镜像
 
 ```bash
-# Pull base images / 拉取基础镜像
-docker pull pgvector/pgvector:pg17
-docker pull redis:7-alpine
-docker pull node:22-alpine
-docker pull nginx:alpine
+# Pull base images by digest / 按摘要拉取基础镜像
+# (digests: docs/manual/supply-chain.md §4; the web base is alpine:3.24 since 2026-09-26, not nginx:alpine)
+# （摘要见 docs/manual/supply-chain.md §4；web 基座自 2026-09-26 起是 alpine:3.24，不再是 nginx:alpine）
+docker pull pgvector/pgvector:pg17@sha256:7d0a41464797aeb9862dfdc0bbf1526b82cfd324cdd8036df19e3545f4a9ccb8
+docker pull redis:7-alpine@sha256:c5d34a98396a4775e223c74e929162c35c5a2182901ba26b50ade939941ce14b
+docker pull node:22-alpine@sha256:0e1754758c2df4cfa3e68d59e2e1b7374bb7fd9ea6328eaaacf15cc934af8202
+docker pull alpine:3.24@sha256:3f4d6b32e26703c6082839234f43769d5046b3ac7c910033911d1e71d8cd630a
 # Build the base image / 构建本基座镜像
 docker compose build
 # Export as tar (copy to the intranet machine) / 导出为 tar（拷贝到内网机器）
-docker save pgvector/pgvector:pg17 redis:7-alpine node:22-alpine nginx:alpine -o images.tar
+# Same images as above, saved by tag — a digest pull records both the tag and the digest.
+# 与上面同一批镜像，按标签导出 —— 按摘要拉下来的镜像同时带着标签与摘要。
+docker save pgvector/pgvector:pg17 redis:7-alpine node:22-alpine alpine:3.24 -o images.tar
 ```
 
 ### 2.2 Load + Deploy on the Intranet Machine / 内网机器 load + 部署

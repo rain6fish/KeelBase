@@ -1,5 +1,10 @@
 version: '3.8'
 
+# Images are pinned to a digest (`tag@sha256:...`), same rule as docker-compose.yml: read a new digest
+# from the registry at pin time, never copy one out of a report. Procedure: docs/manual/supply-chain.md §4.
+# 镜像按摘要钉住（`tag@sha256:...`），与 docker-compose.yml 同一条规则：新摘要钉的时候从镜像仓库现读，
+# 别抄报告。做法见 docs/manual/supply-chain.md §4。
+
 # 可观测性栈 — Prometheus + Grafana + Jaeger + Loki
 #
 # 用法一（本地开发，server 跑在宿主机）：
@@ -23,7 +28,7 @@ version: '3.8'
 
 services:
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v3.16.0@sha256:e04987641b57704f408e31f6373ba4138ecf27cb4a165d24aabb6c38fddd0f06
     ports:
       - "9090:9090"
     volumes:
@@ -31,7 +36,7 @@ services:
       - ./infra/observability/prometheus:/etc/prometheus:ro
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:13.3.0@sha256:488984b716c0862639f91a698adbe2862677a5a07bad42da5f03f3030883b205
     ports:
       - "3001:3000"
     environment:
@@ -49,7 +54,7 @@ services:
       - loki
 
   jaeger:
-    image: jaegertracing/all-in-one:latest
+    image: jaegertracing/all-in-one:1.76.0@sha256:ab6f1a1f0fb49ea08bcd19f6b84f6081d0d44b364b6de148e1798eb5816bacac
     ports:
       - "16686:16686"
       - "4318:4318"
@@ -57,7 +62,7 @@ services:
       - COLLECTOR_OTLP_ENABLED=true
 
   loki:
-    image: grafana/loki:latest
+    image: grafana/loki:3.7.9@sha256:0db216b630ae1f348a1584c67f3cead8b4c1fc839169a39501db664744158e28
     ports:
       - "3100:3100"
     command: -config.file=/etc/loki/local-config.yaml
