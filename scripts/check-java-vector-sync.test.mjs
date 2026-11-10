@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /**
- * Regression tests for check-java-vector-sync.mjs (node:test, zero dependencies). Two kinds of case:
+ * Regression tests for check-java-vector-sync.mjs (node:test, zero dependencies). Three kinds of case:
  *
  *  - Ref selection. A shared checkout parked on another branch used to mask vector drift because the
  *    gate compared the Java working tree; the fix reads `main`, falling back to `HEAD`, and these cases
@@ -9,18 +9,21 @@
  *  - Reverse evidence. Criterion 3 (schema content) and criterion 4 (the explicit `/4` assertion) are
  *    proved by mutating a schema and requiring the gate to go red and name what changed — a gate nobody
  *    has seen fail is a gate taken on faith.
+ *  - Line endings. A snapshot that differs only in CRLF is not drift: the gate normalises line endings
+ *    before comparing, and the 7/7 false reds of 2026-09-17 are what this case pins against.
  *
  * The "main" side is a throwaway copy (script + corpus) so a mutation can never touch this repository's
  * real corpus; the Java side is a throwaway git repository. The tests never use the network.
  *
  * Run: node --test scripts/check-java-vector-sync.test.mjs
  *
- * 回归测试：check-java-vector-sync.mjs（node:test，零依赖）。两类用例：
+ * 回归测试：check-java-vector-sync.mjs（node:test，零依赖）。三类用例：
  *
  *  - ref 选择。共用检出停在别的分支时，旧写法比对 Java 工作树，会遮蔽向量漂移；修复改为读 `main`、
  *    没有则回落 `HEAD`，这些用例把这一选择钉住，防止悄悄回退。
  *  - 反向取证。判据 3（schema 内容）与判据 4（显式 `/4` 断言）各用一个变异证明：改掉一个字段，
  *    闸必须变红并点名改了什么——没见它红过的闸，只能靠相信。
+ *  - 行尾。只差 CRLF 的快照不算漂移：闸在比较前归一化行尾；2026-09-17 那 7/7 全假红就是这条要钉住的。
  *
  * 「主仓」侧是一次性副本（脚本 + 语料），变异永远碰不到本仓真实语料；Java 侧是一次性 git 仓。测试不联网。
  *
@@ -297,4 +300,32 @@ test('criterion 4: dropping coverage from /4 required on both sides stays red an
   mustGit(javaDir, 'commit', '-q', '-m', 'restore coverage on both sides');
   const restored = runGate(harness.script, javaDir);
   assert.equal(restored.status, 0, `restored should be green:\n${restored.stdout}\n${restored.stderr}`);
+});
+
+test('line endings alone are not drift: a CRLF-only snapshot stays green — 行尾族：只差 CRLF 的快照仍绿', () => {
+  // A non-git directory, so the gate reads the working tree and the CRLF bytes survive; committing
+  // them would let `core.autocrlf` normalise the fixture out from under the test.
+  // 非 git 目录：闸读工作树，CRLF 字节能留到比较那一步；若提交，`core.autocrlf` 会把夹具归一掉。
+  const dir = mkdtempSync(join(tmpdir(), 'kb-java-gate-crlf-'));
+  scratchDirs.push(dir);
+  copyCorpus(dir);
+
+  const toCrlf = (d) => {
+    for (const entry of readdirSync(d, { withFileTypes: true })) {
+      const p = join(d, entry.name);
+      if (entry.isDirectory()) toCrlf(p);
+      else if (entry.isFile() && entry.name.endsWith('.json')) {
+        writeFileSync(p, readFileSync(p, 'utf8').replace(/\r\n/g, '\n').replace(/\n/g, '\r\n'));
+      }
+    }
+  };
+  const vectorsDir = join(dir, 'conformance/vectors');
+  toCrlf(vectorsDir);
+
+  const sample = readFileSync(join(vectorsDir, 'schemas/v1/audit-chain-verification.schema.json'), 'utf8');
+  assert.match(sample, /\r\n/, 'fixture must actually carry CRLF, otherwise this case proves nothing');
+
+  const r = run('--java', dir);
+  assert.equal(r.status, 0, `${r.stdout}\n${r.stderr}`);
+  assert.match(r.stdout, /✓ 跨仓语料一致/);
 });
