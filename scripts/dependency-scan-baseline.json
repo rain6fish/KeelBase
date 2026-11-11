@@ -1,6 +1,6 @@
 {
   "_note": "High/critical findings that existed when the gate landed, so the gate starts green and fails only on new ones. `scope` is `production` or `dev`; it is part of the matching key, so accepting one does not accept the other. Each entry must carry `reason`, `owner` and `expiry` (YYYY-MM-DD, +08); the gate fails when any is missing or the expiry has passed. `--update-baseline` keeps existing triage and leaves new entries blank. Entries with no assigned owner expire at the current triage checkpoint (2026-11-12); re-decide or clear them by then. / 门禁落地时已存在的高危/严重发现，使门禁从绿起步、只对新发现判红。`scope` 取 `production` 或 `dev`，并入匹配键 —— 接受一个不等于接受另一个。每条必须带 `reason`、`owner`、`expiry`（YYYY-MM-DD，+08）；缺任一项或已过期，门禁判红。`--update-baseline` 保留既有 triage，新条目留空待补。无责任人的条目到期日取当前 triage 检查点（2026-11-12）；届时须重新裁决或清除。",
-  "generatedAt": "2026-11-10",
+  "generatedAt": "2026-11-11",
   "scanner": "osv-scanner v2.7.0",
   "findings": [
     {
@@ -341,72 +341,6 @@
       "id": "GHSA-2883-xcg3-v3hh",
       "severity": "HIGH",
       "reason": "Dev-only (dev:true) instance reached through @eslint/eslintrc / eslint / depcheck. That chain is build/test tooling, not application code, so the package is not in the shipped bundle. Accepted until the chain is upgraded or the advisory is cleared.\n\n仅开发期（dev:true）实例，经 @eslint/eslintrc / eslint / depcheck 到达。该链路属于构建/测试工具，不是应用代码，故该包不进产物。接受至该链路升级或该公告被清除为止。",
-      "owner": "maintainer",
-      "expiry": "2027-02-08"
-    },
-    {
-      "scope": "dev",
-      "lockfile": "Front-Taro/package-lock.json",
-      "package": "node-forge",
-      "version": "1.4.0",
-      "id": "GHSA-5x38-2vff-x55p",
-      "severity": "HIGH",
-      "reason": "Dev-only (dev:true) instance reached through selfsigned. That chain is build/test tooling, not application code, so the package is not in the shipped bundle. Accepted until the chain is upgraded or the advisory is cleared.\n\n仅开发期（dev:true）实例，经 selfsigned 到达。该链路属于构建/测试工具，不是应用代码，故该包不进产物。接受至该链路升级或该公告被清除为止。",
-      "owner": "maintainer",
-      "expiry": "2027-02-08"
-    },
-    {
-      "scope": "dev",
-      "lockfile": "Front-Taro/package-lock.json",
-      "package": "node-forge",
-      "version": "1.4.0",
-      "id": "GHSA-7wch-p9px-956x",
-      "severity": "HIGH",
-      "reason": "Dev-only (dev:true) instance reached through selfsigned. That chain is build/test tooling, not application code, so the package is not in the shipped bundle. Accepted until the chain is upgraded or the advisory is cleared.\n\n仅开发期（dev:true）实例，经 selfsigned 到达。该链路属于构建/测试工具，不是应用代码，故该包不进产物。接受至该链路升级或该公告被清除为止。",
-      "owner": "maintainer",
-      "expiry": "2027-02-08"
-    },
-    {
-      "scope": "dev",
-      "lockfile": "Front-Taro/package-lock.json",
-      "package": "node-forge",
-      "version": "1.4.0",
-      "id": "GHSA-86w9-cpqp-85rv",
-      "severity": "HIGH",
-      "reason": "Dev-only (dev:true) instance reached through selfsigned. That chain is build/test tooling, not application code, so the package is not in the shipped bundle. Accepted until the chain is upgraded or the advisory is cleared.\n\n仅开发期（dev:true）实例，经 selfsigned 到达。该链路属于构建/测试工具，不是应用代码，故该包不进产物。接受至该链路升级或该公告被清除为止。",
-      "owner": "maintainer",
-      "expiry": "2027-02-08"
-    },
-    {
-      "scope": "dev",
-      "lockfile": "Front-Taro/package-lock.json",
-      "package": "node-forge",
-      "version": "1.4.0",
-      "id": "GHSA-8hrf-8g6f-7xwp",
-      "severity": "HIGH",
-      "reason": "Dev-only (dev:true) instance reached through selfsigned. That chain is build/test tooling, not application code, so the package is not in the shipped bundle. Accepted until the chain is upgraded or the advisory is cleared.\n\n仅开发期（dev:true）实例，经 selfsigned 到达。该链路属于构建/测试工具，不是应用代码，故该包不进产物。接受至该链路升级或该公告被清除为止。",
-      "owner": "maintainer",
-      "expiry": "2027-02-08"
-    },
-    {
-      "scope": "dev",
-      "lockfile": "Front-Taro/package-lock.json",
-      "package": "node-forge",
-      "version": "1.4.0",
-      "id": "GHSA-hqq3-7jhf-c5jx",
-      "severity": "HIGH",
-      "reason": "Dev-only (dev:true) instance reached through selfsigned. That chain is build/test tooling, not application code, so the package is not in the shipped bundle. Accepted until the chain is upgraded or the advisory is cleared.\n\n仅开发期（dev:true）实例，经 selfsigned 到达。该链路属于构建/测试工具，不是应用代码，故该包不进产物。接受至该链路升级或该公告被清除为止。",
-      "owner": "maintainer",
-      "expiry": "2027-02-08"
-    },
-    {
-      "scope": "dev",
-      "lockfile": "Front-Taro/package-lock.json",
-      "package": "node-forge",
-      "version": "1.4.0",
-      "id": "GHSA-jc66-7q78-782g",
-      "severity": "HIGH",
-      "reason": "Dev-only (dev:true) instance reached through selfsigned. That chain is build/test tooling, not application code, so the package is not in the shipped bundle. Accepted until the chain is upgraded or the advisory is cleared.\n\n仅开发期（dev:true）实例，经 selfsigned 到达。该链路属于构建/测试工具，不是应用代码，故该包不进产物。接受至该链路升级或该公告被清除为止。",
       "owner": "maintainer",
       "expiry": "2027-02-08"
     },
