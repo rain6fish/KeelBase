@@ -1066,9 +1066,9 @@
       "version": "0.2.2",
       "id": "GHSA-qr28-fpjm-wq7f",
       "severity": "HIGH",
-      "reason": "Runtime path query-string ← @tarojs/router ← @tarojs/plugin-platform-h5; a crafted H5 URL can reach the quadratic DoS. Fix blocked: the fixed 0.5.1 is ESM-only while query-string 7.1.3 is CJS and calls require('decode-uri-component') as a function. Accepted by the user on 2026-11-08 until a query-string/Taro upgrade.\n\n运行路径 query-string ← @tarojs/router ← @tarojs/plugin-platform-h5；构造的 H5 URL 可触发二次方 DoS。修复受阻：修复版 0.5.1 是 ESM-only，而 query-string 7.1.3 是 CJS，把 require('decode-uri-component') 当函数调用。用户已于 2026-11-08 接受，至 query-string / Taro 升级为止。",
+      "reason": "Upstream has no fix on the Taro 3.6 line: @tarojs/router 3.6.40 still requires query-string ^7.1.1, and the patched decode-uri-component 0.5.1 is ESM-only while query-string 7.1.3 is CJS and calls require('decode-uri-component') as a function (webpack bundles it as a namespace object, measured on 2026-11-11). Taro 4.3.2 moves to query-string ^9.0.0 and so clears the production copy, but its dev chain (normalize-url 2.0.1 -> query-string 5.1.1) still leaves a nested 0.2.2 that the gate reads as production. A full clear needs Taro 4 plus overrides swiper 12.1.2 and normalize-url 6.1.0, tracked as a separate upgrade. Re-triaged by the user on 2026-11-11 to 2027-02-08; evidence: D:/Rain6fish/handoff/supply-chain-d2-1111.md.\n\n上游在 Taro 3.6 线没有修复：@tarojs/router 3.6.40 仍要求 query-string ^7.1.1，而修复版 decode-uri-component 0.5.1 是 ESM-only，query-string 7.1.3 是 CJS，把 require('decode-uri-component') 当函数调用（2026-11-11 用 webpack 实测得到命名空间对象）。Taro 4.3.2 改到 query-string ^9.0.0，能清掉生产副本，但其开发链（normalize-url 2.0.1 -> query-string 5.1.1）仍留下嵌套的 0.2.2，门禁会按生产读。完整清除需要 Taro 4 加两个 override（swiper 12.1.2、normalize-url 6.1.0），已列为独立升级项。用户于 2026-11-11 重新裁决，延至 2027-02-08；依据：D:/Rain6fish/handoff/supply-chain-d2-1111.md。",
       "owner": "maintainer",
-      "expiry": "2026-12-06"
+      "expiry": "2027-02-08"
     },
     {
       "scope": "production",
@@ -1110,9 +1110,9 @@
       "version": "6.8.0",
       "id": "GHSA-hmx5-qpq5-p643",
       "severity": "CRITICAL",
-      "reason": "The only CRITICAL. The built H5 bundle dist/js/683.js (part of the app entrypoint) contains the full taro-swiper-core and swiper code, but the sink needs the swiper component to be constructed with crafted input, which the app never does. A direct override to 12.1.2 is incompatible: swiper 12 removed swiper/swiper-bundle.esm.js, the exact path Taro 3.6.36 imports. Accepted by the user on 2026-11-08 until a Taro upgrade.\n\n唯一 CRITICAL。构建后的 H5 包 dist/js/683.js（属于 app 入口）含完整的 taro-swiper-core 与 swiper 代码，但 sink 仍需用构造输入实例化 swiper 组件，本应用从不这么做。直接 override 到 12.1.2 不可行：swiper 12 删掉了 swiper/swiper-bundle.esm.js，正是 Taro 3.6.36 import 的路径。用户已于 2026-11-08 接受，至 Taro 升级为止。",
+      "reason": "The only CRITICAL. The built H5 bundle dist/js/683.js (part of the app entrypoint) contains the full taro-swiper-core and swiper code, but the sink needs the swiper component to be constructed with crafted input, which the app never does. Every Taro release still pins a vulnerable swiper: 3.6.40 keeps 6.8.0, and 4.0.9 through 4.3.2 (including the 4.3.3 pre-releases) pin 11.1.15, still below the 12.1.2 fix. Taro 3.6 imports swiper/swiper-bundle.esm.js, which swiper 12 removed, so a bare override breaks the build; Taro 4 imports swiper/bundle and pairs with an override to 12.1.2. The app never constructs the Swiper component (no reference under src/ or config/), so the sink stays unreachable from app input. Re-triaged by the user on 2026-11-11 to 2027-02-08; evidence: D:/Rain6fish/handoff/supply-chain-d2-1111.md.\n\n唯一 CRITICAL。构建后的 H5 包 dist/js/683.js（属于 app 入口）含完整的 taro-swiper-core 与 swiper 代码，但 sink 仍需用构造输入实例化 swiper 组件，本应用从不这么做。所有 Taro 发行版仍钉着受影响的 swiper：3.6.40 仍是 6.8.0，4.0.9 到 4.3.2（含 4.3.3 预发布）都是 11.1.15，均在 12.1.2 修复线之下。Taro 3.6 import 的 swiper/swiper-bundle.esm.js 已被 swiper 12 删除，裸 override 会打断构建；Taro 4 import swiper/bundle，可配 override 到 12.1.2。本应用从不实例化 Swiper 组件（src/ 与 config/ 无引用），sink 在应用输入下不可达。用户于 2026-11-11 重新裁决，延至 2027-02-08；依据：D:/Rain6fish/handoff/supply-chain-d2-1111.md。",
       "owner": "maintainer",
-      "expiry": "2026-12-06"
+      "expiry": "2027-02-08"
     }
   ]
 }
