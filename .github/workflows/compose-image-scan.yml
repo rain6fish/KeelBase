@@ -2,9 +2,9 @@
 #
 # The publish gate (`docker-publish.yml`) scans only the `Dockerfile.single` image. The compose
 # deployment builds a different image: `Dockerfile` target `server`, used by the `server`, `governance`
-# and `sidecar` services in `docker-compose.yml`. That image keeps npm and installs dev dependencies
-# (`deploy.sh` runs `npx ts-node scripts/create-admin.ts`, CR-23), so it is the largest surface that no
-# other gate scans. Decision D4 (2026-11-11) is to scan it here.
+# and `sidecar` services in `docker-compose.yml`. That image ships the backend's prod and dev
+# dependencies, so it is the largest surface no other gate scans. Decision D4 (2026-11-11) is to scan
+# it here.
 #
 # Scan settings are byte-for-byte the publish gate's: same pinned action commit, same pinned Trivy
 # version, `severity HIGH,CRITICAL`, `ignore-unfixed true`, `exit-code '1'`, `.trivyignore.yaml`.
@@ -14,28 +14,26 @@
 #
 # 发布门禁（`docker-publish.yml`）只扫 `Dockerfile.single` 的镜像。compose 部署构建的是另一个镜像：
 # `Dockerfile` 的 `server` 阶段，由 `docker-compose.yml` 的 `server` / `governance` / `sidecar` 三个服务使用。
-# 那个镜像保留 npm、并安装开发依赖（`deploy.sh` 要跑 `npx ts-node scripts/create-admin.ts`，CR-23），
-# 是当前没有任何其它门禁扫描的最大一面。D4（2026-11-11）决定在这里扫它。
+# 那个镜像把后端的生产与开发依赖都打进去，是当前没有任何其它门禁扫描的最大一面。D4（2026-11-11）决定在这里扫它。
 #
 # 扫描设置与发布门禁逐字相同：同一个钉住的 action 提交、同一个钉住的 Trivy 版本、`HIGH,CRITICAL`、
 # `ignore-unfixed true`、`exit-code '1'`、`.trivyignore.yaml`。因此例外只有一处、两道门禁里含义相同。
 #
-# Measured 2026-11-11 on a real local build with these exact settings: the `server` stage exits **1 with
-# 10 HIGH, 0 CRITICAL** — the same ten `node:22-alpine` bundled-npm advisories that the publish base
-# fails on, all under `/usr/local/lib/node_modules/npm`. The application tree (prod + dev dependencies)
-# and the Alpine OS layer are clean. This workflow will therefore be **red on main** until one of the
-# options in `D:/Rain6fish/handoff/d4-compose-scan-1111.md` is decided: triage the nine CVEs in
-# `.trivyignore.yaml`, or take npm out of the runtime image the way `Dockerfile.single` already does
-# (which needs `deploy.sh`'s `npx ts-node scripts/create-admin.ts` path reworked first, CR-23).
-# The red is the reading, not a defect in this wiring.
+# Measured 2026-11-11 on a real local build with these exact settings, twice. The first build — the
+# `server` stage as it stood when this gate was wired — exited **1 with 10 HIGH, 0 CRITICAL**: all ten
+# were the pinned `node:22-alpine` base's own npm under `/usr/local/lib/node_modules/npm`, while the
+# application tree (prod + dev dependencies) and the Alpine OS layer read clean. After that reading,
+# `create-admin` / `seed-demo` were compiled to `build-scripts/*.js` at build time so the deployment
+# scripts call them with plain `node`, and the `server` stage took the same npm/npx removal
+# `Dockerfile.single` already ships (CR-23). Re-measured with the same settings: **0 findings, exit 0**.
+# The first reading stays on the record because catching exactly that is what this gate is for.
 #
-# 2026-11-11 以这组完全相同的设置对真实本地构建实测：`server` 阶段**以 1 退出、10 条 HIGH（0 CRITICAL）**
-# —— 与发布门禁在 `node:22-alpine` 基础镜像上撞到的是同十条 npm 自带依赖告警，全在
-# `/usr/local/lib/node_modules/npm` 下。应用树（生产 + 开发依赖）与 Alpine 操作系统层都干净。因此在
-# `D:/Rain6fish/handoff/d4-compose-scan-1111.md` 里某条路被裁决之前，本工作流会**在 main 上持续红**：
-# 要么在 `.trivyignore.yaml` 里 triage 那 9 个 CVE，要么照 `Dockerfile.single` 已有的做法把 npm 从运行镜像
-# 里拿掉（那需要先把 `deploy.sh` 的 `npx ts-node scripts/create-admin.ts` 建管理员路径改掉，CR-23）。
-# 红是读数，不是这套接线有缺陷。
+# 2026-11-11 以这组完全相同的设置对真实本地构建实测了两次。第一次是本门禁接线时 `server` 阶段的现状：
+# **以 1 退出、10 条 HIGH（0 CRITICAL）** —— 十条全在钉住的 `node:22-alpine` 基础镜像自带的 npm
+# （`/usr/local/lib/node_modules/npm`）里，而应用树（生产 + 开发依赖）与 Alpine 操作系统层都是 0 条。
+# 那次读数之后，`create-admin` / `seed-demo` 改为在构建期编译成 `build-scripts/*.js`，部署脚本用普通
+# `node` 调用；`server` 阶段随之采用与 `Dockerfile.single` 相同的删 npm/npx 做法（CR-23）。同样设置复测：
+# **0 条发现、以 0 退出**。第一次的读数保留在案 —— 本门禁存在的意义正是抓到它。
 
 name: Compose Image Scan
 
