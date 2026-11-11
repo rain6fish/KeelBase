@@ -60,6 +60,10 @@ report the same packages twice. `isShadowed` skips any lockfile whose directory 
   `22-alpine3.23` and `22-slim` reproduce the same 10, and `24-alpine` still reads 6 (`brace-expansion`,
   `undici`). All 10 live in the base's `/usr/local/lib/node_modules/npm`, which the runtime never
   executes, so `Dockerfile.single`'s `single` stage deletes that directory and the `npm`/`npx` shims.
+  **Measured on `node:24-alpine@sha256:a34a…` on 2026-11-11:** untouched it exits 1 with 6 fixable
+  findings; with the same `rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm
+  /usr/local/bin/npx` from `Dockerfile.single` it exits 0 with 0. This is a reading, not a decision —
+  moving the pin to 24 is a separate call and still needs a runtime compatibility review.
   **Re-measured on `main` 2026-11-10 against a build of that file with the gate's settings: exit 0, 0
   findings** — the same command still exits 1 with 10 against the untouched base, so that is a fix rather
   than a loosened gate. The built container starts and `/api/v1/health` answers 200. `Dockerfile`'s
@@ -376,7 +380,9 @@ which clear only by removing the Taro webpack5 runner.
    that base: `Dockerfile.single`'s `single` stage deletes the bundled npm directory and the `npm`/`npx`
    shims, and that image re-measured on `main` on 2026-11-10 at **exit 0 / 0 findings**. The next publish
    therefore needs neither a base bump nor an exception — keeping that `RUN` in the `single` stage is what
-   keeps the gate green.
+   keeps the gate green. Moving the pin to `node:24-alpine` was measured to reach the same 0 findings
+   through the same deletion (§1), but that is a separate decision and still needs a runtime
+   compatibility review; the pin stays at 22.
 2. **Compose images are pinned but not scanned.** Every compose image and the CI service image are
    digest-pinned and gated by `check:pinned-images` (§4); that gate checks the pin, not the image, so a CVE
    inside one of them is only seen when the same image is the release image scanned in item 1.
@@ -447,7 +453,10 @@ which clear only by removing the Taro webpack5 runner.
   实测 `node:22-alpine` 标签自己的摘要**就是**钉住的那一枚，`22-alpine3.23` 与 `22-slim` 复现同样 10 条，
   `24-alpine` 仍读 6 条（`brace-expansion`、`undici`）。这 10 条全在基础的
   `/usr/local/lib/node_modules/npm` 里，而运行阶段从不执行它，故 `Dockerfile.single` 的 `single` 阶段删掉该目录
-  与 `npm`/`npx` 两个入口。**2026-11-10 在 `main` 上对该文件的构建按门禁设置复测：以 0 退出、0 条发现** ——
+  与 `npm`/`npx` 两个入口。**2026-11-11 对 `node:24-alpine@sha256:a34a…` 的实测：** 未删除 npm 时以 1 退出、
+  6 条有修复的发现；按 `Dockerfile.single` 同一条 `rm -rf /usr/local/lib/node_modules/npm
+  /usr/local/bin/npm /usr/local/bin/npx` 处理后以 0 退出、0 条。这是读数、不是决定 —— 把钉住的版本换到 24
+  是另一项独立的决定，仍需做运行时兼容性复核。**2026-11-10 在 `main` 上对该文件的构建按门禁设置复测：以 0 退出、0 条发现** ——
   同一条命令扫未改的基础仍以 1 退出、10 条，所以这是修复而不是放宽门禁。构建出的容器能启动，
   `/api/v1/health` 回 200。`Dockerfile` 的 `server` 阶段有意保留 npm —— `deploy.sh` 在那里执行
   `npx ts-node scripts/create-admin.ts`。
@@ -727,7 +736,8 @@ Dockerfile 钉的是 `sha256:3f4d…630a` —— 标签动了、被钉住的镜�
    （npm 自带模块里 10 条有修复的 HIGH；换标签也清不掉，见 §1），但发布镜像并不是那个基础：
    `Dockerfile.single` 的 `single` 阶段删掉了自带的 npm 目录与 `npm`/`npx` 两个入口，该镜像 2026-11-10
    在 `main` 上复测为**以 0 退出、0 条发现**。所以下一次发布既不需要升级基础，也不需要登记例外 ——
-   `single` 阶段里保留那条 `RUN` 才是让门禁保持绿色的原因。
+   `single` 阶段里保留那条 `RUN` 才是让门禁保持绿色的原因。把钉住的版本换到 `node:24-alpine`，实测经同一条
+   删除也能到 0 条（见 §1），但那是另一项独立的决定，仍需做运行时兼容性复核；当前钉住的仍是 22。
 2. **编排镜像已钉摘要，但没有被扫描。** 每个编排镜像与 CI service 镜像都已钉住，由 `check:pinned-images`
    守着（§4）；那道门禁查的是「钉没钉」，不是「镜像里有没有洞」，所以只有它与第 1 条里被扫的发布镜像
    是同一个镜像时，里面的 CVE 才会被看见。
