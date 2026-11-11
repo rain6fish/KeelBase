@@ -308,46 +308,46 @@ stage.
 
 ## 5. Recorded exceptions — the baseline and its obligations
 
-The baseline holds 39 entries — 38 `HIGH`, 1 `CRITICAL` — all in production dependencies. At land time:
-`Front-Taro` 15, `Web-Admin-Vue` 14, `Web-Admin-React` 10. They are real advisories against the installed
-versions, and the fixes exist upstream; they are recorded so the gate starts green and fails only on new
-findings (`scripts/check-dependency-scan.mjs:27-31`, `scripts/dependency-scan-baseline.json:2-4`).
+The baseline holds 101 entries — 69 `HIGH`, 32 `CRITICAL` — split by `scope`: 5 production and 96
+dev-only. They are real advisories against the installed versions; most have an upstream fix, `vm2` does
+not. They are recorded so the gate starts green and fails only on new findings
+(`scripts/check-dependency-scan.mjs:27-31`, `scripts/dependency-scan-baseline.json:2`).
 
-**What each entry records:** `lockfile`, `package`, `version`, `id`, `severity` — that is the entire
-schema.
+**What each entry records:** `scope` (`production` or `dev`, part of the matching key), `lockfile`,
+`package`, `version`, `id`, `severity`, `reason`, `owner`, `expiry` (YYYY-MM-DD, +08).
 
-**What is not recorded, and therefore not enforced:**
+**What is enforced:**
 
-- **A reason.** The file's own note asks for one "in the reviewing PR" (`scripts/dependency-scan-baseline.json:2`,
-  emitted at `scripts/check-dependency-scan.mjs:351`). The file has no field for it, and no check reads a
-  pull-request description.
-- **An owner.** No such field exists anywhere in the tree.
-- **An expiry or review date.** No such concept exists. Nothing expires.
+- **A reason, an owner and an expiry.** An entry missing any field, with an unparseable date, or past its
+  expiry fails the gate (`scripts/check-dependency-scan.mjs:95`, `:324-346`). "Untriaged" and "overdue"
+  are therefore states the gate can produce; the 2026-11-08 baseline had neither.
+- **New findings.** A high/critical finding absent from the baseline fails the gate (`:463-467`); the
+  failure names both remedies — upgrade, or record it with a reason, an owner and an expiry.
+- **Staleness is reported, not red.** An entry that no longer fires is printed as prunable (`:691-698`);
+  `--update-baseline` prunes it and keeps the remaining triage (`:490-492`).
 
-**Consequences, stated plainly:**
-
-- an entry that still fires and has never been reviewed does **not** fail the gate — only a production
-  finding absent from the file fails (`:307-311`, `:453-456`);
-- an entry that no longer fires does **not** fail either — it is printed as prunable (`:446-451`);
-- so "untriaged" and "overdue" are not states this gate can produce today. A stale baseline cannot turn
-  CI red.
+**Current triage.** Every entry carries a bilingual `reason`, `owner: maintainer`, and an expiry. Two
+production entries expire **2026-12-06** — `decode-uri-component@0.2.2` (HIGH) and `swiper@6.8.0`
+(CRITICAL), both on the Taro upgrade path; the other 99 expire **2027-02-08**
+(`scripts/dependency-scan-baseline.json`). When an expiry arrives the gate turns red until the entry is
+upgraded, re-decided, or cleared.
 
 **What this manual records as the obligation:**
 
-1. An entry may only be added by a change whose review states why the finding is accepted and what would
-   remove it. The gate's failure message names the same two options — upgrade, or record and say why
-   (`:335-343`).
+1. An entry may only be added by a change that states why the finding is accepted and what would remove
+   it; the gate enforces the same fields.
 2. An entry that stops firing is pruned in the change that notices it.
 3. The baseline is re-read at each release — date, scanner version, known and new counts — and the
    reading is reported rather than assumed. The release checklist does not call this step yet; wiring it
    in is open.
 
-**Who.** The author of the change that adds an entry owns it until the advisory is cleared. The baseline
-as a whole is read by whoever runs the release.
+**Who.** The `owner` field is `maintainer` for every current entry; the author of a change that adds an
+entry owns it until the advisory is cleared.
 
-**Current standing.** The triage that would give each of the 39 entries an owner and an expiry is an open
-work item, not a completed one. Until it lands, the 39 are recorded debt, and this document does not
-describe them as accepted risk.
+**Current standing.** The triage landed on 2026-11-08/10: the 101 entries are recorded debt with an owner
+and an expiry, and the gate now rejects an untriaged or expired entry. The next decisions are the two
+2026-12-06 production items (upgrade the Taro/query-string chain, or re-decide) and the 96 dev-only rows,
+most of which clear only by removing the Taro webpack5 runner.
 
 ## 6. Stop conditions
 
@@ -659,40 +659,42 @@ Dockerfile 钉的是 `sha256:3f4d…630a` —— 标签动了、被钉住的镜�
 
 ## 5. 已登记的例外 —— 基线与其义务
 
-基线共 39 条 —— 38 条 `HIGH`、1 条 `CRITICAL` —— 全部在生产依赖里。落地时的分布是：`Front-Taro` 15、
-`Web-Admin-Vue` 14、`Web-Admin-React` 10。它们是针对已安装版本的真实公告，修复在上游已经存在；
-登记它们是为了让门禁从绿起步、只对新发现判红（`scripts/check-dependency-scan.mjs:27-31`、
-`scripts/dependency-scan-baseline.json:2-4`）。
+基线共 101 条 —— 69 条 `HIGH`、32 条 `CRITICAL` —— 按 `scope` 分为 5 条生产与 96 条仅开发期。它们
+是针对已安装版本的真实公告；多数上游已有修复，`vm2` 没有。登记它们是为了让门禁从绿起步、只对新
+发现判红（`scripts/check-dependency-scan.mjs:27-31`、`scripts/dependency-scan-baseline.json:2`）。
 
-**每条记录什么：** `lockfile`、`package`、`version`、`id`、`severity` —— 结构就这些。
+**每条记录什么：** `scope`（`production` 或 `dev`，并入匹配键）、`lockfile`、`package`、`version`、
+`id`、`severity`、`reason`、`owner`、`expiry`（YYYY-MM-DD，+08）。
 
-**没有记录、因而也没有被强制的：**
+**被强制的是什么：**
 
-- **理由。** 文件自己的注记要求在「评审这次改动的拉取请求里」写明理由
-  （`scripts/dependency-scan-baseline.json:2`，由 `scripts/check-dependency-scan.mjs:351` 写出）。文件里没有这个
-  字段，也没有任何检查去读拉取请求的描述。
-- **责任人。** 树里任何地方都没有这个字段。
-- **到期或复核日期。** 没有这个概念。没有任何东西会到期。
+- **理由、责任人与到期日。** 缺任一字段、日期不可解析、或已过到期日，门禁判红
+  （`scripts/check-dependency-scan.mjs:95`、`:324-346`）。「未 triage」与「已逾期」由此成为门禁
+  真能产出的状态 —— 2026-11-08 的基线还没有这两态。
+- **新发现。** 基线未登记的高危/严重发现，门禁判红（`:463-467`）；失败信息给出两条路 —— 升级，
+  或登记并补上理由、责任人与到期日。
+- **陈旧只报不红。** 不再触发的登记被打印成可清理（`:691-698`）；`--update-baseline` 会把它清掉，
+  并保留其余条目的 triage（`:490-492`）。
 
-**后果，直说：**
-
-- 一条仍在触发、且从未被复核过的登记，**不会**让门禁判红 —— 只有不在文件里的生产发现才会
-  （`:307-311`、`:453-456`）；
-- 一条不再触发的登记同样**不会**判红 —— 它只被打印成可清理（`:446-451`）；
-- 所以「未逐条复核」与「已逾期」都不是这道门今天能产出的状态。陈旧的基线无法让 CI 变红。
+**当前 triage。** 每条都带双语 `reason`、`owner: maintainer` 与到期日。两条生产条目在 **2026-12-06**
+到期 —— `decode-uri-component@0.2.2`（HIGH）与 `swiper@6.8.0`（CRITICAL），都在 Taro 升级路径上；
+其余 99 条在 **2027-02-08** 到期（`scripts/dependency-scan-baseline.json`）。到期后门禁会红，直到
+该条被升级、重新裁决或清除。
 
 **本文件记录下来的义务：**
 
-1. 新增一条登记，只能由一次在评审中写明「为何接受这条发现、什么改动会把它消除」的改动来做。门禁的失败
-   信息也给出同样两条路 —— 升级，或登记并写明理由（`:335-343`）。
+1. 新增一条登记，只能由一次写明「为何接受这条发现、什么改动会把它消除」的改动来做；门禁强制同样的
+   字段。
 2. 不再触发的登记，在发现它的那次改动里一并清掉。
 3. 每次发版前重读一遍基线 —— 日期、扫描器版本、已知与新增条数 —— 报告读数，而不是假定。发布检查单
    目前还没有这一步；把它接进去是未完成项。
 
-**谁。** 新增某条登记的改动作者，在该公告被清除之前负责这一条。整份基线由执行发版的人通读。
+**谁。** 当前每条登记的 `owner` 均为 `maintainer`；新增某条登记的改动作者，在该公告被清除之前负责
+这一条。
 
-**当前状态。** 给这 39 条逐一补上责任人与到期日的逐条复核，是一项在办工作，不是已完成的工作。在它落地之前，
-这 39 条是已登记的债；本文件不把它们描述成已接受的风险。
+**当前状态。** 逐条复核已于 2026-11-08/10 落地：101 条是带责任人与到期日的已登记债，门禁现在会
+拒绝未 triage 或已过期的条目。接下来的裁决是 2026-12-06 的两条生产条目（升级 Taro/query-string
+链路，或重新裁决），以及 96 条仅开发期条目 —— 其中多数只有移除 Taro webpack5 runner 才能清除。
 
 ## 6. 停止条件
 
