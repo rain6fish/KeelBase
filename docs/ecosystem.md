@@ -93,7 +93,7 @@ Which contract version each runtime answers for is maintained **once**, in the m
 [Compatibility](https://github.com/rain6fish/KeelBase#-compatibility). It is not duplicated here.
 <!-- END keelbase-family:en -->
 
-<!-- BEGIN keelbase-family:zh sha256:7870abdc3207482b1d3d1a8f7018f0479182ac0d42b052cd6496d3be34f4eba1 -->
+<!-- BEGIN keelbase-family:zh sha256:daca345c0cc83a31d3896782831acc016c4c36655b7dd2800165a3dbe3b7f032 -->
 ## 🧬 KeelBase 家族
 
 <p align="center">
@@ -132,7 +132,7 @@ Docker）· 想让存量 Java 系统具备 AI 能力：
 [`keelbase-contract`](https://github.com/rain6fish/keelbase-contract)。
 
 **系列长文** —— 这些决定背后的长文，分「AI 执行治理」「AI 审计证据」两条线：
-[OSChina 文集](https://my.oschina.net/u/4166179/blog)。
+[知乎文集](https://www.zhihu.com/people/56-10-10-68)。
 
 每个 runtime 对着哪一版契约应答，**只在主仓维护一处**——见
 [兼容矩阵](https://github.com/rain6fish/KeelBase/blob/main/README.zh-CN.md#-兼容矩阵)。此处不重复。
