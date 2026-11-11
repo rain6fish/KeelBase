@@ -169,9 +169,9 @@ for i in $(seq 1 30); do
   sleep 2
 done
 
-docker compose "${COMPOSE_FILES[@]}" exec -T -e NODE_ENV=production server npx ts-node scripts/create-admin.ts \
+docker compose "${COMPOSE_FILES[@]}" exec -T -e NODE_ENV=production server node build-scripts/scripts/create-admin.js \
   --username "$ADMIN_USERNAME" --email "$ADMIN_EMAIL" --password "$ADMIN_PASSWORD" || {
-  echo "⚠ 管理员创建失败，稍后手动：npm run create:admin";
+  echo "⚠ 管理员创建失败，稍后手动：docker compose exec server node build-scripts/scripts/create-admin.js --username <用户名> --email <邮箱> --password <密码>";
 }
 
 echo ""

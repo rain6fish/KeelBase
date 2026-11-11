@@ -37,24 +37,45 @@
  RUN npm ci
  COPY Server-NestJS/ .
  RUN npm run build
+ # CR-23: the deployment scripts run `node build-scripts/scripts/create-admin.js`, and the deployment
+ # manual runs the same for seed-demo — both *inside* the container. `nest build` emits only `src/`, so
+ # compile those two entry points (and the `src/` modules they import) to CommonJS here. Having plain
+ # `node` run them is what lets the runtime stage drop the base image's npm/npx.
+ # CR-23：部署脚本在容器内跑 `node build-scripts/scripts/create-admin.js`，部署手册对 seed-demo 同理。
+ # `nest build` 只产出 `src/`，所以在这里把这两个入口（以及它们 import 的 `src/` 模块）编译成
+ # CommonJS。由普通 `node` 来跑它们，正是运行阶段可以删掉基础镜像自带 npm/npx 的前提。
+ RUN npx tsc scripts/create-admin.ts scripts/seed-demo.ts \
+       --outDir build-scripts --rootDir . \
+       --module commonjs --target es2020 --esModuleInterop --skipLibCheck \
+       --experimentalDecorators --emitDecoratorMetadata --moduleResolution node
 
 FROM node:22-alpine@sha256:0e1754758c2df4cfa3e68d59e2e1b7374bb7fd9ea6328eaaacf15cc934af8202 AS server
 WORKDIR /app/server
 RUN sed -i 's#dl-cdn.alpinelinux.org#mirrors.aliyun.com#g' /etc/apk/repositories && \
     apk add --no-cache wget
+# The runtime never runs npm: the entrypoint is `node dist/main`, and admin creation / demo seeding run
+# as `node build-scripts/...` (compiled in `server-build`). The npm bundled in the base image is
+# therefore the only source of the pinned base's fixable HIGH findings; removing it takes the compose
+# scan gate (`compose-image-scan.yml`) from 10 findings to 0 without touching the gate's severity,
+# exit-code or ignore rules. Same removal `Dockerfile.single` already ships.
+# 运行阶段从不执行 npm：入口是 `node dist/main`，建管理员与演示数据种子跑 `node build-scripts/...`
+# （由 `server-build` 编译）。因此基础镜像自带的 npm 是钉住基础里唯一可修 HIGH 的来源；删掉它，
+# compose 扫描门禁（`compose-image-scan.yml`）由 10 条归零，且不改动门禁的 severity、退出码或忽略规则。
+# 与 `Dockerfile.single` 已上线的删法相同。
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 RUN addgroup -S keelbase && adduser -S keelbase -G keelbase && \
     mkdir -p /app/server/uploads /app/server/data && \
     chown -R keelbase:keelbase /app/server
 COPY --from=server-build /app/server/dist ./dist
  COPY --from=server-build /app/server/node_modules ./node_modules
  COPY --from=server-build /app/server/package*.json ./
- # CR-23：deploy.sh 容器内 exec `npx ts-node scripts/create-admin.ts`，镜像必须含 scripts/ 才能建管理员
- COPY --from=server-build /app/server/scripts ./scripts
- # CR-23（补齐 2026-09-14）：上面 scripts/*.ts `import '../src/*'`，且 ts-node 需 tsconfig.json 才能按 CJS 解析
- #   （无 tsconfig 时容器内 ts-node 走 ESM 解析 → 无扩展名 import 直接 ERR_MODULE_NOT_FOUND）。
- #   缺 src/ + tsconfig 时 create-admin（deploy.sh 第 5 步，失败被 `||` 吞掉）与 seed-demo（§6 ①）在 prod 必然报错。
- COPY --from=server-build /app/server/src ./src
- COPY --from=server-build /app/server/tsconfig.json ./tsconfig.json
+ # CR-23: `deploy.sh` / `deploy-offline.sh` and the deployment manual run create-admin and seed-demo
+ #   *inside* this container. Both are compiled to CommonJS in the `server-build` stage, so the runtime
+ #   needs neither scripts/, src/ nor tsconfig.json — nothing here runs ts-node any more.
+ # CR-23：deploy.sh / deploy-offline.sh 与部署手册要在**本容器内**跑 create-admin 与 seed-demo。
+ #   两者都由 `server-build` 阶段编译成 CommonJS（`npx tsc … --outDir build-scripts`），运行阶段因此
+ #   不再需要 scripts/、src/ 或 tsconfig.json —— 这里没有任何东西再跑 ts-node。
+ COPY --from=server-build /app/server/build-scripts ./build-scripts
  EXPOSE 3000
  USER keelbase
  CMD ["node", "dist/main"]

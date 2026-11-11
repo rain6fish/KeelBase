@@ -109,9 +109,9 @@ done
 
 # ── 5. 创建管理员 ────────────────────────────────────────────
 echo "→ 创建管理员账号（${ADMIN_USERNAME}）..."
-docker compose "${COMPOSE_FILES[@]}" exec -T -e NODE_ENV=production server npx ts-node scripts/create-admin.ts \
+docker compose "${COMPOSE_FILES[@]}" exec -T -e NODE_ENV=production server node build-scripts/scripts/create-admin.js \
   --username "$ADMIN_USERNAME" --email "$ADMIN_EMAIL" --password "$ADMIN_PASSWORD" || {
-  echo "⚠ 管理员创建失败，可稍后手动执行：npm run create:admin";
+  echo "⚠ 管理员创建失败，可稍后手动执行：docker compose exec server node build-scripts/scripts/create-admin.js --username <用户名> --email <邮箱> --password <密码>";
 }
 
 if [ "${HTTPS:-0}" = "1" ]; then
@@ -132,4 +132,4 @@ if [ "${ADMIN_PASSWORD}" = "Admin@2026\$KeelBase" ]; then
   echo "   ⚠ 正在使用默认管理员密码，请立即登录管理台修改！建议重跑：ADMIN_PASSWORD='<强密码>' ./deploy/deploy.sh"
 fi
 echo ""
-echo "   PostgreSQL/Redis 数据在 volume 中；备份：npm run backup（需在 server 容器内执行）"
+echo "   PostgreSQL/Redis 数据在 volume 中；备份见 docs/manual/operations.md §4（运行镜像已不带 npm，备份脚本请在宿主机执行）"

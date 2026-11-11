@@ -86,7 +86,7 @@ Log in to the admin console (already bundled into the web container at `/admin`)
 docker compose logs server           # backend logs / 后端日志
 docker compose logs web              # Nginx logs / Nginx 日志
 docker compose exec postgres psql -U postgres -d front_production -c '\dt'   # check tables / 检查表
-docker compose exec server npx ts-node scripts/create-admin.ts --username admin --password 'new-password'  # manual admin creation / 手动建管理员
+docker compose exec server node build-scripts/scripts/create-admin.js --username admin --password 'new-password'  # manual admin creation / 手动建管理员
 ```
 
 > Private-deployment positioning: data sovereignty stays with the customer; the PostgreSQL data volume + backup script satisfy compliance.
@@ -98,7 +98,7 @@ Deployment alone does not prove a usable system. To confirm "one real AI use" en
 
 ```bash
 # ① Import demo data (creates the `alex` workbench account + CRM/PM demo rows) / 导入演示数据（建 alex 工作台账号 + 演示业务数据）
-docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T server npx ts-node scripts/seed-demo.ts
+docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T server node build-scripts/scripts/seed-demo.js
 
 # ② Health + both surfaces respond / 健康 + 两端可达
 curl -k https://<server-IP>/api/v1/health          # {"status":"ok"}
