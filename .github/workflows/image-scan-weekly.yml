@@ -29,8 +29,11 @@ permissions:
   contents: read
 
 env:
-  # Same Trivy binary as the publish gate, so a reading here and a verdict there are comparable.
-  # 与发布门禁同一个 Trivy 二进制，于是这里的读数与那里的判定可比。
+  # Same Trivy binary as the publish gate, so scanner version and database are comparable. The finding
+  # set is deliberately **wider** than the gate: this scan keeps findings with no fix yet, while the
+  # gate's fail step runs `--ignore-unfixed`; the summary keeps the two counts apart.
+  # 与发布门禁同一个 Trivy 二进制，于是扫描器版本与数据库可比。发现集有意**更宽**：本扫描保留「暂无修复」
+  # 的条目，而门禁的判红步骤带 `--ignore-unfixed`；摘要把两种计数分开。
   TRIVY_VERSION: v0.76.2
   TRIVY_CACHE_DIR: ${{ github.workspace }}/.cache/trivy
 
@@ -57,9 +60,10 @@ jobs:
       - uses: actions/checkout@v5
 
       # `cache` is deliberately off: a weekly reading backed by a week-old database answers the wrong
-      # week. The ignore file is applied so the count matches what the publish gate would accept.
-      # `cache` 有意关掉：每周读数配一周前的数据库，答的是错的那一周。例外文件照常生效，于是计数与发布
-      # 门禁会接受的口径一致。
+      # week. The ignore file is applied so accepted exceptions do not reappear; `ignore-unfixed: false`
+      # keeps findings the gate's fail step hides — this is a reading, not a verdict.
+      # `cache` 有意关掉：每周读数配一周前的数据库，答的是错的那一周。例外文件照常生效，于是已接受的例外
+      # 不会重新出现；`ignore-unfixed: false` 保留门禁判红步骤会藏掉的「暂无修复」条目 —— 这是读数，不是判定。
       - name: Scan ${{ matrix.name }} (report only)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25   # v0.36.0
         with:

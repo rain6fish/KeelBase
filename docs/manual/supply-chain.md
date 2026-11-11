@@ -366,8 +366,10 @@ most of which clear only by removing the Taro webpack5 runner.
    built from `Dockerfile.single` before the push. A **weekly scheduled** run
    (`.github/workflows/image-scan-weekly.yml`, Mondays 04:17 UTC) now records HIGH/CRITICAL findings for
    the published `:latest` and both pinned bases (`node:22-alpine`, `alpine:3.24`) in the job summary and
-   an artifact. It is **report-only** — its exit code is not a gate, because a fix in an upstream base is
-   not this repository's to ship. Not covered: the compose `web` (nginx) image, which is built per deploy.
+   an artifact. It keeps findings with **no fix yet** — the gate's fail step runs `--ignore-unfixed`, so
+   this reading is deliberately wider and the summary separates the two counts. It is **report-only** —
+   its exit code is not a gate, because a fix in an upstream base is not this repository's to ship.
+   Not covered: the compose `web` (nginx) image, which is built per deploy.
    The pinned `node:22-alpine` base fails the gate **on its own** (10
    fixable HIGH in npm's bundled modules; no tag bump clears them — §1), but the published image is not
    that base: `Dockerfile.single`'s `single` stage deletes the bundled npm directory and the `npm`/`npx`
@@ -716,7 +718,8 @@ Dockerfile 钉的是 `sha256:3f4d…630a` —— 标签动了、被钉住的镜�
 1. **镜像层扫描覆盖的是已发布镜像，且仍有边界。** 这道门扫描 `Dockerfile.single` 构建出的镜像、
    **在推送之前**。新增的**每周定时**运行（`.github/workflows/image-scan-weekly.yml`，每周一 04:17 UTC）
    把已发布 `:latest` 与两个钉住基础（`node:22-alpine`、`alpine:3.24`）的 HIGH/CRITICAL 发现记进 job summary
-   与 artifact。它是**报告制** —— 退出码不作为门禁，因为上游基础镜像的修复不在本仓手里。
+   与 artifact。它保留**暂无修复**的条目 —— 门禁的判红步骤带 `--ignore-unfixed`，所以本读数的发现集有意更宽，
+   摘要把两种计数分开。它是**报告制** —— 退出码不作为门禁，因为上游基础镜像的修复不在本仓手里。
    未覆盖：compose 的 `web`（nginx）镜像（按次部署构建）。钉住的 `node:22-alpine` 基础**本身**会判红
    （npm 自带模块里 10 条有修复的 HIGH；换标签也清不掉，见 §1），但发布镜像并不是那个基础：
    `Dockerfile.single` 的 `single` 阶段删掉了自带的 npm 目录与 `npm`/`npx` 两个入口，该镜像 2026-11-10
