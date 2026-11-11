@@ -68,11 +68,12 @@ report the same packages twice. `isShadowed` skips any lockfile whose directory 
   `scope: production | dev`, which is part of the matching key, and `scripts/check-dependency-scan.mjs`
   gates both scopes by default; `--no-dev` gives the old recorded-only reading for one run. The scan
   reading this slice produced on 2026-11-10 (7 lockfiles, 3466 packages) was **9 production / 97 dev-only**
-  high-critical known, **0 new** in either scope — that reading predates the 2026-11-11 prune. The prune
-  removed exactly the five rows that had stopped firing (`Front-Taro` `brace-expansion` under two
-  advisories, `Web-Admin-React` `source-map-js` under one), so the baseline now holds **101 rows: 5
-  production + 96 dev-only**, with
-  `generatedAt` still `2026-11-10` and no additions. Backend dev dependencies are **shipped and executed** in
+  high-critical known, **0 new** in either scope — that reading predates the 2026-11-11 prunes. The first
+  prune removed exactly the five rows that had stopped firing (`Front-Taro` `brace-expansion` under two
+  advisories, `Web-Admin-React` `source-map-js` under one); a second, after `Front-Taro`'s dev-only
+  `node-forge` moved 1.4.0 → 1.4.3 (reached through `selfsigned`), removed the six stale `node-forge`
+  rows and found no new ones. The baseline now holds **95 rows: 5 production + 90 dev-only, 63 HIGH + 32
+  CRITICAL**, with `generatedAt` `2026-11-11`. Backend dev dependencies are **shipped and executed** in
   the compose deployment (`npm ci --include=dev`, the whole `node_modules` is copied, and `npx ts-node`
   runs at deploy time), so a future `Server-NestJS` dev finding is a production finding in substance; that
   tree has none today.
@@ -309,7 +310,7 @@ stage.
 
 ## 5. Recorded exceptions — the baseline and its obligations
 
-The baseline holds 101 entries — 69 `HIGH`, 32 `CRITICAL` — split by `scope`: 5 production and 96
+The baseline holds 95 entries — 63 `HIGH`, 32 `CRITICAL` — split by `scope`: 5 production and 90
 dev-only. They are real advisories against the installed versions; most have an upstream fix, `vm2` does
 not. They are recorded so the gate starts green and fails only on new findings
 (`scripts/check-dependency-scan.mjs:27-31`, `scripts/dependency-scan-baseline.json:2`).
@@ -327,11 +328,11 @@ not. They are recorded so the gate starts green and fails only on new findings
 - **Staleness is reported, not red.** An entry that no longer fires is printed as prunable (`:691-698`);
   `--update-baseline` prunes it and keeps the remaining triage (`:490-492`).
 
-**Current triage.** Every entry carries a bilingual `reason`, `owner: maintainer`, and an expiry. Two
-production entries expire **2026-12-06** — `decode-uri-component@0.2.2` (HIGH) and `swiper@6.8.0`
-(CRITICAL), both on the Taro upgrade path; the other 99 expire **2027-02-08**
-(`scripts/dependency-scan-baseline.json`). When an expiry arrives the gate turns red until the entry is
-upgraded, re-decided, or cleared.
+**Current triage.** Every entry carries a bilingual `reason`, `owner: maintainer`, and an expiry. All
+**95** entries expire **2027-02-08**. The two production findings once dated 2026-12-06 —
+`decode-uri-component@0.2.2` (HIGH) and `swiper@6.8.0` (CRITICAL) — were re-triaged on 2026-11-11 to the
+common date, with the measured upgrade path recorded in their `reason`. When an expiry arrives the gate
+turns red until the entry is upgraded, re-decided, or cleared.
 
 **What this manual records as the obligation:**
 
@@ -345,10 +346,10 @@ upgraded, re-decided, or cleared.
 **Who.** The `owner` field is `maintainer` for every current entry; the author of a change that adds an
 entry owns it until the advisory is cleared.
 
-**Current standing.** The triage landed on 2026-11-08/10: the 101 entries are recorded debt with an owner
-and an expiry, and the gate now rejects an untriaged or expired entry. The next decisions are the two
-2026-12-06 production items (upgrade the Taro/query-string chain, or re-decide) and the 96 dev-only rows,
-most of which clear only by removing the Taro webpack5 runner.
+**Current standing.** The triage landed on 2026-11-08/11: the 95 entries are recorded debt with an owner
+and an expiry, and the gate now rejects an untriaged or expired entry. The two Taro-path production items
+were re-decided on 2026-11-11 and now share the 2027-02-08 date; the 90 dev-only rows remain, most of
+which clear only by removing the Taro webpack5 runner.
 
 ## 6. Stop conditions
 
@@ -379,11 +380,11 @@ most of which clear only by removing the Taro webpack5 runner.
 2. **Compose images are pinned but not scanned.** Every compose image and the CI service image are
    digest-pinned and gated by `check:pinned-images` (§4); that gate checks the pin, not the image, so a CVE
    inside one of them is only seen when the same image is the release image scanned in item 1.
-3. **Dev-dependency findings are gated, but the debt is large and the toolchain is the fix.** 96 dev-only
+3. **Dev-dependency findings are gated, but the debt is large and the toolchain is the fix.** 90 dev-only
    rows are recorded with owner `maintainer` and expiry `2027-02-08`; 29 of them are `vm2@3.11.5`, which is
    deprecated and has no fixed release, so only removing the Taro webpack5 runner clears them. A **new**
    dev advisory is red; §6 records this as a stop condition.
-4. **The 101 baseline rows (5 production + 96 dev) are debt, not a fix.**
+4. **The 95 baseline rows (5 production + 90 dev) are debt, not a fix.**
 5. **The OSV API is unauthenticated** and rate-limited; the self-test adds three queries per CI run, and the
    full-tree SBOM generation is a second full scan of the same tree.
 6. **The `pubspec.lock` production closure is conservative** and can over-gate, never under-gate.
@@ -453,8 +454,10 @@ most of which clear only by removing the Taro webpack5 runner.
 - **开发依赖的发现同样按基线判红。** 每条基线带 `scope: production | dev`，并计入匹配键；
   `scripts/check-dependency-scan.mjs` 默认两个作用域都判红，`--no-dev` 用于「只记录、不判红」的那一次运行。
   本次（2026-11-10，7 份锁文件、3466 个包）的扫描读数是：生产 **9 条已知**、开发 **97 条已知**，两边 **0 条新增**
-  —— 这是 2026-11-11 剪枝**之前**的读数。那次剪枝只删掉不再触发的五行（`Front-Taro` 的 `brace-expansion`
-  在两条公告下、`Web-Admin-React` 的 `source-map-js` 在一条公告下），基线现在共 **101 行：生产 5 + 开发 96**，`generatedAt` 仍是 `2026-11-10`、无新增。
+  —— 这是 2026-11-11 两轮剪枝**之前**的读数。第一轮只删掉不再触发的五行（`Front-Taro` 的 `brace-expansion`
+  在两条公告下、`Web-Admin-React` 的 `source-map-js` 在一条公告下）；第二轮里 `Front-Taro` 仅开发期的
+  `node-forge` 由 1.4.0 升到 1.4.3（经 `selfsigned` 引入），六条陈旧的 `node-forge` 登记被清掉、无新增。
+  基线现在共 **95 行：生产 5 + 开发 90，63 条 HIGH + 32 条 CRITICAL**，`generatedAt` 为 `2026-11-11`。
   后端开发依赖在编排部署里**会被打进镜像并在部署时执行**（`npm ci --include=dev`、整个 `node_modules` 被复制、
   部署时跑 `npx ts-node`），所以将来 `Server-NestJS` 的一条开发发现，实质上就是生产发现；该树今天没有。
 - **SBOM 是一份全仓 CycloneDX 1.6 文档。** CI 用钉住的扫描器跑
@@ -667,7 +670,7 @@ Dockerfile 钉的是 `sha256:3f4d…630a` —— 标签动了、被钉住的镜�
 
 ## 5. 已登记的例外 —— 基线与其义务
 
-基线共 101 条 —— 69 条 `HIGH`、32 条 `CRITICAL` —— 按 `scope` 分为 5 条生产与 96 条仅开发期。它们
+基线共 95 条 —— 63 条 `HIGH`、32 条 `CRITICAL` —— 按 `scope` 分为 5 条生产与 90 条仅开发期。它们
 是针对已安装版本的真实公告；多数上游已有修复，`vm2` 没有。登记它们是为了让门禁从绿起步、只对新
 发现判红（`scripts/check-dependency-scan.mjs:27-31`、`scripts/dependency-scan-baseline.json:2`）。
 
@@ -684,10 +687,10 @@ Dockerfile 钉的是 `sha256:3f4d…630a` —— 标签动了、被钉住的镜�
 - **陈旧只报不红。** 不再触发的登记被打印成可清理（`:691-698`）；`--update-baseline` 会把它清掉，
   并保留其余条目的 triage（`:490-492`）。
 
-**当前 triage。** 每条都带双语 `reason`、`owner: maintainer` 与到期日。两条生产条目在 **2026-12-06**
-到期 —— `decode-uri-component@0.2.2`（HIGH）与 `swiper@6.8.0`（CRITICAL），都在 Taro 升级路径上；
-其余 99 条在 **2027-02-08** 到期（`scripts/dependency-scan-baseline.json`）。到期后门禁会红，直到
-该条被升级、重新裁决或清除。
+**当前 triage。** 每条都带双语 `reason`、`owner: maintainer` 与到期日。**95 条全部**在 **2027-02-08**
+到期。原先日期为 2026-12-06 的两条生产发现 —— `decode-uri-component@0.2.2`（HIGH）与 `swiper@6.8.0`
+（CRITICAL）—— 已于 2026-11-11 重新裁决到同一日期，实测的升级路径记在各自的 `reason` 里。到期后门禁会红，
+直到该条被升级、重新裁决或清除。
 
 **本文件记录下来的义务：**
 
@@ -700,9 +703,9 @@ Dockerfile 钉的是 `sha256:3f4d…630a` —— 标签动了、被钉住的镜�
 **谁。** 当前每条登记的 `owner` 均为 `maintainer`；新增某条登记的改动作者，在该公告被清除之前负责
 这一条。
 
-**当前状态。** 逐条复核已于 2026-11-08/10 落地：101 条是带责任人与到期日的已登记债，门禁现在会
-拒绝未 triage 或已过期的条目。接下来的裁决是 2026-12-06 的两条生产条目（升级 Taro/query-string
-链路，或重新裁决），以及 96 条仅开发期条目 —— 其中多数只有移除 Taro webpack5 runner 才能清除。
+**当前状态。** 逐条复核已于 2026-11-08/11 落地：95 条是带责任人与到期日的已登记债，门禁现在会
+拒绝未 triage 或已过期的条目。两条 Taro 路径上的生产条目已于 2026-11-11 重新裁决、与其余条目同日到期；
+剩下 90 条仅开发期条目 —— 其中多数只有移除 Taro webpack5 runner 才能清除。
 
 ## 6. 停止条件
 
@@ -728,10 +731,10 @@ Dockerfile 钉的是 `sha256:3f4d…630a` —— 标签动了、被钉住的镜�
 2. **编排镜像已钉摘要，但没有被扫描。** 每个编排镜像与 CI service 镜像都已钉住，由 `check:pinned-images`
    守着（§4）；那道门禁查的是「钉没钉」，不是「镜像里有没有洞」，所以只有它与第 1 条里被扫的发布镜像
    是同一个镜像时，里面的 CVE 才会被看见。
-3. **开发依赖的发现已判红，但债很大、解法在工具链。** 96 条仅开发期的条目已登记，责任人 `maintainer`、
+3. **开发依赖的发现已判红，但债很大、解法在工具链。** 90 条仅开发期的条目已登记，责任人 `maintainer`、
    到期 `2027-02-08`；其中 29 条是 `vm2@3.11.5` —— 它已废弃且没有修复版本，只有移除 Taro 的 webpack5
    runner 才能清掉。**新增**的开发期公告会判红；§6 已把这一条写成停止条件。
-4. **那 101 条基线（生产 5 + 开发 96）是债，不是修复。**
+4. **那 95 条基线（生产 5 + 开发 90）是债，不是修复。**
 5. **OSV API 是匿名的**，受速率限制；自检每次 CI 再多三条查询，而全仓 SBOM 生成是对同一棵树再扫一遍。
 6. **`pubspec.lock` 的生产闭包是保守的**，可能多判，不会漏判。
 7. **npm v1 锁文件会让全部发现都判红**；今天没有这种文件。
