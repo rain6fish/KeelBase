@@ -66,9 +66,13 @@ report the same packages twice. `isShadowed` skips any lockfile whose directory 
   `server` stage keeps npm on purpose — `deploy.sh` runs `npx ts-node scripts/create-admin.ts` there.
 - **Development-dependency findings are gated against the baseline.** Every entry carries
   `scope: production | dev`, which is part of the matching key, and `scripts/check-dependency-scan.mjs`
-  gates both scopes by default; `--no-dev` gives the old recorded-only reading for one run. The reading
-  this slice produced on 2026-11-10 (7 lockfiles, 3466 packages): **9 production / 97 dev-only**
-  high-critical known, **0 new** in either scope. Backend dev dependencies are **shipped and executed** in
+  gates both scopes by default; `--no-dev` gives the old recorded-only reading for one run. The scan
+  reading this slice produced on 2026-11-10 (7 lockfiles, 3466 packages) was **9 production / 97 dev-only**
+  high-critical known, **0 new** in either scope — that reading predates the 2026-11-11 prune. The prune
+  removed exactly the five rows that had stopped firing (`Front-Taro` `brace-expansion` under two
+  advisories, `Web-Admin-React` `source-map-js` under one), so the baseline now holds **101 rows: 5
+  production + 96 dev-only**, with
+  `generatedAt` still `2026-11-10` and no additions. Backend dev dependencies are **shipped and executed** in
   the compose deployment (`npm ci --include=dev`, the whole `node_modules` is copied, and `npx ts-node`
   runs at deploy time), so a future `Server-NestJS` dev finding is a production finding in substance; that
   tree has none today.
@@ -360,16 +364,20 @@ describe them as accepted risk.
 1. **Image-layer scanning covers the published image, with limits.** The 2026-11-10 gate scans the image
    built from `Dockerfile.single` before the push. Not covered: a **weekly scheduled** scan of the published
    `:latest` and the two pinned bases (not added — a decision still open), and the compose `web` (nginx)
-   image, which is built per deploy. The currently pinned `node:22-alpine` base fails the gate (10 fixable
-   HIGH in npm's bundled modules), so the next publish needs a base bump or a triaged exception.
+   image, which is built per deploy. The pinned `node:22-alpine` base fails the gate **on its own** (10
+   fixable HIGH in npm's bundled modules; no tag bump clears them — §1), but the published image is not
+   that base: `Dockerfile.single`'s `single` stage deletes the bundled npm directory and the `npm`/`npx`
+   shims, and that image re-measured on `main` on 2026-11-10 at **exit 0 / 0 findings**. The next publish
+   therefore needs neither a base bump nor an exception — keeping that `RUN` in the `single` stage is what
+   keeps the gate green.
 2. **Compose images are pinned but not scanned.** Every compose image and the CI service image are
    digest-pinned and gated by `check:pinned-images` (§4); that gate checks the pin, not the image, so a CVE
    inside one of them is only seen when the same image is the release image scanned in item 1.
-3. **Dev-dependency findings are gated, but the debt is large and the toolchain is the fix.** 97 dev-only
+3. **Dev-dependency findings are gated, but the debt is large and the toolchain is the fix.** 96 dev-only
    rows are recorded with owner `maintainer` and expiry `2027-02-08`; 29 of them are `vm2@3.11.5`, which is
    deprecated and has no fixed release, so only removing the Taro webpack5 runner clears them. A **new**
    dev advisory is red; §6 records this as a stop condition.
-4. **The 106 baseline rows (9 production + 97 dev) are debt, not a fix.**
+4. **The 101 baseline rows (5 production + 96 dev) are debt, not a fix.**
 5. **The OSV API is unauthenticated** and rate-limited; the self-test adds three queries per CI run, and the
    full-tree SBOM generation is a second full scan of the same tree.
 6. **The `pubspec.lock` production closure is conservative** and can over-gate, never under-gate.
@@ -437,7 +445,9 @@ describe them as accepted risk.
   `npx ts-node scripts/create-admin.ts`。
 - **开发依赖的发现同样按基线判红。** 每条基线带 `scope: production | dev`，并计入匹配键；
   `scripts/check-dependency-scan.mjs` 默认两个作用域都判红，`--no-dev` 用于「只记录、不判红」的那一次运行。
-  本次（2026-11-10，7 份锁文件、3466 个包）的读数是：生产 **9 条已知**、开发 **97 条已知**，两边 **0 条新增**。
+  本次（2026-11-10，7 份锁文件、3466 个包）的扫描读数是：生产 **9 条已知**、开发 **97 条已知**，两边 **0 条新增**
+  —— 这是 2026-11-11 剪枝**之前**的读数。那次剪枝只删掉不再触发的五行（`Front-Taro` 的 `brace-expansion`
+  在两条公告下、`Web-Admin-React` 的 `source-map-js` 在一条公告下），基线现在共 **101 行：生产 5 + 开发 96**，`generatedAt` 仍是 `2026-11-10`、无新增。
   后端开发依赖在编排部署里**会被打进镜像并在部署时执行**（`npm ci --include=dev`、整个 `node_modules` 被复制、
   部署时跑 `npx ts-node`），所以将来 `Server-NestJS` 的一条开发发现，实质上就是生产发现；该树今天没有。
 - **SBOM 是一份全仓 CycloneDX 1.6 文档。** CI 用钉住的扫描器跑
@@ -697,15 +707,18 @@ Dockerfile 钉的是 `sha256:3f4d…630a` —— 标签动了、被钉住的镜�
 
 1. **镜像层扫描覆盖的是已发布镜像，且仍有边界。** 2026-11-10 这道门扫描 `Dockerfile.single` 构建出的镜像、
    **在推送之前**。未覆盖：对已发布 `:latest` 与两个钉住基础的**每周定时**扫描（未加 —— 仍是待定事项），
-   以及 compose 的 `web`（nginx）镜像（按次部署构建）。当前钉住的 `node:22-alpine` 基础会判红
-   （npm 自带模块里 10 条有修复的 HIGH），所以下一次发布要么升级基础、要么登记一条有期限的例外。
+   以及 compose 的 `web`（nginx）镜像（按次部署构建）。钉住的 `node:22-alpine` 基础**本身**会判红
+   （npm 自带模块里 10 条有修复的 HIGH；换标签也清不掉，见 §1），但发布镜像并不是那个基础：
+   `Dockerfile.single` 的 `single` 阶段删掉了自带的 npm 目录与 `npm`/`npx` 两个入口，该镜像 2026-11-10
+   在 `main` 上复测为**以 0 退出、0 条发现**。所以下一次发布既不需要升级基础，也不需要登记例外 ——
+   `single` 阶段里保留那条 `RUN` 才是让门禁保持绿色的原因。
 2. **编排镜像已钉摘要，但没有被扫描。** 每个编排镜像与 CI service 镜像都已钉住，由 `check:pinned-images`
    守着（§4）；那道门禁查的是「钉没钉」，不是「镜像里有没有洞」，所以只有它与第 1 条里被扫的发布镜像
    是同一个镜像时，里面的 CVE 才会被看见。
-3. **开发依赖的发现已判红，但债很大、解法在工具链。** 97 条仅开发期的条目已登记，责任人 `maintainer`、
+3. **开发依赖的发现已判红，但债很大、解法在工具链。** 96 条仅开发期的条目已登记，责任人 `maintainer`、
    到期 `2027-02-08`；其中 29 条是 `vm2@3.11.5` —— 它已废弃且没有修复版本，只有移除 Taro 的 webpack5
    runner 才能清掉。**新增**的开发期公告会判红；§6 已把这一条写成停止条件。
-4. **那 106 条基线（生产 9 + 开发 97）是债，不是修复。**
+4. **那 101 条基线（生产 5 + 开发 96）是债，不是修复。**
 5. **OSV API 是匿名的**，受速率限制；自检每次 CI 再多三条查询，而全仓 SBOM 生成是对同一棵树再扫一遍。
 6. **`pubspec.lock` 的生产闭包是保守的**，可能多判，不会漏判。
 7. **npm v1 锁文件会让全部发现都判红**；今天没有这种文件。
