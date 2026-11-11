@@ -1,0 +1,145 @@
+# Compose server image scan — build the container `docker compose up` actually runs, and scan it.
+#
+# The publish gate (`docker-publish.yml`) scans only the `Dockerfile.single` image. The compose
+# deployment builds a different image: `Dockerfile` target `server`, used by the `server`, `governance`
+# and `sidecar` services in `docker-compose.yml`. That image keeps npm and installs dev dependencies
+# (`deploy.sh` runs `npx ts-node scripts/create-admin.ts`, CR-23), so it is the largest surface that no
+# other gate scans. Decision D4 (2026-11-11) is to scan it here.
+#
+# Scan settings are byte-for-byte the publish gate's: same pinned action commit, same pinned Trivy
+# version, `severity HIGH,CRITICAL`, `ignore-unfixed true`, `exit-code '1'`, `.trivyignore.yaml`.
+# Exceptions therefore live in one place and mean the same thing in both gates.
+#
+# 构建 `docker compose up` 真正运行的那个容器并扫描它。
+#
+# 发布门禁（`docker-publish.yml`）只扫 `Dockerfile.single` 的镜像。compose 部署构建的是另一个镜像：
+# `Dockerfile` 的 `server` 阶段，由 `docker-compose.yml` 的 `server` / `governance` / `sidecar` 三个服务使用。
+# 那个镜像保留 npm、并安装开发依赖（`deploy.sh` 要跑 `npx ts-node scripts/create-admin.ts`，CR-23），
+# 是当前没有任何其它门禁扫描的最大一面。D4（2026-11-11）决定在这里扫它。
+#
+# 扫描设置与发布门禁逐字相同：同一个钉住的 action 提交、同一个钉住的 Trivy 版本、`HIGH,CRITICAL`、
+# `ignore-unfixed true`、`exit-code '1'`、`.trivyignore.yaml`。因此例外只有一处、两道门禁里含义相同。
+#
+# Measured 2026-11-11 on a real local build with these exact settings: the `server` stage exits **1 with
+# 10 HIGH, 0 CRITICAL** — the same ten `node:22-alpine` bundled-npm advisories that the publish base
+# fails on, all under `/usr/local/lib/node_modules/npm`. The application tree (prod + dev dependencies)
+# and the Alpine OS layer are clean. This workflow will therefore be **red on main** until one of the
+# options in `D:/Rain6fish/handoff/d4-compose-scan-1111.md` is decided: triage the nine CVEs in
+# `.trivyignore.yaml`, or take npm out of the runtime image the way `Dockerfile.single` already does
+# (which needs `deploy.sh`'s `npx ts-node scripts/create-admin.ts` path reworked first, CR-23).
+# The red is the reading, not a defect in this wiring.
+#
+# 2026-11-11 以这组完全相同的设置对真实本地构建实测：`server` 阶段**以 1 退出、10 条 HIGH（0 CRITICAL）**
+# —— 与发布门禁在 `node:22-alpine` 基础镜像上撞到的是同十条 npm 自带依赖告警，全在
+# `/usr/local/lib/node_modules/npm` 下。应用树（生产 + 开发依赖）与 Alpine 操作系统层都干净。因此在
+# `D:/Rain6fish/handoff/d4-compose-scan-1111.md` 里某条路被裁决之前，本工作流会**在 main 上持续红**：
+# 要么在 `.trivyignore.yaml` 里 triage 那 9 个 CVE，要么照 `Dockerfile.single` 已有的做法把 npm 从运行镜像
+# 里拿掉（那需要先把 `deploy.sh` 的 `npx ts-node scripts/create-admin.ts` 建管理员路径改掉，CR-23）。
+# 红是读数，不是这套接线有缺陷。
+
+name: Compose Image Scan
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - Dockerfile
+      - Server-NestJS/**
+      - .trivyignore.yaml
+      - .github/workflows/compose-image-scan.yml
+  pull_request:
+    branches: [main]
+    paths:
+      - Dockerfile
+      - Server-NestJS/**
+      - .trivyignore.yaml
+      - .github/workflows/compose-image-scan.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: compose-image-scan-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IMAGE_NAME: keelbase:server-scan
+  # Pinned exactly as in docker-publish.yml so the two gates cannot drift apart silently.
+  # 与 docker-publish.yml 完全一致地钉住，两道门禁不会悄悄分叉。
+  TRIVY_VERSION: v0.76.2
+  TRIVY_CACHE_DIR: ${{ github.workspace }}/.cache/trivy
+
+jobs:
+  scan-server:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # The server build copies `Server-NestJS/` into the image; the protocol submodule is part of
+          # that tree, so check it out as `ci.yml` does.
+          # server 构建会把 `Server-NestJS/` 拷进镜像，协议 submodule 属于这棵树，故与 `ci.yml` 一样检出。
+          submodules: true
+
+      # The `server` target does not depend on Flutter or admin-console artefacts — it copies `dist/`
+      # and `node_modules/` from the `server-build` stage — so no Flutter install is needed here.
+      # `server` 阶段不依赖 Flutter 或管理台产物（它只从 `server-build` 阶段拷 `dist/` 与 `node_modules/`），
+      # 因此这里不需要装 Flutter。
+      - name: Build compose server image
+        run: docker build -f Dockerfile --target server -t "$IMAGE_NAME" .
+
+      # Report first, gate second — same order and same reason as the publish gate: this step installs
+      # Trivy and downloads the DB, so the version/timestamp record below runs on a warm cache and
+      # happens before any red can stop the job. `--ignore-unfixed` in the gate would hide unfixed
+      # findings; this step prints them.
+      # 先报告、后判红 —— 与发布门禁同序同理：这一步装好 Trivy 并下载数据库，下面的版本/时间戳记录
+      # 因此是热缓存、且发生在任何红之前。判红那一步的 `--ignore-unfixed` 会藏起无修复的发现，这一步打印出来。
+      - name: Scan image — report HIGH/CRITICAL (does not fail)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25   # v0.36.0
+        with:
+          scan-type: image
+          image-ref: ${{ env.IMAGE_NAME }}
+          version: ${{ env.TRIVY_VERSION }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: false
+          exit-code: '0'
+          format: json
+          output: trivy-high-critical.json
+          cache: true
+          cache-dir: ${{ env.TRIVY_CACHE_DIR }}
+
+      - name: Report findings with no fixed version
+        run: node scripts/trivy-unfixed-report.mjs trivy-high-critical.json
+
+      - name: Record Trivy version and vulnerability DB timestamp
+        shell: bash
+        run: |
+          set -euo pipefail
+          trivy --version
+          META="$TRIVY_CACHE_DIR/db/metadata.json"
+          if [ ! -f "$META" ]; then
+            echo "::error::Trivy DB metadata not found at $META — the scan below cannot be attributed to a database"
+            exit 1
+          fi
+          echo "Trivy DB metadata: $(cat "$META")"
+
+      # Fail on HIGH/CRITICAL **with a fix available**, exactly like the publish gate. Exceptions live
+      # in `.trivyignore.yaml`; `npm run check:trivyignore` requires a statement and an expiry on every
+      # entry, and the same file already governs the published image.
+      #
+      # Only **有修复版本**的 HIGH/CRITICAL 判红，与发布门禁完全一致。例外写在 `.trivyignore.yaml`；
+      # `npm run check:trivyignore` 要求每条都带理由与到期日，这份文件同样管辖已发布的镜像。
+      - name: Scan image — fail on fixable HIGH/CRITICAL
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25   # v0.36.0
+        with:
+          scan-type: image
+          image-ref: ${{ env.IMAGE_NAME }}
+          version: ${{ env.TRIVY_VERSION }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+          format: table
+          trivyignores: .trivyignore.yaml
+          cache: true
+          cache-dir: ${{ env.TRIVY_CACHE_DIR }}
