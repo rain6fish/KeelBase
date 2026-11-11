@@ -175,6 +175,28 @@ npm run anchor:chain -- --out /var/lib/keelbase/anchors
 
 **边界重述。** 只到 `observedAt`；只数已入链的行（`hash IS NULL` 的遗留行看不见）；只覆盖 `aiAudit` + `operationAudit`（副作用链不在内）；且必须有域外的人对照。长期保全（WORM / 不可变归档）是另一层，本仓不做。
 
+### 6.4 顺序键的证明：逐行还是锚 / 6.4 Attesting the ordering key: per row or per anchor
+
+The list sorts by `createdAt`, which the server stamps and which sits **outside** the hash payload — the ordering declaration therefore says `attested: none`. Attesting it has two shapes, and the choice is not stylistic.
+
+**Per row** — add `createdAt` to the payload (a new payload version). It covers only rows written afterwards: every row already in the table stays unattested forever, which is most of what a reader would want to check. It also bakes the stamp into the chain, so a clock error becomes permanent and indistinguishable from a correct value.
+
+**Per anchor** — extend the record that already leaves the trust domain. `audit-chain-anchor` is produced daily and published beyond KeelBase's reach; today it binds `rows/lastId/lastHash`. Adding a digest over the `(id, createdAt)` pairs it covers binds the ordering key into the same published record, and it can cover rows that **already exist**. A reader recomputes the digest over the ids they hold and compares — the same fingerprint pattern the id-set work uses. Adding it is a new version of that wire object, not a free field.
+
+For this repository the anchor wins on three counts: it covers history rather than only the future; it reuses a channel that already has a receiver outside the trust domain; and it keeps the clock out of the payload, where a wrong value could never be recognised as wrong. Its costs are explicit: a row is unattested until the next anchor covers it; the anchor reaches only to `observedAt` (`hash IS NULL` rows are invisible); and the digest is checkable only by someone who holds the ids — a single row on its own proves nothing without the anchor.
+
+Neither shape makes the stamp **correct**. Both attest that this party recorded this value. The only honest label is `signed-by-receiver`, carrying the same caveat a producer-signed timestamp carries.
+
+列表按 `createdAt` 排，它由服务端打戳、且**不在**哈希载荷内 —— 排序声明因此写 `attested: none`。给它找证明有两种形状，这个选择不是风格问题。
+
+**逐行** —— 把 `createdAt` 放进 payload（新的一版 payload）。它只覆盖此后写入的行：表里已有的行永远得不到证明，而那些正是读者最想核的部分。它还把时间戳焊进链里，于是一次时钟错误就变成永久的、且与正确值无法区分。
+
+**按锚** —— 扩展那份本来就要离开信任域的记录。`audit-chain-anchor` 每天产出并发布到 KeelBase 够不到的地方；今天它绑定 `rows/lastId/lastHash`。再加一个覆盖范围内 `(id, createdAt)` 对的摘要，就把排序键绑进了同一份已发布记录，而且**能覆盖已经存在的行**。读者拿手上的 id 重算摘要比对即可 —— 与 id 集那套指纹同一形状。需要说明：这是给该 wire 对象出新版本，不是一个免费的字段。
+
+对本仓，锚在三处占优：覆盖历史而不只是未来；复用一条已经有域外接收方的通道；并且把时钟挡在 payload 之外 —— 放进去了，错的值就再也认不出是错的。代价同样明确：一行在下一个锚覆盖它之前没有证明；锚只到 `observedAt`（`hash IS NULL` 的行看不见）；摘要只有**持有那些 id 的人**才核得了 —— 单独一行离了锚什么也证明不了。
+
+两种形状都**不**让时间戳变**正确**。它们都只证明「这一方记下了这个值」。诚实的标签只有 `signed-by-receiver`，并且要带上与「产出方签名的时间戳」同样的那句告诫。
+
 ---
 
 ## 7. 测试 / 7. Tests
