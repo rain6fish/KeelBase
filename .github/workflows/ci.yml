@@ -768,64 +768,34 @@ jobs:
       # `npm audit` above stays as-is — it asks npm's own database and is the project's existing line.
       #
       # The scanner is downloaded at a pinned version and checked against a pinned digest: a floating
-      # "latest" would make the gate's verdict depend on when it ran. To bump it, change both values and
-      # re-run `--update-baseline` if the new database reports findings the old one did not.
+      # "latest" would make the gate's verdict depend on when it ran. Both values — and the SBOM flags —
+      # live in `scripts/generate-sbom.sh`, which the release job runs too, so the artifact checked here
+      # and the asset attached to a release come from one definition. To bump it, change both values
+      # there and re-run `--update-baseline` if the new database reports findings the old one did not.
       #
       # 扫全仓每一份锁文件，而不只是 `Server-NestJS`：两个 Web 控制台、Taro 应用和 Flutter 应用从未被审过，
       # 其中任何一条公告都可能悄无声息地进 `main`。上面的 `npm audit` 原样保留 —— 它查的是 npm 自己的库，
       # 是这个项目已有的那条线。
       #
-      # 扫描器按钉住的版本下载、并按钉住的摘要校验：用「latest」会让这道门的结论取决于它何时跑。
-      # 升级时两个值一起改；若新库报出旧库没报的发现，再跑一次 `--update-baseline`。
-      - name: Fetch osv-scanner (pinned)
-        working-directory: .
-        env:
-          OSV_SCANNER_VERSION: '2.7.0'
-          OSV_SCANNER_SHA256: '160c6253e2922e9e0a6a9771c5c4c40a4b3c6090b34a3cdd5e80c96cc2e4218b'
-        run: |
-          set -euo pipefail
-          curl -sSfL -o "$RUNNER_TEMP/osv-scanner" \
-            "https://github.com/google/osv-scanner/releases/download/v${OSV_SCANNER_VERSION}/osv-scanner_linux_amd64"
-          echo "${OSV_SCANNER_SHA256}  $RUNNER_TEMP/osv-scanner" | sha256sum -c -
-          chmod +x "$RUNNER_TEMP/osv-scanner"
-          "$RUNNER_TEMP/osv-scanner" --version
-
+      # 扫描器按钉住的版本下载、并按钉住的摘要校验：用「latest」会让这道门的结论取决于它何时跑。两个值 ——
+      # 以及 SBOM 的扫描参数 —— 都在 `scripts/generate-sbom.sh` 里；发版 job 跑的也是它，于是「这里验过的
+      # 产物」与「附到 Release 的资产」出自同一份定义。升级时改那里的两个值；若新库报出旧库没报的发现，
+      # 再跑一次 `--update-baseline`。
+      #
       # Full-tree SBOM: one CycloneDX 1.6 document for every lockfile the gate scans. `--all-packages`
       # is required — without it osv-scanner writes only the components that have vulnerabilities, which
       # is a vulnerability report, not an inventory (measured 2026-11-10: 74 components without the flag,
       # 2631 with it). `--offline` does not work either: it exits 127 with "no offline version of the OSV
       # database is available" and writes an empty BOM. Exit 1 means "vulnerabilities found" and is
-      # accepted here; the gate below is the verdict.
+      # accepted here; the gate below is the verdict. The coverage check runs inside the script.
       #
       # 全仓一份 SBOM：门禁扫描的每一份锁文件都进同一份 CycloneDX 1.6 文档。必须带 `--all-packages` ——
       # 不带它时 osv-scanner 只写「有漏洞的组件」，那是漏洞报告、不是清单（2026-11-10 实测：不带 74 个组件，
       # 带了 2631 个）。`--offline` 也不可用：它以 127 退出并报「没有离线 OSV 数据库」，只写出一份空 BOM。
-      # 退出码 1 表示「找到漏洞」，这里接受；判定归下面的门禁。
-      - name: Generate SBOM (full tree, CycloneDX 1.6)
+      # 退出码 1 表示「找到漏洞」，这里接受；判定归下面的门禁。覆盖检查在脚本内跑。
+      - name: Fetch scanner and generate SBOM (full tree, CycloneDX 1.6)
         working-directory: .
-        env:
-          OSV_SCANNER: ${{ runner.temp }}/osv-scanner
-        run: |
-          set -euo pipefail
-          set +e
-          "$OSV_SCANNER" scan source -r "$GITHUB_WORKSPACE" --format cyclonedx-1-6 --all-packages --no-ignore \
-            --output-file "$GITHUB_WORKSPACE/sbom.cdx.json" > "$GITHUB_WORKSPACE/sbom-scan.log" 2>&1
-          rc=$?
-          set -e
-          cat "$GITHUB_WORKSPACE/sbom-scan.log"
-          if [ "$rc" -ne 0 ] && [ "$rc" -ne 1 ]; then
-            echo "::error::osv-scanner SBOM generation exited $rc (0 = clean, 1 = findings; anything else is not a scan)"
-            exit "$rc"
-          fi
-
-      # An SBOM that silently covers less than the gate is worse than none. The check derives coverage
-      # from the scanner's own `Scanned …` lines and requires a marker component per tree.
-      # 一份悄悄少覆盖的 SBOM 比没有更糟。本检查从扫描器自己的 `Scanned …` 行取覆盖，并要求每棵树有标记组件。
-      - name: Check SBOM covers every scanned lockfile
-        working-directory: .
-        run: |
-          node scripts/check-sbom-coverage.mjs --selftest
-          node scripts/check-sbom-coverage.mjs
+        run: bash scripts/generate-sbom.sh sbom.cdx.json sbom-scan.log
 
       - uses: actions/upload-artifact@v5
         with:

@@ -86,8 +86,9 @@ report the same packages twice. `isShadowed` skips any lockfile whose directory 
   component per tree. Paths inside an installed `node_modules` tree are dropped before the comparison —
   `--no-ignore` makes the scanner walk into them, and they are output of the declared lockfiles, not
   sources; a directory that merely starts with the same word stays in scope. The document is uploaded as
-  the `keelbase-sbom` artifact. Attaching it to a GitHub Release is **not** implemented — that is a
-  decision still open.
+  the `keelbase-sbom` artifact, and `docker-publish.yml`'s `sbom-release` job attaches the same file (built
+  by `scripts/generate-sbom.sh`) to the GitHub Release for a `v*` tag. Signing it (Sigstore attestation) is
+  deliberately **not** done — that is a separate identity/key decision (§7.8).
 
 ### Commands added by this slice
 
@@ -361,10 +362,13 @@ most of which clear only by removing the Taro webpack5 runner.
 
 ## 7. What this does not cover
 
-1. **Image-layer scanning covers the published image, with limits.** The 2026-11-10 gate scans the image
-   built from `Dockerfile.single` before the push. Not covered: a **weekly scheduled** scan of the published
-   `:latest` and the two pinned bases (not added — a decision still open), and the compose `web` (nginx)
-   image, which is built per deploy. The pinned `node:22-alpine` base fails the gate **on its own** (10
+1. **Image-layer scanning covers the published image, with limits.** The pre-push gate scans the image
+   built from `Dockerfile.single` before the push. A **weekly scheduled** run
+   (`.github/workflows/image-scan-weekly.yml`, Mondays 04:17 UTC) now records HIGH/CRITICAL findings for
+   the published `:latest` and both pinned bases (`node:22-alpine`, `alpine:3.24`) in the job summary and
+   an artifact. It is **report-only** — its exit code is not a gate, because a fix in an upstream base is
+   not this repository's to ship. Not covered: the compose `web` (nginx) image, which is built per deploy.
+   The pinned `node:22-alpine` base fails the gate **on its own** (10
    fixable HIGH in npm's bundled modules; no tag bump clears them — §1), but the published image is not
    that base: `Dockerfile.single`'s `single` stage deletes the bundled npm directory and the `npm`/`npx`
    shims, and that image re-measured on `main` on 2026-11-10 at **exit 0 / 0 findings**. The next publish
@@ -382,10 +386,11 @@ most of which clear only by removing the Taro webpack5 runner.
    full-tree SBOM generation is a second full scan of the same tree.
 6. **The `pubspec.lock` production closure is conservative** and can over-gate, never under-gate.
 7. **An npm v1 lockfile would gate everything**; none exists today.
-8. **The SBOM is full-tree CycloneDX, but it is not a verdict and is not attached to releases.** It covers
-   all 7 scanned lockfiles and is checked by `scripts/check-sbom-coverage.mjs`; nothing consumes it as a
-   vulnerability gate (the dependency gate is that), and attaching it to a GitHub Release is still an open
-   decision.
+8. **The SBOM is full-tree CycloneDX, but it is not a verdict.** It covers all 7 scanned lockfiles and is
+   checked by `scripts/check-sbom-coverage.mjs`; nothing consumes it as a vulnerability gate (the dependency
+   gate is that). It **is** attached to the GitHub Release for a `v*` tag by `docker-publish.yml`'s
+   `sbom-release` job, which regenerates it with `scripts/generate-sbom.sh` — the same script CI validates —
+   and uploads it as a release asset. Signing it (Sigstore attestation) is still an open decision.
 9. **Required-check status is not in this tree.** Whether a red job blocks a merge is a GitHub setting.
 10. **Pull references outside YAML are not gated.** `deploy/deploy-offline.sh` checks staged images by tag,
     `docs/manual/offline-deploy.md` §2.1 pins its `docker pull` lines to digests by hand, and the `IMAGE`
@@ -457,8 +462,9 @@ most of which clear only by removing the Taro webpack5 runner.
   `scripts/check-sbom-coverage.mjs` 从扫描器自己的 `Scanned …` 行取期望集合（7 份锁文件；被遮蔽的
   `Front-Taro/pnpm-lock.yaml` 只报告、不要求），并要求每棵树有一个标记组件。落在已安装 `node_modules`
   树里的路径在比对前被剔除 —— `--no-ignore` 让扫描器走了进去，而它们是已声明锁文件的产物、不是来源；
-  只是以同一个词开头的目录仍在射程内。文档作为 `keelbase-sbom` 产物上传。把它附到
-  GitHub Release **尚未**实现 —— 那是一个仍未定的决定。
+  只是以同一个词开头的目录仍在射程内。文档作为 `keelbase-sbom` 产物上传；`docker-publish.yml` 的
+  `sbom-release` job 会把同一份文件（由 `scripts/generate-sbom.sh` 生成）附到 `v*` tag 对应的
+  GitHub Release 上。签名（Sigstore attestation）**有意不做** —— 那是另一个关于身份与密钥的决定（§7.8）。
 
 ### 本次新增的命令
 
@@ -707,9 +713,11 @@ Dockerfile 钉的是 `sha256:3f4d…630a` —— 标签动了、被钉住的镜�
 
 ## 7. 未覆盖项
 
-1. **镜像层扫描覆盖的是已发布镜像，且仍有边界。** 2026-11-10 这道门扫描 `Dockerfile.single` 构建出的镜像、
-   **在推送之前**。未覆盖：对已发布 `:latest` 与两个钉住基础的**每周定时**扫描（未加 —— 仍是待定事项），
-   以及 compose 的 `web`（nginx）镜像（按次部署构建）。钉住的 `node:22-alpine` 基础**本身**会判红
+1. **镜像层扫描覆盖的是已发布镜像，且仍有边界。** 这道门扫描 `Dockerfile.single` 构建出的镜像、
+   **在推送之前**。新增的**每周定时**运行（`.github/workflows/image-scan-weekly.yml`，每周一 04:17 UTC）
+   把已发布 `:latest` 与两个钉住基础（`node:22-alpine`、`alpine:3.24`）的 HIGH/CRITICAL 发现记进 job summary
+   与 artifact。它是**报告制** —— 退出码不作为门禁，因为上游基础镜像的修复不在本仓手里。
+   未覆盖：compose 的 `web`（nginx）镜像（按次部署构建）。钉住的 `node:22-alpine` 基础**本身**会判红
    （npm 自带模块里 10 条有修复的 HIGH；换标签也清不掉，见 §1），但发布镜像并不是那个基础：
    `Dockerfile.single` 的 `single` 阶段删掉了自带的 npm 目录与 `npm`/`npx` 两个入口，该镜像 2026-11-10
    在 `main` 上复测为**以 0 退出、0 条发现**。所以下一次发布既不需要升级基础，也不需要登记例外 ——
@@ -724,9 +732,11 @@ Dockerfile 钉的是 `sha256:3f4d…630a` —— 标签动了、被钉住的镜�
 5. **OSV API 是匿名的**，受速率限制；自检每次 CI 再多三条查询，而全仓 SBOM 生成是对同一棵树再扫一遍。
 6. **`pubspec.lock` 的生产闭包是保守的**，可能多判，不会漏判。
 7. **npm v1 锁文件会让全部发现都判红**；今天没有这种文件。
-8. **SBOM 是全仓 CycloneDX，但它不是判定、也没有附到 Release。** 它覆盖全部 7 份被扫的锁文件，由
-   `scripts/check-sbom-coverage.mjs` 检查；没有任何东西把它当作漏洞门禁（漏洞判定是依赖门禁），
-   是否附到 GitHub Release 仍是待定决定。
+8. **SBOM 是全仓 CycloneDX，但它不是判定。** 它覆盖全部 7 份被扫的锁文件，由
+   `scripts/check-sbom-coverage.mjs` 检查；没有任何东西把它当作漏洞门禁（漏洞判定是依赖门禁）。它**会**
+   由 `docker-publish.yml` 的 `sbom-release` job 附到 `v*` tag 对应的 GitHub Release 上：该 job 用
+   `scripts/generate-sbom.sh` 重新生成（与 CI 验证的是同一个脚本），并作为 Release 资产上传。是否签名
+   （Sigstore attestation）仍是待定决定。
 9. **必过检查的状态不在本树里。** 红的 job 是否阻止合并，是 GitHub 上的设置。
 10. **YAML 之外的拉取引用不进本门禁。** `deploy/deploy-offline.sh` 按标签查已预置的镜像、
     `docs/manual/offline-deploy.md` §2.1 的 `docker pull` 行是按摘要手工钉的、

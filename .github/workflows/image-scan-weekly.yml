@@ -1,0 +1,97 @@
+# Weekly, report-only image scan.
+#
+# The publish gate (docker-publish.yml) scans the image it is about to push, once. After that the
+# published `:latest` and the pinned bases have no reading at all, so a CVE published upstream after the
+# last release stays invisible until the next one. This workflow takes that reading every week.
+#
+# Report-only on purpose: a fix in `node:22-alpine` or `alpine:3.24` is upstream's to ship, not ours, so
+# a red exit code here would sit red for weeks and teach readers to ignore it. Findings go to the job
+# summary and to an artifact; the scan step exits 0. A failed run means the reading itself could not be
+# taken (registry unreachable, database unavailable) — that is worth noticing.
+#
+# 每周一次、只报告不判红的镜像扫描。
+#
+# 发布门禁（docker-publish.yml）只在推送之前扫一次即将发出的镜像。此后已发布的 `:latest` 与两个钉住基础
+# 完全没有读数，于是最后一次发布之后上游披露的 CVE 要等下一次发版才被看见。本工作流每周取一次读数。
+#
+# 有意只报告：`node:22-alpine` 或 `alpine:3.24` 里的修复要由上游发布，不在我们手里 —— 在这里判红会连红
+# 数周，教会读者忽略它。发现进 job summary 与 artifact，扫描步骤以 0 退出。运行失败只说明**读数取不到**
+# （仓库不可达、数据库不可用），那倒是值得注意的。
+
+name: Weekly image scan
+
+on:
+  schedule:
+    - cron: '17 4 * * 1'  # 每周一 04:17 UTC（codeql 在 04:23，错开）
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # Same Trivy binary as the publish gate, so a reading here and a verdict there are comparable.
+  # 与发布门禁同一个 Trivy 二进制，于是这里的读数与那里的判定可比。
+  TRIVY_VERSION: v0.76.2
+  TRIVY_CACHE_DIR: ${{ github.workspace }}/.cache/trivy
+
+jobs:
+  scan:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The published image. A floating tag is the point here: this is what users pull.
+          # 已发布的镜像。浮动标签正是重点：用户拉的就是它。
+          - name: published-latest
+            ref: ghcr.io/rain6fish/keelbase:latest
+          # The two pinned bases, at the digests the Dockerfiles use (2026-11-11).
+          # 两个钉住的基础，摘要取自 Dockerfile（2026-11-11）。
+          - name: node-22-alpine
+            ref: node:22-alpine@sha256:0e1754758c2df4cfa3e68d59e2e1b7374bb7fd9ea6328eaaacf15cc934af8202
+          - name: alpine-3.24
+            ref: alpine:3.24@sha256:3f4d6b32e26703c6082839234f43769d5046b3ac7c910033911d1e71d8cd630a
+    steps:
+      - uses: actions/checkout@v5
+
+      # `cache` is deliberately off: a weekly reading backed by a week-old database answers the wrong
+      # week. The ignore file is applied so the count matches what the publish gate would accept.
+      # `cache` 有意关掉：每周读数配一周前的数据库，答的是错的那一周。例外文件照常生效，于是计数与发布
+      # 门禁会接受的口径一致。
+      - name: Scan ${{ matrix.name }} (report only)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25   # v0.36.0
+        with:
+          scan-type: image
+          image-ref: ${{ matrix.ref }}
+          version: ${{ env.TRIVY_VERSION }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: false
+          exit-code: '0'
+          format: json
+          output: trivy-${{ matrix.name }}.json
+          trivyignores: .trivyignore.yaml
+          cache: 'false'
+
+      # The reading is only attributable if it names the binary and the database it used.
+      # 读数只有写明所用的二进制与数据库才可归因。
+      - name: Record Trivy version and vulnerability DB timestamp
+        shell: bash
+        run: |
+          set -euo pipefail
+          trivy --version
+          for meta in "$TRIVY_CACHE_DIR/db/metadata.json" "$HOME/.cache/trivy/db/metadata.json"; do
+            if [ -f "$meta" ]; then echo "Trivy DB metadata: $(cat "$meta")"; exit 0; fi
+          done
+          echo "::error::Trivy DB metadata not found — this reading cannot be attributed to a database"
+          exit 1
+
+      - name: Summarise findings into the job summary
+        run: node scripts/trivy-image-summary.mjs "trivy-${{ matrix.name }}.json" "${{ matrix.name }}" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: trivy-${{ matrix.name }}
+          path: trivy-${{ matrix.name }}.json
+          if-no-files-found: error

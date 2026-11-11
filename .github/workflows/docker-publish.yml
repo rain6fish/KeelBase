@@ -197,3 +197,49 @@ jobs:
             echo "pushing $tag"
             docker push "$tag"
           done
+
+  # The SBOM is an inventory, not a verdict: the image gate above decides whether anything ships. This job
+  # attaches the same BOM the CI gate validates to the GitHub Release for the tag, so a reviewer or a
+  # customer can take evidence without rebuilding the tree. It regenerates the file with the same script
+  # (`scripts/generate-sbom.sh`) rather than copying flags, so a release asset cannot drift from the
+  # artifact CI checked. Signing it (Sigstore attestation) is deliberately out of scope — that is a
+  # separate identity/key decision.
+  #
+  # If the tag is pushed before a maintainer writes the release notes, this creates a DRAFT release with
+  # the asset; nothing is public until a human fills in the notes and publishes it. Re-running uploads to
+  # the existing release with --clobber.
+  #
+  # SBOM 是清单、不是判定：能不能发由上面的镜像门禁决定。本 job 把 CI 门禁核过的那份 BOM 附到该 tag 的
+  # GitHub Release 上，评审或客户不用重建这棵树就能取证。它用同一个脚本（`scripts/generate-sbom.sh`）
+  # 重新生成，而不是复制扫描参数，于是发版资产不可能与 CI 核过的那份漂开。签名（Sigstore attestation）
+  # 有意不在射程内 —— 那是另一个关于身份与密钥的决定。
+  #
+  # 若 tag 先于维护者写发布说明被推送，本 job 会建一份**草稿**Release 并附上资产；在人填好说明并发布之前
+  # 不公开。重跑时以 `--clobber` 改传到已有的 Release 上。
+  sbom-release:
+    needs: publish
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # 创建/更新 Release 并上传资产 / create or update the release and upload assets
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: true   # 契约子模块带一份锁文件，SBOM 覆盖检查要求它 / one lockfile lives there
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Generate the SBOM (same script CI validates)
+        run: bash scripts/generate-sbom.sh sbom.cdx.json sbom-scan.log
+      - name: Attach the SBOM to the GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" sbom.cdx.json --clobber
+          else
+            NOTES=$'Draft created by the release workflow; add the release notes before publishing.\n\n由发布工作流创建的草稿；发布前请补上发布说明。'
+            gh release create "$TAG" sbom.cdx.json --title "$TAG" --draft --notes "$NOTES"
+          fi
