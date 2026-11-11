@@ -1048,6 +1048,18 @@ jobs:
           name: coverage-flutter
           path: Front-Flutter/coverage/lcov.info
           if-no-files-found: warn
+      # The same gate also runs in cli-test, but that job never builds Flutter web: the artifact
+      # checks (base href, self-hosted CanvasKit, API base) were caught by the script's try/catch
+      # and skipped, so CI had never validated a real build. Build here, where Flutter is already
+      # set up, then run the gate against the artifact.
+      # 同一道门禁也在 cli-test 里跑，但那个 job 从不构建 Flutter web：产物三项（基路径 /
+      # 自托管 CanvasKit / API 基址）被脚本的 try/catch 跳过，CI 从未用真实产物校验过。
+      # 这里已有 Flutter 环境，故在此构建后对产物跑同一道门禁。
+      - name: Build Flutter web (mobile preview artifact)
+        run: flutter build web --release --base-href=/mobile/ --no-web-resources-cdn --dart-define=API_BASE_URL=/api/v1
+      - name: Assert mobile preview artifact is servable
+        working-directory: ${{ github.workspace }}
+        run: npm run check:mobile-preview
 
   # Every image pulled by a YAML file — compose entries and this file's own service container — must carry
   # `@sha256:`. Nine floated (five on `latest`) until 2026-11-10: the same file could resolve a different
