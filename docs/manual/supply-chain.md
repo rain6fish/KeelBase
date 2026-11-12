@@ -115,9 +115,9 @@ node scripts/check-sbom-coverage.mjs [--selftest] [--sbom <path>] [--scan-log <p
 Outside the scope of this gate:
 
 - **Image layers and OS packages.** The dependency scanner does not read images. A separate scan covers
-  the image built from `Dockerfile.single` before it is pushed, and a weekly scheduled run records
-  findings for the published image and the two pinned bases (§7); the compose `web` image is still open
-  there.
+  the image built from `Dockerfile.single` before it is pushed and the compose `server` image on every
+  change, and a weekly scheduled run records findings for the published image, the two pinned bases and
+  the images the compose stack pulls (§7); the compose `web` image is still open there.
 - **Compose run-time images and CI service images.** `image:` entries are not lockfiles, so the dependency
   scanner does not read them. They are digest-pinned and gated separately (§4); that gate checks the pin,
   it does not scan the image.
@@ -523,7 +523,8 @@ node scripts/check-sbom-coverage.mjs [--selftest] [--sbom <path>] [--scan-log <p
 本门禁不覆盖的部分：
 
 - **镜像层与操作系统包。** 依赖扫描器不读镜像。另有一道门禁在推送前扫描由 `Dockerfile.single` 构建出的
-  镜像，另有一次每周定时运行记录已发布镜像与两个钉住基础的发现（见 §7）；compose 的 `web` 镜像仍未覆盖。
+  镜像，compose 的 `server` 镜像则在每次改动时构建并扫描；另有一次每周定时运行记录已发布镜像、两个钉住
+  基础与编排栈会拉的镜像的发现（见 §7）；compose 的 `web` 镜像仍未覆盖。
 - **编排里的运行时镜像与 CI service 镜像。** `image:` 不是锁文件，依赖扫描器不读它们。它们已按摘要钉住、
   由另一道门禁单独守（§4）；那道门禁查的是「钉没钉」，不是「镜像里有没有洞」。
 - **Gradle。** `Front-Flutter/android/app/build.gradle.kts` 不是锁文件，本仓也没有 JVM 扫描器。
