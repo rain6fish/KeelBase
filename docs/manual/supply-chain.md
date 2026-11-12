@@ -397,7 +397,8 @@ which clear only by removing the Taro webpack5 runner.
    and **0** for `redis:7-alpine`; on 2026-11-12 that pin was moved from the EOSL `alpine 3.21.10`
    digest to `sha256:7f7d30b7…` (alpine 3.22.8), which reads **0** findings on a supported base. The
    `pg17` tag already resolves to the pinned digest and `pg18` (`sha256:c29f3068…`) reads the same
-   **137**; whether to move the pgvector pin remains an open decision, and nothing was changed there.
+   **137**; on 2026-11-12 the pin was kept and the 137 accepted as a known reading (below), so nothing
+   was changed there.
 
    The composition matters as much as the count, so it is recorded here too. At the pinned digest the
    137 are **111 Debian 12.15 operating-system packages plus 26 for the `gosu` binary**; **109 have no
@@ -801,7 +802,8 @@ Dockerfile 钉的是 `sha256:3f4d…630a` —— 标签动了、被钉住的镜�
    debian 12.15 系统包 111 条 + `gosu` 二进制 26 条），`redis:7-alpine` 读出 **0** 条；
    2026-11-12 已把该钉点从 EOSL 的 alpine 3.21.10 摘要换到 `sha256:7f7d30b7…`（alpine 3.22.8），
    在受支持的基座上仍是 **0** 条。当前 `pg17` 标签本就解析到钉住的那个摘要，`pg18`
-   （`sha256:c29f3068…`）读出同样的 **137** 条；是否移动 pgvector 的钉点仍是**待裁决定**，该处未改。
+   （`sha256:c29f3068…`）读出同样的 **137** 条。2026-11-12 决定**继续钉住 pgvector**、把这 137 条
+   接受为已知读数（见下），该处未改。
 
    构成与条数同样重要，这里一并记下。在钉住的摘要上，这 137 条是 **Debian 12.15 操作系统包 111 条
    加 `gosu` 二进制 26 条**；其中 **109 条根本没有修复版本**（全部来自 Debian），有修复的 28 条里
