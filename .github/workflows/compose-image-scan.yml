@@ -2,9 +2,10 @@
 #
 # The publish gate (`docker-publish.yml`) scans only the `Dockerfile.single` image. The compose
 # deployment builds a different image: `Dockerfile` target `server`, used by the `server`, `governance`
-# and `sidecar` services in `docker-compose.yml`. That image ships the backend's prod and dev
-# dependencies, so it is the largest surface no other gate scans. Decision D4 (2026-11-11) is to scan
-# it here.
+# and `sidecar` services in `docker-compose.yml`. That image is the one `docker compose up` runs, so it
+# is the largest surface no other gate scans. Its runtime tree holds production dependencies only — the
+# build stage prunes development ones before the copy — but the base image, the OS layer and that
+# production tree are all still in scope. Decision D4 (2026-11-11) is to scan it here.
 #
 # Scan settings are byte-for-byte the publish gate's: same pinned action commit, same pinned Trivy
 # version, `severity HIGH,CRITICAL`, `ignore-unfixed true`, `exit-code '1'`, `.trivyignore.yaml`.
@@ -14,7 +15,9 @@
 #
 # 发布门禁（`docker-publish.yml`）只扫 `Dockerfile.single` 的镜像。compose 部署构建的是另一个镜像：
 # `Dockerfile` 的 `server` 阶段，由 `docker-compose.yml` 的 `server` / `governance` / `sidecar` 三个服务使用。
-# 那个镜像把后端的生产与开发依赖都打进去，是当前没有任何其它门禁扫描的最大一面。D4（2026-11-11）决定在这里扫它。
+# 那个镜像是 `docker compose up` 真正运行的那一个，所以是当前没有任何其它门禁扫描的最大一面。它的运行树只含
+# 生产依赖 —— 构建阶段在复制之前已剪掉开发依赖 —— 但基础镜像、操作系统层与那棵生产树都仍在射程内。
+# D4（2026-11-11）决定在这里扫它。
 #
 # 扫描设置与发布门禁逐字相同：同一个钉住的 action 提交、同一个钉住的 Trivy 版本、`HIGH,CRITICAL`、
 # `ignore-unfixed true`、`exit-code '1'`、`.trivyignore.yaml`。因此例外只有一处、两道门禁里含义相同。
