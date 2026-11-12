@@ -398,6 +398,24 @@ which clear only by removing the Taro webpack5 runner.
    digest to `sha256:7f7d30b7…` (alpine 3.22.8), which reads **0** findings on a supported base. The
    `pg17` tag already resolves to the pinned digest and `pg18` (`sha256:c29f3068…`) reads the same
    **137**; whether to move the pgvector pin remains an open decision, and nothing was changed there.
+
+   The composition matters as much as the count, so it is recorded here too. At the pinned digest the
+   137 are **111 Debian 12.15 operating-system packages plus 26 for the `gosu` binary**; **109 have no
+   fixed version at all** (all Debian), and the 28 that do are 26 in `gosu`'s Go standard library plus 2
+   in `apt`. Three of the four CRITICALs are Debian packages with no fix (`libsqlite3-0` CVE-2025-7458,
+   `libxml2` CVE-2026-6653, `zlib1g` CVE-2023-45853); the fourth is `gosu`'s Go standard library
+   (CVE-2025-68121), which lists fixed versions and would clear on an upstream rebuild — nothing in this
+   repository can. Under the same settings on 2026-11-12, the pinned `postgres:17-alpine` base used by
+   `Server-NestJS/postgresql/docker-compose.db.yml` (`sha256:3540c036…`, Alpine 3.24.4) reads **44**
+   (HIGH 43 / CRITICAL 1, **none** without a fix: 18 Alpine packages — `krb5-libs` 16 and `libxslt` 2 —
+   plus the same 26 `gosu` entries), and that base with pgvector 0.8.1 compiled in from source and
+   `CREATE EXTENSION vector` verified on a running container reads **44** as well, because a
+   source-built extension adds no package-managed entry. Two neighbouring bases were measured and are
+   no better: `pgvector/pgvector:pg17-trixie` (Debian 13.7) reads **151**, and the current
+   `postgres:17-alpine` tag (`sha256:b0f9560a…`) reads **47**. Accepting the 137 as known, registering
+   exceptions in `.trivyignore.yaml`, or switching the base are all still open decisions; no pin,
+   exception entry or image was changed for this reading.
+
    Not covered: the compose `web` (nginx) image, which is built per deploy — its OS base is the scanned
    `alpine:3.24`, but the nginx packages installed on top of it are not read; nor are the
    profile-gated `ollama` image and the observability stack.
@@ -782,6 +800,22 @@ Dockerfile 钉的是 `sha256:3f4d…630a` —— 标签动了、被钉住的镜�
    2026-11-12 已把该钉点从 EOSL 的 alpine 3.21.10 摘要换到 `sha256:7f7d30b7…`（alpine 3.22.8），
    在受支持的基座上仍是 **0** 条。当前 `pg17` 标签本就解析到钉住的那个摘要，`pg18`
    （`sha256:c29f3068…`）读出同样的 **137** 条；是否移动 pgvector 的钉点仍是**待裁决定**，该处未改。
+
+   构成与条数同样重要，这里一并记下。在钉住的摘要上，这 137 条是 **Debian 12.15 操作系统包 111 条
+   加 `gosu` 二进制 26 条**；其中 **109 条根本没有修复版本**（全部来自 Debian），有修复的 28 条里
+   26 条在 `gosu` 的 Go 标准库、2 条在 `apt`。4 条 CRITICAL 中 3 条是 Debian 包且无修复
+   （`libsqlite3-0` CVE-2025-7458、`libxml2` CVE-2026-6653、`zlib1g` CVE-2023-45853）；第 4 条是
+   `gosu` 的 Go 标准库（CVE-2025-68121），它列了修复版本，只能靠上游重建镜像清掉 —— 本仓做不了。
+   2026-11-12 以同一组设置实测：`Server-NestJS/postgresql/docker-compose.db.yml` 所用的钉住
+   `postgres:17-alpine` 基础（`sha256:3540c036…`，Alpine 3.24.4）读出 **44** 条（HIGH 43 /
+   CRITICAL 1，**无修复 0 条**：Alpine 包 18 条 —— `krb5-libs` 16、`libxslt` 2 —— 加同一批 `gosu`
+   26 条）；在同一基础上从源码编译 pgvector 0.8.1、并在运行中的容器里验证 `CREATE EXTENSION vector`
+   之后，读数仍是 **44** 条，因为源码编译的扩展不产生任何包管理条目。另外两个邻近基座也测了，都不更好：
+   `pgvector/pgvector:pg17-trixie`（Debian 13.7）读出 **151** 条，
+   `postgres:17-alpine` 当前标签（`sha256:b0f9560a…`）读出 **47** 条。接受这 137 条为已知、
+   在 `.trivyignore.yaml` 登记例外、还是更换基座，三者都仍是**待裁决定**；本次读数没有改动
+   任何钉点、例外条目或镜像。
+
    未覆盖：compose 的 `web`（nginx）镜像（按次部署构建）—— 它的操作系统基座就是被扫的 `alpine:3.24`，
    但装在其上的 nginx 包不被读到；走 profile 的 `ollama` 镜像与可观测栈也不在读数内。
    钉住的 `node:22-alpine` 基础**本身**会判红
