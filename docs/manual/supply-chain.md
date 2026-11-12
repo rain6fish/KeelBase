@@ -115,9 +115,9 @@ node scripts/check-sbom-coverage.mjs [--selftest] [--sbom <path>] [--scan-log <p
 Outside the scope of this gate:
 
 - **Image layers and OS packages.** The dependency scanner does not read images. A separate scan covers
-  the image built from `Dockerfile.single` before it is pushed, and a weekly scheduled run records
-  findings for the published image and the two pinned bases (§7); the compose `web` image is still open
-  there.
+  the image built from `Dockerfile.single` before it is pushed and the compose `server` image on every
+  change, and a weekly scheduled run records findings for the published image, the two pinned bases and
+  the images the compose stack pulls (§7); the compose `web` image is still open there.
 - **Compose run-time images and CI service images.** `image:` entries are not lockfiles, so the dependency
   scanner does not read them. They are digest-pinned and gated separately (§4); that gate checks the pin,
   it does not scan the image.
@@ -292,8 +292,9 @@ digest, so pinning changed nothing at pin time.
 The same `pgvector/pgvector:pg17` image also appears at `.github/workflows/ci.yml:142` (the
 `migration-consistency-postgres` service container) and as `IMAGE` in
 `Server-NestJS/scripts/check-pg-migration-consistency.mjs:25`. Both carry the compose digest
-(`sha256:7d0a…ccb8`), so all three sites describe one image. The workflow one is covered by the gate; the
-script constant is not a YAML pull reference and is pinned by hand.
+(`sha256:7d0a…ccb8`), so all three sites describe one image. The workflow one is a YAML pull reference and
+the script constant is one of the non-YAML references the gate reconciles against the same pin (§7.10), so
+a drift at either site goes red.
 
 ### The gate
 
@@ -302,7 +303,12 @@ script constant is not a YAML pull reference and is pinned by hand.
 `scripts/check-pinned-images.test.mjs`. Its scope is every YAML file that pulls: any `docker-compose*.yml`
 in the tree (skipping `node_modules`, `.git` and `.claude`), and `image:` inside a `services:` or
 `container:` block in `.github/workflows/*.yml` (a `run:` heredoc that says `image:` is text, and the
-tests pin that). Pull references in shell scripts and markdown it does not read — see §7.
+tests pin that). It also reads the three references outside YAML (§7.10): the `docker pull` lines in
+`docs/manual/offline-deploy.md` and the `IMAGE` constant in
+`Server-NestJS/scripts/check-pg-migration-consistency.mjs` must be digest-pinned and agree with the
+pinned reference for the same `repo:tag`, and every `REQUIRED_IMAGES` entry in
+`deploy/deploy-offline.sh` needs a digest-pinned counterpart in the tree — that list looks images up by
+tag on purpose.
 
 **Upgrading a pinned image.** The same rule as the Dockerfiles, same reason:
 
@@ -380,11 +386,14 @@ which clear only by removing the Taro webpack5 runner.
 1. **Image-layer scanning covers the published image, with limits.** The pre-push gate scans the image
    built from `Dockerfile.single` before the push. A **weekly scheduled** run
    (`.github/workflows/image-scan-weekly.yml`, Mondays 04:17 UTC) now records HIGH/CRITICAL findings for
-   the published `:latest` and both pinned bases (`node:22-alpine`, `alpine:3.24`) in the job summary and
-   an artifact. It keeps findings with **no fix yet** — the gate's fail step runs `--ignore-unfixed`, so
-   this reading is deliberately wider and the summary separates the two counts. It is **report-only** —
-   its exit code is not a gate, because a fix in an upstream base is not this repository's to ship.
-   Not covered: the compose `web` (nginx) image, which is built per deploy.
+   the published `:latest`, both pinned bases (`node:22-alpine`, `alpine:3.24`) and the images the
+   compose stack pulls (`pgvector/pgvector:pg17`, `redis:7-alpine`) in the job summary and an artifact.
+   It keeps findings with **no fix yet** — the gate's fail step runs `--ignore-unfixed`, so this reading
+   is deliberately wider and the summary separates the two counts. It is **report-only** — its exit code
+   is not a gate, because a fix in an upstream image is not this repository's to ship.
+   Not covered: the compose `web` (nginx) image, which is built per deploy — its OS base is the scanned
+   `alpine:3.24`, but the nginx packages installed on top of it are not read; nor are the
+   profile-gated `ollama` image and the observability stack.
    The pinned `node:22-alpine` base fails the gate **on its own** (10
    fixable HIGH in npm's bundled modules; no tag bump clears them — §1), but the published image is not
    that base: `Dockerfile.single`'s `single` stage deletes the bundled npm directory and the `npm`/`npx`
@@ -393,9 +402,13 @@ which clear only by removing the Taro webpack5 runner.
    keeps the gate green. Moving the pin to `node:24-alpine` was measured to reach the same 0 findings
    through the same deletion (§1), but that is a separate decision and still needs a runtime
    compatibility review; the pin stays at 22.
-2. **Compose images are pinned but not scanned.** Every compose image and the CI service image are
-   digest-pinned and gated by `check:pinned-images` (§4); that gate checks the pin, not the image, so a CVE
-   inside one of them is only seen when the same image is the release image scanned in item 1.
+2. **Compose images: two of the four pulling ones are now scanned; the rest are not.** The compose
+   `server` image — the one `docker compose up` runs, shared by `server`, `governance` and `sidecar` — is
+   built and scanned on every change by `compose-image-scan.yml` (D4). `pgvector/pgvector:pg17` and
+   `redis:7-alpine` are in the weekly reading (item 1). The `web` (nginx) image is still only built per
+   deploy, `ollama` is profile-gated, and the observability images are outside both readings. For every
+   one of them `check:pinned-images` checks the pin, not the image (§4), so a CVE inside an unscanned one
+   has no reading here.
 3. **Dev-dependency findings are gated, but the debt is large and the toolchain is the fix.** 90 dev-only
    rows are recorded with owner `maintainer` and expiry `2027-02-08`; 29 of them are `vm2@3.11.5`, which is
    deprecated and has no fixed release, so only removing the Taro webpack5 runner clears them. A **new**
@@ -411,10 +424,13 @@ which clear only by removing the Taro webpack5 runner.
    `sbom-release` job, which regenerates it with `scripts/generate-sbom.sh` — the same script CI validates —
    and uploads it as a release asset. Signing it (Sigstore attestation) is still an open decision.
 9. **Required-check status is not in this tree.** Whether a red job blocks a merge is a GitHub setting.
-10. **Pull references outside YAML are not gated.** `deploy/deploy-offline.sh` checks staged images by tag,
-    `docs/manual/offline-deploy.md` §2.1 pins its `docker pull` lines to digests by hand, and the `IMAGE`
-    constant in `Server-NestJS/scripts/check-pg-migration-consistency.mjs:25` is a hand pin. The gate reads
-    YAML only; each of these can drift back to a floating tag without turning anything red.
+10. **Pull references outside YAML are gated, but only against the tree.** `check:pinned-images` reads
+    `docs/manual/offline-deploy.md` §2.1's `docker pull` lines and the `IMAGE` constant in
+    `Server-NestJS/scripts/check-pg-migration-consistency.mjs:25` (both must carry a well-formed digest
+    that agrees with the pinned reference for the same `repo:tag`), and `deploy/deploy-offline.sh`'s
+    `REQUIRED_IMAGES` (each tag must have a digest-pinned counterpart somewhere in the tree). What it
+    does **not** do is ask the registry whether a pinned digest still names the tag it claims — §4's
+    upgrade procedure is that check, at pin time.
 
 ---
 
@@ -507,7 +523,8 @@ node scripts/check-sbom-coverage.mjs [--selftest] [--sbom <path>] [--scan-log <p
 本门禁不覆盖的部分：
 
 - **镜像层与操作系统包。** 依赖扫描器不读镜像。另有一道门禁在推送前扫描由 `Dockerfile.single` 构建出的
-  镜像，另有一次每周定时运行记录已发布镜像与两个钉住基础的发现（见 §7）；compose 的 `web` 镜像仍未覆盖。
+  镜像，compose 的 `server` 镜像则在每次改动时构建并扫描；另有一次每周定时运行记录已发布镜像、两个钉住
+  基础与编排栈会拉的镜像的发现（见 §7）；compose 的 `web` 镜像仍未覆盖。
 - **编排里的运行时镜像与 CI service 镜像。** `image:` 不是锁文件，依赖扫描器不读它们。它们已按摘要钉住、
   由另一道门禁单独守（§4）；那道门禁查的是「钉没钉」，不是「镜像里有没有洞」。
 - **Gradle。** `Front-Flutter/android/app/build.gradle.kts` 不是锁文件，本仓也没有 JVM 扫描器。
@@ -665,8 +682,8 @@ OSV_SCANNER="D:/Rain6fish/.tools/osv-scanner/osv-scanner.exe" node scripts/check
 同一个 `pgvector/pgvector:pg17` 还出现在 `.github/workflows/ci.yml:142`
 （`migration-consistency-postgres` 的 service 容器）与
 `Server-NestJS/scripts/check-pg-migration-consistency.mjs:25` 的 `IMAGE` 常量。两处都带编排用的那个摘要
-（`sha256:7d0a…ccb8`），于是三处描述的是同一个镜像。工作流那一处由门禁覆盖；脚本常量不是 YAML 拉取
-引用，是手工钉的。
+（`sha256:7d0a…ccb8`），于是三处描述的是同一个镜像。工作流那一处是 YAML 拉取引用；脚本常量则是门禁
+对账的非 YAML 引用之一，对的是同一个钉子（§7.10）—— 任何一处漂移都会判红。
 
 ### 门禁
 
@@ -674,7 +691,11 @@ OSV_SCANNER="D:/Rain6fish/.tools/osv-scanner/osv-scanner.exe" node scripts/check
 `@sha256:<64 位十六进制>` 就判红，并点名文件与行号；两个方向都由 `scripts/check-pinned-images.test.mjs`
 覆盖。射程是所有会拉取的 YAML：树内任意 `docker-compose*.yml`（跳过 `node_modules`、`.git` 与
 `.claude`），以及 `.github/workflows/*.yml` 里 `services:` 或 `container:` 块内的 `image:`（`run:` 的
-heredoc 写着 `image:` 只是文本，测试里钉住了这一点）。shell 脚本与 markdown 里的拉取引用它不读 —— 见 §7。
+heredoc 写着 `image:` 只是文本，测试里钉住了这一点）。它还读 YAML 之外的三处引用（§7.10）：
+`docs/manual/offline-deploy.md` 的 `docker pull` 行与
+`Server-NestJS/scripts/check-pg-migration-consistency.mjs` 的 `IMAGE` 常量必须按摘要钉住、且与同一
+`repo:tag` 的钉子一致；`deploy/deploy-offline.sh` 的每个 `REQUIRED_IMAGES` 条目都要在树里有一处按摘要
+钉住的对应引用 —— 那份清单**有意**按标签查本地镜像。
 
 **升级一个已钉住的镜像。** 与 Dockerfile 同一条规则、同一个理由：
 
@@ -744,18 +765,24 @@ Dockerfile 钉的是 `sha256:3f4d…630a` —— 标签动了、被钉住的镜�
 
 1. **镜像层扫描覆盖的是已发布镜像，且仍有边界。** 这道门扫描 `Dockerfile.single` 构建出的镜像、
    **在推送之前**。新增的**每周定时**运行（`.github/workflows/image-scan-weekly.yml`，每周一 04:17 UTC）
-   把已发布 `:latest` 与两个钉住基础（`node:22-alpine`、`alpine:3.24`）的 HIGH/CRITICAL 发现记进 job summary
-   与 artifact。它保留**暂无修复**的条目 —— 门禁的判红步骤带 `--ignore-unfixed`，所以本读数的发现集有意更宽，
-   摘要把两种计数分开。它是**报告制** —— 退出码不作为门禁，因为上游基础镜像的修复不在本仓手里。
-   未覆盖：compose 的 `web`（nginx）镜像（按次部署构建）。钉住的 `node:22-alpine` 基础**本身**会判红
+   把已发布 `:latest`、两个钉住基础（`node:22-alpine`、`alpine:3.24`）以及编排栈会拉的镜像
+   （`pgvector/pgvector:pg17`、`redis:7-alpine`）的 HIGH/CRITICAL 发现记进 job summary 与 artifact。
+   它保留**暂无修复**的条目 —— 门禁的判红步骤带 `--ignore-unfixed`，所以本读数的发现集有意更宽，
+   摘要把两种计数分开。它是**报告制** —— 退出码不作为门禁，因为上游镜像的修复不在本仓手里。
+   未覆盖：compose 的 `web`（nginx）镜像（按次部署构建）—— 它的操作系统基座就是被扫的 `alpine:3.24`，
+   但装在其上的 nginx 包不被读到；走 profile 的 `ollama` 镜像与可观测栈也不在读数内。
+   钉住的 `node:22-alpine` 基础**本身**会判红
    （npm 自带模块里 10 条有修复的 HIGH；换标签也清不掉，见 §1），但发布镜像并不是那个基础：
    `Dockerfile.single` 的 `single` 阶段删掉了自带的 npm 目录与 `npm`/`npx` 两个入口，该镜像 2026-11-10
    在 `main` 上复测为**以 0 退出、0 条发现**。所以下一次发布既不需要升级基础，也不需要登记例外 ——
    `single` 阶段里保留那条 `RUN` 才是让门禁保持绿色的原因。把钉住的版本换到 `node:24-alpine`，实测经同一条
    删除也能到 0 条（见 §1），但那是另一项独立的决定，仍需做运行时兼容性复核；当前钉住的仍是 22。
-2. **编排镜像已钉摘要，但没有被扫描。** 每个编排镜像与 CI service 镜像都已钉住，由 `check:pinned-images`
-   守着（§4）；那道门禁查的是「钉没钉」，不是「镜像里有没有洞」，所以只有它与第 1 条里被扫的发布镜像
-   是同一个镜像时，里面的 CVE 才会被看见。
+2. **编排镜像里两个会拉取的已进扫描，其余的还没有。** compose 的 `server` 镜像 —— `docker compose up`
+   真正运行的那个，由 `server` / `governance` / `sidecar` 共用 —— 自 D4 起在每次改动时由
+   `compose-image-scan.yml` 构建并扫描。`pgvector/pgvector:pg17` 与 `redis:7-alpine` 进了每周读数（第 1 条）。
+   `web`（nginx）镜像仍只在部署时构建、`ollama` 走 profile、可观测栈不在两个读数内。对它们中的每一个，
+   `check:pinned-images` 查的都是「钉没钉」，不是「镜像里有没有洞」（§4）—— 未被扫描的那个里若有 CVE，
+   本仓没有读数。
 3. **开发依赖的发现已判红，但债很大、解法在工具链。** 90 条仅开发期的条目已登记，责任人 `maintainer`、
    到期 `2027-02-08`；其中 29 条是 `vm2@3.11.5` —— 它已废弃且没有修复版本，只有移除 Taro 的 webpack5
    runner 才能清掉。**新增**的开发期公告会判红；§6 已把这一条写成停止条件。
@@ -769,7 +796,9 @@ Dockerfile 钉的是 `sha256:3f4d…630a` —— 标签动了、被钉住的镜�
    `scripts/generate-sbom.sh` 重新生成（与 CI 验证的是同一个脚本），并作为 Release 资产上传。是否签名
    （Sigstore attestation）仍是待定决定。
 9. **必过检查的状态不在本树里。** 红的 job 是否阻止合并，是 GitHub 上的设置。
-10. **YAML 之外的拉取引用不进本门禁。** `deploy/deploy-offline.sh` 按标签查已预置的镜像、
-    `docs/manual/offline-deploy.md` §2.1 的 `docker pull` 行是按摘要手工钉的、
-    `Server-NestJS/scripts/check-pg-migration-consistency.mjs:25` 的 `IMAGE` 常量也是手工钉的。门禁只读
-    YAML；这几处都可能悄悄漂回浮动标签而不让任何东西变红。
+10. **YAML 之外的拉取引用已进本门禁，但只对树内对账。** `check:pinned-images` 会读
+    `docs/manual/offline-deploy.md` §2.1 的 `docker pull` 行与
+    `Server-NestJS/scripts/check-pg-migration-consistency.mjs:25` 的 `IMAGE` 常量（两处都必须带形状合法的
+    摘要，且与同一 `repo:tag` 的钉子一致），以及 `deploy/deploy-offline.sh` 的 `REQUIRED_IMAGES`
+    （每个标签都要在树里有一处按摘要钉住的对应引用）。它**不**做的是向镜像仓库确认某个钉子是否仍指向
+    标签所声称的版本 —— 那是 §4 升级流程在**钉的时候**做的检查。

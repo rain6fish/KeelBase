@@ -151,3 +151,72 @@ test('no compose file and no workflow is red — a gate that scanned nothing mus
   assert.equal(r.status, 1);
   assert.match(r.out, /neither docker-compose\*\.yml/);
 });
+
+// ---- references outside YAML (§7.10 of the manual) / YAML 之外的引用（手册 §7.10） ----
+
+const dockerfile = (ref) => `FROM ${ref} AS base\n`;
+const offlineSh = (tags) => `#!/bin/sh\nREQUIRED_IMAGES=( ${tags.map((t) => `"${t}"`).join(' ')} )\n`;
+const offlineMd = (ref) => '```bash\n' + `docker pull ${ref}\n` + '```\n';
+const pgMigration = (ref) => `const IMAGE = '${ref}';\n`;
+
+test('deploy-offline.sh tags that resolve to pinned references go green', () => {
+  const r = run({
+    'docker-compose.yml': compose(`image: pgvector/pgvector:pg17@${DIGEST}`),
+    Dockerfile: dockerfile(`node:22-alpine@${DIGEST}`),
+    'deploy/deploy-offline.sh': offlineSh(['pgvector/pgvector:pg17', 'node:22-alpine']),
+  });
+  assert.equal(r.status, 0, r.out);
+});
+
+test('a deploy-offline.sh tag with no digest-pinned counterpart goes red', () => {
+  const r = run({
+    'docker-compose.yml': compose(`image: pgvector/pgvector:pg17@${DIGEST}`),
+    'deploy/deploy-offline.sh': offlineSh(['redis:7-alpine']),
+  });
+  assert.equal(r.status, 1);
+  assert.match(r.out, /deploy-offline\.sh:2/);
+  assert.match(r.out, /redis:7-alpine/);
+  assert.match(r.out, /no digest-pinned counterpart/);
+});
+
+test('a docker pull line without a digest goes red', () => {
+  const r = run({
+    'docker-compose.yml': compose(`image: redis:7-alpine@${DIGEST}`),
+    'docs/manual/offline-deploy.md': offlineMd('redis:7-alpine'),
+  });
+  assert.equal(r.status, 1);
+  assert.match(r.out, /offline-deploy\.md:2/);
+  assert.match(r.out, /not digest-pinned/);
+});
+
+test('a docker pull digest that disagrees with the compose pin goes red', () => {
+  const other = 'sha256:' + 'b'.repeat(64);
+  const r = run({
+    'docker-compose.yml': compose(`image: redis:7-alpine@${DIGEST}`),
+    'docs/manual/offline-deploy.md': offlineMd(`redis:7-alpine@${other}`),
+  });
+  assert.equal(r.status, 1);
+  assert.match(r.out, /digest differs/);
+  assert.match(r.out, new RegExp(DIGEST));
+});
+
+test('the pg-migration IMAGE digest must agree with the compose pin', () => {
+  const other = 'sha256:' + 'b'.repeat(64);
+  const r = run({
+    'docker-compose.yml': compose(`image: pgvector/pgvector:pg17@${DIGEST}`),
+    'Server-NestJS/scripts/check-pg-migration-consistency.mjs': pgMigration(`pgvector/pgvector:pg17@${other}`),
+  });
+  assert.equal(r.status, 1);
+  assert.match(r.out, /check-pg-migration-consistency\.mjs/);
+  assert.match(r.out, /digest differs/);
+});
+
+test('non-YAML references that agree with the pins go green', () => {
+  const r = run({
+    'docker-compose.yml': compose(`image: pgvector/pgvector:pg17@${DIGEST}`),
+    'docs/manual/offline-deploy.md': offlineMd(`redis:7-alpine@${DIGEST}`),
+    'Server-NestJS/scripts/check-pg-migration-consistency.mjs': pgMigration(`pgvector/pgvector:pg17@${DIGEST}`),
+    'deploy/deploy-offline.sh': offlineSh(['pgvector/pgvector:pg17']),
+  });
+  assert.equal(r.status, 0, r.out);
+});

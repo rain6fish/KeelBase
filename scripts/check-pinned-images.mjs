@@ -16,6 +16,14 @@
  * workflow is a pull reference — a `run:` heredoc that mentions `image:` is text — so the workflow scan
  * follows those blocks instead of every line.
  *
+ * Three references live outside YAML: the `docker pull` lines in `docs/manual/offline-deploy.md`, the
+ * `IMAGE` constant in `Server-NestJS/scripts/check-pg-migration-consistency.mjs`, and the
+ * `REQUIRED_IMAGES` list in `deploy/deploy-offline.sh` (§7.10 of the manual). The first two must be
+ * digest-pinned and must agree with the pinned reference for the same `repo:tag`; the third looks images
+ * up by tag on purpose — `docker image inspect` matches tags/IDs — so its entries only need a
+ * digest-pinned counterpart somewhere in the tree. Without this half, any of them could drift back to a
+ * floating tag and nothing would go red.
+ *
  * It checks the reference, not the registry: whether the digest still points at the version the tag names
  * is answered at pin time (read the manifest, hash it, compare — §4), not on every CI run. Checking the
  * registry here would make the gate depend on network availability and turn a red build into a stranger's
@@ -31,6 +39,13 @@
  * 射程：树内任意 `docker-compose*.yml`（跳过点目录与 `node_modules`），以及 `.github/workflows/*.yml`
  * 里 `services:` 或 `container:` 块内的 `image:`。工作流里其余写着 `image:` 的地方都不是拉取引用 ——
  * `run:` 的 heredoc 只是文本 —— 所以工作流扫描跟着这些块走，而不是逐行匹配。
+ *
+ * 有三处引用在 YAML 之外：`docs/manual/offline-deploy.md` 的 `docker pull` 行、
+ * `Server-NestJS/scripts/check-pg-migration-consistency.mjs` 的 `IMAGE` 常量，以及
+ * `deploy/deploy-offline.sh` 的 `REQUIRED_IMAGES` 清单（手册 §7.10）。前两处必须按摘要钉住，且与同一
+ * `repo:tag` 的钉点摘要一致；第三处**有意**按标签查本地镜像（`docker image inspect` 匹配标签/ID），
+ * 所以只要求每个条目在树里有一处按摘要钉住的对应引用。没有这一半，任何一处都可能悄悄漂回浮动标签而
+ * 不让任何东西变红。
  *
  * 它只查引用，不查镜像仓库：摘要是否仍指向标签所声称的那个版本，在**钉的时候**回答（读清单、算哈希、
  * 比对 —— §4），而不是每次 CI。在这里查仓库会让本闸依赖网络，把一次红构建变成陌生人的一次故障。
@@ -133,6 +148,115 @@ export function floatingWorkflowImages(root, file) {
   return floats;
 }
 
+const NON_YAML_DIGEST_REFS = [
+  { file: 'docs/manual/offline-deploy.md', pattern: /^\s*docker pull\s+(\S+)\s*$/gm, label: 'docker pull' },
+  { file: 'Server-NestJS/scripts/check-pg-migration-consistency.mjs', pattern: /const IMAGE = '([^']+)'/g, label: 'IMAGE' },
+];
+const NON_YAML_TAG_LIST = {
+  file: 'deploy/deploy-offline.sh',
+  pattern: /REQUIRED_IMAGES=\(([\s\S]*?)\)/,
+  label: 'REQUIRED_IMAGES',
+};
+
+const repoTagOf = (ref) => ref.split('@')[0];
+const digestOf = (ref) => {
+  const m = /@(sha256:[0-9a-f]{64})$/.exec(ref);
+  return m ? m[1] : null;
+};
+
+/**
+ * Digest-pinned references in the tree, keyed by `repo:tag`: compose `image:` values and Dockerfile
+ * `FROM` lines. This is the yardstick the non-YAML references are compared against.
+ * 树里按摘要钉住的引用，按 `repo:tag` 索引：编排的 `image:` 与 Dockerfile 的 `FROM`。这是非 YAML 引用
+ * 的对账基准。
+ */
+export function pinnedIndex(root) {
+  const index = new Map();
+  const add = (ref) => {
+    const digest = digestOf(ref);
+    if (digest) index.set(repoTagOf(ref), digest);
+  };
+  for (const file of composeFiles(root)) {
+    for (const raw of readLines(root, file)) {
+      const ref = refOf(raw.trim());
+      if (ref) add(ref);
+    }
+  }
+  for (const file of fs.readdirSync(root).filter((f) => /^Dockerfile/.test(f))) {
+    if (!fs.statSync(path.join(root, file)).isFile()) continue;
+    for (const raw of readLines(root, file)) {
+      const m = /^FROM\s+(\S+)/.exec(raw.trim());
+      if (m) add(m[1]);
+    }
+  }
+  return index;
+}
+
+/**
+ * Pull references that live outside YAML and are not pinned (§7.10 of the manual). Missing files are a
+ * violation only against the real repository root, where all three are expected to exist; a fixture tree
+ * may carry just the one it is testing.
+ * 在 YAML 之外、且未按摘要钉住的拉取引用（手册 §7.10）。文件缺失只对真实仓根算违规 —— 那里三处都该在；
+ * 夹具树可以只带它正在测的那一处。
+ */
+export function floatingNonYamlRefs(root) {
+  const index = pinnedIndex(root);
+  const out = [];
+  const strict = path.resolve(root) === REPO_ROOT;
+
+  for (const spec of NON_YAML_DIGEST_REFS) {
+    const file = path.join(root, spec.file);
+    if (!fs.existsSync(file)) {
+      if (strict) out.push({ file: spec.file, line: 0, ref: '(file not found)', why: 'missing' });
+      continue;
+    }
+    const text = fs.readFileSync(file, 'utf8');
+    for (const m of text.matchAll(spec.pattern)) {
+      const ref = m[1];
+      const line = text.slice(0, m.index).split('\n').length;
+      const digest = digestOf(ref);
+      if (!digest) {
+        out.push({ file: spec.file, line, ref, why: 'not digest-pinned' });
+        continue;
+      }
+      const canonical = index.get(repoTagOf(ref));
+      if (canonical && canonical !== digest) {
+        out.push({
+          file: spec.file,
+          line,
+          ref,
+          why: `digest differs from the pinned ${repoTagOf(ref)} (${canonical})`,
+        });
+      }
+    }
+  }
+
+  const listFile = path.join(root, NON_YAML_TAG_LIST.file);
+  if (!fs.existsSync(listFile)) {
+    if (strict) out.push({ file: NON_YAML_TAG_LIST.file, line: 0, ref: '(file not found)', why: 'missing' });
+    return out;
+  }
+  const text = fs.readFileSync(listFile, 'utf8');
+  const block = NON_YAML_TAG_LIST.pattern.exec(text);
+  if (!block) {
+    out.push({
+      file: NON_YAML_TAG_LIST.file,
+      line: 0,
+      ref: NON_YAML_TAG_LIST.label,
+      why: "list not found — this gate's scope is stale",
+    });
+    return out;
+  }
+  const line = text.slice(0, block.index).split('\n').length;
+  for (const m of block[1].matchAll(/"([^"]+)"/g)) {
+    const ref = m[1];
+    if (!index.has(repoTagOf(ref))) {
+      out.push({ file: NON_YAML_TAG_LIST.file, line, ref, why: 'no digest-pinned counterpart in the tree' });
+    }
+  }
+  return out;
+}
+
 function main(argv) {
   const rootAt = argv.indexOf('--root');
   const root = rootAt === -1 ? REPO_ROOT : path.resolve(argv[rootAt + 1] ?? '');
@@ -156,10 +280,17 @@ function main(argv) {
     ...compose.flatMap((f) => floatingImages(root, f)),
     ...workflows.flatMap((f) => floatingWorkflowImages(root, f)),
   ];
+  const nonYaml = floatingNonYamlRefs(root);
 
-  if (floats.length > 0) {
-    console.error(`\n[pinned-images] ${floats.length} 条 image 未按摘要钉住 / not digest-pinned:\n`);
-    for (const f of floats) console.error(`  ✗ ${f.file}:${f.line}  ${f.ref}`);
+  if (floats.length + nonYaml.length > 0) {
+    if (floats.length > 0) {
+      console.error(`\n[pinned-images] ${floats.length} 条 image 未按摘要钉住 / not digest-pinned:\n`);
+      for (const f of floats) console.error(`  ✗ ${f.file}:${f.line}  ${f.ref}`);
+    }
+    if (nonYaml.length > 0) {
+      console.error(`\n[pinned-images] ${nonYaml.length} 处 YAML 之外的引用未对账 / non-YAML reference not accounted for:\n`);
+      for (const f of nonYaml) console.error(`  ✗ ${f.file}:${f.line}  ${f.ref}  — ${f.why}`);
+    }
     console.error(
       `\n改成 <repo>:<version>@sha256:<digest>：钉的时候从镜像仓库现读摘要并核验，别抄报告。\n` +
         `Pin it as <repo>:<version>@sha256:<digest> — read the digest from the registry at pin time and verify it; never copy one out of a report.\n` +
@@ -173,7 +304,8 @@ function main(argv) {
     0,
   );
   console.log(
-    `[pinned-images] ${pinned} 条 image 全部按摘要钉住（${compose.length} 份编排文件 + ${workflows.length} 份 workflow）✓`,
+    `[pinned-images] ${pinned} 条 image 全部按摘要钉住（${compose.length} 份编排文件 + ${workflows.length} 份 workflow）；` +
+      `另对账 ${NON_YAML_DIGEST_REFS.length + 1} 处非 YAML 来源 ✓ / ${pinned} images pinned, non-YAML sources reconciled`,
   );
 }
 
