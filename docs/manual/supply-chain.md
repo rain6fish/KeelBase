@@ -412,8 +412,10 @@ which clear only by removing the Taro webpack5 runner.
    `CREATE EXTENSION vector` verified on a running container reads **44** as well, because a
    source-built extension adds no package-managed entry. Two neighbouring bases were measured and are
    no better: `pgvector/pgvector:pg17-trixie` (Debian 13.7) reads **151**, and the current
-   `postgres:17-alpine` tag (`sha256:b0f9560a…`) reads **47**. Accepting the 137 as known, registering
-   exceptions in `.trivyignore.yaml`, or switching the base are all still open decisions; no pin,
+   `postgres:17-alpine` tag (`sha256:b0f9560a…`) reads **47**. On 2026-11-12 the maintainer **accepted
+   the 137 as a known reading**: the weekly run stays report-only, no exceptions are registered in
+   `.trivyignore.yaml`, and the base is not switched — so the number stays visible every week.
+   Registering exceptions or moving to a different base remain available as later decisions; no pin,
    exception entry or image was changed for this reading.
 
    Not covered: the compose `web` (nginx) image, which is built per deploy — its OS base is the scanned
@@ -812,8 +814,9 @@ Dockerfile 钉的是 `sha256:3f4d…630a` —— 标签动了、被钉住的镜�
    26 条）；在同一基础上从源码编译 pgvector 0.8.1、并在运行中的容器里验证 `CREATE EXTENSION vector`
    之后，读数仍是 **44** 条，因为源码编译的扩展不产生任何包管理条目。另外两个邻近基座也测了，都不更好：
    `pgvector/pgvector:pg17-trixie`（Debian 13.7）读出 **151** 条，
-   `postgres:17-alpine` 当前标签（`sha256:b0f9560a…`）读出 **47** 条。接受这 137 条为已知、
-   在 `.trivyignore.yaml` 登记例外、还是更换基座，三者都仍是**待裁决定**；本次读数没有改动
+   `postgres:17-alpine` 当前标签（`sha256:b0f9560a…`）读出 **47** 条。2026-11-12 维护者已裁
+   **接受这 137 条为已知读数**：每周运行保持报告制，不在 `.trivyignore.yaml` 登记例外，
+   也不更换基座 —— 这个数字每周仍如实可见。登记例外或换基座仍可作为后续决定；本次读数没有改动
    任何钉点、例外条目或镜像。
 
    未覆盖：compose 的 `web`（nginx）镜像（按次部署构建）—— 它的操作系统基座就是被扫的 `alpine:3.24`，
