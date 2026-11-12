@@ -381,7 +381,7 @@ describe('AW-2 audit reader: field whitelist + org/period scope', () => {
         // The projection's whole field set — an argument column could not hide in it.
         // 投影的完整字段集 —— 参数列无处可藏。
         expect(Object.keys(row).sort()).toEqual(
-          ['ageMinutes', 'agentId', 'argsHash', 'attempts', 'authorizationRef', 'claimedAt', 'conversationId', 'decidedRole', 'decisionState', 'id', 'lastLookup', 'policyRevision', 'reconcilable', 'runId', 'stale', 'status', 'toolName', 'userId'].sort(),
+          ['ageMinutes', 'agentId', 'argsHash', 'attempts', 'authorizationRef', 'autoReconcileDueAt', 'autoReconcileStopped', 'claimedAt', 'conversationId', 'decidedRole', 'decisionState', 'id', 'lastLookup', 'lookupCount', 'policyRevision', 'reconcilable', 'runId', 'stale', 'status', 'toolName', 'userId'].sort(),
         );
         // AW-17: no lookup was ever recorded ⇒ the reading is "not looked up", never "executed"; and a
         // tool with no status query is reported as **not reconcilable** rather than offered as if it were.
