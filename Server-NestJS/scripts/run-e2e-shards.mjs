@@ -31,6 +31,7 @@ import { fileURLToPath } from 'node:url';
 import libCoverage from 'istanbul-lib-coverage';
 import libReport from 'istanbul-lib-report';
 import istanbulReports from 'istanbul-reports';
+import { warnIfKnownE2eCrashRuntime } from './lib/e2e-runtime-guard.mjs';
 
 const SHARDS = 4;
 const MAX_ATTEMPTS = 3; // 首跑 + 最多 2 次重试（仅针对「未产出汇总行」的崩溃）
@@ -147,6 +148,8 @@ function mergeCoverage() {
   fs.rmSync(covShards, { recursive: true, force: true });
   console.log(`\n覆盖率：已合并 ${merged}/${SHARDS} 片 → ${path.relative(root, covDir)}/lcov.info`);
 }
+
+warnIfKnownE2eCrashRuntime();
 
 const failed = [];
 const crashedOut = [];
