@@ -80,12 +80,15 @@ report the same packages twice. `isShadowed` skips any lockfile whose directory 
   advisories, `Web-Admin-React` `source-map-js` under one); a second, after `Front-Taro`'s dev-only
   `node-forge` moved 1.4.0 → 1.4.3 (reached through `selfsigned`), removed the six stale `node-forge`
   rows and found no new ones. The baseline now holds **95 rows: 5 production + 90 dev-only, 63 HIGH + 32
-  CRITICAL**, with `generatedAt` `2026-11-11`. Backend dev dependencies are still **shipped** in the
-  compose deployment — `server-build` runs a plain `npm ci` (no `--omit=dev`) and the whole
-  `node_modules` is copied into the runtime image — so a future `Server-NestJS` dev finding is present
-  in the deployed artefact. They are no longer **executed** there: since CR-23 the deploy-time admin and
-  seed entry points run as compiled `node build-scripts/scripts/*.js`, so `ts-node` and `typescript` are
-  needed only during the build. That tree has no such finding today.
+  CRITICAL**, with `generatedAt` `2026-11-11`. Backend dev dependencies are **not shipped** in the
+  compose deployment: `server-build` still installs them with `npm ci` (the build needs `nest` and
+  `typescript`), but the stage runs `npm prune --omit=dev` after its last build step, and only the
+  pruned tree is copied into the runtime image. So a `Server-NestJS` dev finding can no longer reach
+  the deployed artefact — it is a build-time exposure only. These dependencies are also not **executed**
+  there: since CR-23 the deploy-time admin and seed entry points run as compiled
+  `node build-scripts/scripts/*.js`. `ts-node` and `typescript` survive the prune only because `typeorm`
+  declares `ts-node` as an optional peer dependency, which keeps both reachable from the production
+  tree; nothing in the runtime stage runs them. That tree has no such finding today.
 - **The SBOM is one full-tree CycloneDX 1.6 document.** CI runs the pinned scanner with
   `scan source -r … --format cyclonedx-1-6 --all-packages --no-ignore`. `--all-packages` is required:
   without it the output contains only components that have vulnerabilities (74 components vs 2631 on
@@ -473,10 +476,12 @@ which clear only by removing the Taro webpack5 runner.
   在两条公告下、`Web-Admin-React` 的 `source-map-js` 在一条公告下）；第二轮里 `Front-Taro` 仅开发期的
   `node-forge` 由 1.4.0 升到 1.4.3（经 `selfsigned` 引入），六条陈旧的 `node-forge` 登记被清掉、无新增。
   基线现在共 **95 行：生产 5 + 开发 90，63 条 HIGH + 32 条 CRITICAL**，`generatedAt` 为 `2026-11-11`。
-  后端开发依赖在编排部署里**仍会被打进镜像** —— `server-build` 跑的是未带 `--omit=dev` 的 `npm ci`、整个
-  `node_modules` 被复制进运行镜像 —— 所以将来 `Server-NestJS` 的一条开发发现，会出现在交付物里。但它们
-  不再在部署时**执行**：CR-23 之后建管理员与种子入口改跑编译好的 `node build-scripts/scripts/*.js`，
-  `ts-node` 与 `typescript` 只在构建期需要；该树今天没有这类发现。
+  后端开发依赖在编排部署里**不会进镜像**：`server-build` 仍用 `npm ci` 装上它们（构建期要 `nest` 与
+  `typescript`），但该阶段在最后一个构建步骤之后执行 `npm prune --omit=dev`，被复制进运行镜像的只是剪过
+  的那棵树。所以 `Server-NestJS` 的一条开发发现进不了交付物 —— 它只是构建期的暴露面。这些依赖也不在部署时
+  **执行**：CR-23 之后建管理员与种子入口改跑编译好的 `node build-scripts/scripts/*.js`。`ts-node` 与
+  `typescript` 之所以残留在剪过的树里，只是因为 `typeorm` 把 `ts-node` 声明为可选 peer 依赖、两者因而
+  仍从生产树可达；运行阶段没有任何东西跑它们。该树今天没有这类发现。
 - **SBOM 是一份全仓 CycloneDX 1.6 文档。** CI 用钉住的扫描器跑
   `scan source -r … --format cyclonedx-1-6 --all-packages --no-ignore`。`--all-packages` 是必需的：
   不带它时输出只含「有漏洞的组件」（2026-11-10 实测：74 个组件 vs 带上后的 2631 个），那是漏洞报告、
