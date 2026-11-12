@@ -27,7 +27,7 @@ Related manuals / 相关手册：
 # (digests: docs/manual/supply-chain.md §4; the web base is alpine:3.24 since 2026-09-26, not nginx:alpine)
 # （摘要见 docs/manual/supply-chain.md §4；web 基座自 2026-09-26 起是 alpine:3.24，不再是 nginx:alpine）
 docker pull pgvector/pgvector:pg17@sha256:7d0a41464797aeb9862dfdc0bbf1526b82cfd324cdd8036df19e3545f4a9ccb8
-docker pull redis:7-alpine@sha256:c5d34a98396a4775e223c74e929162c35c5a2182901ba26b50ade939941ce14b
+docker pull redis:7-alpine@sha256:7f7d30b7fdd09467bac58198a1f166dd69789d348d4fe859cccb20e0cf287fbe
 docker pull node:22-alpine@sha256:0e1754758c2df4cfa3e68d59e2e1b7374bb7fd9ea6328eaaacf15cc934af8202
 docker pull alpine:3.24@sha256:3f4d6b32e26703c6082839234f43769d5046b3ac7c910033911d1e71d8cd630a
 # Build the base image / 构建本基座镜像
