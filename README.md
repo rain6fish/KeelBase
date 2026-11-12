@@ -240,7 +240,7 @@ The core is UI-framework-agnostic; Flutter / Vue / React are Renderers ([archite
 
 ---
 
-<!-- BEGIN keelbase-family:en sha256:92e82fd34f0a15d22b119841121b79f97caa1bfb8f5d77dcdcf73002c9257be0 -->
+<!-- BEGIN keelbase-family:en sha256:a9018cd792f0bda42726d79527bdb0310a1da0e268d2b05f2fed603dab417db6 -->
 ## 🧬 The KeelBase family
 
 <p align="center">
@@ -252,7 +252,7 @@ The core is UI-framework-agnostic; Flutter / Vue / React are Renderers ([archite
 > owns it. Every repository here is **Apache-2.0**.
 
 ```text
-  host adapters   KeelBase-YuDao
+  host adapters   KeelBase-Vue-Pro
                   └ governance added to a mature enterprise platform (yudao)
 
   runtimes        KeelBase (TypeScript)   ·   KeelBase4J (Java / Spring)
@@ -270,13 +270,13 @@ The core is UI-framework-agnostic; Flutter / Vue / React are Renderers ([archite
 | [`KeelBase`](https://github.com/rain6fish/KeelBase) | Reference implementation · product documentation · demo | TypeScript · NestJS · Vue · Flutter · Taro | active |
 | [`KeelBase4J`](https://github.com/rain6fish/KeelBase4J) | The Java carrier of the same protocol | Java 17 · Spring Boot | active |
 | [`KeelBase-java-starter`](https://github.com/rain6fish/KeelBase-java-starter) | Wire an existing Java/Spring system in as governed AI tools | Maven · Gradle | 0.1.x |
-| [`KeelBase-YuDao`](https://github.com/rain6fish/KeelBase-YuDao) | Host adapter — the governance layer on a yudao platform | Java · Vue 3 | active |
+| [`KeelBase-Vue-Pro`](https://github.com/rain6fish/KeelBase-Vue-Pro) | Host adapter — the governance layer on a yudao platform | Java · Vue 3 | active |
 | [`keelbase-contract`](https://github.com/rain6fish/keelbase-contract) | The protocol itself — schemas, vectors, the version line | JSON Schema | v1.x |
 
 **Where to start** — see it run: [`KeelBase`](https://github.com/rain6fish/KeelBase) (60-second
 Docker) · make an existing Java system AI-capable:
 [`KeelBase-java-starter`](https://github.com/rain6fish/KeelBase-java-starter) · you already run yudao:
-[`KeelBase-YuDao`](https://github.com/rain6fish/KeelBase-YuDao) · implement the protocol:
+[`KeelBase-Vue-Pro`](https://github.com/rain6fish/KeelBase-Vue-Pro) · implement the protocol:
 [`keelbase-contract`](https://github.com/rain6fish/keelbase-contract).
 
 **Read the series** — the long-form essays behind these decisions, on AI execution governance and

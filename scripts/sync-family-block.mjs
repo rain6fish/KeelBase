@@ -65,8 +65,8 @@ const TARGETS = [
   },
   { dir: path.resolve(ROOT, '..', 'KeelBase4J'), file: 'README.md', regions: ['en'], anchor: '## What this is' },
   { dir: path.resolve(ROOT, '..', 'KeelBase4J'), file: 'README.zh-CN.md', regions: ['zh'], anchor: '## 这是什么' },
-  { dir: path.resolve(ROOT, '..', 'KeelBase-YuDao'), file: 'README.md', regions: ['en'], anchor: '## What this is' },
-  { dir: path.resolve(ROOT, '..', 'KeelBase-YuDao'), file: 'README.zh-CN.md', regions: ['zh'], anchor: '## 这是什么' },
+  { dir: path.resolve(ROOT, '..', 'KeelBase-Vue-Pro'), file: 'README.md', regions: ['en'], anchor: '## What this is' },
+  { dir: path.resolve(ROOT, '..', 'KeelBase-Vue-Pro'), file: 'README.zh-CN.md', regions: ['zh'], anchor: '## 这是什么' },
   {
     dir: path.resolve(ROOT, '..', 'KeelBase-java-starter'),
     file: 'README.md',
@@ -88,7 +88,7 @@ const TARGETS = [
 const MIRRORS = [
   { dir: path.resolve(ROOT, '..', 'keelbase-contract'), file: 'runner/check-family-block.mjs' },
   { dir: path.resolve(ROOT, '..', 'KeelBase4J'), file: 'scripts/check-family-block.mjs' },
-  { dir: path.resolve(ROOT, '..', 'KeelBase-YuDao'), file: 'scripts/check-family-block.mjs' },
+  { dir: path.resolve(ROOT, '..', 'KeelBase-Vue-Pro'), file: 'scripts/check-family-block.mjs' },
   { dir: path.resolve(ROOT, '..', 'KeelBase-java-starter'), file: 'scripts/check-family-block.mjs' },
 ];
 
