@@ -36,6 +36,10 @@ updates:
       timezone: "Asia/Shanghai"
     open-pull-requests-limit: 0
 
+  # 2026-11-12 freeze: every Taro update is paused by user decision — version updates stay off
+  # through `open-pull-requests-limit: 0`, and a Taro security PR is reported, not merged.
+  # 2026-11-12 冻结：Taro 的所有更新按用户决定暂停 —— 普通更新由 `open-pull-requests-limit: 0` 关闭；
+  # Taro 的安全更新 PR 只报告、不合并。
   # Taro 小程序 / H5（npm / pnpm lockfile）
   - package-ecosystem: npm
     directory: /Front-Taro
