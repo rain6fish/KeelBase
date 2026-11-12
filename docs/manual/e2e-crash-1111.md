@@ -102,6 +102,10 @@
 | Docker 运行镜像 | **node:22-alpine**（按 digest 固定） |
 | `engines.node`（根与 `Server-NestJS`） | `>=22` |
 
+`Server-NestJS/scripts/run-e2e-shards.mjs` 起跑前会过一道守卫（`scripts/lib/e2e-runtime-guard.mjs`）：
+Windows + Node 24 低于 24.19.0 时打印一条指向本页的警告。它**只警告、不退出** —— 这个崩是概率性的，
+重试后仍可能跑绿，不属于「脚本无法工作」；`engines` 也保持 `>=22`，因为 CI 的 Node 22 / Linux 不在影响面内。
+
 ⇒ CI 与产线镜像都在 22 上、且跑在 Linux，不在本缺陷已报告的 Windows 影响面内（未在 CI/Linux 上验证）。若要回到与 CI 完全一致，需在 node 22 下重建原生插件（ABI 127 与本机现场编译的 137 不兼容）。
 
 ## 7. 未验
