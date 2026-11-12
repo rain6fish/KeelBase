@@ -118,12 +118,15 @@ describe('AW-16 在途 claim 只读查询面', () => {
         'argsHash',
         'attempts',
         'authorizationRef',
+        'autoReconcileDueAt',
+        'autoReconcileStopped',
         'claimedAt',
         'conversationId',
         'decidedRole',
         'decisionState',
         'id',
         'lastLookup',
+        'lookupCount',
         'policyRevision',
         'reconcilable',
         'runId',
@@ -396,6 +399,87 @@ describe('AW-16 在途 claim 只读查询面', () => {
       await expect(
         service.lookupsFor(9999, { userId: 1, role: UserRole.ADMIN }),
       ).resolves.toBeNull();
+    });
+  });
+
+  /**
+   * F-79: the automatic re-ask, read off the rows that already exist. There is no new column and no
+   * migration — the count of evidence rows is the count of asks, and the cap it is compared against
+   * comes with the page. These cases pin what an operator can see: **how many times we asked** and
+   * **whether asking has stopped** — the reading that used to exist only as a log line.
+   *
+   * F-79：自动重问，读的是**已经存在**的行。不加列、不写迁移 —— 证据行数是询问次数，对比的上限随页带出。
+   * 这些用例钉住运维看得见的东西：**问过几次**、**是否已停** —— 此前这只存在于一行日志里的读数。
+   */
+  describe('F-79：有界自动重问的读数（已问几次 / 已停止）', () => {
+    const queued = (key: string, over: Partial<AiWriteClaim> = {}) =>
+      claim({
+        idempotencyKey: key,
+        toolName: 'proxy_send',
+        claimedAt: new Date(Date.now() - 3 * 60 * 60_000),
+        decisionState: WRITE_CLAIM_DECISION_STATE.AWAITING_DECISION,
+        ...over,
+      });
+
+    it('页上带出上限；没问过的行：`lookupCount: 0`、未停止、给出下一次到期时刻', async () => {
+      probe.canAsk.mockReturnValue(true);
+      await queued('due');
+
+      const res = await service.list({});
+
+      expect(res.autoReconcileMaxAttempts).toBe(4);
+      const row = res.items[0];
+      expect(row.lookupCount).toBe(0);
+      expect(row.autoReconcileStopped).toBe(false);
+      // 3 小时前占位、一次没问过 ⇒ 第一档 +1h 早已到期；这里只断言时刻存在，判据由计划用例钉。
+      expect(row.autoReconcileDueAt).toBeTruthy();
+    });
+
+    it('问满上限 ⇒ `autoReconcileStopped: true`，且不再给到期时刻', async () => {
+      probe.canAsk.mockReturnValue(true);
+      await queued('parked');
+      for (let i = 1; i <= 4; i++) await lookup('parked');
+
+      const res = await service.list({});
+
+      expect(res.items[0]).toMatchObject({
+        lookupCount: 4,
+        autoReconcileStopped: true,
+        autoReconcileDueAt: null,
+      });
+    });
+
+    it('仍 `open`（还没进待裁队列）⇒ 不排期：停止为假，但到期时刻为 `null`', async () => {
+      probe.canAsk.mockReturnValue(true);
+      await queued('inflight', { decisionState: WRITE_CLAIM_DECISION_STATE.OPEN });
+
+      const row = (await service.list({})).items[0];
+
+      expect(row.autoReconcileStopped).toBe(false);
+      expect(row.autoReconcileDueAt).toBeNull();
+    });
+
+    it('目标问不了 ⇒ 不排期（「问不了」由 `reconcilable` 表达，不在这里重复）', async () => {
+      await queued('unaskable', { toolName: 'create_todo' });
+
+      const row = (await service.list({})).items[0];
+
+      expect(row.reconcilable).toBe(false);
+      expect(row.autoReconcileDueAt).toBeNull();
+      expect(row.autoReconcileStopped).toBe(false);
+    });
+
+    it('`lookupCount` 就是查询历史条数（与 `/lookups` 的 `total` 同源，不是另一个计数器）', async () => {
+      probe.canAsk.mockReturnValue(true);
+      const row = await queued('same-source');
+      await lookup('same-source');
+      await lookup('same-source');
+
+      const list = await service.list({});
+      const history = await service.lookupsFor(row.id, { userId: 1, role: UserRole.ADMIN });
+
+      expect(list.items[0].lookupCount).toBe(history?.total);
+      expect(list.items[0].lookupCount).toBe(2);
     });
   });
 });

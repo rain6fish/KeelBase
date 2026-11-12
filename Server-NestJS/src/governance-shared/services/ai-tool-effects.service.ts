@@ -2,7 +2,7 @@
 
 import { Injectable, Logger, Optional, Inject } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
 import { EffectComparability } from '../entities/effect-comparability.entity';
 import { AiWriteClaim, WRITE_CLAIM_DECISION_STATE, WRITE_CLAIM_STATUS } from '../entities/ai-write-claim.entity';
@@ -21,6 +21,7 @@ import { TOOL_REGISTRY } from '../di-tokens';
 import type { DeclaredSideEffect } from './effect-composition';
 import { ConfigService } from '@nestjs/config';
 import { staleThresholdMinutes } from '../../governance-core/revoke-staleness';
+import { claimReconcilePlan, claimReconcileSchedule } from '../../governance-core/claim-reconcile-schedule';
 import { SideEffectSnapshotCaptor } from './side-effect-snapshot-captor';
 import { buildKey, memberKey } from './effect-shared';
 import { EffectChainWriter } from './effect-chain';
@@ -33,6 +34,7 @@ import { EffectProjection } from './effect-projection';
 import {
   EXTERNAL_REVOKER,
   TARGET_STATUS_PROBE,
+  type ClaimAutoReconcileSummary,
   type ReconcileClaimResult,
   type RevokeBatchResult,
   type RevokeClaimOutcome,
@@ -58,6 +60,7 @@ export { sortKeys } from './effect-shared';
 // deliberately absent: it was never part of that surface.
 export {
   EXTERNAL_REVOKER,
+  type ClaimAutoReconcileSummary,
   type RevokeBatchResult,
   type RevokeCascadeSummary,
   type RevokeClaimOutcome,
@@ -73,6 +76,22 @@ export {
 } from './tool-effects.types';
 
 /**
+ * F-79: the actor recorded in `looked_up_by` when the hourly sweep asks — **who asked**, which is a
+ * different fact from **whose identity the query carried** (`as_user_id`, always the original writer).
+ *
+ * It is deliberately not `'0'`: that value is the tool gate's privileged sentinel (the system account
+ * that skips the role allow-list), and reusing it here would claim a privilege this call does not
+ * have. This string names a scheduler, and nothing on the authorization path reads it.
+ *
+ * F-79：每小时清扫发起询问时记入 `looked_up_by` 的执行者 —— **谁问的**，这与**查询携带了谁的身份**
+ *（`as_user_id`，永远是原写入者）是两件事。
+ *
+ * 有意不用 `'0'`：那是工具门控的特权哨兵（跳过角色白名单的系统账号），在这里复用等于声称一次本调用
+ * 并不具备的特权。这个字符串命名的是一个调度器，授权路径上没有任何东西读它。
+ */
+export const SYSTEM_SWEEP_LOOKUP_ACTOR = 'system:sweep';
+
+/**
  * HS-3 写工具幂等与补偿：
  * - 幂等：同会话同工具同参数（idempotencyKey）重复调用返回已有结果，防 LLM 重试/并发重复创建
  * - 可撤销：记录副作用（resultType+resultId），管理台可软删对应 event/todo（衔接 RG-3 回收站）
@@ -80,6 +99,8 @@ export {
 @Injectable()
 export class AiToolEffectsService {
   private readonly logger = new Logger(AiToolEffectsService.name);
+  /** F-79: one automatic reconcile pass at a time (see `reconcileDueClaims`). / F-79：同一时刻只跑一趟。 */
+  private _reconcilePassRunning = false;
 
   constructor(
     @InjectRepository(AiToolSideEffect)
@@ -437,6 +458,175 @@ export class AiToolEffectsService {
           : WRITE_CLAIM_STATUS.RELEASED,
       evidence,
     };
+  }
+
+  /**
+   * F-79: the hourly sweep's half of reconciliation — ask the target again, **a bounded number of
+   * times**, on a decaying schedule, then park the row and let the read surface say it is parked.
+   *
+   * Before this, a hold in `awaiting_decision` was a question nobody asked twice: the only way to ask
+   * was an administrator pressing reconcile, and nothing ever did it on its own. Now every hour it
+   * asks whatever is due — and stops after the last interval, because "ask forever" is traffic the
+   * target never agreed to.
+   *
+   * What keeps this honest:
+   * - **Every ask goes through `reconcileClaim`.** The guards, the evidence row, and the target-side
+   *   identity (`asUserId` = the original writer) stay single-sourced; the only thing this adds is
+   *   **who asked** — `SYSTEM_SWEEP_LOOKUP_ACTOR`. "Who asked" and "as whom it asked" are two
+   *   different facts, and the sweep is a new answer to the first, not to the second.
+   * - **No probe, or no usable `statusPath` ⇒ skip, no evidence row.** An hourly
+   *   `target-status-unavailable` row would be noise about our own configuration, not about the write.
+   * - **No lookup store ⇒ no automatic asks at all.** Without the evidence table the attempt count
+   *   cannot be read back, so the budget could not be enforced; asking would then be unbounded by
+   *   construction. A missing store is a wiring defect, and its safe reading is "do not ask".
+   * - **One row at a time, never concurrent, never retried.** The schedule is what makes a row due;
+   *   nothing else re-sends.
+   *
+   * Rows are read fresh each hour, so a claim that converged (by a person or by a late completion)
+   * simply stops being a candidate.
+   *
+   * F-79：每小时清扫那一半的对账 —— **有界次数**、按衰减计划再问目标，然后搁置该行，并由读面说明它被搁置了。
+   *
+   * 在此之前，`awaiting_decision` 里的占位是一个没人问第二遍的问题：唯一的问法是管理员按下对账，而没有任何
+   * 东西会自己去做。现在每到整点，它把到期的都问一遍 —— 并在最后一个间隔之后停下，因为「一直问」是目标没答应
+   * 过的流量。
+   *
+   * 让这件事保持诚实的几条：
+   * - **每一次询问都走 `reconcileClaim`**。守卫、证据行、目标侧身份（`asUserId` = 原写入者）仍是单源；
+   *   这里只新增一个事实 —— **谁问的** —— 即 `SYSTEM_SWEEP_LOOKUP_ACTOR`。「谁问的」与「以谁的身份问的」
+   *   是两件事，清扫是对前者给出的新答案，不是对后者。
+   * - **没有探针、或没有可用的 `statusPath` ⇒ 跳过，不写证据行。** 每小时一条
+   *   `target-status-unavailable` 记的是我们自己的配置，不是那次写，那是噪声。
+   * - **没有查询证据仓储 ⇒ 完全不自动问。** 缺了那张表就读不回次数，预算也就无从执行；此时的询问按构造是
+   *   无界的。缺仓储是接线缺陷，它安全的读法是「不要问」。
+   * - **一次一行，不并发、不重试。** 让一行到期的是计划，别处不再重发。
+   *
+   * 每轮都重读占位行，故已经收敛的行（人或迟到的完成让它动的）自然不再是候选。
+   */
+  async reconcileDueClaims(now: Date = new Date()): Promise<ClaimAutoReconcileSummary> {
+    const summary: ClaimAutoReconcileSummary = {
+      candidates: 0,
+      asked: 0,
+      converged: 0,
+      unresolved: 0,
+      skippedUnaskable: 0,
+      skippedExhausted: 0,
+      skippedNotDue: 0,
+      refused: 0,
+    };
+    // Re-entrancy: two overlapping passes in one process could send two GETs for the same row before
+    // either records its attempt — exactly the concurrency this item forbids. One pass at a time.
+    // (Across processes there is no lease; that is a scale-out question, stated in the spec, not
+    // silently pretended here.)
+    // 可重入保护：同一进程里两趟重叠时，可能在任一方记下尝试之前对同一行发出两次 GET —— 正是本条禁止的并发。
+    // 同一时刻只跑一趟。（跨进程没有租约；那是横向扩展的问题，写在 spec 里，而不是在这里悄悄假装解决。）
+    if (this._reconcilePassRunning) return summary;
+    this._reconcilePassRunning = true;
+    try {
+      return await this._reconcileDueClaimsPass(summary, now);
+    } finally {
+      this._reconcilePassRunning = false;
+    }
+  }
+
+  /** One pass of {@link reconcileDueClaims}; the re-entrancy gate lives in the public method. */
+  private async _reconcileDueClaimsPass(
+    summary: ClaimAutoReconcileSummary,
+    now: Date,
+  ): Promise<ClaimAutoReconcileSummary> {
+    const claimsRepo = this.claimsRepo;
+    if (!claimsRepo || !this.lookupsRepo) return summary;
+
+    // The queued holds: the standstill of a window that ended. `decision_state` is the only condition
+    // beyond the status — a human-released row (`closed_unknown`) must not be asked again.
+    // 待裁队列里的滞留：在途窗口结束后的停摆。除状态外只看 `decision_state` —— 人已释放的行
+    //（`closed_unknown`）不得再被询问。
+    const rows = await claimsRepo
+      .createQueryBuilder('c')
+      .where('c.status = :status', { status: WRITE_CLAIM_STATUS.CLAIMED })
+      .andWhere('c.decisionState = :decisionState', {
+        decisionState: WRITE_CLAIM_DECISION_STATE.AWAITING_DECISION,
+      })
+      .orderBy('c.claimedAt', 'ASC')
+      .addOrderBy('c.id', 'ASC')
+      .getMany();
+    summary.candidates = rows.length;
+    if (rows.length === 0) return summary;
+
+    const plan = claimReconcilePlan(
+      this.configService?.get<number>('CLAIM_RECONCILE_MAX_ATTEMPTS'),
+      this.configService?.get<string>('CLAIM_RECONCILE_BACKOFF_MINUTES'),
+    );
+    const stats = await this._lookupStats(rows.map((r) => r.idempotencyKey));
+
+    for (const row of rows) {
+      if (!this.statusProbe?.canAsk(row.toolName)) {
+        summary.skippedUnaskable++;
+        continue;
+      }
+      const prior = stats.get(row.idempotencyKey);
+      const schedule = claimReconcileSchedule(
+        row.claimedAt,
+        prior?.lastAt ?? null,
+        prior?.count ?? 0,
+        plan,
+        now,
+      );
+      if (schedule.stopped) {
+        summary.skippedExhausted++;
+        continue;
+      }
+      if (!schedule.due) {
+        summary.skippedNotDue++;
+        continue;
+      }
+      const result = await this.reconcileClaim(row.id, SYSTEM_SWEEP_LOOKUP_ACTOR);
+      if (result.outcome === 'reconciled') {
+        summary.asked++;
+        summary.converged++;
+      } else if (result.outcome === 'unresolved') {
+        summary.asked++;
+        summary.unresolved++;
+      } else {
+        // A guard refused between our read and the query (someone settled or released it first).
+        // 我们读到查询之间守卫拒了（有人先落了定或释放了它）。
+        summary.refused++;
+      }
+    }
+
+    if (summary.asked > 0) {
+      this.logger.log(
+        `写占位自动对账：问 ${summary.asked} 条（收敛 ${summary.converged} / 未答 ${summary.unresolved}），` +
+          `上限 ${plan.maxAttempts} 次；跳过：不可查 ${summary.skippedUnaskable} / 已问满 ${summary.skippedExhausted} / 未到期 ${summary.skippedNotDue}`,
+      );
+    }
+    return summary;
+  }
+
+  /**
+   * Per-key attempt count and latest attempt, in one round trip. The count is every recorded lookup
+   * row for the key — whoever asked — because the automatic budget is one number, not two.
+   *
+   * 每个键的询问次数与最近一次，一次查询取回。次数是该键**所有**已记录的查询行，不论谁问的 —— 自动预算是
+   * 一个数，不是两个。
+   */
+  private async _lookupStats(
+    keys: string[],
+  ): Promise<Map<string, { count: number; lastAt: Date | null }>> {
+    const stats = new Map<string, { count: number; lastAt: Date | null }>();
+    const repo = this.lookupsRepo;
+    const unique = [...new Set(keys)];
+    if (!repo || unique.length === 0) return stats;
+    const rows = await repo.find({
+      where: { idempotencyKey: In(unique) },
+      order: { at: 'DESC', id: 'DESC' },
+    });
+    for (const row of rows) {
+      const entry = stats.get(row.idempotencyKey);
+      if (entry) entry.count++;
+      else stats.set(row.idempotencyKey, { count: 1, lastAt: row.at });
+    }
+    return stats;
   }
 
   /** AW-17：把一次查询落成证据行。落库失败只告警 —— 账的移动由目标自己的回答支撑，不由这张表。 */

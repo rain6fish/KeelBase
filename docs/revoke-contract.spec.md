@@ -595,6 +595,21 @@ no channel at all — concludes `unknown` and leaves the ledger `claimed`. Each 
 evidence. A hold a person already released is **not** reconcilable: the release recorded that the
 truth is unknown, and a later query must not overwrite that decision.
 
+**Automatic re-asking is bounded, and then it stops.** The hourly sweep also asks the target for every
+queued hold that is due, at most `CLAIM_RECONCILE_MAX_ATTEMPTS` times (default 4) on a decaying
+schedule — `CLAIM_RECONCILE_BACKOFF_MINUTES`, default `60,360,1440,4320` (+1h, +6h, +24h, +72h after
+the previous ask; the first is anchored on `claimed_at`, and with the default 60-minute staleness
+threshold that is exactly when the row enters the queue). Every automatic ask goes through the same
+reconcile path, so the guards, the evidence row and the original writer's identity are unchanged; what
+the evidence adds is **who asked** (`system:sweep`) next to **as whom** it asked. A target with no
+usable status query is skipped without an evidence row — that is about our configuration, not about
+the write. Once the budget is spent the row is parked, and the in-flight list reports `lookupCount`,
+`autoReconcileStopped` and `autoReconcileDueAt`, so "asked four times and stopped" is a reading rather
+than a log line. A manual reconcile still works, and counts against the same budget: the budget bounds
+how often the target is asked, not which code path did the asking. One pass runs at a time inside a
+process; there is **no cross-process lease**, so a horizontally scaled deployment may still overlap
+two passes — a scale-out concern left open rather than papered over.
+
 **滞留的占位得到的是一份处置，不是一句判决。** 结局越过 `REVOKE_STALE_MINUTES` 仍未明的写占位，可由管理员
 带书面说明（可选外部引用）释放。占位转为 `closed_unknown`，而 `status` **有意**保持 `claimed` —— 没有任何
 东西证明这次写是否落库，写成 `released` 等于断言「确认未落库」。键仍被占住，故同一次调用会被 `claimWrite`
@@ -610,6 +625,16 @@ truth is unknown, and a later query must not overwrite that decision.
 `{"status":"executed"|"not_executed"}` 才让账收敛（`executed` → `settled`，`not_executed` → `released`）；
 其余一切 —— 超时、不可达、非 2xx、认不出的响应体、乃至根本没有通道 —— 都判 `unknown`，账保持 `claimed`。
 每次尝试都留下证据。**人已释放的占位不再可对账**：那次释放记录的正是「真相未知」，后来的查询不得覆盖那份决定。
+
+**自动重问是有界的，用尽即停。** 每小时清扫还会对队列里到期的占位再向目标问一次，按衰减计划至多
+`CLAIM_RECONCILE_MAX_ATTEMPTS` 次（默认 4）—— 间隔由 `CLAIM_RECONCILE_BACKOFF_MINUTES` 给出，默认
+`60,360,1440,4320`（距上一次询问 +1h、+6h、+24h、+72h；第一次以 `claimed_at` 为锚点，而默认 60 分钟的
+陈旧阈值下，那正好是它进入队列的时刻）。每一次自动询问都走同一条对账路径，故守卫、证据行与原写入者身份一字
+不变；证据里新增的是**谁问的**（`system:sweep`）与**以谁的身份问的**这两件事并列。目标没有可用的状态查询
+就跳过、不写证据行 —— 那说的是我们自己的配置，不是那次写。预算用尽后行被搁置，而在途清单报出 `lookupCount`、
+`autoReconcileStopped`、`autoReconcileDueAt`，于是「问满四次、已停止」是一个读数，而不是一行日志。人工对账
+仍可进行，并计入同一份预算：预算限制的是**问目标的次数**，不是哪条代码路径问的。同一进程内同一时刻只跑
+一趟；**跨进程没有租约**，故横向扩展的部署仍可能有两趟重叠 —— 这是留着未闭合的扩展问题，没有粉饰。
 
 ## 7. 相关文档 / Related
 

@@ -8,7 +8,7 @@ import {
   WRITE_CLAIM_STATUS,
 } from '../entities/ai-write-claim.entity';
 import { TargetStatusLookupRow } from '../entities/target-status-lookup.entity';
-import { AiToolEffectsService } from './ai-tool-effects.service';
+import { AiToolEffectsService, SYSTEM_SWEEP_LOOKUP_ACTOR } from './ai-tool-effects.service';
 import type { TargetStatusLookup } from '../../governance-core/target-status';
 
 /**
@@ -63,13 +63,13 @@ const lookup = (overrides: Partial<TargetStatusLookup> = {}): TargetStatusLookup
 describe('AW-17 目标状态对账（只读查询收敛 unknown）', () => {
   let ds: DataSource;
   let effects: AiToolEffectsService;
-  let probe: { available: jest.Mock; lookup: jest.Mock };
+  let probe: { available: jest.Mock; canAsk: jest.Mock; lookup: jest.Mock };
 
   const claims = () => ds.getRepository(AiWriteClaim);
   const lookups = () => ds.getRepository(TargetStatusLookupRow);
 
   const build = (probeOrUndefined: boolean = true): void => {
-    probe = { available: jest.fn(() => true), lookup: jest.fn() };
+    probe = { available: jest.fn(() => true), canAsk: jest.fn(() => true), lookup: jest.fn() };
     effects = new AiToolEffectsService(
       ds.getRepository(AiToolSideEffect),
       undefined, // revoker
@@ -247,5 +247,246 @@ describe('AW-17 目标状态对账（只读查询收敛 unknown）', () => {
     expect(r.outcome).toBe('not_found');
     expect(r.evidence).toBeNull();
     expect(await lookups().count()).toBe(0);
+  });
+
+  /**
+   * F-79: the hourly sweep's bounded automatic re-ask.
+   *
+   * The clock is a parameter (`reconcileDueClaims(now)`) and the attempt count is read back from the
+   * evidence table, so these cases are the schedule itself seen through the real ledger: when it
+   * asks, when it must not, and what "parked" looks like. Convergence is not re-implemented here —
+   * it goes through `reconcileClaim`, which the cases above already pin; these assert that the sweep
+   * reaches it and records who asked.
+   *
+   * F-79：每小时清扫的有界自动重问。
+   *
+   * 时钟是参数（`reconcileDueClaims(now)`），次数从证据表读回，故这些用例就是计划本身透过真账本的样子：
+   * 什么时候问、什么时候不许问、「已搁置」长什么样。收敛不在这里重写 —— 它走 `reconcileClaim`，上面
+   * 那些用例已经钉过；这里断言清扫真的走到了它、并记下是谁问的。
+   */
+  describe('reconcileDueClaims（有界自动重问）', () => {
+    const base = new Date('2026-11-12T12:00:00.000Z');
+    const at = (minutesAgo: number): Date => new Date(base.getTime() - minutesAgo * 60_000);
+
+    /** A hold whose window has ended — the only state the sweep picks up. */
+    const seedQueued = (overrides: Partial<AiWriteClaim> = {}): Promise<AiWriteClaim> =>
+      claims().save(
+        claims().create(
+          staleClaim({
+            claimedAt: at(61),
+            decisionState: WRITE_CLAIM_DECISION_STATE.AWAITING_DECISION,
+            ...overrides,
+          }),
+        ),
+      );
+
+    /** One evidence row, dated explicitly — `at` is what the schedule anchors on. */
+    const seedLookup = async (lookedUpAt: Date, key: string = KEY): Promise<void> => {
+      const row = await lookups().save(
+        lookups().create({
+          idempotencyKey: key,
+          toolName: TOOL,
+          lookedUpBy: 'admin-1',
+          asUserId: 'u-alice',
+          queryMethod: 'GET',
+          queryPath: '/contracts/status/' + key,
+          conclusion: 'unknown',
+          reason: 'timeout',
+        }),
+      );
+      await lookups().update(row.id, { at: lookedUpAt });
+    };
+
+    it('第一次自动问：进入队列后约 1 小时才问（59 分钟不问，61 分钟问），执行者记 system:sweep', async () => {
+      const early = await seedQueued({ claimedAt: at(59) });
+      probe.lookup.mockResolvedValue(lookup({ conclusion: 'executed', reason: null }));
+
+      const quiet = await effects.reconcileDueClaims(base);
+      expect(quiet.asked).toBe(0);
+      expect(quiet.skippedNotDue).toBe(1);
+      expect(probe.lookup).not.toHaveBeenCalled();
+
+      // Now past the first interval — and past the staleness threshold, so the guard lets it through.
+      await claims().update(early.id, { claimedAt: at(61) });
+      const r = await effects.reconcileDueClaims(base);
+
+      expect(r.candidates).toBe(1);
+      expect(r.asked).toBe(1);
+      expect(r.converged).toBe(1);
+      expect(probe.lookup).toHaveBeenCalledWith(TOOL, KEY, 'u-alice');
+
+      const after = await claims().findOne({ where: { id: early.id } });
+      expect(after?.status).toBe(WRITE_CLAIM_STATUS.SETTLED);
+
+      const evidence = await lookups().find({ where: { idempotencyKey: KEY } });
+      expect(evidence).toHaveLength(1);
+      // Who asked and as whom are two facts: the sweep asked, the original writer's identity went out.
+      // 谁问的与以谁的身份问是两件事：清扫问的，出去的是原写入者的身份。
+      expect(evidence[0]).toMatchObject({
+        lookedUpBy: SYSTEM_SWEEP_LOOKUP_ACTOR,
+        asUserId: 'u-alice',
+        conclusion: 'executed',
+      });
+      expect(SYSTEM_SWEEP_LOOKUP_ACTOR).toBe('system:sweep');
+    });
+
+    it('第二次要等到 +6h：从上一次询问起算，5 小时不问、7 小时问', async () => {
+      const row = await seedQueued({ claimedAt: at(30 * 60) });
+      await seedLookup(at(5 * 60));
+      probe.lookup.mockResolvedValue(lookup());
+
+      const early = await effects.reconcileDueClaims(base);
+      expect(early.asked).toBe(0);
+      expect(early.skippedNotDue).toBe(1);
+      expect(probe.lookup).not.toHaveBeenCalled();
+
+      const [only] = await lookups().find({ where: { idempotencyKey: KEY } });
+      await lookups().update(only.id, { at: at(7 * 60) });
+      const later = await effects.reconcileDueClaims(base);
+
+      expect(later.asked).toBe(1);
+      expect(later.unresolved).toBe(1);
+      expect(await lookups().count()).toBe(2);
+      const still = await claims().findOne({ where: { id: row.id } });
+      expect(still?.status).toBe(WRITE_CLAIM_STATUS.CLAIMED);
+    });
+
+    it('问满 4 次 ⇒ 不再自动问（时间过去多久都一样），计数不增', async () => {
+      await seedQueued({ claimedAt: at(60 * 24 * 30) });
+      for (let i = 1; i <= 4; i++) await seedLookup(at(i * 24 * 60));
+      probe.lookup.mockResolvedValue(lookup());
+
+      const r = await effects.reconcileDueClaims(base);
+
+      expect(r.asked).toBe(0);
+      expect(r.skippedExhausted).toBe(1);
+      expect(probe.lookup).not.toHaveBeenCalled();
+      expect(await lookups().count()).toBe(4);
+    });
+
+    it('人工对账计入预算：3 次人工 + 1 次自动后用满，再下一次不再问', async () => {
+      await seedQueued({ claimedAt: at(60 * 24 * 30) });
+      // Last of the three is 5 days ago, so the fourth interval (+72h) is already past — the budget,
+      // not the clock, is what this case is about.
+      // 三次里最近的一次在 5 天前，故第四档（+72h）早已过去 —— 本条要看的是预算，不是时钟。
+      for (let i = 1; i <= 3; i++) await seedLookup(at((5 + i) * 24 * 60));
+      probe.lookup.mockResolvedValue(lookup());
+
+      const fourth = await effects.reconcileDueClaims(base);
+      expect(fourth.asked).toBe(1);
+      expect(await lookups().count()).toBe(4);
+
+      const fifth = await effects.reconcileDueClaims(base);
+      expect(fifth.asked).toBe(0);
+      expect(fifth.skippedExhausted).toBe(1);
+      expect(probe.lookup).toHaveBeenCalledTimes(1);
+    });
+
+    it('目标不可查（canAsk=false）⇒ 跳过，且**不写**证据行（不是每小时一条噪声）', async () => {
+      await seedQueued({ claimedAt: at(60 * 24 * 30) });
+      probe.canAsk.mockReturnValue(false);
+
+      const r = await effects.reconcileDueClaims(base);
+
+      expect(r.skippedUnaskable).toBe(1);
+      expect(r.asked).toBe(0);
+      expect(probe.lookup).not.toHaveBeenCalled();
+      expect(await lookups().count()).toBe(0);
+    });
+
+    it('目标答「没执行」⇒ 走既有路径收敛为 released', async () => {
+      const row = await seedQueued();
+      probe.lookup.mockResolvedValue(lookup({ conclusion: 'not_executed', reason: null }));
+
+      const r = await effects.reconcileDueClaims(base);
+
+      expect(r.asked).toBe(1);
+      expect(r.converged).toBe(1);
+      const after = await claims().findOne({ where: { id: row.id } });
+      expect(after?.status).toBe(WRITE_CLAIM_STATUS.RELEASED);
+      expect(after?.releaseReason).toBe('target_status_not_executed');
+    });
+
+    it('同一进程里两趟重叠 ⇒ 第二趟直接返回，不对同一行发第二次查询', async () => {
+      await seedQueued({ claimedAt: at(60 * 24 * 30) });
+      let release!: (value: unknown) => void;
+      probe.lookup.mockImplementation(
+        () => new Promise((resolve) => (release = resolve)),
+      );
+
+      const first = effects.reconcileDueClaims(base);
+      for (let i = 0; i < 200 && probe.lookup.mock.calls.length === 0; i++) {
+        await new Promise((r) => setTimeout(r, 1));
+      }
+      expect(probe.lookup).toHaveBeenCalledTimes(1);
+
+      const overlapping = await effects.reconcileDueClaims(base);
+      expect(overlapping.asked).toBe(0);
+      expect(probe.lookup).toHaveBeenCalledTimes(1);
+
+      release(lookup({ conclusion: 'executed', reason: null }));
+      expect((await first).asked).toBe(1);
+      expect(probe.lookup).toHaveBeenCalledTimes(1);
+    });
+
+    it('仍在途（open）的行不是候选：自动重问只针对已进入待裁队列的滞留', async () => {
+      await claims().save(
+        claims().create(
+          staleClaim({ claimedAt: at(60 * 24 * 30), decisionState: WRITE_CLAIM_DECISION_STATE.OPEN }),
+        ),
+      );
+
+      const r = await effects.reconcileDueClaims(base);
+
+      expect(r.candidates).toBe(0);
+      expect(probe.lookup).not.toHaveBeenCalled();
+    });
+
+    it('人已释放（closed_unknown）的行不是候选：那份决定不得被自动查询覆盖', async () => {
+      await claims().save(
+        claims().create(
+          staleClaim({
+            claimedAt: at(60 * 24 * 30),
+            decisionState: WRITE_CLAIM_DECISION_STATE.CLOSED_UNKNOWN,
+            releaseReason: 'manual_release_unknown',
+          }),
+        ),
+      );
+
+      const r = await effects.reconcileDueClaims(base);
+
+      expect(r.candidates).toBe(0);
+      expect(probe.lookup).not.toHaveBeenCalled();
+      expect(await lookups().count()).toBe(0);
+    });
+
+    it('没有证据仓储 ⇒ 完全不自动问（读不回次数，就等于没有上限）', async () => {
+      // Rebuild without the lookup repository: the attempt count cannot be read back, so a schedule
+      // here would be unbounded by construction. The safe reading is "do not ask".
+      // 去掉查询证据仓储重建：次数读不回来，此时的计划按构造无界。安全的读法是「不要问」。
+      effects = new AiToolEffectsService(
+        ds.getRepository(AiToolSideEffect),
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        claims(),
+        undefined,
+        probe as any,
+        undefined,
+      );
+      await seedQueued({ claimedAt: at(60 * 24 * 30) });
+
+      const r = await effects.reconcileDueClaims(base);
+
+      expect(r.candidates).toBe(0);
+      expect(r.asked).toBe(0);
+      expect(probe.lookup).not.toHaveBeenCalled();
+    });
   });
 });

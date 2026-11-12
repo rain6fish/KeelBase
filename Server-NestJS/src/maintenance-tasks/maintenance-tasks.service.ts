@@ -19,6 +19,7 @@ import { AuditEvidenceService } from '../governance-shared/services/audit-eviden
 import { OperationAuditService } from '../operation-audit/operation-audit.service';
 import { AuditService } from '../governance-shared/services/audit.service';
 import { WriteClaimDecisionService } from '../governance-shared/services/write-claim-decision.service';
+import { AiToolEffectsService } from '../governance-shared/services/ai-tool-effects.service';
 import { boundedToolArgs } from '../ai/audit/tool-call-audit';
 
 /**
@@ -54,6 +55,10 @@ export class MaintenanceTasksService {
     private readonly auditService: AuditService,
     // AW-16 F-64：占位窗口到期的清扫（只移动 `decision_state`，不碰状态、不写结论）
     private readonly writeClaimDecision: WriteClaimDecisionService,
+    // F-79：同一轮里的**有界自动重问**。走的仍是 `reconcileClaim` 那一处，故守卫、证据、目标侧身份不另起一份。
+    // F-79: the bounded automatic re-ask in the same pass. It still goes through `reconcileClaim`, so
+    // the guards, evidence and target-side identity are not duplicated here.
+    private readonly toolEffects: AiToolEffectsService,
   ) {}
 
   /**
@@ -79,6 +84,18 @@ export class MaintenanceTasksService {
         `写占位窗口到期：${moved} 条 → awaiting_decision（阈值 ${thresholdMinutes} 分钟，仅是处置、未释放）`,
       );
     }
+    // F-79: the same sweep also **asks**, not only queues. Queuing was the end of the story before
+    // this: the row waited for a person, and nothing asked the target again. Each due row is asked
+    // through `reconcileClaim`, at most `CLAIM_RECONCILE_MAX_ATTEMPTS` times on the configured decay
+    // schedule; after that it is parked and the read surface reports that. Ordering matters: the
+    // expiry above puts rows in the queue this pass, and the ask below may act on them right away.
+    //
+    // F-79：同一次清扫也**问**，不只排队。此前排队就是故事的全部：行等人，再没有东西去问目标。每条到期的行
+    // 都经 `reconcileClaim` 询问，按配置的衰减计划至多 `CLAIM_RECONCILE_MAX_ATTEMPTS` 次；之后它被搁置，
+    // 由读面报出。顺序有意义：上面的到期把行放进本轮队列，下面的询问可以直接对它们动作。
+    // Its own summary line is logged there, where the per-bucket counts live.
+    // 它自己的汇总日志在那边打，逐桶计数就在那里。
+    await this.toolEffects.reconcileDueClaims();
   }
 
   /**

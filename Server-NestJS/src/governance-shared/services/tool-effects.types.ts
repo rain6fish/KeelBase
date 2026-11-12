@@ -414,3 +414,36 @@ export interface ReconcileClaimResult {
   /** This attempt's evidence; `null` when no query was attempted. / 本次证据；没查时为 `null`。 */
   evidence: TargetStatusLookup | null;
 }
+
+/**
+ * F-79: what one hour of automatic re-asking did. Counts, not verdicts — the ledger moves on the
+ * claim rows, and each movement is recorded there (and in the lookup evidence).
+ *
+ * Every bucket is a different operational reading: `asked` is traffic we sent, `converged` /
+ * `unresolved` is how the target answered, and the `skipped*` counts explain a quiet hour without
+ * pretending something was asked.
+ *
+ * F-79：一次每小时自动重问做了什么。只给计数，不给判决 —— 账动在占位行上，每一次移动都记在那里（以及
+ * 查询证据里）。
+ *
+ * 每个桶是一个不同的运维读数：`asked` 是我们真的发出的流量，`converged` / `unresolved` 是目标怎么答的，
+ * 而几个 `skipped*` 解释一个安静的整点，且不假装问过什么。
+ */
+export interface ClaimAutoReconcileSummary {
+  /** Holds in `awaiting_decision` this hour. / 本个整点处于 `awaiting_decision` 的占位。 */
+  candidates: number;
+  /** Queries actually sent (converged + unresolved). / 真正发出的查询。 */
+  asked: number;
+  /** Answers that moved the ledger. / 让账收敛的答案。 */
+  converged: number;
+  /** Asked, no usable answer; the ledger stays `claimed`. / 问了但没有可用答案，账仍是 claimed。 */
+  unresolved: number;
+  /** Skipped: the tool declares no usable status path. / 跳过：工具没有可用的状态查询。 */
+  skippedUnaskable: number;
+  /** Skipped: the attempt budget is used up. / 跳过：次数预算已用尽。 */
+  skippedExhausted: number;
+  /** Skipped: not due yet on the decay schedule. / 跳过：按衰减计划还没到期。 */
+  skippedNotDue: number;
+  /** `reconcileClaim` refused (not_stale / not_claimable / not_found). / 对账守卫拒了。 */
+  refused: number;
+}

@@ -618,6 +618,11 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
       inject: [ConfigService, EventsService, UsersService, OrgService, OrgDirectoryService, ConversationService, AuditService, AiDailyUsageService, ToolGateService, ToolExecutionService, R4ApprovalService, ToolPresentationService, ToolExposureService, KnowledgeService, CaslAbilityFactory, TodosService, LeaveRequestsService, InventoryMovementsService, AssetLoansService, PointsLedgersService, PointRecordsService, PostsService, TagsService, SuppliersService, NotesService, BooksService, ReportsService, FollowupPlansService, ContractsService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, AiToolEffectsService, GovernancePolicyService, CrmService, CrmAnalyticsService, PmService, ApprovalService, DelegationTokenService, ContentSafetyService, ToolRegistry, AuthorizationExplainerService],
     },
   ],
-  exports: [ConversationService, AiAuditModule, AiService, KnowledgeIngestionService, AuthzExplainModule, GovernanceSharedModule, ConfirmationStore, BehaviorBaselineService, AuditStatsService, AuditQueryService, AuditEvidenceService, AiDailyUsageService, ToolGateService, ToolExecutionService, R4ApprovalService, ToolPresentationService, ToolExposureService, WriteClaimDecisionService],
+  // `AiToolEffectsService` is exported for the hourly maintenance sweep (F-79): it owns the bounded
+  // automatic re-ask, and a second assembly of the same repositories there would be a second ledger
+  // reader deciding the same thing.
+  // `AiToolEffectsService` 导出给每小时维护清扫（F-79）：有界自动重问归它管，在那边另装一份同样的仓储
+  // 就是第二个账本读端来判同一件事。
+  exports: [ConversationService, AiAuditModule, AiService, KnowledgeIngestionService, AuthzExplainModule, GovernanceSharedModule, ConfirmationStore, BehaviorBaselineService, AuditStatsService, AuditQueryService, AuditEvidenceService, AiDailyUsageService, ToolGateService, ToolExecutionService, R4ApprovalService, ToolPresentationService, ToolExposureService, WriteClaimDecisionService, AiToolEffectsService],
 })
 export class AiModule {}

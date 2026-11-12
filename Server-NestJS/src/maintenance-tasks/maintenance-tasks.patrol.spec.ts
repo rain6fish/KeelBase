@@ -75,6 +75,9 @@ describe('审计链完整性巡检（HS-11 §22.10 债 3）', () => {
       webhook as never,
       evidence, // auditEvidence
       opAudit, // operationAudit
+      {} as never, // auditService（巡检不用）
+      {} as never, // writeClaimDecision（F-64 清扫，巡检不用）
+      {} as never, // toolEffects（F-79 自动重问，巡检不用）
     );
 
     // 走**真实写入路径**铺两条健康链（不直接插表——否则测的是夹具而非链路）

@@ -13,6 +13,11 @@ import { TargetStatusLookupRow } from '../entities/target-status-lookup.entity';
 import type { TargetStatusConclusion } from '../../governance-core/target-status';
 import { staleThresholdMinutes } from '../../governance-core/revoke-staleness';
 import {
+  claimReconcilePlan,
+  claimReconcileSchedule,
+  type ClaimReconcilePlan,
+} from '../../governance-core/claim-reconcile-schedule';
+import {
   auditScopeSql,
   resolveAuditReaderScope,
   type AuditReaderContext,
@@ -158,14 +163,27 @@ export class WriteClaimQueryService {
     // One query for the whole page — the same reason the effects list batches its comparability
     // history: a per-row round trip here would be N+1 on a screen that already lists 500 rows.
     // 整页一次查询 —— 与副作用列表批量取可比性历史的理由相同：这里再按行往返，就是 500 行上的 N+1。
-    const latest = await this.latestLookups(rows.map((c) => c.idempotencyKey));
+    const lookups = await this.lookupStats(rows.map((c) => c.idempotencyKey));
+    const plan = this.reconcilePlan();
     return {
       items: rows.map((c) =>
-        this.project(c, now, thresholdMinutes, this.canAsk(c.toolName), latest.get(c.idempotencyKey)),
+        this.project(
+          c,
+          now,
+          thresholdMinutes,
+          this.canAsk(c.toolName),
+          lookups.get(c.idempotencyKey),
+          plan,
+        ),
       ),
       total,
       limit,
       thresholdMinutes,
+      // The cap travels with the page so `autoReconcileStopped` / `autoReconcileDueAt` can be read
+      // without a second request — and so the screen shows the number the sweep is actually using.
+      // 上限随页带出，故不必再发一次请求就能读懂 `autoReconcileStopped` / `autoReconcileDueAt`，
+      // 也让屏幕显示的就是清扫真正在用的那个数。
+      autoReconcileMaxAttempts: plan.maxAttempts,
       scope: scope === null ? 'all' : scope.kind,
     };
   }
@@ -211,17 +229,38 @@ export class WriteClaimQueryService {
     return this.statusProbe?.canAsk(toolName) === true;
   }
 
-  /** Latest lookup per claim key, in one round trip. `DESC` + first-wins = newest per key. */
-  private async latestLookups(keys: string[]): Promise<Map<string, TargetStatusLookupRow>> {
-    const latest = new Map<string, TargetStatusLookupRow>();
+  /**
+   * Latest lookup and attempt count per claim key, in one round trip. `DESC` + first-wins = newest per
+   * key; the same rows give the count. The count includes manual reconciles — the automatic budget is
+   * one number, and this is the number the sweep reads.
+   *
+   * 每个键的最近一次查询与询问次数，一次往返取回。`DESC` + 先到者胜 = 每键最新；同一批行顺带给出次数。
+   * 次数含人工对账 —— 自动预算只有一个数，而这就是清扫读的那个数。
+   */
+  private async lookupStats(
+    keys: string[],
+  ): Promise<Map<string, { count: number; latest: TargetStatusLookupRow }>> {
+    const stats = new Map<string, { count: number; latest: TargetStatusLookupRow }>();
     const unique = [...new Set(keys)];
-    if (unique.length === 0) return latest;
+    if (unique.length === 0) return stats;
     const rows = await this.lookupsRepo.find({
       where: { idempotencyKey: In(unique) },
       order: { at: 'DESC', id: 'DESC' },
     });
-    for (const row of rows) if (!latest.has(row.idempotencyKey)) latest.set(row.idempotencyKey, row);
-    return latest;
+    for (const row of rows) {
+      const entry = stats.get(row.idempotencyKey);
+      if (entry) entry.count++;
+      else stats.set(row.idempotencyKey, { count: 1, latest: row });
+    }
+    return stats;
+  }
+
+  /** The automatic re-ask plan the sweep is using — read here from the same place, with the same defaults. */
+  private reconcilePlan(): ClaimReconcilePlan {
+    return claimReconcilePlan(
+      this.configService?.get<number>('CLAIM_RECONCILE_MAX_ATTEMPTS'),
+      this.configService?.get<string>('CLAIM_RECONCILE_BACKOFF_MINUTES'),
+    );
   }
 
   /**
@@ -237,9 +276,21 @@ export class WriteClaimQueryService {
     now: Date,
     thresholdMinutes: number,
     reconcilable: boolean,
-    lastLookup?: TargetStatusLookupRow,
+    lookups: { count: number; latest: TargetStatusLookupRow } | undefined,
+    plan: ClaimReconcilePlan,
   ): InFlightClaimRow {
     const ageMinutes = Math.max(0, Math.floor((now.getTime() - c.claimedAt.getTime()) / 60_000));
+    const lookupCount = lookups?.count ?? 0;
+    const schedule = claimReconcileSchedule(c.claimedAt, lookups?.latest.at ?? null, lookupCount, plan, now);
+    // A row that is not in the pending-decision queue is not on the automatic schedule yet, and a row
+    // whose target cannot be asked has no schedule at all — `null`, not an invented time. "Stopped" is
+    // about the budget only, so a converged or released row reads the same way it did.
+    // 不在待裁队列里的行还没进入自动计划；目标问不了的行根本没有计划 —— 给 `null`，不造一个时刻。
+    // 「已停止」只说预算，故已收敛或已释放的行读法与之前一致。
+    const eligible =
+      c.status === WRITE_CLAIM_STATUS.CLAIMED &&
+      c.decisionState === WRITE_CLAIM_DECISION_STATE.AWAITING_DECISION &&
+      reconcilable;
     return {
       id: c.id,
       userId: c.userId,
@@ -266,7 +317,15 @@ export class WriteClaimQueryService {
       // AW-17：两个加性读数。`reconcilable` 是**能力**（有没有状态查询），`lastLookup` 是**历史**
       //（最近一次尝试）。`null` = 从没人问过 —— 不得渲染成「已执行」，因为没答案不是答案。
       reconcilable,
-      lastLookup: lastLookup ? this.projectLookup(lastLookup) : null,
+      lastLookup: lookups ? this.projectLookup(lookups.latest) : null,
+      // F-79: how many times the target has been asked, and whether the automatic asking is over.
+      // These are readings off the evidence rows — no new column, no migration — so "asked four times
+      // and parked" is visible instead of living only in a log line.
+      // F-79：目标被问过几次、自动询问是否已经结束。读数来自证据行 —— 不加列、不写迁移 —— 于是
+      //「问满四次、已搁置」看得见，而不是只活在一行日志里。
+      lookupCount,
+      autoReconcileStopped: schedule.stopped,
+      autoReconcileDueAt: eligible && !schedule.stopped ? (schedule.nextDueAt?.toISOString() ?? null) : null,
     };
   }
 
@@ -337,6 +396,29 @@ export interface InFlightClaimRow {
   reconcilable: boolean;
   /** The latest attempt, or `null` when nobody ever asked. / 最近一次尝试；从没问过为 `null`。 */
   lastLookup: TargetStatusLookupView | null;
+  /**
+   * F-79: how many attempts are on record for this claim — every lookup row, manual and automatic.
+   * `/lookups` returns the same rows, so this is a count of evidence, not a separate counter.
+   *
+   * F-79：这条占位记录在案的询问次数 —— 每一行查询证据，人工与自动都算。`/lookups` 返回的就是同一批行，
+   * 故这是一个对证据行的计数，不是另立一个计数器。
+   */
+  lookupCount: number;
+  /**
+   * F-79: the automatic re-ask budget is used up — no further hourly query. A person can still ask
+   * once by hand; this says only that the sweep has stopped.
+   *
+   * F-79：自动重问预算已用尽，整点清扫不再问。人仍可手工问一次；这里只说明清扫停了。
+   */
+  autoReconcileStopped: boolean;
+  /**
+   * F-79: when the next automatic ask becomes due, or `null` when there is none to wait for (not in
+   * the pending-decision queue, target not askable, or budget used up). Never an invented time.
+   *
+   * F-79：下一次自动询问的到期时刻；没有可等的（不在待裁队列、目标问不了、预算已用尽）时为 `null`。
+   * 绝不造一个时刻。
+   */
+  autoReconcileDueAt: string | null;
 }
 
 /** One recorded attempt to ask the target whether a write happened (AW-17). / 一次目标状态查询的读数。 */
@@ -370,6 +452,14 @@ export interface InFlightClaimsResult {
   limit: number;
   /** The threshold `stale` was judged by (minutes). / 判 `stale` 用的阈值（分钟）。 */
   thresholdMinutes: number;
+  /**
+   * F-79: the automatic re-ask cap in force (`CLAIM_RECONCILE_MAX_ATTEMPTS`, capped by the length of
+   * the backoff table). Stated once per page because it is a property of the deployment, not a row.
+   *
+   * F-79：生效的自动重问上限（`CLAIM_RECONCILE_MAX_ATTEMPTS`，并受间隔表长度所限）。每页只说一次，
+   * 因为它是部署的属性，不是某一行的。
+   */
+  autoReconcileMaxAttempts: number;
   /** Which row scope was applied — so a short list explains itself. / 实际施加的行范围，短列表因此有解释。 */
   scope: 'all' | 'org' | 'own';
 }

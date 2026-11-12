@@ -18,6 +18,7 @@ import { AuditEvidenceService } from '../governance-shared/services/audit-eviden
 import { OperationAuditService } from '../operation-audit/operation-audit.service';
 import { AuditService } from '../governance-shared/services/audit.service';
 import { WriteClaimDecisionService } from '../governance-shared/services/write-claim-decision.service';
+import { AiToolEffectsService } from '../governance-shared/services/ai-tool-effects.service';
 import { MaintenanceTasksService } from './maintenance-tasks.service';
 
 function mockRepo(extra: Record<string, jest.Mock> = {}) {
@@ -49,6 +50,8 @@ describe('MaintenanceTasksService', () => {
   let notificationsService: { create: jest.Mock };
   let confirmationStore: { offlineTtlMs: jest.Mock; expireStale: jest.Mock };
   let auditService: { log: jest.Mock };
+  let writeClaimDecision: { sweepOverdue: jest.Mock };
+  let toolEffects: { reconcileDueClaims: jest.Mock };
 
   beforeEach(async () => {
     sessionsRepo = mockRepo();
@@ -63,6 +66,21 @@ describe('MaintenanceTasksService', () => {
       expireStale: jest.fn().mockResolvedValue([]),
     };
     auditService = { log: jest.fn().mockResolvedValue({ id: 1 }) };
+    writeClaimDecision = {
+      sweepOverdue: jest.fn().mockResolvedValue({ moved: 0, thresholdMinutes: 60 }),
+    };
+    toolEffects = {
+      reconcileDueClaims: jest.fn().mockResolvedValue({
+        candidates: 0,
+        asked: 0,
+        converged: 0,
+        unresolved: 0,
+        skippedUnaskable: 0,
+        skippedExhausted: 0,
+        skippedNotDue: 0,
+        refused: 0,
+      }),
+    };
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -86,14 +104,56 @@ describe('MaintenanceTasksService', () => {
         { provide: AuditEvidenceService, useValue: { verifyChain: jest.fn().mockResolvedValue({ valid: true, checked: 0 }) } },
         { provide: OperationAuditService, useValue: { verifyChain: jest.fn().mockResolvedValue({ valid: true, checked: 0 }) } },
         // AW-16 F-64：占位窗口到期清扫；本文件只验「被调用」，清扫本身的判据由它的服务用例覆盖
-        {
-          provide: WriteClaimDecisionService,
-          useValue: { sweepOverdue: jest.fn().mockResolvedValue({ moved: 0, thresholdMinutes: 60 }) },
-        },
+        { provide: WriteClaimDecisionService, useValue: writeClaimDecision },
+        // F-79：同一轮的有界自动重问。判据（档位、上限、跳过）由 `target-status-reconcile.spec.ts` 与
+        // `claim-reconcile-schedule.spec.ts` 覆盖；本文件只验「清扫里真的去问了」。
+        // The bounded automatic re-ask. Its criteria live in the two specs named above; here we only
+        // pin that the sweep actually calls it.
+        { provide: AiToolEffectsService, useValue: toolEffects },
       ],
     }).compile();
 
     service = moduleRef.get(MaintenanceTasksService);
+  });
+
+  /**
+   * F-79: the hourly pass does two things now — it queues overdue holds **and** asks the target again.
+   * Queuing alone was the hole the item names: after the row reached `awaiting_decision`, nothing
+   * ever asked again. The ask itself is covered where its criteria live; here the point is that one
+   * pass does both, in that order (the queue this hour is what the ask may act on).
+   *
+   * F-79：每小时这一趟现在做两件事 —— 把到期占位排队，**并且**再去问目标。只有排队正是本条指出的缺口：
+   * 行到了 `awaiting_decision` 之后，再没有东西去问过。询问本身在它判据所在处覆盖；这里只钉住一趟做两件，
+   * 且顺序如此（本轮排进队列的行，正是本轮询问可以动作的对象）。
+   */
+  describe('expireInFlightClaimWindows', () => {
+    it('同一趟既缩小窗口又发起有界自动重问', async () => {
+      const order: string[] = [];
+      writeClaimDecision.sweepOverdue.mockImplementation(async () => {
+        order.push('expire');
+        return { moved: 2, thresholdMinutes: 60 };
+      });
+      toolEffects.reconcileDueClaims.mockImplementation(async () => {
+        order.push('reconcile');
+        return {
+          candidates: 2,
+          asked: 1,
+          converged: 0,
+          unresolved: 1,
+          skippedUnaskable: 1,
+          skippedExhausted: 0,
+          skippedNotDue: 0,
+          refused: 0,
+        };
+      });
+
+      await service.expireInFlightClaimWindows();
+
+      expect(order).toEqual(['expire', 'reconcile']);
+      // No argument: the sweep uses the real clock; the schedule's own clock is a parameter it passes
+      // in and its spec drives. / 不传参：清扫用真时钟；计划自己的时钟由它传入，其用例驱动。
+      expect(toolEffects.reconcileDueClaims).toHaveBeenCalledWith();
+    });
   });
 
   /**

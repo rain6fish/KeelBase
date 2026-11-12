@@ -42,6 +42,14 @@ export const envValidationSchema = Joi.object({
   // 只用于**标出**「挂了多久 / 可能已陈旧」，真值仍在目标系统，不据此改写成功或失败。
   REVOKE_STALE_MINUTES: Joi.number().integer().min(1).default(60),
 
+  // F-79：陈旧写占位的**有界自动重问** —— 每小时清扫最多自动对账几次（默认 4）、每次之前等多久
+  // （默认 60,360,1440,4320，即 +1h/+6h/+24h/+72h）。次数按查询证据行计（人工对账也计入），档位数是次数上限。
+  // Bounded automatic re-asking of a stuck write claim: how many hourly-sweep reconciles at most, and
+  // the wait before each. Attempts count recorded lookup rows (manual ones included); the table length
+  // caps the count.
+  CLAIM_RECONCILE_MAX_ATTEMPTS: Joi.number().integer().min(1).default(4),
+  CLAIM_RECONCILE_BACKOFF_MINUTES: Joi.string().default('60,360,1440,4320'),
+
   // 连接池（文档规范，初期保守配置）
   DB_POOL_MAX: Joi.number().default(20),
   DB_POOL_MIN: Joi.number().default(5),
