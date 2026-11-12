@@ -66,6 +66,7 @@
     "check:protocol-vectors": "node scripts/require-contract-submodule.mjs && node Server-NestJS/scripts/generate-protocol-vectors.mjs --check",
     "check:keelbase-init": "node scripts/keelbase-init.mjs inspect && node scripts/keelbase-init.mjs doctor",
     "check:pinned-images": "node scripts/check-pinned-images.mjs",
+    "check:pinned-images-tests": "node --test scripts/check-pinned-images.test.mjs",
     "check:trivyignore": "node scripts/check-trivyignore.mjs",
     "check:gates-wired": "node scripts/check-gates-wired.mjs",
     "check:all": "node scripts/check-all.mjs"
