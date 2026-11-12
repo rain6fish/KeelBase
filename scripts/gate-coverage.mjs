@@ -146,8 +146,8 @@ export const NOT_COVERED = [
     commands: ['npm run cli:test'],
     npmScripts: [{ pkg: ROOT_PKG, name: 'cli:test' }],
     reason: {
-      zh: '`scripts/*.test.mjs` 的 node:test 套件，实测**约 240 秒 / 354 例**（2026-11-09 本机）—— 比本题全部静态门禁的合计还长。不在此门：门禁的价值在于「推之前随手可跑」；CI 的 `cli-test` job 每次推送都跑，本模块的守卫测试也在其中。其中 `check-pinned-images.test.mjs` 的 17 例（1.2 秒）已单独由 `check:pinned-images-tests` 在本门跑。',
-      en: 'The node:test suite for `scripts/*.test.mjs` — measured at **~240 s / 354 cases** (2026-11-09 on this machine), longer than every static gate here combined. Not here: the point of this gate is that it is cheap enough to run on the way to a push; CI\'s `cli-test` job runs it on every push, and the guard test for this module is one of its cases. The 17 cases of `check-pinned-images.test.mjs` (1.2 s) now run here under `check:pinned-images-tests`.',
+      zh: '`scripts/*.test.mjs` 的 node:test 套件，2026-11-12 本机实测**约 20 秒 / 394 例**（node:test 18.8 秒，挂钟 20.1 秒）。不在此门：本门只跑静态门禁，测试套件（单元 / e2e / 本套件）由 CI 各自的 job 在每次推送时跑，本模块的守卫测试也在其中。其中 `check-pinned-images.test.mjs` 的 17 例（1.2 秒）已单独由 `check:pinned-images-tests` 在本门跑。',
+      en: 'The node:test suite for `scripts/*.test.mjs` — measured at **~20 s / 394 cases** (2026-11-12 on this machine; 18.8 s of node:test, 20.1 s wall). Not here: this gate runs static gates only; test suites (unit, e2e, this one) run in their own CI jobs on every push, and the guard test for this module is one of its cases. The 17 cases of `check-pinned-images.test.mjs` (1.2 s) now run here under `check:pinned-images-tests`.',
     },
   },
   {
