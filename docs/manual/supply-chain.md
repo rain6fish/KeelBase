@@ -391,6 +391,15 @@ which clear only by removing the Taro webpack5 runner.
    It keeps findings with **no fix yet** — the gate's fail step runs `--ignore-unfixed`, so this reading
    is deliberately wider and the summary separates the two counts. It is **report-only** — its exit code
    is not a gate, because a fix in an upstream image is not this repository's to ship.
+   Two of those readings are **known and stable, not regressions**: at the pins above, the local run on
+   2026-11-12 under these same settings read **137** HIGH/CRITICAL for `pgvector/pgvector:pg17`
+   (HIGH 133 / CRITICAL 4, **109** with no fix; debian 12.15 OS packages 111 plus the `gosu` binary 26)
+   and **0** for `redis:7-alpine`, whose `alpine 3.21.10` base is out of support (EOSL) even at zero
+   findings. Candidates were read in the same run: `redis:7-alpine` now resolves to `sha256:7f7d30b7…`
+   (alpine 3.22.8) and `redis:8-alpine` to `sha256:7958cfbb…` (alpine 3.23.8), both **0** findings on a
+   supported base, while the current `pg17` tag already resolves to the pinned digest and `pg18`
+   (`sha256:c29f3068…`) reads the same **137**. Whether to move either pin is an open decision; nothing
+   was changed.
    Not covered: the compose `web` (nginx) image, which is built per deploy — its OS base is the scanned
    `alpine:3.24`, but the nginx packages installed on top of it are not read; nor are the
    profile-gated `ollama` image and the observability stack.
@@ -769,6 +778,14 @@ Dockerfile 钉的是 `sha256:3f4d…630a` —— 标签动了、被钉住的镜�
    （`pgvector/pgvector:pg17`、`redis:7-alpine`）的 HIGH/CRITICAL 发现记进 job summary 与 artifact。
    它保留**暂无修复**的条目 —— 门禁的判红步骤带 `--ignore-unfixed`，所以本读数的发现集有意更宽，
    摘要把两种计数分开。它是**报告制** —— 退出码不作为门禁，因为上游镜像的修复不在本仓手里。
+   其中两条读数是**已知且稳定的，不是回归**：在上述钉点上，2026-11-12 以同一组设置本地实测，
+   `pgvector/pgvector:pg17` 读出 **137** 条 HIGH/CRITICAL（HIGH 133 / CRITICAL 4，其中 **109** 条无修复；
+   debian 12.15 系统包 111 条 + `gosu` 二进制 26 条），`redis:7-alpine` 读出 **0** 条 ——
+   但它的 `alpine 3.21.10` 基座已停止支持（EOSL），即便 0 条也是。
+   同一次运行也读了备选：`redis:7-alpine` 现解析到 `sha256:7f7d30b7…`（alpine 3.22.8）、`redis:8-alpine`
+   解析到 `sha256:7958cfbb…`（alpine 3.23.8），两者在受支持的基座上均 **0** 条；
+   而当前 `pg17` 标签本就解析到钉住的那个摘要，`pg18`（`sha256:c29f3068…`）读出同样的 **137** 条。
+   是否移动任一钉点是**待裁决定**，本次一个都没有改。
    未覆盖：compose 的 `web`（nginx）镜像（按次部署构建）—— 它的操作系统基座就是被扫的 `alpine:3.24`，
    但装在其上的 nginx 包不被读到；走 profile 的 `ollama` 镜像与可观测栈也不在读数内。
    钉住的 `node:22-alpine` 基础**本身**会判红
