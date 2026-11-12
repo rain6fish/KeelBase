@@ -21,7 +21,11 @@ import { TOOL_REGISTRY } from '../di-tokens';
 import type { DeclaredSideEffect } from './effect-composition';
 import { ConfigService } from '@nestjs/config';
 import { staleThresholdMinutes } from '../../governance-core/revoke-staleness';
-import { claimReconcilePlan, claimReconcileSchedule } from '../../governance-core/claim-reconcile-schedule';
+import {
+  claimReconcilePassCap,
+  claimReconcilePlan,
+  claimReconcileSchedule,
+} from '../../governance-core/claim-reconcile-schedule';
 import { SideEffectSnapshotCaptor } from './side-effect-snapshot-captor';
 import { buildKey, memberKey } from './effect-shared';
 import { EffectChainWriter } from './effect-chain';
@@ -479,8 +483,10 @@ export class AiToolEffectsService {
    * - **No lookup store ⇒ no automatic asks at all.** Without the evidence table the attempt count
    *   cannot be read back, so the budget could not be enforced; asking would then be unbounded by
    *   construction. A missing store is a wiring defect, and its safe reading is "do not ask".
-   * - **One row at a time, never concurrent, never retried.** The schedule is what makes a row due;
-   *   nothing else re-sends.
+   * - **One row at a time, never concurrent, never retried, and at most `CLAIM_RECONCILE_MAX_PER_PASS`
+   *   asks per pass.** The schedule is what makes a row due; nothing else re-sends. The per-pass cap is
+   *   a burst bound: without it a backlog of a hundred due rows would send a hundred GETs in one pass.
+   *   Rows left over stay due and are served next hour, oldest first.
    *
    * Rows are read fresh each hour, so a claim that converged (by a person or by a late completion)
    * simply stops being a candidate.
@@ -499,7 +505,9 @@ export class AiToolEffectsService {
    *   `target-status-unavailable` 记的是我们自己的配置，不是那次写，那是噪声。
    * - **没有查询证据仓储 ⇒ 完全不自动问。** 缺了那张表就读不回次数，预算也就无从执行；此时的询问按构造是
    *   无界的。缺仓储是接线缺陷，它安全的读法是「不要问」。
-   * - **一次一行，不并发、不重试。** 让一行到期的是计划，别处不再重发。
+   * - **一次一行，不并发、不重试；每趟最多问 `CLAIM_RECONCILE_MAX_PER_PASS` 条。** 让一行到期的是计划，
+   *   别处不再重发。每趟上限界的是**突发**：没有它，一百条到期的行会在一趟里发一百个 GET。剩下的行仍然
+   *   到期，下一趟按最老的先问。
    *
    * 每轮都重读占位行，故已经收敛的行（人或迟到的完成让它动的）自然不再是候选。
    */
@@ -513,6 +521,7 @@ export class AiToolEffectsService {
       skippedExhausted: 0,
       skippedNotDue: 0,
       refused: 0,
+      deferredByPassCap: 0,
     };
     // Re-entrancy: two overlapping passes in one process could send two GETs for the same row before
     // either records its attempt — exactly the concurrency this item forbids. One pass at a time.
@@ -557,6 +566,12 @@ export class AiToolEffectsService {
       this.configService?.get<number>('CLAIM_RECONCILE_MAX_ATTEMPTS'),
       this.configService?.get<string>('CLAIM_RECONCILE_BACKOFF_MINUTES'),
     );
+    // Rows arrive oldest first (`claimedAt ASC, id ASC`), so the cap below serves the holds that have
+    // waited longest and never lets a newer row jump the queue.
+    // 行按最老在前（`claimedAt ASC, id ASC`）读出，故下面的上限先把等得最久的问掉，新行永远不插队。
+    const perPassCap = claimReconcilePassCap(
+      this.configService?.get<number>('CLAIM_RECONCILE_MAX_PER_PASS'),
+    );
     const stats = await this._lookupStats(rows.map((r) => r.idempotencyKey));
 
     for (const row of rows) {
@@ -580,6 +595,14 @@ export class AiToolEffectsService {
         summary.skippedNotDue++;
         continue;
       }
+      if (summary.asked >= perPassCap) {
+        // The pass is spent. This row stays due and is served next hour — it is deferred, not
+        // un-scheduled; the read surface still reports a past `autoReconcileDueAt` for it.
+        // 这一趟的额度用完了。该行仍然到期，下一趟再问 —— 它是被顺延，不是被取消排期；读面对它仍然给一个
+        // 已经过去的 `autoReconcileDueAt`。
+        summary.deferredByPassCap++;
+        continue;
+      }
       const result = await this.reconcileClaim(row.id, SYSTEM_SWEEP_LOOKUP_ACTOR);
       if (result.outcome === 'reconciled') {
         summary.asked++;
@@ -597,7 +620,8 @@ export class AiToolEffectsService {
     if (summary.asked > 0) {
       this.logger.log(
         `写占位自动对账：问 ${summary.asked} 条（收敛 ${summary.converged} / 未答 ${summary.unresolved}），` +
-          `上限 ${plan.maxAttempts} 次；跳过：不可查 ${summary.skippedUnaskable} / 已问满 ${summary.skippedExhausted} / 未到期 ${summary.skippedNotDue}`,
+          `上限 ${plan.maxAttempts} 次 / 每趟 ${perPassCap} 条；跳过：不可查 ${summary.skippedUnaskable} / ` +
+          `已问满 ${summary.skippedExhausted} / 未到期 ${summary.skippedNotDue} / 因上限顺延 ${summary.deferredByPassCap}`,
       );
     }
     return summary;

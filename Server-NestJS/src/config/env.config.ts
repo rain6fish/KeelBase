@@ -49,6 +49,11 @@ export const envValidationSchema = Joi.object({
   // caps the count.
   CLAIM_RECONCILE_MAX_ATTEMPTS: Joi.number().integer().min(1).default(4),
   CLAIM_RECONCILE_BACKOFF_MINUTES: Joi.string().default('60,360,1440,4320'),
+  // 每趟（每小时）最多发出多少个询问（默认 25），跨所有占位行合计：次数上限界的是「一条行一辈子问几次」，
+  // 这一条界的是「一趟里同时打出去多少请求」。没轮到的行仍然到期，下一趟按最老的先问。
+  // How many queries one hourly pass may send (default 25), across all claims — a burst bound, not a
+  // per-row one. Rows left over stay due and are served next hour, oldest first.
+  CLAIM_RECONCILE_MAX_PER_PASS: Joi.number().integer().min(1).default(25),
 
   // 连接池（文档规范，初期保守配置）
   DB_POOL_MAX: Joi.number().default(20),

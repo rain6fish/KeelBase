@@ -562,6 +562,7 @@ GOVERNANCE_DB_PASSWORD=            # 治理台 postgres 密码
 REVOKE_STALE_MINUTES=60            # `compensating` 超过多少分钟算「陈旧」（只用于标注，不改写结果）
 CLAIM_RECONCILE_MAX_ATTEMPTS=4        # F-79：陈旧占位每小时最多自动对账几次（默认 4）
 CLAIM_RECONCILE_BACKOFF_MINUTES=60,360,1440,4320  # F-79：每次之前等多久（+1h/+6h/+24h/+72h）；档位数是次数上限
+CLAIM_RECONCILE_MAX_PER_PASS=25       # F-79：每趟（每小时）最多发出多少个询问，跨所有占位行合计
 GOVERNANCE_API_KEY=                # 治理台服务身份密钥（业务系统上报/拉策略/撤销/审批回调共享，x-api-key）
 GOVERNANCE_URL=                    # 治理台地址（业务系统配置后 AI 审计/副作用双写上报；空则完全本地）
 GOVERNANCE_TARGET_URL=             # 治理台回调业务系统地址（撤销/approve 执行回调；空则治理台本地 revoker）

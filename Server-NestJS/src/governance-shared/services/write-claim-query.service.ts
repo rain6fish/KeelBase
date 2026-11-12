@@ -285,8 +285,18 @@ export class WriteClaimQueryService {
     // A row that is not in the pending-decision queue is not on the automatic schedule yet, and a row
     // whose target cannot be asked has no schedule at all — `null`, not an invented time. "Stopped" is
     // about the budget only, so a converged or released row reads the same way it did.
+    //
+    // `autoReconcileDueAt` answers **when this row's schedule allows the next ask**, nothing more. A
+    // row still due after a pass that spent its `CLAIM_RECONCILE_MAX_PER_PASS` budget keeps a due time
+    // in the past — that means "due, not reached this hour", never "not due yet". Do not compute a
+    // future time from the cap: which rows wait depends on the queue, and guessing would turn a
+    // scheduling fact into a fake promise.
     // 不在待裁队列里的行还没进入自动计划；目标问不了的行根本没有计划 —— 给 `null`，不造一个时刻。
     // 「已停止」只说预算，故已收敛或已释放的行读法与之前一致。
+    //
+    // `autoReconcileDueAt` 只回答**这一行的计划何时允许下一次询问**。某趟因 `CLAIM_RECONCILE_MAX_PER_PASS`
+    // 用尽而没轮到的行，其到期时刻仍停在过去 —— 那读作「已到期、这一趟没轮到」，绝不是「还没到期」。别根据
+    // 上限反推一个未来时刻：谁在等取决于队列，猜出来的会是把排期事实换成一句假承诺。
     const eligible =
       c.status === WRITE_CLAIM_STATUS.CLAIMED &&
       c.decisionState === WRITE_CLAIM_DECISION_STATE.AWAITING_DECISION &&
@@ -413,10 +423,13 @@ export interface InFlightClaimRow {
   autoReconcileStopped: boolean;
   /**
    * F-79: when the next automatic ask becomes due, or `null` when there is none to wait for (not in
-   * the pending-decision queue, target not askable, or budget used up). Never an invented time.
+   * the pending-decision queue, target not askable, or budget used up). Never an invented time, and
+   * never adjusted for the per-pass cap: a past value means "due — this pass may simply not have
+   * reached it yet", not "not due".
    *
    * F-79：下一次自动询问的到期时刻；没有可等的（不在待裁队列、目标问不了、预算已用尽）时为 `null`。
-   * 绝不造一个时刻。
+   * 绝不造一个时刻，也不按每趟上限调整：给的是过去时刻，意思是「已到期 —— 只是这一趟可能还没轮到」，
+   * 不是「还没到期」。
    */
   autoReconcileDueAt: string | null;
 }

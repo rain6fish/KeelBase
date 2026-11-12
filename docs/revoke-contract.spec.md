@@ -606,7 +606,10 @@ usable status query is skipped without an evidence row — that is about our con
 the write. Once the budget is spent the row is parked, and the in-flight list reports `lookupCount`,
 `autoReconcileStopped` and `autoReconcileDueAt`, so "asked four times and stopped" is a reading rather
 than a log line. A manual reconcile still works, and counts against the same budget: the budget bounds
-how often the target is asked, not which code path did the asking. One pass runs at a time inside a
+how often the target is asked, not which code path did the asking. One pass also sends at most
+`CLAIM_RECONCILE_MAX_PER_PASS` queries (default 25), oldest hold first: a per-row cap bounds one row's
+traffic, not the burst, and a backlog of a hundred due rows must not become a hundred GETs in one
+hour. Rows a pass does not reach stay due and are served next hour. One pass runs at a time inside a
 process; there is **no cross-process lease**, so a horizontally scaled deployment may still overlap
 two passes — a scale-out concern left open rather than papered over.
 
@@ -633,7 +636,9 @@ two passes — a scale-out concern left open rather than papered over.
 不变；证据里新增的是**谁问的**（`system:sweep`）与**以谁的身份问的**这两件事并列。目标没有可用的状态查询
 就跳过、不写证据行 —— 那说的是我们自己的配置，不是那次写。预算用尽后行被搁置，而在途清单报出 `lookupCount`、
 `autoReconcileStopped`、`autoReconcileDueAt`，于是「问满四次、已停止」是一个读数，而不是一行日志。人工对账
-仍可进行，并计入同一份预算：预算限制的是**问目标的次数**，不是哪条代码路径问的。同一进程内同一时刻只跑
+仍可进行，并计入同一份预算：预算限制的是**问目标的次数**，不是哪条代码路径问的。一趟最多发出
+`CLAIM_RECONCILE_MAX_PER_PASS` 个询问（默认 25），最老的先问：每条行的次数上限界的是单行的流量，不是突发，
+一百条到期的行不该在一小时里变成一百个 GET。这趟没轮到的行仍然到期，下一趟再问。同一进程内同一时刻只跑
 一趟；**跨进程没有租约**，故横向扩展的部署仍可能有两趟重叠 —— 这是留着未闭合的扩展问题，没有粉饰。
 
 ## 7. 相关文档 / Related

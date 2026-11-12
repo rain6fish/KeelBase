@@ -446,4 +446,13 @@ export interface ClaimAutoReconcileSummary {
   skippedNotDue: number;
   /** `reconcileClaim` refused (not_stale / not_claimable / not_found). / 对账守卫拒了。 */
   refused: number;
+  /**
+   * Due, but this pass had already sent its maximum (`CLAIM_RECONCILE_MAX_PER_PASS`) — carried over to
+   * the next hour, still due. Only rows that would have been asked are counted: the unaskable, the
+   * exhausted and the not-yet-due are counted in their own buckets, not here.
+   *
+   * 已到期，但这趟已经达到发出上限（`CLAIM_RECONCILE_MAX_PER_PASS`）—— 顺延到下一小时，仍然到期。只计
+   * 「本来要问」的行：不可查、已问满、未到期的行各归各的桶，不计在这里。
+   */
+  deferredByPassCap: number;
 }

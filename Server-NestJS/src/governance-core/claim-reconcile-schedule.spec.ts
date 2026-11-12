@@ -3,6 +3,8 @@
 import {
   DEFAULT_CLAIM_RECONCILE_BACKOFF_MINUTES,
   DEFAULT_CLAIM_RECONCILE_MAX_ATTEMPTS,
+  DEFAULT_CLAIM_RECONCILE_MAX_PER_PASS,
+  claimReconcilePassCap,
   claimReconcilePlan,
   claimReconcileSchedule,
 } from './claim-reconcile-schedule';
@@ -50,6 +52,24 @@ describe('F-79 有界自动重问的衰减计划 / the bounded re-ask schedule',
       expect(claimReconcilePlan('nope', undefined).maxAttempts).toBe(4);
       expect(claimReconcilePlan(0, undefined).maxAttempts).toBe(4);
       expect(claimReconcilePlan(0, '60,120').maxAttempts).toBe(2);
+    });
+  });
+
+  // F-79 burst bound: the per-claim cap limits one row's lifetime traffic; this one limits how many
+  // GETs leave in a single hourly pass. 一条行的次数上限界的是它一辈子的流量，这一条界的是单独一趟的突发。
+  describe('每趟上限', () => {
+    it('缺配置 / 不可读 / 小于 1 ⇒ 默认 25（读不出来不等于「一条都别问」）', () => {
+      expect(claimReconcilePassCap(undefined)).toBe(DEFAULT_CLAIM_RECONCILE_MAX_PER_PASS);
+      expect(claimReconcilePassCap(undefined)).toBe(25);
+      expect(claimReconcilePassCap('nope')).toBe(25);
+      expect(claimReconcilePassCap(0)).toBe(25);
+      expect(claimReconcilePassCap(-3)).toBe(25);
+    });
+
+    it('合法值原样取整（数字或字符串都认）', () => {
+      expect(claimReconcilePassCap(5)).toBe(5);
+      expect(claimReconcilePassCap('7')).toBe(7);
+      expect(claimReconcilePassCap(12.9)).toBe(12);
     });
   });
 

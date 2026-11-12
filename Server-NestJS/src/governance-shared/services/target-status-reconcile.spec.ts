@@ -407,6 +407,55 @@ describe('AW-17 目标状态对账（只读查询收敛 unknown）', () => {
       expect(after?.releaseReason).toBe('target_status_not_executed');
     });
 
+    it('每趟上限：到期行多于上限只问最老的几条，其余顺延；不可查的行不占额度；下一趟把余下问掉', async () => {
+      // cap = 2 for this assembly; the default (25) is pinned in the schedule spec.
+      // 本装配把上限设成 2；默认值 25 由计划那份用例钉住。
+      effects = new AiToolEffectsService(
+        ds.getRepository(AiToolSideEffect),
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        { get: (k: string) => (k === 'CLAIM_RECONCILE_MAX_PER_PASS' ? 2 : undefined) } as never,
+        undefined,
+        claims(),
+        undefined,
+        probe as any,
+        lookups(),
+      );
+      probe.canAsk.mockImplementation((toolName: string) => toolName === TOOL);
+      probe.lookup.mockResolvedValue(lookup());
+
+      // Oldest first: an unaskable hold, then three due ones the cap can only partly serve.
+      // 最老在前：一条问不了的，随后是三条到期但额度只够一部分的。
+      await seedQueued({ idempotencyKey: 'k-oldest', toolName: 'create_todo', claimedAt: at(10 * 60) });
+      await seedQueued({ idempotencyKey: 'k-a', claimedAt: at(9 * 60) });
+      await seedQueued({ idempotencyKey: 'k-b', claimedAt: at(8 * 60) });
+      await seedQueued({ idempotencyKey: 'k-c', claimedAt: at(7 * 60) });
+
+      const first = await effects.reconcileDueClaims(base);
+
+      expect(first.asked).toBe(2);
+      expect(first.deferredByPassCap).toBe(1);
+      // The unaskable row is skipped, not charged against the budget — the two asks below are the two
+      // oldest *askable* holds, in age order.
+      // 不可查的行是跳过，不占额度 —— 下面两次询问是最老的两条**可查**占位，按年龄顺序。
+      expect(first.skippedUnaskable).toBe(1);
+      expect(probe.lookup.mock.calls.map((call) => call[1])).toEqual(['k-a', 'k-b']);
+
+      const second = await effects.reconcileDueClaims(base);
+
+      expect(second.asked).toBe(1);
+      expect(second.deferredByPassCap).toBe(0);
+      // k-a / k-b were answered `unknown` this hour, so their next interval (+6h) is not due yet; the
+      // deferred row is still due and is served now.
+      // k-a / k-b 这小时问过（答 unknown），下一档 +6h 未到；被顺延的那条仍到期，这一趟问它。
+      expect(probe.lookup.mock.calls.map((call) => call[1])).toEqual(['k-a', 'k-b', 'k-c']);
+    });
+
     it('同一进程里两趟重叠 ⇒ 第二趟直接返回，不对同一行发第二次查询', async () => {
       await seedQueued({ claimedAt: at(60 * 24 * 30) });
       let release!: (value: unknown) => void;

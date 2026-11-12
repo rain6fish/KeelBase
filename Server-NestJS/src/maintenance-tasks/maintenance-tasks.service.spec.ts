@@ -79,6 +79,7 @@ describe('MaintenanceTasksService', () => {
         skippedExhausted: 0,
         skippedNotDue: 0,
         refused: 0,
+        deferredByPassCap: 0,
       }),
     };
 
@@ -144,6 +145,7 @@ describe('MaintenanceTasksService', () => {
           skippedExhausted: 0,
           skippedNotDue: 0,
           refused: 0,
+          deferredByPassCap: 0,
         };
       });
 

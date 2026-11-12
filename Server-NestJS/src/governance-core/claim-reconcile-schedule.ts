@@ -8,12 +8,17 @@
  * waiting for a person who may never look. This module is the middle: a bounded, decaying number of
  * automatic re-asks, after which the row is explicitly parked and the read surface says so.
  *
- * Two decisions are made here, and both are read by two surfaces (`reconcileDueClaims` on the hourly
+ * The per-claim decisions are made here and read by two surfaces (`reconcileDueClaims` on the hourly
  * sweep decides, `WriteClaimQueryService` explains) — so they live in one function, not two:
  *
  * - **How many asks.** `CLAIM_RECONCILE_MAX_ATTEMPTS` (default 4).
  * - **How long to wait before each.** `CLAIM_RECONCILE_BACKOFF_MINUTES` (default `60,360,1440,4320`,
  *   i.e. +1h, +6h, +24h, +72h after the previous ask).
+ *
+ * A third decision — **how many queries one pass may send** (`CLAIM_RECONCILE_MAX_PER_PASS`, default
+ * 25) — is a burst bound across all claims, not a per-row one. It lives here too because it is the same
+ * plan read by the same sweep; a per-row cap alone would let a backlog of a hundred due rows send a
+ * hundred GETs in one pass.
  *
  * The **anchor** is the previous ask when there is one, else `claimed_at` — the only timestamp a claim
  * has before anything has been asked. With the default staleness threshold (60 min) the row enters
@@ -37,6 +42,8 @@
  * - **问几次**。`CLAIM_RECONCILE_MAX_ATTEMPTS`（默认 4）。
  * - **每次之前等多久**。`CLAIM_RECONCILE_BACKOFF_MINUTES`（默认 `60,360,1440,4320`，即距上一次询问
  *   +1h、+6h、+24h、+72h）。
+ * - **一趟最多问几条**。`CLAIM_RECONCILE_MAX_PER_PASS`（默认 25）。次数上限界的是「一条行一辈子问几次」，
+ *   这一条界的是「一趟里同时打出多少个请求」—— 只有前者时，积压一百条会在一趟里发一百个 GET。
  *
  * **锚点**是上一次询问；没有过询问时是 `claimed_at` —— 在问过任何一次之前，占位行只有这一个时刻。默认陈旧
  * 阈值（60 分钟）下，行在 `claimed_at + 60 分钟` 进入 `awaiting_decision`，而第一次自动询问恰好在那时到期；
@@ -51,6 +58,36 @@ export const DEFAULT_CLAIM_RECONCILE_MAX_ATTEMPTS = 4;
 
 /** Minutes to wait before each ask, in order: +1h / +6h / +24h / +72h. / 每次询问前等待的分钟数。 */
 export const DEFAULT_CLAIM_RECONCILE_BACKOFF_MINUTES: readonly number[] = [60, 360, 1440, 4320];
+
+/**
+ * Queries one hourly pass may send, across all claims. A per-claim attempt cap alone bounds each row's
+ * lifetime traffic, not the burst: a backlog of a hundred due rows would send a hundred GETs in one
+ * pass. Rows it does not reach stay due and are served next hour, oldest first.
+ *
+ * 一趟（每小时）最多能发出多少个询问，跨所有占位行合计。只有每条行的次数上限时，界的是「一条行一辈子的
+ * 流量」，不是突发：一百条到期的行会在一趟里发一百个 GET。这趟没轮到的行仍然到期，下一趟按最老的先问。
+ */
+export const DEFAULT_CLAIM_RECONCILE_MAX_PER_PASS = 25;
+
+/**
+ * Resolve the per-pass cap. Invalid or missing config falls back to the constant — reading an
+ * unreadable value as zero would silently stop all automatic asking, which is not what "unreadable"
+ * means.
+ *
+ * 解析每趟上限。配置缺失或不可用时回落到常量 —— 把不可读的值读成 0，一趟就一条都不问，那会静默停掉
+ * 全部自动重问，不是「读不出」的意思。
+ */
+export function claimReconcilePassCap(configured: unknown): number {
+  const value =
+    typeof configured === 'number'
+      ? configured
+      : typeof configured === 'string' && configured.trim() !== ''
+        ? Number(configured)
+        : NaN;
+  return Number.isFinite(value) && value >= 1
+    ? Math.trunc(value)
+    : DEFAULT_CLAIM_RECONCILE_MAX_PER_PASS;
+}
 
 export interface ClaimReconcilePlan {
   /** Effective cap — never more than the number of declared intervals (see `claimReconcilePlan`). */
