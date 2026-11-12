@@ -65,7 +65,7 @@ jobs:
           - name: pgvector-pg17
             ref: pgvector/pgvector:pg17@sha256:7d0a41464797aeb9862dfdc0bbf1526b82cfd324cdd8036df19e3545f4a9ccb8
           - name: redis-7-alpine
-            ref: redis:7-alpine@sha256:c5d34a98396a4775e223c74e929162c35c5a2182901ba26b50ade939941ce14b
+            ref: redis:7-alpine@sha256:7f7d30b7fdd09467bac58198a1f166dd69789d348d4fe859cccb20e0cf287fbe
     steps:
       - uses: actions/checkout@v5
 

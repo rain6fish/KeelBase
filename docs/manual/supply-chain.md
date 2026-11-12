@@ -279,7 +279,7 @@ digest, so pinning changed nothing at pin time.
 | Reference | Digest | Where |
 |---|---|---|
 | `pgvector/pgvector:pg17` | `sha256:7d0a41464797aeb9862dfdc0bbf1526b82cfd324cdd8036df19e3545f4a9ccb8` | `docker-compose.yml:18` |
-| `redis:7-alpine` | `sha256:c5d34a98396a4775e223c74e929162c35c5a2182901ba26b50ade939941ce14b` | `docker-compose.yml:35` |
+| `redis:7-alpine` | `sha256:7f7d30b7fdd09467bac58198a1f166dd69789d348d4fe859cccb20e0cf287fbe` | `docker-compose.yml:35` |
 | `ollama/ollama:0.40.15` | `sha256:0e59999e0e8f9fd4e704bd788a89b7e4cad399367fb1365f8c102ac662288761` | `docker-compose.yml:168` |
 | `prom/prometheus:v3.16.0` | `sha256:e04987641b57704f408e31f6373ba4138ecf27cb4a165d24aabb6c38fddd0f06` | `docker-compose.observability.yml:31` |
 | `grafana/grafana:13.3.0` | `sha256:488984b716c0862639f91a698adbe2862677a5a07bad42da5f03f3030883b205` | `docker-compose.observability.yml:39` |
@@ -394,12 +394,10 @@ which clear only by removing the Taro webpack5 runner.
    Two of those readings are **known and stable, not regressions**: at the pins above, the local run on
    2026-11-12 under these same settings read **137** HIGH/CRITICAL for `pgvector/pgvector:pg17`
    (HIGH 133 / CRITICAL 4, **109** with no fix; debian 12.15 OS packages 111 plus the `gosu` binary 26)
-   and **0** for `redis:7-alpine`, whose `alpine 3.21.10` base is out of support (EOSL) even at zero
-   findings. Candidates were read in the same run: `redis:7-alpine` now resolves to `sha256:7f7d30b7…`
-   (alpine 3.22.8) and `redis:8-alpine` to `sha256:7958cfbb…` (alpine 3.23.8), both **0** findings on a
-   supported base, while the current `pg17` tag already resolves to the pinned digest and `pg18`
-   (`sha256:c29f3068…`) reads the same **137**. Whether to move either pin is an open decision; nothing
-   was changed.
+   and **0** for `redis:7-alpine`; on 2026-11-12 that pin was moved from the EOSL `alpine 3.21.10`
+   digest to `sha256:7f7d30b7…` (alpine 3.22.8), which reads **0** findings on a supported base. The
+   `pg17` tag already resolves to the pinned digest and `pg18` (`sha256:c29f3068…`) reads the same
+   **137**; whether to move the pgvector pin remains an open decision, and nothing was changed there.
    Not covered: the compose `web` (nginx) image, which is built per deploy — its OS base is the scanned
    `alpine:3.24`, but the nginx packages installed on top of it are not read; nor are the
    profile-gated `ollama` image and the observability stack.
@@ -678,7 +676,7 @@ OSV_SCANNER="D:/Rain6fish/.tools/osv-scanner/osv-scanner.exe" node scripts/check
 | 引用 | 摘要 | 位置 |
 |---|---|---|
 | `pgvector/pgvector:pg17` | `sha256:7d0a41464797aeb9862dfdc0bbf1526b82cfd324cdd8036df19e3545f4a9ccb8` | `docker-compose.yml:18` |
-| `redis:7-alpine` | `sha256:c5d34a98396a4775e223c74e929162c35c5a2182901ba26b50ade939941ce14b` | `docker-compose.yml:35` |
+| `redis:7-alpine` | `sha256:7f7d30b7fdd09467bac58198a1f166dd69789d348d4fe859cccb20e0cf287fbe` | `docker-compose.yml:35` |
 | `ollama/ollama:0.40.15` | `sha256:0e59999e0e8f9fd4e704bd788a89b7e4cad399367fb1365f8c102ac662288761` | `docker-compose.yml:168` |
 | `prom/prometheus:v3.16.0` | `sha256:e04987641b57704f408e31f6373ba4138ecf27cb4a165d24aabb6c38fddd0f06` | `docker-compose.observability.yml:31` |
 | `grafana/grafana:13.3.0` | `sha256:488984b716c0862639f91a698adbe2862677a5a07bad42da5f03f3030883b205` | `docker-compose.observability.yml:39` |
@@ -780,12 +778,10 @@ Dockerfile 钉的是 `sha256:3f4d…630a` —— 标签动了、被钉住的镜�
    摘要把两种计数分开。它是**报告制** —— 退出码不作为门禁，因为上游镜像的修复不在本仓手里。
    其中两条读数是**已知且稳定的，不是回归**：在上述钉点上，2026-11-12 以同一组设置本地实测，
    `pgvector/pgvector:pg17` 读出 **137** 条 HIGH/CRITICAL（HIGH 133 / CRITICAL 4，其中 **109** 条无修复；
-   debian 12.15 系统包 111 条 + `gosu` 二进制 26 条），`redis:7-alpine` 读出 **0** 条 ——
-   但它的 `alpine 3.21.10` 基座已停止支持（EOSL），即便 0 条也是。
-   同一次运行也读了备选：`redis:7-alpine` 现解析到 `sha256:7f7d30b7…`（alpine 3.22.8）、`redis:8-alpine`
-   解析到 `sha256:7958cfbb…`（alpine 3.23.8），两者在受支持的基座上均 **0** 条；
-   而当前 `pg17` 标签本就解析到钉住的那个摘要，`pg18`（`sha256:c29f3068…`）读出同样的 **137** 条。
-   是否移动任一钉点是**待裁决定**，本次一个都没有改。
+   debian 12.15 系统包 111 条 + `gosu` 二进制 26 条），`redis:7-alpine` 读出 **0** 条；
+   2026-11-12 已把该钉点从 EOSL 的 alpine 3.21.10 摘要换到 `sha256:7f7d30b7…`（alpine 3.22.8），
+   在受支持的基座上仍是 **0** 条。当前 `pg17` 标签本就解析到钉住的那个摘要，`pg18`
+   （`sha256:c29f3068…`）读出同样的 **137** 条；是否移动 pgvector 的钉点仍是**待裁决定**，该处未改。
    未覆盖：compose 的 `web`（nginx）镜像（按次部署构建）—— 它的操作系统基座就是被扫的 `alpine:3.24`，
    但装在其上的 nginx 包不被读到；走 profile 的 `ollama` 镜像与可观测栈也不在读数内。
    钉住的 `node:22-alpine` 基础**本身**会判红
