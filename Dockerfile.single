@@ -42,6 +42,13 @@ COPY Server-NestJS/ .
 RUN npm run build
 # 编译 seed-demo 脚本到 build-seed/（nest build 不含 scripts/）；synchronize 建表 + 幂等补种演示账号
 RUN npx tsc scripts/seed-demo.ts --outDir build-seed --rootDir . --module commonjs --target es2020 --esModuleInterop --skipLibCheck --experimentalDecorators --emitDecoratorMetadata --moduleResolution node
+# Drop build-time dependencies before the runtime stage copies `node_modules`. Same shape as the
+# compose `server` image, which was measured on 2026-11-12: 1,021,519,770 B -> 839,860,154 B
+# (-173.3 MiB, -17.8%) with `pino-pretty` moved to `dependencies` and production still starting.
+# 在运行阶段复制 `node_modules` 之前去掉构建期依赖。与 compose 的 `server` 镜像同一形状；后者
+# 2026-11-12 实测为 1,021,519,770 B -> 839,860,154 B（-173.3 MiB，-17.8%），`pino-pretty` 已移到
+# `dependencies`，production 仍能启动。
+RUN npm prune --omit=dev
 
 # ---- Flutter web build ----
 # 注：flutter build web 在容器内（BuildKit）偶发 dart2js 崩溃且无一致根因（宿主机/交互容器稳定）。

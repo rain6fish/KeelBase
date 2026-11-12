@@ -48,6 +48,18 @@
        --outDir build-scripts --rootDir . \
        --module commonjs --target es2020 --esModuleInterop --skipLibCheck \
        --experimentalDecorators --emitDecoratorMetadata --moduleResolution node
+# Drop build-time dependencies from the tree the runtime stage copies. `npm ci` has to keep them
+# during the build (`nest`, `typescript`, `ts-node`), so the prune runs after the last build step.
+# Measured 2026-11-12 on the built `server` image: 1,021,519,770 B -> 839,860,154 B
+# (-173.3 MiB, -17.8%), 631 -> 380 top-level packages; production starts, `/api/v1/health` answers
+# 200, and both compiled scripts exit 0. Development mode also starts — that is why `pino-pretty`
+# moved to `dependencies`.
+# 从运行阶段复制的那棵树里去掉构建期依赖。构建期间 `npm ci` 必须保留它们（`nest`、`typescript`、
+# `ts-node`），所以 prune 放在最后一个构建步骤之后。2026-11-12 在构建出的 `server` 镜像上实测：
+# 1,021,519,770 B -> 839,860,154 B（-173.3 MiB，-17.8%），顶层包 631 -> 380；production 可启动、
+# `/api/v1/health` 回 200、两个编译脚本均 exit 0。development 模式也能启动 —— 这正是把
+# `pino-pretty` 移到 `dependencies` 的原因。
+RUN npm prune --omit=dev
 
 FROM node:22-alpine@sha256:0e1754758c2df4cfa3e68d59e2e1b7374bb7fd9ea6328eaaacf15cc934af8202 AS server
 WORKDIR /app/server
