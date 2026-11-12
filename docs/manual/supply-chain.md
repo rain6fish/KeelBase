@@ -115,8 +115,9 @@ node scripts/check-sbom-coverage.mjs [--selftest] [--sbom <path>] [--scan-log <p
 Outside the scope of this gate:
 
 - **Image layers and OS packages.** The dependency scanner does not read images. A separate scan covers
-  the image built from `Dockerfile.single` before it is pushed (§7); scheduled scans and the compose
-  `web` image are still open there.
+  the image built from `Dockerfile.single` before it is pushed, and a weekly scheduled run records
+  findings for the published image and the two pinned bases (§7); the compose `web` image is still open
+  there.
 - **Compose run-time images and CI service images.** `image:` entries are not lockfiles, so the dependency
   scanner does not read them. They are digest-pinned and gated separately (§4); that gate checks the pin,
   it does not scan the image.
@@ -179,19 +180,20 @@ The first two need network access.
 
 ## 3. Where it runs
 
-**CI.** Job `supply-chain` (`.github/workflows/ci.yml:746-814`), in order:
+**CI.** Job `supply-chain` (`.github/workflows/ci.yml:746-833`), in order:
 
 | Step | Line | What it does |
 |---|---|---|
 | `npm ci` | `:761` | lockfile and `package.json` must agree |
 | `npm audit --omit=dev --audit-level=high` | `:763-764` | Server-NestJS only; the pre-existing line, kept |
-| SBOM (SPDX) + artifact upload | `:766-772` | Server-NestJS production set only |
-| fetch osv-scanner (pinned) | `:788-799` | version `2.7.0` and sha256, verified before use (`:791-792`) |
-| dependency scan | `:800-804` | the gate, `--verbose` |
-| dependency scan self-test | `:810-814` | `--selftest` |
+| full-tree CycloneDX SBOM + artifact upload | `:796-806` | `scripts/generate-sbom.sh`: scanner `2.7.0` + sha256 checked before use, `--all-packages --no-ignore`, coverage checked inside the script; uploaded as `keelbase-sbom` |
+| Trivy ignore-list guard | `:813-817` | selftest + the real `.trivyignore.yaml` |
+| dependency scan | `:819-823` | the gate, `--verbose` |
+| dependency scan self-test | `:829-833` | `--selftest` |
 
-The scanner is pinned on two axes at the fetch step. The script also carries the version string
-(`scripts/check-dependency-scan.mjs:71`) but does not verify it; the CI step verifies the digest.
+The scanner version and digest live in `scripts/generate-sbom.sh` (version `2.7.0`, sha256
+`160c6253…`); that script verifies the digest before use. `scripts/check-dependency-scan.mjs` also
+carries the version string (`:71`) but does not verify it.
 
 The workflow runs on pushes to `main` and on pull requests targeting `main` (`ci.yml:6-10`). Whether a red
 `supply-chain` job *blocks* a merge is a repository branch-protection setting, which is not part of this
@@ -521,7 +523,7 @@ node scripts/check-sbom-coverage.mjs [--selftest] [--sbom <path>] [--scan-log <p
 本门禁不覆盖的部分：
 
 - **镜像层与操作系统包。** 依赖扫描器不读镜像。另有一道门禁在推送前扫描由 `Dockerfile.single` 构建出的
-  镜像（见 §7）；定时扫描与 compose 的 `web` 镜像仍未覆盖。
+  镜像，另有一次每周定时运行记录已发布镜像与两个钉住基础的发现（见 §7）；compose 的 `web` 镜像仍未覆盖。
 - **编排里的运行时镜像与 CI service 镜像。** `image:` 不是锁文件，依赖扫描器不读它们。它们已按摘要钉住、
   由另一道门禁单独守（§4）；那道门禁查的是「钉没钉」，不是「镜像里有没有洞」。
 - **Gradle。** `Front-Flutter/android/app/build.gradle.kts` 不是锁文件，本仓也没有 JVM 扫描器。
@@ -577,19 +579,19 @@ node scripts/check-sbom-coverage.mjs [--selftest] [--sbom <path>] [--scan-log <p
 
 ## 3. 执行处 —— 在哪里跑
 
-**CI。** 任务 `supply-chain`（`.github/workflows/ci.yml:746-814`），依次为：
+**CI。** 任务 `supply-chain`（`.github/workflows/ci.yml:746-833`），依次为：
 
 | 步骤 | 行 | 做什么 |
 |---|---|---|
 | `npm ci` | `:761` | 锁文件与 `package.json` 必须一致 |
 | `npm audit --omit=dev --audit-level=high` | `:763-764` | 仅 Server-NestJS；项目原有的那条线，保留 |
-| SBOM（SPDX）+ 产物上传 | `:766-772` | 仅 Server-NestJS 的生产集合 |
-| 下载 osv-scanner（钉住） | `:788-799` | 版本 `2.7.0` 与 sha256，使用前校验（`:791-792`） |
-| 依赖扫描 | `:800-804` | 门禁本体，带 `--verbose` |
-| 依赖扫描自检 | `:810-814` | `--selftest` |
+| 全仓 CycloneDX SBOM + 产物上传 | `:796-806` | `scripts/generate-sbom.sh`：扫描器 `2.7.0` + sha256 使用前校验，带 `--all-packages --no-ignore`，覆盖检查在脚本内跑；以 `keelbase-sbom` 上传 |
+| Trivy 例外清单守卫 | `:813-817` | 自检 + 真实的 `.trivyignore.yaml` |
+| 依赖扫描 | `:819-823` | 门禁本体，带 `--verbose` |
+| 依赖扫描自检 | `:829-833` | `--selftest` |
 
-扫描器在下载这一步按两个轴钉住。脚本里也带着版本串（`scripts/check-dependency-scan.mjs:71`），但脚本
-本身不校验它；校验摘要的是 CI 那一步。
+扫描器的版本与摘要只在 `scripts/generate-sbom.sh` 里定义（版本 `2.7.0`、sha256 `160c6253…`），由该脚本
+在使用前校验摘要。`scripts/check-dependency-scan.mjs` 里也带着版本串（`:71`），但脚本本身不校验它。
 
 工作流在推送到 `main` 与针对 `main` 的拉取请求上触发（`ci.yml:6-10`）。红的 `supply-chain` 是否**阻止**
 合并，取决于仓库的分支保护设置，那不在本树里 —— 工作流能做的只是让这项检查失败。
