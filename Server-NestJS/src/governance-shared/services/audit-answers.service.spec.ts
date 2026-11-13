@@ -20,17 +20,21 @@ describe('AuditAnswersService', () => {
     claims?: Array<Record<string, unknown>>;
     effects?: Array<Record<string, unknown>>;
     confirmations?: Array<Record<string, unknown>>;
+    /** Rows the approver-name lookup finds: their own `tool_confirmation` row per conversation. */
+    approverRows?: Array<Record<string, unknown>>;
   }) {
     const getLogs = jest.fn();
+    const logsRepo = { find: jest.fn().mockResolvedValue(evidence?.approverRows ?? []) };
     const service = new AuditAnswersService(
       { getLogs } as never,
       { find: jest.fn().mockResolvedValue(evidence?.claims ?? []) } as never,
       { find: jest.fn().mockResolvedValue(evidence?.effects ?? []) } as never,
       { find: jest.fn().mockResolvedValue(evidence?.confirmations ?? []) } as never,
+      logsRepo as never,
     );
     const rows = rowOverrides.map((over) => baseRow(over));
     getLogs.mockResolvedValue(rows);
-    return { service, getLogs, rows };
+    return { service, getLogs, logsRepo, rows };
   }
 
   it('builds six product cells and applies the object ids before paging', async () => {
@@ -90,13 +94,57 @@ describe('AuditAnswersService', () => {
     expect(matrix.rows[0][0]).toBe('2026-11-05 10:30:00 UTC');
   });
 
-  it('a second-person approval names the person as a gap, not a guess', async () => {
-    const { service } = build(
-      [{ id: 12, tool: 'review_approval_request', action: 'tool_call', outcome: 'executed' }],
+  it('a second-person approval names the approver when their decision row is in the conversation', async () => {
+    const { service, logsRepo } = build(
+      [
+        {
+          id: 12,
+          tool: 'review_approval_request',
+          action: 'tool_call',
+          outcome: 'executed',
+          conversationId: 'conv-12',
+        },
+      ],
       {
         claims: [{ auditRowId: 12, effectId: 4, authorizationRef: 'tok-2' }],
         effects: [{ id: 4, resultType: 'approval_request', resultId: 77 }],
         confirmations: [{ token: 'tok-2', status: 'approved', approverId: '9' }],
+        approverRows: [{ conversationId: 'conv-12', userId: '9', username: 'audit_admin' }],
+      },
+    );
+
+    const matrix = await service.export({ limit: 500 }, undefined, reader);
+    expect(matrix.rows[0][4]).toBe('Second-person approval by audit_admin');
+    // A person's account name is not an internal name; the scanner is told which snapshot to allow.
+    // 人的账号名不是内部名；扫描器会被告知哪一个是快照姓名。
+    expect(
+      scanForInternalNames(matrix.rows.flat(), { allowedHumanNames: ['audit_admin'] }),
+    ).toEqual([]);
+    // One lookup for the whole page, and only the approver's own decision row counts.
+    expect(logsRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ action: 'tool_confirmation' }),
+      }),
+    );
+  });
+
+  it('names no one when the decision row is missing, or belongs to another conversation', async () => {
+    const { service } = build(
+      [
+        {
+          id: 12,
+          tool: 'review_approval_request',
+          action: 'tool_call',
+          outcome: 'executed',
+          conversationId: 'conv-12',
+        },
+      ],
+      {
+        claims: [{ auditRowId: 12, effectId: 4, authorizationRef: 'tok-2' }],
+        effects: [{ id: 4, resultType: 'approval_request', resultId: 77 }],
+        confirmations: [{ token: 'tok-2', status: 'approved', approverId: '9' }],
+        // The same approver's decision row, but in someone else's conversation: not this approval.
+        approverRows: [{ conversationId: 'conv-other', userId: '9', username: 'audit_admin' }],
       },
     );
 

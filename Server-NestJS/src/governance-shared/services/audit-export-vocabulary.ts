@@ -156,9 +156,20 @@ export function productResultLabel(state: ExplanationState): string {
   return RESULT_LABELS[state] ?? 'Result unknown';
 }
 
-/** What the record shows about approval. `secondPerson` names no person — see the spec §6.1. */
+/**
+ * What the record shows about approval. `approverName` is the name snapshot carried by the
+ * approver's own decision row — the same derivation the single-event read face uses; when it is
+ * absent the cell says so rather than guessing.
+ *
+ * 记录关于批准显示什么。`approverName` 是批准人自己那条裁决行携带的姓名快照 —— 与单事件读面同一条
+ * 推导；没有它就如实说没有，不去猜。
+ */
 export interface AuthorizationFacts {
-  confirmation: { status: string; approverId?: string | null } | null;
+  confirmation: {
+    status: string;
+    approverId?: string | null;
+    approverName?: string | null;
+  } | null;
   /** The operator's display name, when the audit row has one. */
   operatorName?: string | null;
   /** `authorization` parses to a JSON array — the deny-reasons shape. */
@@ -170,17 +181,17 @@ export interface AuthorizationFacts {
 /**
  * The Authorization cell.
  *
- * <p>The second-person case deliberately says **approver name not recorded**: the confirmation row
- * carries `approver_id` (an account id) and never a display name, and this runtime must not join a
- * user table the governance database may not have. Naming the gap is the honest answer; inventing a
- * name is not. Closing it needs a new field on the confirmation artifact — a contract field — so the
- * slice stops at the boundary and proposes it.
+ * <p>The second-person case names the approver when the evidence carries the name: it is the
+ * snapshot on the approver's own decision row in the same conversation, never a lookup in a user
+ * table the governance database may not have, and never a guess from tool name plus timestamp.
+ * When that row does not exist — a record written before it — the cell says **approver name not
+ * recorded**, so a gap still reads as a gap.
  *
  * 授权列。
  *
- * <p>第二人批准那一格**刻意**写「approver name not recorded」：确认行只有 `approver_id`（账号 id），
- * 从没有显示名；而本运行时不能去 join 治理库可能根本没有的用户表。**说出缺口**是如实的答案，
- * 编一个名字不是。闭合它需要在确认 artifact 上加字段 —— 那是契约字段 —— 故本切片停在边界、只提案。
+ * <p>第二人批准那一格在有姓名时**点名**：姓名取自**同一会话**中批准人自己那条裁决行的快照，既不去
+ * join 治理库可能根本没有的用户表，也不按工具名加时间猜。裁决行不存在时（它出现之前写下的记录），
+ * 那一格仍写 **approver name not recorded** —— 缺口就照缺口读。
  */
 export function productAuthorizationLabel(facts: AuthorizationFacts): string {
   const conf = facts.confirmation;
@@ -188,7 +199,9 @@ export function productAuthorizationLabel(facts: AuthorizationFacts): string {
     switch (conf.status) {
       case 'approved':
         return conf.approverId
-          ? 'Second-person approval (approver name not recorded)'
+          ? conf.approverName
+            ? `Second-person approval by ${conf.approverName}`
+            : 'Second-person approval (approver name not recorded)'
           : `Confirmed by ${facts.operatorName || 'the operator'}`;
       case 'declined':
         return conf.approverId ? 'Declined by a second person' : 'Declined by the operator';

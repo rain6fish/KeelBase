@@ -86,18 +86,20 @@ describe('U1: search by business object + export the six answers', () => {
     outcome: string;
     isError?: boolean;
     authorization?: string | null;
+    action?: string;
+    conversationId?: string;
   }): Promise<number> {
     const repo = ds.getRepository('ai_audit_logs');
     const saved = await repo.save({
       userId: String(opts.userId),
       username: opts.username,
-      action: 'tool_call',
+      action: opts.action ?? 'tool_call',
       tool: opts.tool,
       outcome: opts.outcome,
       detail: `${opts.tool}({})`,
       isError: opts.isError ?? false,
       authorization: opts.authorization ?? null,
-      conversationId: `conv-${opts.username}-${opts.tool}`,
+      conversationId: opts.conversationId ?? `conv-${opts.username}-${opts.tool}`,
     });
     const id = (saved as unknown as { id: number }).id;
     await repo.update(id, { createdAt: opts.createdAt });
@@ -246,6 +248,18 @@ describe('U1: search by business object + export the six answers', () => {
       status: 'approved',
       decidedAt: new Date('2026-11-05T10:45:30Z'),
     });
+    // The approver's own decision row, in the same conversation — the row the export now takes the
+    // name from, the same derivation the single-event read face uses.
+    // 批准人自己那条裁决行，同一会话 —— 导出现在从这里取姓名，与单事件读面同一条推导。
+    await insertAuditRow({
+      userId: admin.id,
+      username: 'u1_admin',
+      createdAt: new Date('2026-11-05T10:45:30Z'),
+      tool: 'create_followup_task',
+      outcome: 'executed',
+      action: 'tool_confirmation',
+      conversationId: 'conv-u1_user-create_followup_task',
+    });
 
     // Another customer, same period — must not appear in #9005's answer.
     // 另一个客户，同一期间 —— 不得出现在 #9005 的答案里。
@@ -372,7 +386,9 @@ describe('U1: search by business object + export the six answers', () => {
       // 对象是业务名词 + 读者本来就持有的 id。
       expect(row[3]).toBe('Customer #9005');
     }
-    expect(scanForInternalNames(matrix.rows.flat(), { allowedHumanNames: ['u1_user'] })).toEqual([]);
+    expect(
+      scanForInternalNames(matrix.rows.flat(), { allowedHumanNames: ['u1_user', 'u1_admin'] }),
+    ).toEqual([]);
 
     // The clock is UTC and says so; a zone-less sqlite instant must not shift by the machine's TZ.
     // 钟面是 UTC 且写明；无时区的 sqlite 时刻不得随机器时区漂移。
@@ -384,7 +400,7 @@ describe('U1: search by business object + export the six answers', () => {
     const authorizations = matrix.rows.map((r) => r[4]).sort();
     expect(authorizations).toEqual([
       'Confirmed by u1_user',
-      'Second-person approval (approver name not recorded)',
+      'Second-person approval by u1_admin',
     ]);
     // The initiator column distinguishes the assistant from the person — the gap the minute records.
     // 发起人列区分助手与人 —— 纪要记下的那个缺口。
@@ -414,7 +430,9 @@ describe('U1: search by business object + export the six answers', () => {
     expect(blocked![2]).toBe('Rejected');
     expect(blocked![3]).toBe('Not recorded');
     expect(blocked![4]).toBe('Refused (no approval recorded)');
-    expect(scanForInternalNames(matrix.rows.flat(), { allowedHumanNames: ['u1_user'] })).toEqual([]);
+    expect(
+      scanForInternalNames(matrix.rows.flat(), { allowedHumanNames: ['u1_user', 'u1_admin'] }),
+    ).toEqual([]);
   });
 
   it('half an object filter is a 400 — never a silently broader read', async () => {

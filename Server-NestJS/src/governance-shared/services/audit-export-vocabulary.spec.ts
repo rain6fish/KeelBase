@@ -69,7 +69,18 @@ describe('audit export vocabulary', () => {
     expect(productResultLabel('not_executed')).toBe('Not executed');
   });
 
-  it('authorization: names the second person as a gap, never invents a name', () => {
+  it('authorization: names the second person when known, and never invents a name', () => {
+    expect(
+      productAuthorizationLabel({
+        confirmation: { status: 'approved', approverId: '7', approverName: 'audit_admin' },
+        operatorName: 'alice',
+        denied: false,
+        allowed: true,
+      }),
+    ).toBe('Second-person approval by audit_admin');
+
+    // No name on the decision row ⇒ the gap is said, not filled.
+    // 裁决行上没有姓名 ⇒ 说出缺口，不填空。
     expect(
       productAuthorizationLabel({
         confirmation: { status: 'approved', approverId: '7' },
