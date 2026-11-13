@@ -184,14 +184,17 @@ export interface AuthorizationFacts {
  * <p>The second-person case names the approver when the evidence carries the name: it is the
  * snapshot on the approver's own decision row in the same conversation, never a lookup in a user
  * table the governance database may not have, and never a guess from tool name plus timestamp.
- * When that row does not exist — a record written before it — the cell says **approver name not
- * recorded**, so a gap still reads as a gap.
+ * When no name can be resolved — no decision row, or an account that has since been removed — the
+ * cell says a **second person** decided and the name was not recorded. It never falls back to
+ * «Confirmed by the operator»: the confirmation record still proves someone else decided, and
+ * saying otherwise would invert the fact.
  *
  * 授权列。
  *
- * <p>第二人批准那一格在有姓名时**点名**：姓名取自**同一会话**中批准人自己那条裁决行的快照，既不去
- * join 治理库可能根本没有的用户表，也不按工具名加时间猜。裁决行不存在时（它出现之前写下的记录），
- * 那一格仍写 **approver name not recorded** —— 缺口就照缺口读。
+ * <p>第二人那一格在有姓名时**点名**：姓名取自**同一会话**中批准人自己那条裁决行的快照，既不去
+ * join 治理库可能根本没有的用户表，也不按工具名加时间猜。取不到姓名时（没有裁决行，或那个账号
+ * 已被删除），那一格说**是第二个人**做的决定、姓名未记录 —— 绝不回退成「本人确认」：确认记录本身
+ * 已证明是别人做的决定，反过来写就是把事实说反。
  */
 export function productAuthorizationLabel(facts: AuthorizationFacts): string {
   const conf = facts.confirmation;
@@ -200,11 +203,15 @@ export function productAuthorizationLabel(facts: AuthorizationFacts): string {
       case 'approved':
         return conf.approverId
           ? conf.approverName
-            ? `Second-person approval by ${conf.approverName}`
+            ? `Approved by ${conf.approverName}`
             : 'Second-person approval (approver name not recorded)'
           : `Confirmed by ${facts.operatorName || 'the operator'}`;
       case 'declined':
-        return conf.approverId ? 'Declined by a second person' : 'Declined by the operator';
+        return conf.approverId
+          ? conf.approverName
+            ? `Declined by ${conf.approverName}`
+            : 'Declined by a second person'
+          : 'Declined by the operator';
       case 'pending':
         return 'Awaiting a decision';
       case 'timeout':

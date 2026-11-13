@@ -114,7 +114,7 @@ describe('AuditAnswersService', () => {
     );
 
     const matrix = await service.export({ limit: 500 }, undefined, reader);
-    expect(matrix.rows[0][4]).toBe('Second-person approval by audit_admin');
+    expect(matrix.rows[0][4]).toBe('Approved by audit_admin');
     // A person's account name is not an internal name; the scanner is told which snapshot to allow.
     // 人的账号名不是内部名；扫描器会被告知哪一个是快照姓名。
     expect(
@@ -126,6 +126,29 @@ describe('AuditAnswersService', () => {
         where: expect.objectContaining({ action: 'tool_confirmation' }),
       }),
     );
+  });
+
+  it('names a second person who declined, from the same decision row', async () => {
+    const { service } = build(
+      [
+        {
+          id: 13,
+          tool: 'review_approval_request',
+          action: 'tool_call',
+          outcome: 'not_executed',
+          conversationId: 'conv-13',
+        },
+      ],
+      {
+        claims: [{ auditRowId: 13, effectId: 6, authorizationRef: 'tok-3' }],
+        effects: [{ id: 6, resultType: 'approval_request', resultId: 78 }],
+        confirmations: [{ token: 'tok-3', status: 'declined', approverId: '9' }],
+        approverRows: [{ conversationId: 'conv-13', userId: '9', username: 'audit_admin' }],
+      },
+    );
+
+    const matrix = await service.export({ limit: 500 }, undefined, reader);
+    expect(matrix.rows[0][4]).toBe('Declined by audit_admin');
   });
 
   it('names no one when the decision row is missing, or belongs to another conversation', async () => {
@@ -149,7 +172,12 @@ describe('AuditAnswersService', () => {
     );
 
     const matrix = await service.export({ limit: 500 }, undefined, reader);
+    // The deleted-account / missing-row reading: it still says a **second person** approved. It must
+    // never read as «Confirmed by alice», which would turn someone else's decision into self-service.
+    // 删号 / 缺行的读法：仍说**是第二个人**批准。它绝不能读成「Confirmed by alice」—— 那会把别人的
+    // 决定说成本人自己确认。
     expect(matrix.rows[0][4]).toBe('Second-person approval (approver name not recorded)');
+    expect(matrix.rows[0][4]).not.toContain('Confirmed by');
     expect(scanForInternalNames(matrix.rows.flat())).toEqual([]);
   });
 

@@ -77,7 +77,7 @@ describe('audit export vocabulary', () => {
         denied: false,
         allowed: true,
       }),
-    ).toBe('Second-person approval by audit_admin');
+    ).toBe('Approved by audit_admin');
 
     // No name on the decision row ⇒ the gap is said, not filled.
     // 裁决行上没有姓名 ⇒ 说出缺口，不填空。
@@ -89,6 +89,27 @@ describe('audit export vocabulary', () => {
         allowed: true,
       }),
     ).toBe('Second-person approval (approver name not recorded)');
+
+    // A second person who declined is named the same way, and an unresolvable name keeps saying a
+    // second person decided — never «the operator».
+    // 第二人拒绝同样点名；姓名解析不出来时仍说是第二个人做的决定 —— 不退回「本人」。
+    expect(
+      productAuthorizationLabel({
+        confirmation: { status: 'declined', approverId: '7', approverName: 'audit_admin' },
+        operatorName: 'alice',
+        denied: true,
+        allowed: false,
+      }),
+    ).toBe('Declined by audit_admin');
+
+    expect(
+      productAuthorizationLabel({
+        confirmation: { status: 'declined', approverId: '7' },
+        operatorName: 'alice',
+        denied: true,
+        allowed: false,
+      }),
+    ).toBe('Declined by a second person');
 
     expect(
       productAuthorizationLabel({

@@ -399,8 +399,8 @@ describe('U1: search by business object + export the six answers', () => {
 
     const authorizations = matrix.rows.map((r) => r[4]).sort();
     expect(authorizations).toEqual([
+      'Approved by u1_admin',
       'Confirmed by u1_user',
-      'Second-person approval by u1_admin',
     ]);
     // The initiator column distinguishes the assistant from the person — the gap the minute records.
     // 发起人列区分助手与人 —— 纪要记下的那个缺口。
