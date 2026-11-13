@@ -75,13 +75,13 @@ Expected: a commit hash and date, then `200`.
 **(b) Pin.**
 
 ```bash
-grep -n '0.1.17' D:/Rain6fish/KeelBase-YuDao/yudao-server/pom.xml
+grep -n '0.1.17' D:/Rain6fish/KeelBase-Vue-Pro/yudao-server/pom.xml
 ```
 
 **(c) The runtime identity — the one check that decides whether this is the released artifact at all.**
 
 ```bash
-cd D:/Rain6fish/KeelBase-YuDao
+cd D:/Rain6fish/KeelBase-Vue-Pro
 for a in core protocol springai; do
   unzip -p yudao-server/target/yudao-server.jar "BOOT-INF/lib/keelbase4j-$a-0.1.17.jar" > /tmp/rt-$a.jar
   echo -n "$a local    "; sha1sum /tmp/rt-$a.jar | cut -d' ' -f1
@@ -478,13 +478,13 @@ curl -sS -o /dev/null -w '%{http_code}\n' \
 **（b）pin。**
 
 ```bash
-grep -n '0.1.17' D:/Rain6fish/KeelBase-YuDao/yudao-server/pom.xml
+grep -n '0.1.17' D:/Rain6fish/KeelBase-Vue-Pro/yudao-server/pom.xml
 ```
 
 **（c）运行时身份——决定「这到底是不是已发布产物」的那一条。**
 
 ```bash
-cd D:/Rain6fish/KeelBase-YuDao
+cd D:/Rain6fish/KeelBase-Vue-Pro
 for a in core protocol springai; do
   unzip -p yudao-server/target/yudao-server.jar "BOOT-INF/lib/keelbase4j-$a-0.1.17.jar" > /tmp/rt-$a.jar
   echo -n "$a local    "; sha1sum /tmp/rt-$a.jar | cut -d' ' -f1

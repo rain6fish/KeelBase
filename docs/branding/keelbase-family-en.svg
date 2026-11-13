@@ -24,7 +24,7 @@
   <text x="56" y="140" font-size="15" font-weight="700" fill="#111827">host adapter</text>
   <text x="56" y="158" font-size="10.5" fill="#6b7280">a platform, adapted</text>
   <rect x="248" y="104" width="700" height="84" rx="12" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.4" filter="url(#soft)"/>
-  <text x="276" y="138" font-size="15.5" font-weight="700" fill="#14532d">KeelBase-YuDao</text>
+  <text x="276" y="138" font-size="15.5" font-weight="700" fill="#14532d">KeelBase-Vue-Pro</text>
   <text x="276" y="162" font-size="12" fill="#166534">Adds the governance layer to a mature enterprise platform (yudao) — the host keeps doing what it does well</text>
 
   <!-- ══════════ ② runtime — two carriers, peers ══════════ -->
