@@ -3,6 +3,7 @@
 import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
+import { AiAuditLog } from '../entities/ai-audit-log.entity';
 import { AiConfirmationRequest } from '../entities/ai-confirmation-request.entity';
 import { AiToolSideEffect } from '../entities/ai-tool-side-effect.entity';
 import { AiWriteClaim } from '../entities/ai-write-claim.entity';
@@ -88,6 +89,9 @@ export class AuditAnswersService {
     @Optional()
     @InjectRepository(AiConfirmationRequest)
     private readonly confirmationsRepo?: Repository<AiConfirmationRequest>,
+    @Optional()
+    @InjectRepository(AiAuditLog)
+    private readonly logsRepo?: Repository<AiAuditLog>,
   ) {}
 
   /**
@@ -117,7 +121,12 @@ export class AuditAnswersService {
     const rows = truncated ? fetched.slice(0, limit) : fetched;
 
     const evidence = await this._loadEvidence(rows);
-    const answers = rows.map((row) => this._answer(row, evidence));
+    const approverNames = await this._loadApproverNames(
+      rows,
+      evidence.claims,
+      evidence.confirmations,
+    );
+    const answers = rows.map((row) => this._answer(row, { ...evidence, approverNames }));
 
     return {
       headers: [...ANSWER_HEADERS],
@@ -175,12 +184,62 @@ export class AuditAnswersService {
     return { claims, effects, confirmations };
   }
 
+  /**
+   * The name behind each second approver, taken from the approver's own decision row in the same
+   * conversation — the row `R4ApprovalService.decideApproval` writes with their username snapshot.
+   * This is the derivation the single-event read face already uses, moved here in bulk so the export
+   * and the read face cannot name the same approval differently. A confirmation whose decision row
+   * is absent keeps no name: the cell then says the name was not recorded rather than guessing.
+   *
+   * 每位第二批准人的姓名，取自**同一会话**中批准人自己那条裁决行 —— 即
+   * `R4ApprovalService.decideApproval` 带着其用户名快照写下的那一行。这与单事件读面用的是同一条推导，
+   * 只是按批取回，故导出与读面不会把同一次批准叫成两个样子。裁决行不存在的确认没有姓名：那一格如实说
+   * 未记录，而不去猜。
+   */
+  private async _loadApproverNames(
+    rows: AiAuditLogWithUser[],
+    claims: Map<number, AiWriteClaim>,
+    confirmations: Map<string, AiConfirmationRequest>,
+  ): Promise<Map<string, string>> {
+    const names = new Map<string, string>();
+    const wanted = new Set<string>();
+    for (const row of rows) {
+      const claim = claims.get(row.id);
+      const confirmation =
+        claim?.authorizationRef != null ? confirmations.get(claim.authorizationRef) : undefined;
+      if (confirmation?.approverId && row.conversationId) {
+        wanted.add(approverKey(row.conversationId, confirmation.approverId));
+      }
+    }
+    if (wanted.size === 0 || !this.logsRepo) return names;
+
+    const conversationIds = [...new Set([...wanted].map((key) => key.split('\u0000')[0]))];
+    const approverIds = [...new Set([...wanted].map((key) => key.split('\u0000')[1]))];
+    const decisionRows = await this.logsRepo.find({
+      where: {
+        conversationId: In(conversationIds),
+        userId: In(approverIds),
+        action: 'tool_confirmation',
+      },
+      select: { conversationId: true, userId: true, username: true },
+    });
+    for (const decision of decisionRows) {
+      if (!decision.username || !decision.conversationId) continue;
+      const key = approverKey(decision.conversationId, decision.userId);
+      // The `IN × IN` query is a cross product: only pairs the page actually asked about count.
+      // `IN × IN` 是一次笛卡尔积：只有本页真正问过的那几对算数。
+      if (wanted.has(key) && !names.has(key)) names.set(key, decision.username);
+    }
+    return names;
+  }
+
   private _answer(
     row: AiAuditLogWithUser,
     evidence: {
       claims: Map<number, AiWriteClaim>;
       effects: Map<number, AiToolSideEffect>;
       confirmations: Map<string, AiConfirmationRequest>;
+      approverNames: Map<string, string>;
     },
   ): string[] {
     const claim = evidence.claims.get(row.id);
@@ -207,7 +266,16 @@ export class AuditAnswersService {
       productObjectCell(effect ? { resultType: effect.resultType, resultId: effect.resultId } : null),
       productAuthorizationLabel({
         confirmation: confirmation
-          ? { status: confirmation.status, approverId: confirmation.approverId ?? null }
+          ? {
+              status: confirmation.status,
+              approverId: confirmation.approverId ?? null,
+              approverName:
+                confirmation.approverId && row.conversationId
+                  ? (evidence.approverNames.get(
+                      approverKey(row.conversationId, confirmation.approverId),
+                    ) ?? null)
+                  : null,
+            }
           : null,
         operatorName: row.username ?? null,
         denied: authorizationShape === 'denied',
@@ -253,6 +321,16 @@ export class AuditAnswersService {
  * `authorization` 有两种形状，意思相反：JSON **数组**是拒绝理由（被拒），JSON **对象**是放行快照。
  * 按**形状**判，不按「非空」判 —— 与列表 `denied` 滤器同一条规则，故两面不会各说各的。
  */
+/**
+ * One page can hold several approvals, and the same person may approve in more than one
+ * conversation: the key is the pair, never the approver alone.
+ *
+ * 一页里可能有多笔批准，同一个人也可能在多个会话里批准：键取那一**对**，绝不只看批准人。
+ */
+function approverKey(conversationId: string, approverId: string): string {
+  return `${conversationId}\u0000${approverId}`;
+}
+
 function parseAuthorizationShape(raw: string | null | undefined): 'denied' | 'allowed' | null {
   if (!raw) return null;
   try {

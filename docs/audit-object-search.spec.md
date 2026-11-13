@@ -98,11 +98,11 @@ zero-internal-names property is testable without a browser.
 
 ### 6. What this slice deliberately does not do
 
-1. **No approver name.** `ai_confirmation_requests` records `approver_id` (an account id) and
-   never a display name. The Authorization cell therefore says
-   `Second-person approval (approver name not recorded)`. Closing this needs a new field on the
-   confirmation artifact — a **contract** field — so this slice stops at the boundary and
-   proposes it rather than adding it.
+1. **No guess when the name is missing.** `ai_confirmation_requests` records `approver_id` (an
+   account id) and never a display name. When the record carries a name, it is the snapshot on the
+   approver's own decision row in the same conversation — the derivation the single-event read face
+   uses, and still no contract field. When that row does not exist, the Authorization cell says
+   `Second-person approval (approver name not recorded)`: a gap is said, not filled.
 2. **No localization of the CSV.** Tool labels have exactly one server-side source
    (`tool-metadata.ts`, English). A Chinese label layer exists only in the UI bundles; copying it
    server-side would create a second source that drifts. The export is English.
@@ -189,9 +189,10 @@ CSV 由控制台用 `headers` + `rows` 写出（既有 `downloadCsv` 负责 BOM 
 
 ### 6. 本切片刻意不做的事
 
-1. **不记录批准人姓名。** `ai_confirmation_requests` 只记 `approver_id`（账号 id），从不记显示名。
-   故「授权」列写 `Second-person approval (approver name not recorded)`。要闭合这一格，需要在确认
-   artifact 上加**新字段** —— 那是**契约**字段 —— 本切片停在边界上**提案**，不自己加。
+1. **姓名缺失时不猜。** `ai_confirmation_requests` 只记 `approver_id`（账号 id），从不记显示名。
+   记录里带姓名时，姓名取自**同一会话**中批准人自己那条裁决行的快照 —— 与单事件读面同一条推导，
+   仍然不动契约字段。裁决行不存在时，「授权」列写 `Second-person approval (approver name not
+   recorded)`：缺口就说成缺口，不填空。
 2. **CSV 不做中文化。** 工具标签在服务端只有一个来源（`tool-metadata.ts`，英文）；中文标签只存在于
    UI 包。抄一份到服务端等于制造第二个会漂的来源。故导出为英文。
 3. **没有占位行的行不参与对象检索**（见 §3），也不给改前/改后。
