@@ -91,6 +91,14 @@ its executable form today.
   - C4 — the claimed version descends from the previous release tag.
   - C5 — every schema capability present in the claimed or pinned tree has an implementer.
 - The contract release line is merged into `main` and CI must run (`weekly` C1).
+- **Release tags are cut on `main`'s first-parent line, and committer dates stay monotonic along the
+  topology.** `git describe` ranks tags with a traversal heuristic ordered on committer dates, so a child
+  dated earlier than its parent can make it name an older tag. In the contract repository the v1.19.0
+  release commit (`8cfd423`) and its merge (`a161596`) were both dated earlier than their parents; on a
+  pin that actually held v1.22.0, `git describe` returned v1.18.0. The gates therefore read the newest
+  tag that is an ancestor (`git tag --merged HEAD --list 'v[0-9]*' --sort=-v:refname`), and the pin was
+  advanced on that reading (`95ce9269`). Keeping tags on the first-parent line and dates monotonic is what
+  keeps that reading — and any future `git describe` call — honest.
 
 #### 3.4 `KeelBase4J`
 
@@ -255,6 +263,12 @@ External 已降级为 1.0 后的增长里程碑、不阻塞发布（`release-gat
   - C4 —— 声称的版本由上一个发布 tag 派生。
   - C5 —— 声称树或 pin 树里出现的每个 schema 能力都有实现方。
 - 契约发布线并入 `main` 后，CI 必须跑（`weekly` C1）。
+- **发布 tag 打在 `main` 的 first-parent 线上，提交日期沿拓扑保持单调。** `git describe` 用按提交日期遍历的
+  启发式给 tag 排名，子提交日期早于父提交时会把更旧的 tag 说成最近的。契约仓里 v1.19.0 的发布提交
+  （`8cfd423`）与它的 merge（`a161596`）日期都早于各自的父提交；pin 实际含着 v1.22.0 时，`git describe`
+  返回的是 v1.18.0。因此门禁改读**祖先中版本最高**的 tag（`git tag --merged HEAD --list 'v[0-9]*'
+  --sort=-v:refname`），pin 也是按这个读数前移的（`95ce9269`）。把 tag 打在 first-parent 线上、保持日期
+  单调，才能让这个读数 —— 以及将来任何 `git describe` 调用 —— 如实反映最近的那版。
 
 #### 3.4 `KeelBase4J`
 
