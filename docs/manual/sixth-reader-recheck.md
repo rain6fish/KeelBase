@@ -224,6 +224,20 @@ If any of 4–6 is red, the corresponding clause cannot be read. Do not create t
 hand during the session; if the gate (§2 d) has to be run, run it **before** the reader arrives and say
 so in the record.
 
+**The stack can drop between preflight and the session — it did twice in two days.** On 2026-11-12/13
+the stack went down twice and the UI showed it neither time: once the data containers stopped on their
+own (the host answered 503), once something else restarted them and the host process exited within two
+minutes. The UI kept answering 200 throughout, because it only serves static files.
+
+- Re-check `/actuator/health` and the rows the reader will read **within 10 minutes of the session**.
+  Never reuse a preflight reading taken hours earlier, and record the time of the reading you used.
+- `docker ps` showing `Up` does not mean the stack works: the host is a separate JVM process and does
+  not reconnect on its own after Redis or Postgres is restarted. Ask health, not the container list.
+- After a drop, re-read the six-answer rows and the pending approval **before** the reader sits down.
+  A session run on a broken stack is void; it is not a negative reading about the product.
+- A pending approval expires one day after it is raised. When it has expired, raise a new one and
+  update every paper that states the audit row count.
+
 ## 5. The reader's four steps
 
 The reader gets this section printed. Nothing else. Times are for the host's use, not to hurry the
@@ -605,6 +619,17 @@ CSV 六列、0 内部名。停止条件：需新契约字段 ⇒ 停并提案。
 
 第 4–6 项有红，对应条款就读不出来。**不要**在开场过程中手工补造缺失的情形；要跑门禁（§2 d）就在读者到场
 **之前**跑，并在记录里写明。
+
+**栈会在预检与开场之间掉线——两天掉了两次。** 2026-11-12/13 这套栈掉了两次，界面两次都看不出来：
+一次是数据容器自己停了（宿主答 503），一次是别的进程把它们重新起了、宿主两分钟内退出。两次界面都答
+200，因为它只发静态文件。
+
+- **开场前 10 分钟内**重核 `/actuator/health` 与读者要读的那几行。**不要**沿用几小时前的预检读数，
+  并写清你实际用的是哪一刻的读数。
+- `docker ps` 显示 `Up` 不等于栈可用：宿主是另一个 JVM 进程，Redis 或 Postgres 被重启后它不会自己接回去。
+  问 health，别看容器列表。
+- 掉线之后、读者落座之前，重读六问那几行与待批确认。**在坏栈上走过的场次作废**，它不是对产品的否定读数。
+- 待批确认在提出后一天到期。已过期就抬一条新的，并把纸面上写着审计行数的地方一并改掉。
 
 ## 5. 读者的四步
 
