@@ -290,10 +290,10 @@ function main() {
   }
 
   // Tags in a CI submodule checkout arrive without the tag refs (actions/checkout fetches the pin only).
-  // A shallow checkout also lacks the history `describe` walks, so it is unshallowed — the same fallback
-  // `check-contract-matrix.mjs` uses. A fetch that still leaves a tag missing is reported below.
-  // CI 的 submodule 检出不带 tag ref（actions/checkout 只取 pin）。浅检出还缺 `describe` 要走的祖先历史，
-  // 故先 unshallow —— 与 `check-contract-matrix.mjs` 同一套兜底。取完仍缺的 tag 由下面如实报告。
+  // A shallow checkout also lacks the ancestry `tag --merged` needs, so it is unshallowed — the same
+  // fallback `check-contract-matrix.mjs` uses. A fetch that still leaves a tag missing is reported below.
+  // CI 的 submodule 检出不带 tag ref（actions/checkout 只取 pin）。浅检出还缺 `tag --merged` 需要的
+  // 祖先历史，故先 unshallow —— 与 `check-contract-matrix.mjs` 同一套兜底。取完仍缺的 tag 由下面如实报告。
   const shallow = git(contract, ['rev-parse', '--is-shallow-repository']).stdout === 'true';
   git(contract, ['fetch', '--tags', ...(shallow ? ['--unshallow'] : []), 'origin']);
 
@@ -390,16 +390,22 @@ function main() {
     // The release baseline is read the way a tagger reads it. A tree whose tags cannot be resolved is
     // UNVERIFIED: "no baseline" is not the same as "a baseline that happens to be the right one".
     // 发布基线按打 tag 的人读法来读。解析不出 tag 的树是**未核验**：「没有基线」不等于「基线恰好是对的」。
-    const baseline = git(contract, ['describe', '--tags', '--abbrev=0', pin.stdout]);
-    if (!baseline.ok) {
+    // The baseline is the highest release tag the pin descends from — ancestry plus version sort. Not
+    // `git describe`: its depth is a commit-date-ordered heuristic, so a commit dated earlier than its
+    // parent can make it name an older tag (2026-11-13).
+    // 基线取 pin 祖先中版本号最高的发布 tag —— 用祖先关系加版本排序，而不是 `git describe`：
+    // 它的 depth 是按提交日期遍历的启发式，提交日期早于父提交时会把更旧的 tag 说成最近的（2026-11-13）。
+    const baseline = git(contract, ['tag', '--merged', pin.stdout, '--list', 'v[0-9]*', '--sort=-v:refname']);
+    const baselineTag = baseline.ok ? baseline.stdout.split('\n').filter(Boolean)[0] : '';
+    if (!baseline.ok || !baselineTag) {
       unverified(
         'C3',
         'pin 落在声称的版本线上',
-        `git describe --tags 读不出发布基线 / cannot read the release baseline: ${baseline.stderr || `exit ${baseline.status}`}`,
+        `git tag --merged 读不出发布基线 / cannot read the release baseline: ${baseline.stderr || 'no release tag is an ancestor of the pin'}`,
         ['git -C Server-NestJS/specs/protocol fetch --tags origin'],
       );
     } else {
-      const baselineLine = `git describe --tags = ${baseline.stdout}`;
+      const baselineLine = `git tag --merged = ${baselineTag}`;
       const descends = git(contract, ['merge-base', '--is-ancestor', claimCommit, pin.stdout]);
       const ahead = git(contract, ['rev-list', '--count', `${claimCommit}..${pin.stdout}`]);
       // `merge-base --is-ancestor` answers 1 for "not an ancestor" and >1 for a malfunction; only the
