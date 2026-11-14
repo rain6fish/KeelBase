@@ -131,17 +131,48 @@ describe('AiAuditView', () => {
     const matrix = {
       headers: ['Time (UTC)', 'Action', 'Result', 'Object', 'Authorization', 'Initiated by'],
       rows: [['2026-11-05 10:30:00 UTC', 'Create event', 'Executed', 'Customer #9005', 'Confirmed by alice', 'alice (through the AI assistant)']],
-      match: { objectType: null, objectId: null, since: null, until: null, count: 1, found: true, truncated: false, statement: '1 matching record.' },
+      match: { objectType: 'crm_customer', objectId: 9005, since: null, until: null, count: 1, found: true, truncated: false, statement: '1 matching record.' },
     }
     answersMock.mockResolvedValue(matrix)
 
     const wrapper = mountView()
     await flushPromises()
+    // An object search, because the scope sentence is about object search.
+    // 对象检索 —— 口径句说的就是对象检索。
+    await wrapper.findAllComponents({ name: 'ElSelect' })[0].vm.$emit('update:modelValue', 'crm_customer')
+    await wrapper.find('input[placeholder="对象 ID"]').setValue('9005')
+    await flushPromises()
     await wrapper.find('.page-header-stub button').trigger('click')
     await flushPromises()
 
-    expect(answersMock).toHaveBeenCalledWith(expect.objectContaining({ limit: 1000 }))
-    expect(csvMock).toHaveBeenCalledWith('audit-six-answers', matrix.headers, matrix.rows)
+    expect(answersMock).toHaveBeenCalledWith(
+      expect.objectContaining({ objectType: 'crm_customer', objectId: 9005, limit: 1000 }),
+    )
+    // The six columns are untouched; the scope sentences ride ahead of the header as a note line.
+    // 六列原样不动；口径句作为**列头之前**的一行注释随文件写出。
+    expect(csvMock).toHaveBeenCalledWith(
+      'audit-six-answers',
+      matrix.headers,
+      matrix.rows,
+      `${zh.auditObjectScope} ${zh.auditObjectScopeLegacy}`,
+    )
+    wrapper.unmount()
+  })
+
+  it('U1：对象检索生效时，页面明写它只含已落地的写', async () => {
+    logsMock.mockResolvedValue([])
+    statsMock.mockResolvedValue({ totalTokens: 0 })
+
+    const wrapper = mountView()
+    await flushPromises()
+    expect(wrapper.text()).not.toContain(zh.auditObjectScope)
+
+    await wrapper.findAllComponents({ name: 'ElSelect' })[0].vm.$emit('update:modelValue', 'crm_customer')
+    await wrapper.find('input[placeholder="对象 ID"]').setValue('9005')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain(zh.auditObjectScope)
+    expect(wrapper.text()).toContain(zh.auditObjectScopeLegacy)
     wrapper.unmount()
   })
 

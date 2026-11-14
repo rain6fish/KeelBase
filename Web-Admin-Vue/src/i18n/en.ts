@@ -1663,6 +1663,14 @@ const en: ZhDict = {
   auditRangeFrom: 'From',
   auditRangeTo: 'To',
   auditObjectPairRequired: 'Object type and object ID must be given together',
+  // U1: the scope of an object search — the page and the export share this one sentence.
+  // U1：对象检索的口径 —— 页面与导出件共用这一句
+  auditObjectScope:
+    'Object search contains only writes that landed; blocked, pending and declined calls are not in the result.',
+  // U1: what an older runtime cannot recover — the approval row never recorded the execution link.
+  // U1：旧运行时补不回来的那一格 —— 批准行从未记录执行关联。
+  auditObjectScopeLegacy:
+    'Approval rows written by 0.1.18 and earlier recorded no execution link and cannot be backfilled.',
   auditNoMatchFor: 'No matching records for {object} #{id} in the selected period',
   exportFailed: 'Export failed',
   agentCol: 'Agent',
