@@ -16,6 +16,12 @@ import { paginated } from '../common/dto/paginated';
  * AI Approval 旗舰应用：审批请求 + 审批政策 服务。
  * AI 预审（reviewRequest）按政策金额阈值分级：低风险自动通过 / 高风险转人工复核。
  * 所有权 = requesterId（请求） / userId（政策）。
+ *
+ * 0-C：这是**单人额度校验**（本人提交、本人确认），不是组织多级审批。真正的双人审批在 R4
+ * （`src/ai/approvals/`）与 FLOW（`src/flows/`）。路由/表名不改，避免破坏既有客户端与数据。
+ *
+ * 0-C: this is a **single-person limit check** (the requester submits and confirms). Organizational
+ * multi-level approval lives in R4 (`src/ai/approvals/`) and FLOW (`src/flows/`).
  */
 @Injectable()
 export class ApprovalService {

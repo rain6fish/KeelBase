@@ -114,6 +114,11 @@ class AppLocalizations {
   // --- AI Approval 旗舰应用 ---
   String get apTitle => _t('AI Approval', '审批中心');
   String get apExploreEntry => _t('AI Approval', 'AI 审批');
+  // 0-C：本模块是「本人提交、本人确认」的单人额度校验，不是组织多级审批（真正的双人审批在 R4 / FLOW）。
+  String get apScopeNote => _t(
+        'Single-person limit check: you submit and you decide. This is not an organizational multi-level approval.',
+        '单人额度校验：本人提交、本人确认；不是组织多级审批。',
+      );
   String get apSubmitRequest => _t('Submit request', '提交审批');
   String get apTitleHint => _t('Title (e.g. Q3 travel reimbursement)', '标题（如 Q3 差旅报销）');
   String get apTypeReimbursement => _t('Reimbursement', '报销');

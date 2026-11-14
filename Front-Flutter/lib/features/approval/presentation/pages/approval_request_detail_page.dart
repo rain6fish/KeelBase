@@ -63,6 +63,8 @@ class _ApprovalRequestDetailPageState extends State<ApprovalRequestDetailPage> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                _scopeNote(context, l10n),
+                const SizedBox(height: 12),
                 _card(context, l10n, req),
                 const SizedBox(height: 16),
                 if (req.status == 'pending')
@@ -84,6 +86,22 @@ class _ApprovalRequestDetailPageState extends State<ApprovalRequestDetailPage> {
                 ],
               ],
             ),
+    );
+  }
+
+  /// 0-C：说清本模块的边界 —— 单人额度校验，不是组织多级审批。
+  Widget _scopeNote(BuildContext context, AppLocalizations l10n) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: CupertinoColors.secondarySystemBackground.resolveFrom(context),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        l10n.apScopeNote,
+        style: const TextStyle(fontSize: 12, color: CupertinoColors.systemGrey),
+      ),
     );
   }
 

@@ -23,7 +23,17 @@ import { FeatureFlag } from '../feature-flags/feature-flag.decorator';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import type { AppAbility } from '../common/casl/casl-ability.factory';
 
-/** AI Approval 旗舰应用：审批请求（AI 预审 + 人工复核）+ 审批政策 */
+/**
+ * AI Approval 旗舰应用：审批请求（AI 预审 + 人工复核）+ 审批政策。
+ *
+ * 0-C 口径：本模块是**单人额度校验** —— 申请人提交、AI 按政策分级、本人确认（`decide` 只按
+ * `requesterId` 查行）；它**不是**组织多级审批。真正的双人审批在 R4（`src/ai/approvals/`）
+ * 与 FLOW 工作流（`src/flows/`）。此处不改路由/表名，避免破坏既有客户端与数据。
+ *
+ * 0-C: this module is a **single-person limit check** — the requester submits, the AI tiers by
+ * policy, and the same person confirms (`decide` looks the row up by `requesterId`). It is **not**
+ * organizational multi-level approval; that lives in R4 (`src/ai/approvals/`) and FLOW (`src/flows/`).
+ */
 @ApiTags('AI Approval')
 @ApiBearerAuth()
 @FeatureFlag('approval')
@@ -81,7 +91,7 @@ export class ApprovalController {
 
   @Post('requests/:id/decide')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: '人工复核：通过/驳回 needs_review 请求' })
+  @ApiOperation({ summary: '人工复核（本人确认；单人额度校验，非组织审批）：通过/驳回 needs_review 请求' })
   decide(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: DecideDto,

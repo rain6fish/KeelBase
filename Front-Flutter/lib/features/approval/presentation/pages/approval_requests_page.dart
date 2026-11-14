@@ -104,11 +104,15 @@ class _ApprovalRequestsPageState extends State<ApprovalRequestsPage> {
           child: const Icon(CupertinoIcons.add),
         ),
       ),
-      child: provider.loading && provider.requests.isEmpty
-          ? const Center(child: CupertinoActivityIndicator())
-          : provider.requests.isEmpty
-              ? Center(child: Text(l10n.apEmpty, style: const TextStyle(fontSize: 16)))
-              : ListView.separated(
+      child: Column(
+        children: [
+          _scopeNote(context, l10n),
+          Expanded(
+            child: provider.loading && provider.requests.isEmpty
+                ? const Center(child: CupertinoActivityIndicator())
+                : provider.requests.isEmpty
+                    ? Center(child: Text(l10n.apEmpty, style: const TextStyle(fontSize: 16)))
+                    : ListView.separated(
                   itemCount: provider.requests.length,
                   separatorBuilder: (_, _) => Container(
                     height: 1,
@@ -140,6 +144,26 @@ class _ApprovalRequestsPageState extends State<ApprovalRequestsPage> {
                     );
                   },
                 ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 0-C：说清本模块的边界 —— 单人额度校验，不是组织多级审批。
+  Widget _scopeNote(BuildContext context, AppLocalizations l10n) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: CupertinoColors.secondarySystemBackground.resolveFrom(context),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        l10n.apScopeNote,
+        style: const TextStyle(fontSize: 12, color: CupertinoColors.systemGrey),
+      ),
     );
   }
 
