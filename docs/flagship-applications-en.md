@@ -108,6 +108,8 @@ Seed seeds 4 projects + milestones + delayed tasks. Demo "judge project delay ri
 
 ## 3. AI Approval
 
+> **0-C scope (2026-11-14)**: this module is a **single-person limit check** — the requester submits, the AI tiers by policy, and the **same person** confirms (`decide` looks the row up by `requesterId`). It is not organizational multi-level approval; that lives in R4 (`src/ai/approvals/`) and FLOW (`src/flows/`). Routes and table names are unchanged, so existing clients and data are unaffected.
+
 ### 3.1 Data Model (`src/approval/`)
 
 | Entity | Key fields |

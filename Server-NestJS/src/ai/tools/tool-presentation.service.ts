@@ -26,6 +26,7 @@ import {
   resolveRevokeClass,
 } from '../interfaces/tool.interface';
 import { deriveWriteImpact } from '../tool-effects/write-impact';
+import { sanitizeExternalContent } from '../security/injection-guard';
 import { TOOL_METADATA, toolLabelKey } from '../../governance-shared/services/tool-metadata';
 import {
   buildConfirmationRenderProof,
@@ -326,43 +327,102 @@ export class ToolPresentationService {
   /** HS-5 工具结果字符上限（防大查询结果撑爆上下文窗口） */
   private static readonly TOOL_RESULT_MAX_CHARS = 4000;
   private static readonly TOOL_RESULT_MAX_ARRAY = 20;
+  private static readonly TOOL_RESULT_MAX_OBJECT_KEYS = 20;
+  /** 逐级收紧的单字段字符上限：先宽后窄，取第一个能放进预算的投影。 */
+  private static readonly TOOL_RESULT_FIELD_CAP_STEPS = [500, 200, 80, 32, 0] as const;
+  /** 嵌套深度上限：超过即替换为标记，避免病态结构把投影本身撑大。 */
+  private static readonly TOOL_RESULT_MAX_DEPTH = 4;
 
   /**
-   * HS-5 截断工具结果：超限时保留结构（数组截断到前 N 条 + 标记），
-   * 让 LLM 拿到足够信息回答，又不会撑爆上下文。
+   * HS-5 截断工具结果：超限时返回**仍是合法 JSON** 的投影，而不是在 JSON 中间切断。
+   * 数组按条目截断、对象按字段逐个截断（值过长只截值，不销毁整个 data），
+   * 逐级收紧直到放进预算；最后一步才退回「省略 data」的标记。
+   * 返回值注入 LLM 前先过 `sanitizeExternalContent` —— 工具结果里可能有别的用户写入的 DB 内容。
+   *
+   * 这里截的是**喂给模型的那一份**，不是审计/业务记录本身 —— 原文仍按各自路径保存。
+   * 旧文案「详情请查审计日志」是假的（`tool-call-audit` 只落 outcome/isError，不落结果内容），已去掉。
+   *
+   * HS-5 returns a compacted **but still valid** JSON projection when the payload is too large; it
+   * never cuts the serialized string mid-JSON. Arrays are trimmed per item and objects per field, with
+   * the field cap tightened until the projection fits; only then does it fall back to omitting `data`.
+   * The value handed to the LLM is passed through `sanitizeExternalContent`, because tool results can
+   * carry DB content written by other users.
    */
   truncateToolResult(result: ToolResult): string {
     // usage 是给审计记账的，不进 LLM 上下文——否则既污染提示词、又凭空多花 token
     const payload: ToolResult = { ...result };
     delete payload.usage;
 
-    let json = JSON.stringify(payload);
-    if (json.length <= ToolPresentationService.TOOL_RESULT_MAX_CHARS) return json;
+    const full = JSON.stringify(payload);
+    if (full.length <= ToolPresentationService.TOOL_RESULT_MAX_CHARS) {
+      return sanitizeExternalContent(full);
+    }
 
-    // 数组结果：截断到前 N 条
-    const data = payload.data as any;
-    if (Array.isArray(data)) {
-      const truncated = data.slice(0, ToolPresentationService.TOOL_RESULT_MAX_ARRAY);
-      const slim = {
+    const data = payload.data;
+    for (const cap of ToolPresentationService.TOOL_RESULT_FIELD_CAP_STEPS) {
+      const projected = {
         ...payload,
-        data: truncated,
-        _truncated: `结果已截断，共 ${data.length} 条，仅展示前 ${ToolPresentationService.TOOL_RESULT_MAX_ARRAY} 条`,
+        data: this._boundToolValue(data, cap, 0),
+        _truncated: this._truncationNote(data),
       };
-      json = JSON.stringify(slim);
-    } else if (data && typeof data === 'object') {
-      // 对象结果：精简到成功标志 + 截断标记，避免回填巨量详情
-      const slim = {
+      const json = JSON.stringify(projected);
+      if (json.length <= ToolPresentationService.TOOL_RESULT_MAX_CHARS) {
+        return sanitizeExternalContent(json);
+      }
+    }
+
+    // 最后一步：结构本身已放不进预算 → 只留成功标志/错误与一条诚实的截断标记。
+    // 仍是合法 JSON（不做字符串硬切）。
+    return sanitizeExternalContent(
+      JSON.stringify({
         success: payload.success,
         error: payload.error,
-        data: { _truncated: '结果过大已精简，详情请查审计日志', _originalKeys: Object.keys(data) },
-      };
-      json = JSON.stringify(slim);
-    }
+        data: { _truncated: '结果过大，已省略' },
+        _truncated: this._truncationNote(data),
+      }),
+    );
+  }
 
-    // 保底：字符串硬截断 + 提示
-    if (json.length > ToolPresentationService.TOOL_RESULT_MAX_CHARS) {
-      json = `${json.slice(0, ToolPresentationService.TOOL_RESULT_MAX_CHARS)}... [截断]`;
+  /**
+   * 有界投影：字符串按 cap 截断（cap=0 时只留标记），数组取前 N 条，对象取前 N 个字段，
+   * 嵌套超过深度上限即替换为标记。返回值可直接 `JSON.stringify`。
+   */
+  private _boundToolValue(value: unknown, cap: number, depth: number): unknown {
+    if (typeof value === 'string') {
+      return value.length > cap ? `${value.slice(0, cap)}…[截断]` : value;
     }
-    return json;
+    if (depth >= ToolPresentationService.TOOL_RESULT_MAX_DEPTH) {
+      return Array.isArray(value) || (value !== null && typeof value === 'object') ? '[嵌套过深]' : value;
+    }
+    if (Array.isArray(value)) {
+      return value
+        .slice(0, ToolPresentationService.TOOL_RESULT_MAX_ARRAY)
+        .map((item) => this._boundToolValue(item, cap, depth + 1));
+    }
+    if (value !== null && typeof value === 'object') {
+      const out: Record<string, unknown> = {};
+      for (const [key, item] of Object.entries(value as Record<string, unknown>).slice(
+        0,
+        ToolPresentationService.TOOL_RESULT_MAX_OBJECT_KEYS,
+      )) {
+        out[key] = this._boundToolValue(item, cap, depth + 1);
+      }
+      return out;
+    }
+    return value;
+  }
+
+  /** 截断说明（人可读）：说清总数与展示数；不承诺「原文可查」。 */
+  private _truncationNote(data: unknown): string {
+    if (Array.isArray(data)) {
+      const shown = Math.min(data.length, ToolPresentationService.TOOL_RESULT_MAX_ARRAY);
+      return `结果已截断，共 ${data.length} 条，仅展示前 ${shown} 条`;
+    }
+    if (data !== null && typeof data === 'object') {
+      const total = Object.keys(data as object).length;
+      const shown = Math.min(total, ToolPresentationService.TOOL_RESULT_MAX_OBJECT_KEYS);
+      return `结果已截断，共 ${total} 个字段，仅展示前 ${shown} 个`;
+    }
+    return '结果已截断';
   }
 }

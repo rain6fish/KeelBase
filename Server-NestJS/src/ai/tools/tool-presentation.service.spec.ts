@@ -134,6 +134,41 @@ describe('ToolPresentationService（呈现/摘要域）', () => {
       expect(json).not.toContain('_truncated');
     });
 
+    it('0-B: oversized results stay valid JSON (never cut mid-string)', () => {
+      const svc = presentation as any;
+      const bigData = Array.from({ length: 200 }, (_, i) => ({
+        id: i,
+        title: 'x'.repeat(2000),
+        nested: { note: 'y'.repeat(2000) },
+      }));
+      const json = svc.truncateToolResult({ success: true, data: bigData });
+      expect(() => JSON.parse(json)).not.toThrow();
+      expect(json.length).toBeLessThanOrEqual(4000);
+      expect(JSON.parse(json)._truncated).toBeTruthy();
+    });
+
+    it('0-B: oversized object keeps its fields instead of destroying data', () => {
+      const svc = presentation as any;
+      const hugeObj: Record<string, string> = {};
+      for (let i = 0; i < 200; i++) hugeObj[`key${i}`] = 'x'.repeat(50);
+      const parsed = JSON.parse(svc.truncateToolResult({ success: true, data: hugeObj }));
+      expect(Object.keys(parsed.data).length).toBeGreaterThan(0);
+      expect(Object.keys(parsed.data)).not.toEqual(['_truncated']);
+      expect(parsed._truncated).toContain('200');
+    });
+
+    it('0-B: masks sensitive values before tool results reach the model', () => {
+      const svc = presentation as any;
+      const json = svc.truncateToolResult({
+        success: true,
+        data: [{ email: 'alex@example.com', phone: '13812345678', note: 'ok' }],
+      });
+      expect(json).not.toContain('alex@example.com');
+      expect(json).not.toContain('13812345678');
+      expect(json).toContain('a***@example.com');
+      expect(json).toContain('138****5678');
+    });
+
     it('§22.17 ④：撤销口径遇未注册名（外部 mcp_*）不抛错——否则会打挂确认卡', () => {
       // 真实注册表对未注册名抛错；revokeClass 必须容错（同门控 / isProxyTool 的既有约定）
       mockToolRegistry.getTool.mockImplementation(() => {

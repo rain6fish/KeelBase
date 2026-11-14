@@ -99,10 +99,17 @@ export class ToolRegistry {
   }
 
   /**
-   * 获取所有已注册工具的 ToolDefinition（传给 LLM 使用）
+   * 获取已注册工具的 ToolDefinition（传给 LLM 使用）。
+   * 可选谓词在**定义生成前**过滤 —— 对外暴露面按主体收窄时，未通过的工具连 schema 都不下发。
+   * 省略谓词 = 全部（内部调用与既有调用方行为不变）。
+   *
+   * Get the registered tools' definitions for the LLM. An optional predicate filters **before**
+   * definitions are built, so a tool outside the caller's exposure surface is not even described.
+   * Omitting it keeps the previous all-tools behaviour for existing callers.
    */
-  getToolDefinitions(): ToolDefinition[] {
-    return Array.from(this.tools.values()).map((tool) =>
+  getToolDefinitions(predicate?: (tool: AiTool) => boolean): ToolDefinition[] {
+    const tools = Array.from(this.tools.values());
+    return (predicate ? tools.filter(predicate) : tools).map((tool) =>
       tool.toToolDefinition(),
     );
   }

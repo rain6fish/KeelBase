@@ -322,6 +322,91 @@ describe('ToolExposureService（工具对外面）', () => {
     });
 
 
+  describe('0-A 工具面按主体收窄（buildToolDefs）', () => {
+    const toDef = (name: string) => ({
+      type: 'function' as const,
+      function: { name, description: '', parameters: { type: 'object', properties: {} } },
+    });
+    const makeExposure = (opts: { policy?: any; user?: any } = {}) => {
+      const registry = new ToolRegistry();
+      const register = (name: string, permissions?: any) =>
+        registry.register({
+          name,
+          description: '',
+          parameters: [],
+          permissions,
+          toToolDefinition: () => toDef(name),
+          execute: jest.fn(),
+        } as any);
+      register('query_events');
+      register('admin_tool', { adminOnly: true });
+      register('admin_role_tool');
+      const users = { findOne: jest.fn().mockResolvedValue(opts.user ?? null) };
+      const policy = opts.policy ? { getPolicy: jest.fn().mockResolvedValue(opts.policy) } : undefined;
+      const svc = new ToolExposureService(
+        registry,
+        mockToolGate as any,
+        new ExternalToolRegistry(),
+        policy as any,
+        undefined,
+        users as any,
+      );
+      return svc;
+    };
+    const namesOf = async (svc: ToolExposureService, userId?: string) =>
+      (await svc.buildToolDefs(userId)).map((d) => d.function.name);
+
+    it('普通用户看不到 adminOnly 与白名单外的工具', async () => {
+      const svc = makeExposure({
+        user: { role: 'user' },
+        policy: { tools: { admin_role_tool: { allowedRoles: ['admin'] } }, audit: { granularity: 'all' } },
+      });
+      const names = await namesOf(svc, '2');
+      expect(names).toContain('query_events');
+      expect(names).not.toContain('admin_tool');
+      expect(names).not.toContain('admin_role_tool');
+    });
+
+    it('管理员看得到 adminOnly 与白名单工具', async () => {
+      const svc = makeExposure({
+        user: { role: 'admin' },
+        policy: { tools: { admin_role_tool: { allowedRoles: ['admin'] } }, audit: { granularity: 'all' } },
+      });
+      const names = await namesOf(svc, '1');
+      expect(names).toContain('admin_tool');
+      expect(names).toContain('admin_role_tool');
+    });
+
+    it('治理策略禁用的工具不下发', async () => {
+      const svc = makeExposure({
+        user: { role: 'admin' },
+        policy: { tools: { query_events: { enabled: false } }, audit: { granularity: 'all' } },
+      });
+      expect(await namesOf(svc, '1')).not.toContain('query_events');
+    });
+
+    it('身份解析不到时 fail-closed（adminOnly / 白名单工具不下发）', async () => {
+      const svc = makeExposure({
+        user: null,
+        policy: { tools: { admin_role_tool: { allowedRoles: ['admin'] } }, audit: { granularity: 'all' } },
+      });
+      const names = await namesOf(svc, '42');
+      expect(names).toContain('query_events');
+      expect(names).not.toContain('admin_tool');
+      expect(names).not.toContain('admin_role_tool');
+    });
+
+    it('特权哨兵 0 按管理员处理', async () => {
+      const svc = makeExposure({
+        user: { role: 'user' },
+        policy: { tools: { admin_role_tool: { allowedRoles: ['admin'] } }, audit: { granularity: 'all' } },
+      });
+      const names = await namesOf(svc, '0');
+      expect(names).toContain('admin_tool');
+      expect(names).toContain('admin_role_tool');
+    });
+  });
+
   describe('治理策略对清单/出口的影响（搬迁自 ai.service.spec 的散落用例）', () => {
     it('getToolInventory：治理策略覆盖开关', async () => {
       const tool = { name: 'query_events', description: 'd', parameters: [], toToolDefinition: () => ({}) };
