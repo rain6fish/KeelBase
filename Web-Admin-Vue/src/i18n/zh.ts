@@ -1671,6 +1671,9 @@ const zh = {
   auditRangeFrom: '开始时间',
   auditRangeTo: '结束时间',
   auditObjectPairRequired: '业务对象类型与对象 ID 必须一起填写',
+  // U1: the scope of an object search — the page and the export share this one sentence.
+  // U1：对象检索的口径 —— 页面与导出件共用这一句
+  auditObjectScope: '对象检索只含已落地的写；被阻断、待决与否决的调用不在结果里。',
   auditNoMatchFor: '这个区间里没有与「{object} #{id}」相关的记录',
   exportFailed: '导出失败',
   agentCol: 'Agent',

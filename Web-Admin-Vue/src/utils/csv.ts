@@ -12,9 +12,29 @@ function escapeCell(value: unknown): string {
   return s
 }
 
-/** rows: 列头数组 + 二维数据。文件名含日期。 */
-export function downloadCsv(filename: string, headers: string[], rows: unknown[][]): void {
-  const lines = [headers.map(escapeCell).join(','), ...rows.map((r) => r.map(escapeCell).join(','))]
+/**
+ * rows: the header array plus the two-dimensional data; the filename carries the date.
+ *
+ * `note` is the optional **scope line**: one `# `-prefixed row written before the header, so a reader
+ * sees what the export covers before the table. It is not a column — the header and the data rows are
+ * untouched.
+ *
+ * rows: 列头数组 + 二维数据。文件名含日期。
+ *
+ * `note` 是可选的**口径行**：写在列头之前、以 `# ` 开头的一行，好让读文件的人在看表之前先看到这份
+ * 导出口径读的是什么。它不是一列 —— 列头与数据行原样不动。
+ */
+export function downloadCsv(
+  filename: string,
+  headers: string[],
+  rows: unknown[][],
+  note?: string,
+): void {
+  const lines = [
+    ...(note ? [escapeCell(`# ${note}`)] : []),
+    headers.map(escapeCell).join(','),
+    ...rows.map((r) => r.map(escapeCell).join(',')),
+  ]
   const csv = '﻿' + lines.join('\r\n') // BOM 防 Excel 中文乱码
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)

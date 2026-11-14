@@ -1663,6 +1663,10 @@ const en: ZhDict = {
   auditRangeFrom: 'From',
   auditRangeTo: 'To',
   auditObjectPairRequired: 'Object type and object ID must be given together',
+  // U1: the scope of an object search — the page and the export share this one sentence.
+  // U1：对象检索的口径 —— 页面与导出件共用这一句
+  auditObjectScope:
+    'Object search contains only writes that landed; blocked, pending and declined calls are not in the result.',
   auditNoMatchFor: 'No matching records for {object} #{id} in the selected period',
   exportFailed: 'Export failed',
   agentCol: 'Agent',
