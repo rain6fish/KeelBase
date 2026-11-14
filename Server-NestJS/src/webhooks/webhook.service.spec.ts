@@ -90,7 +90,7 @@ describe('WebhookService (PL-14)', () => {
     const fetchMock = jest.fn().mockResolvedValue({ ok: true, status: 200 });
     (global as any).fetch = fetchMock;
 
-    await svc.publish('feedback.created', {});
+    await svc.publish('feedback.created', { userId: 1 });
 
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -109,7 +109,7 @@ describe('WebhookService (PL-14)', () => {
       .mockResolvedValueOnce(false)
       .mockResolvedValueOnce(true);
 
-    await svc.publish('feedback.created', {});
+    await svc.publish('feedback.created', { userId: 1 });
 
     expect(fetchMock).toHaveBeenCalledTimes(1); // 重定向第二跳被阻止，不再发起
     const init = fetchMock.mock.calls[0][1];
@@ -155,7 +155,7 @@ describe('WebhookService (PL-14)', () => {
     const fetchMock = jest.fn().mockResolvedValue({ ok: true, status: 200 });
     (global as any).fetch = fetchMock;
 
-    await svc.publish('feedback.created', { type: 'bug', userId: '1' });
+    await svc.publish('feedback.created', { type: 'bug', userId: 1 });
 
     expect(fetchMock).toHaveBeenCalledTimes(1); // 停用的 id=2 不投递
     const [url, init] = fetchMock.mock.calls[0];
@@ -165,12 +165,28 @@ describe('WebhookService (PL-14)', () => {
     expect(JSON.parse(init.body).event).toBe('feedback.created');
   });
 
+  it('publish 只投递给**事件所属用户本人**的订阅，不跨租户广播', async () => {
+    // 两个租户各有一条 enabled 且订阅了同一事件的 webhook：事件属于用户 1，用户 2 的端点不得收到。
+    const repo = makeRepo([
+      { ...base(), id: 1, userId: 1, url: 'https://tenant-1.example.com/hook', eventsJson: JSON.stringify(['feedback.created']) } as Partial<WebhookSubscription>,
+      { ...base(), id: 2, userId: 2, url: 'https://tenant-2.example.com/hook', eventsJson: JSON.stringify(['feedback.created']) } as Partial<WebhookSubscription>,
+    ]);
+    const svc = new WebhookService(repo as any, { attempts: 1, backoffMs: 0 } as any);
+    const fetchMock = jest.fn().mockResolvedValue({ ok: true, status: 200 });
+    (global as any).fetch = fetchMock;
+
+    await svc.publish('feedback.created', { type: 'bug', userId: 1 });
+
+    const urls = fetchMock.mock.calls.map((c) => c[0]);
+    expect(urls).toEqual(['https://tenant-1.example.com/hook']);
+  });
+
   it('publish 事件不匹配 → 不投递', async () => {
     const repo = makeRepo([{ ...base(), eventsJson: JSON.stringify(['todo.created']) } as Partial<WebhookSubscription>]);
     const svc = new WebhookService(repo as any, { attempts: 1, backoffMs: 0 } as any);
     const fetchMock = jest.fn();
     (global as any).fetch = fetchMock;
-    await svc.publish('feedback.created', {});
+    await svc.publish('feedback.created', { userId: 1 });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -191,7 +207,7 @@ describe('WebhookService (PL-14)', () => {
     });
     (global as any).fetch = fetchMock;
 
-    await svc.publish('feedback.created', {});
+    await svc.publish('feedback.created', { userId: 1 });
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     // 逐订阅顺序 await 会让此值恒为 1；只有并发才达到 2（承重断言）
@@ -203,7 +219,7 @@ describe('WebhookService (PL-14)', () => {
     const svc = new WebhookService(repo as any, { attempts: 1, backoffMs: 0 } as any);
     const fetchMock = jest.fn().mockRejectedValue(new Error('conn refused'));
     (global as any).fetch = fetchMock;
-    await expect(svc.publish('feedback.created', {})).resolves.toBeUndefined();
+    await expect(svc.publish('feedback.created', { userId: 1 })).resolves.toBeUndefined();
   });
 
   it('REL-2：投递最终失败**不再静默**——走既有告警通道，且只带主机名（完整 URL 会带出令牌）', async () => {
@@ -213,7 +229,7 @@ describe('WebhookService (PL-14)', () => {
     const fetchMock = jest.fn().mockRejectedValue(new Error('conn refused'));
     (global as any).fetch = fetchMock;
 
-    await svc.publish('feedback.created', {});
+    await svc.publish('feedback.created', { userId: 1 });
 
     expect(alert.sendAlert).toHaveBeenCalledTimes(1);
     const [title, message, meta] = alert.sendAlert.mock.calls[0];
@@ -231,7 +247,7 @@ describe('WebhookService (PL-14)', () => {
     const svc = new WebhookService(repo as any, { attempts: 1, backoffMs: 0 } as any, alert as any);
     (global as any).fetch = jest.fn().mockResolvedValue({ ok: true, status: 200 });
 
-    await svc.publish('feedback.created', {});
+    await svc.publish('feedback.created', { userId: 1 });
 
     expect(alert.sendAlert).not.toHaveBeenCalled();
   });
@@ -241,7 +257,7 @@ describe('WebhookService (PL-14)', () => {
     const svc = new WebhookService(repo as any, { attempts: 3, backoffMs: 0 } as any);
     const fetchMock = jest.fn().mockRejectedValue(new Error('conn refused'));
     (global as any).fetch = fetchMock;
-    await svc.publish('feedback.created', {});
+    await svc.publish('feedback.created', { userId: 1 });
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
@@ -253,7 +269,7 @@ describe('WebhookService (PL-14)', () => {
       .mockRejectedValueOnce(new Error('conn refused'))
       .mockResolvedValueOnce({ ok: true, status: 200 });
     (global as any).fetch = fetchMock;
-    await svc.publish('feedback.created', {});
+    await svc.publish('feedback.created', { userId: 1 });
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 

@@ -236,3 +236,102 @@ export const envValidationSchema = Joi.object({
   S3_PUBLIC_URL: Joi.string().allow('').default(''),
   S3_SIGNED_URL_TTL: Joi.number().integer().positive().default(3600),
 });
+
+/**
+ * Secrets that have been published: the values baked into `Dockerfile.single`'s ENV, and the ones a
+ * reader copies out of the `.env.*.example` templates. They are no longer secret — anyone can sign a
+ * token or decrypt rows with them — so a production process refuses to boot on one.
+ * 这些密钥已经公开：`Dockerfile.single` 的 ENV 默认值，以及 `.env.*.example` 模板里可直接拷走的值。
+ * 它们不再保密 —— 任何人都能拿它签 token 或解密存量数据 —— 所以生产进程读到它们就拒绝启动。
+ */
+const PUBLICLY_KNOWN_SECRETS: ReadonlyMap<string, string> = new Map([
+  ['keelbase-single-container-dev-secret-at-least-32-chars!!', 'JWT_SECRET in Dockerfile.single'],
+  ['keelbase-single-container-refresh-secret-32chars!!', 'JWT_REFRESH_SECRET in Dockerfile.single'],
+  [
+    '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+    'ENCRYPTION_KEY in Dockerfile.single / .env.example',
+  ],
+  [
+    '00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff',
+    'ENCRYPTION_HMAC_KEY in Dockerfile.single',
+  ],
+  ['change-me-jwt-secret-at-least-32-characters!!', 'JWT_SECRET in .env.example'],
+  ['change-me-refresh-secret-at-least-32-chars!!', 'JWT_REFRESH_SECRET in .env.example'],
+  ['change-me-production-jwt-secret-min-32-chars!!', 'JWT_SECRET in .env.production.example'],
+  ['change-me-production-refresh-secret!!-32', 'JWT_REFRESH_SECRET in .env.production.example'],
+  ['change-me-staging-jwt-secret-min-32-chars!!', 'JWT_SECRET in .env.staging.example'],
+  ['change-me-staging-refresh-secret-min-32!!', 'JWT_REFRESH_SECRET in .env.staging.example'],
+]);
+
+/** Variables whose value is a key, not a setting: rotated, never defaulted. 这些变量是密钥，只能轮换，不能给默认值。 */
+const SECRET_KEYS = [
+  'JWT_SECRET',
+  'JWT_REFRESH_SECRET',
+  'ENCRYPTION_KEY',
+  'ENCRYPTION_HMAC_KEY',
+  'AUDIT_HMAC_KEY',
+  'DELEGATION_SECRET',
+] as const;
+
+const GENERATE_HINT = [
+  'Generate real secrets and pass them in:',
+  '  export JWT_SECRET=$(openssl rand -hex 32)',
+  '  export JWT_REFRESH_SECRET=$(openssl rand -hex 32)',
+  '  export ENCRYPTION_KEY=$(openssl rand -hex 32)',
+  '  docker run -e JWT_SECRET -e JWT_REFRESH_SECRET -e ENCRYPTION_KEY ...   # or: ./scripts/docker-single.sh up',
+  '  # compose: write them into Server-NestJS/.env.production (template: .env.production.example)',
+  '',
+  '生成真实密钥后注入（上面三条命令即可；docker 用 -e / --env-file，compose 写进 .env.production）。',
+].join('\n');
+
+/**
+ * Startup gate: validates the merged environment and stops the process before it can serve a request
+ * with missing, malformed, or already-published secrets. There is deliberately no fallback value —
+ * a silent default is how a signing key ends up inside a published image.
+ * 启动闸：校验合并后的环境；密钥缺失、格式不对、或用的是已公开的值时，进程在对外服务之前停下。
+ * 这里**刻意不提供兜底值** —— 静默默认正是签名密钥混进已发布镜像的方式。
+ */
+export function validateEnv(config: Record<string, unknown>): Record<string, unknown> {
+  const { error, value } = envValidationSchema.validate(config, {
+    abortEarly: false,
+    allowUnknown: true,
+  });
+  if (error) {
+    const details = error.details.map((d) => `  - ${d.path.join('.')}: ${d.message}`).join('\n');
+    throw new Error(
+      [
+        'Environment validation failed — KeelBase refuses to start, and will not substitute a default secret.',
+        details,
+        '',
+        GENERATE_HINT,
+        '',
+        '环境变量校验失败 —— 缺密钥或格式不对时 KeelBase 拒绝启动，也不会用内置默认值顶替。',
+        '原因见上面的条目；按上面的三条命令生成真实密钥后注入即可。',
+      ].join('\n'),
+    );
+  }
+
+  if (value.NODE_ENV === 'production') {
+    const published = SECRET_KEYS.filter((key) => {
+      const v = value[key];
+      return typeof v === 'string' && v !== '' && PUBLICLY_KNOWN_SECRETS.has(v);
+    }).map((key) => `  - ${key} = ${PUBLICLY_KNOWN_SECRETS.get(value[key] as string)}`);
+    if (published.length > 0) {
+      throw new Error(
+        [
+          'Refusing to start: production is configured with a publicly known secret.',
+          ...published,
+          'These values shipped inside published artifacts, so they are not secret anymore.',
+          'Replace each with a fresh value (openssl rand -hex 32). Changing ENCRYPTION_KEY also makes rows',
+          'encrypted with the old key unreadable — plan that rotation deliberately.',
+          '',
+          '生产环境拒绝启动：当前配置用的是已公开的密钥（下面的值曾随镜像或模板发布，已不再保密）。',
+          '请逐个用 openssl rand -hex 32 生成新值替换。更换 ENCRYPTION_KEY 后，用它加密过的存量数据将无法解密，',
+          '轮换需要单独安排。',
+        ].join('\n'),
+      );
+    }
+  }
+
+  return value;
+}

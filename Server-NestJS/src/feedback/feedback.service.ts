@@ -33,7 +33,9 @@ export class FeedbackService {
     @Optional() private readonly webhookPublisher?: WebhookPublisher,
   ) {}
 
-  async submit(userId: string, input: FeedbackInput) {
+  // userId 用 number：webhook 投递按 user_id 列（int）限定租户；字符串 "1" 在 Postgres 上根本比不了。
+  // userId is numeric because webhook delivery filters on the int user_id column.
+  async submit(userId: number, input: FeedbackInput) {
     const admins = await this.usersRepo.find({ where: { role: UserRole.ADMIN } });
     const label = TYPE_LABEL[input.type];
 

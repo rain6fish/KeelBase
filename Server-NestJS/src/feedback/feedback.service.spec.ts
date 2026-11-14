@@ -31,7 +31,7 @@ describe('FeedbackService（G-1）', () => {
       { id: 2, role: UserRole.ADMIN },
     ]);
 
-    const result = await service.submit('42', {
+    const result = await service.submit(42, {
       type: 'bug',
       content: '登录页按钮错位',
       contact: 'user@example.com',
@@ -50,7 +50,7 @@ describe('FeedbackService（G-1）', () => {
   it('无管理员时返回 notifiedAdmins=0 不抛错', async () => {
     usersRepo.find.mockResolvedValue([]);
 
-    const result = await service.submit('1', { type: 'praise', content: '很好用' });
+    const result = await service.submit(1, { type: 'praise', content: '很好用' });
 
     expect(result.notifiedAdmins).toBe(0);
     expect(notificationsService.create).not.toHaveBeenCalled();
@@ -62,7 +62,7 @@ describe('FeedbackService（G-1）', () => {
       .mockRejectedValueOnce(new Error('boom'))
       .mockResolvedValueOnce({ id: 2 });
 
-    const result = await service.submit('1', { type: 'suggestion', content: 'x' });
+    const result = await service.submit(1, { type: 'suggestion', content: 'x' });
     expect(result.notifiedAdmins).toBe(1);
   });
 });

@@ -27,9 +27,15 @@ export interface WebhookSubscriptionView {
   createdAt: Date;
 }
 
+/**
+ * 事件载荷必须说明**这是谁的事件**：投递集合按 userId 限定，缺了它就无从判断归属。
+ * The payload must say whose event it is — delivery is scoped by userId, so ownership is not optional.
+ */
+export type WebhookEventPayload = { userId: number } & Record<string, unknown>;
+
 /** 触发方依赖的接口（业务 service 用 @Optional 注入 WebhookService）。 */
 export interface WebhookPublisher {
-  publish(eventType: string, payload: Record<string, unknown>): Promise<void>;
+  publish(eventType: string, payload: WebhookEventPayload): Promise<void>;
 }
 
 @Injectable()
@@ -88,8 +94,17 @@ export class WebhookService implements WebhookPublisher {
    *   ③ 重试耗尽**不使业务操作失败，但也不再静默** —— 走既有告警通道（REL-2）。
    * 完整异步重试队列（BullMQ worker）是「真非阻塞 + durable 重试」的正解，**留待量大后**（已登记待办）。
    */
-  async publish(eventType: string, payload: Record<string, unknown>): Promise<void> {
-    const subs = await this.repo.find({ where: { enabled: true } });
+  async publish(eventType: string, payload: WebhookEventPayload): Promise<void> {
+    // 租户边界：订阅按 userId 归属（controller 声称的也是「本人」），投递集合只能取事件所属用户自己的订阅。
+    // 原实现取**全部** enabled 订阅，于是一个用户的 create 事件会被 POST 到所有其他租户的回调地址 ——
+    // 不只是通知错人，还把事件内容（含 userId/orgId/标题）送出了本租户。
+    // 归属缺失时一律不投递（fail-closed），并留下 warn：静默丢弃会让调用方以为投递成功。
+    const ownerUserId = payload.userId;
+    if (!Number.isInteger(ownerUserId)) {
+      this.logger.warn(`[Webhook] drop ${eventType}: payload has no owner userId`);
+      return;
+    }
+    const subs = await this.repo.find({ where: { enabled: true, userId: ownerUserId } });
     const matches = subs.filter((s) => this._eventsOf(s).includes(eventType));
     await Promise.all(
       matches.map(async (sub) => {
