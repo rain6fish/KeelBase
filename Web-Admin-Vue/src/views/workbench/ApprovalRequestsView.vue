@@ -2,6 +2,7 @@
 <template>
   <div>
     <PageHeader :title="t('apTitle')" :subtitle="t('apTotal', { n: total })" />
+    <el-alert type="info" :closable="false" show-icon class="mb-4" :title="t('apScopeNote')" />
 
     <el-card shadow="never" class="mb-4">
       <div class="d-flex ga-3 flex-wrap align-center">
@@ -142,7 +143,7 @@ async function load(p = 1) {
 }
 
 function goDetail(id: number) {
-  router.push(`/workbench/approval/${id}`)
+  router.push(`/workbench/my-requests/${id}`)
 }
 
 function openCreate() {

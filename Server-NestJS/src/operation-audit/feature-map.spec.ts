@@ -42,4 +42,11 @@ describe('deriveFeature（操作审计功能名映射）', () => {
     expect(deriveFeature('POST', '/api/v1/approval/requests/3/decide')).toEqual({ key: 'approval.decide', fallback: 'Approval · Decide' });
     expect(deriveFeature('POST', '/api/v1/approval/requests/3/review')).toEqual({ key: 'approval.review', fallback: 'Approval · Review' });
   });
+
+  it('0-C：my-requests 新主路径归一到 approval.* 审计词键', () => {
+    expect(deriveFeature('POST', '/api/v1/my-requests/requests/3/decide')).toEqual({ key: 'approval.decide', fallback: 'Approval · Decide' });
+    expect(deriveFeature('POST', '/api/v1/my-requests/requests/3/review')).toEqual({ key: 'approval.review', fallback: 'Approval · Review' });
+    expect(deriveFeature('POST', '/api/v1/my-requests/requests')).toEqual({ key: 'approval.create', fallback: 'approval · create' });
+    expect(deriveFeature('GET', '/api/v1/my-requests/requests/3')).toEqual({ key: 'unknown.get', fallback: 'approval · GET' });
+  });
 });

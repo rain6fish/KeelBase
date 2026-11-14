@@ -22,7 +22,7 @@ void main() {
       };
 
   test('getRequests 无过滤只带 limit', () async {
-    when(() => apiClient.get('/approval/requests', queryParameters: any(named: 'queryParameters')))
+    when(() => apiClient.get('/my-requests/requests', queryParameters: any(named: 'queryParameters')))
         .thenAnswer((_) async => res({
               'items': [
                 {'id': 1, 'title': '采购报销', 'reason': '差旅'},
@@ -30,33 +30,33 @@ void main() {
             }));
     final list = await repository.getRequests();
     expect(list.single.title, '采购报销');
-    verify(() => apiClient.get('/approval/requests', queryParameters: {'limit': '100'})).called(1);
+    verify(() => apiClient.get('/my-requests/requests', queryParameters: {'limit': '100'})).called(1);
   });
 
   test('getRequests 带 status 拼 query', () async {
-    when(() => apiClient.get('/approval/requests', queryParameters: any(named: 'queryParameters')))
+    when(() => apiClient.get('/my-requests/requests', queryParameters: any(named: 'queryParameters')))
         .thenAnswer((_) async => res({'items': []}));
     await repository.getRequests(status: 'pending');
-    verify(() => apiClient.get('/approval/requests', queryParameters: {'status': 'pending', 'limit': '100'}))
+    verify(() => apiClient.get('/my-requests/requests', queryParameters: {'status': 'pending', 'limit': '100'}))
         .called(1);
   });
 
   test('getRequests 空列表返回空数组', () async {
-    when(() => apiClient.get('/approval/requests', queryParameters: any(named: 'queryParameters')))
+    when(() => apiClient.get('/my-requests/requests', queryParameters: any(named: 'queryParameters')))
         .thenAnswer((_) async => res(null));
     expect(await repository.getRequests(), isEmpty);
   });
 
   test('createRequest POST 并解析', () async {
-    when(() => apiClient.post('/approval/requests', data: any(named: 'data')))
+    when(() => apiClient.post('/my-requests/requests', data: any(named: 'data')))
         .thenAnswer((_) async => res({'id': 2, 'title': '新申请', 'reason': 'r'}));
     final r = await repository.createRequest({'title': '新申请'});
     expect(r.id, 2);
-    verify(() => apiClient.post('/approval/requests', data: {'title': '新申请'})).called(1);
+    verify(() => apiClient.post('/my-requests/requests', data: {'title': '新申请'})).called(1);
   });
 
   test('reviewRequest POST /review', () async {
-    when(() => apiClient.post('/approval/requests/1/review')).thenAnswer((_) async => res({
+    when(() => apiClient.post('/my-requests/requests/1/review')).thenAnswer((_) async => res({
           'id': 1,
           'title': 't',
           'reason': 'r',
@@ -67,15 +67,15 @@ void main() {
   });
 
   test('decideRequest POST /decide 带 decision', () async {
-    when(() => apiClient.post('/approval/requests/1/decide', data: any(named: 'data')))
+    when(() => apiClient.post('/my-requests/requests/1/decide', data: any(named: 'data')))
         .thenAnswer((_) async => res({'id': 1, 'title': 't', 'reason': 'r', 'status': 'approved'}));
     final r = await repository.decideRequest(1, 'approved');
     expect(r.status, 'approved');
-    verify(() => apiClient.post('/approval/requests/1/decide', data: {'decision': 'approved'})).called(1);
+    verify(() => apiClient.post('/my-requests/requests/1/decide', data: {'decision': 'approved'})).called(1);
   });
 
   test('getPolicies 解析策略列表', () async {
-    when(() => apiClient.get('/approval/policies')).thenAnswer((_) async => res([
+    when(() => apiClient.get('/my-requests/policies')).thenAnswer((_) async => res([
           {'id': 1, 'title': '大额审批', 'maxAmount': 5000},
         ]));
     final list = await repository.getPolicies();

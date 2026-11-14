@@ -625,20 +625,24 @@ The seven modules contracts/suppliers/tags/notes/books/posts/reports share an id
 | GET | /api/v1/pm/projects/:id/risks | Yes | 项目风险列表 / Project risk list |
 | POST | /api/v1/pm/projects/:id/risks | Yes | 创建风险记录 / Create a risk record |
 
-### 5.19 AI Approval 模块 / 5.19 AI Approval Module
+### 5.19 My Requests（原 AI Approval）模块 / 5.19 My Requests (formerly AI Approval) Module
+
+> 单人额度校验：本人提交、本人确认；不是组织多级审批。`/api/v1/approval/*` 保留为兼容别名。
+>
+> Single-person limit check: the requester submits and confirms. `/api/v1/approval/*` remains a compatibility alias.
 
 | Method | Path | Auth | 说明 / Description |
 |--------|------|------|------|
-| POST | /api/v1/approval/requests | Yes | 提交审批请求（pending） / Submit an approval request (pending) |
-| GET | /api/v1/approval/requests | Yes | 我的审批请求（状态筛选） / My approval requests (status filter) |
-| GET | /api/v1/approval/requests/:id | Yes | 审批请求详情 / Approval request details |
-| DELETE | /api/v1/approval/requests/:id | Yes | 删除审批请求（软删） / Delete an approval request (soft delete) |
-| POST | /api/v1/approval/requests/:id/review | Yes | AI 预审：按政策分级（低风险自动通过 / 高风险转人工复核） / AI pre-review: policy-tiered (low risk auto-approve / high risk to manual review) |
-| POST | /api/v1/approval/requests/:id/decide | Yes | 人工复核：通过/驳回 needs_review 请求 / Manual review: approve/reject a needs_review request |
-| GET | /api/v1/approval/policies | Yes | 我的审批政策列表 / My approval policy list |
-| POST | /api/v1/approval/policies | Yes | 创建审批政策 / Create an approval policy |
-| PATCH | /api/v1/approval/policies/:id | Yes | 更新审批政策 / Update an approval policy |
-| DELETE | /api/v1/approval/policies/:id | Yes | 删除审批政策 / Delete an approval policy |
+| POST | /api/v1/my-requests/requests | Yes | 提交申请（pending） / Submit a request (pending) |
+| GET | /api/v1/my-requests/requests | Yes | 我的申请（状态筛选） / My requests (status filter) |
+| GET | /api/v1/my-requests/requests/:id | Yes | 申请详情 / Request details |
+| DELETE | /api/v1/my-requests/requests/:id | Yes | 删除申请（软删） / Delete a request (soft delete) |
+| POST | /api/v1/my-requests/requests/:id/review | Yes | AI 预审：按政策分级（低风险自动通过 / 高风险转人工复核） / AI pre-review: policy-tiered (low risk auto-approve / high risk to manual review) |
+| POST | /api/v1/my-requests/requests/:id/decide | Yes | 本人确认：通过/驳回 needs_review 申请 / Self-confirmation: approve/reject a needs_review request |
+| GET | /api/v1/my-requests/policies | Yes | 我的额度政策列表 / My limit policy list |
+| POST | /api/v1/my-requests/policies | Yes | 创建额度政策 / Create a limit policy |
+| PATCH | /api/v1/my-requests/policies/:id | Yes | 更新额度政策 / Update a limit policy |
+| DELETE | /api/v1/my-requests/policies/:id | Yes | 删除额度政策 / Delete a limit policy |
 
 ---
 

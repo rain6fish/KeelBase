@@ -15,7 +15,7 @@ interface ApprovalServiceLike {
 export class QueryApprovalPoliciesTool implements AiTool {
   readonly name = 'query_approval_policies';
   readonly description =
-    '查询审批政策列表（类型 + 自动通过金额阈值）。AI 预审批复请求前调用本工具获取政策，判断金额是否在自动通过范围内。';
+    '查询额度政策列表（类型 + 自动通过金额阈值）。AI 预审申请前调用本工具获取政策，判断金额是否在自动通过范围内。';
   readonly parameters: ToolParameter[] = [];
 
   constructor(private readonly approvalService: ApprovalServiceLike) {}

@@ -163,8 +163,8 @@ export class OperationAuditInterceptor implements NestInterceptor {
     if (p.endsWith('/auth/login')) return 'LOGIN';
     if (p.endsWith('/auth/logout')) return 'LOGOUT';
     if (p.endsWith('/upload')) return 'UPLOAD';
-    // approval 审批动作（decide/review）是业务决策而非资源创建——语义对齐（Approval 入审计）
-    if (/\/approval\/requests\/\d+\/(decide|review)$/.test(p)) {
+    // approval / my-requests 决策（decide/review）是业务决策而非资源创建——语义对齐（Approval 入审计）
+    if (/(?:\/approval|\/my-requests)\/requests\/\d+\/(decide|review)$/.test(p)) {
       return p.endsWith('/decide') ? 'DECIDE' : 'REVIEW';
     }
     switch (method) {
@@ -200,13 +200,13 @@ export class OperationAuditInterceptor implements NestInterceptor {
   private _deriveApprovalBusinessEvent(path: string, method: string, body: unknown): string | null {
     if (method !== 'POST') return null;
     const p = path.split('?')[0];
-    if (/\/approval\/requests\/\d+\/decide$/.test(p)) {
+    if (/(?:\/approval|\/my-requests)\/requests\/\d+\/decide$/.test(p)) {
       const decision = (body as { decision?: string } | null)?.decision;
       if (decision === APPROVED_DECISION) return 'ApprovalRequestApproved';
       if (decision === REJECTED_DECISION) return 'ApprovalRequestRejected';
       return 'ApprovalRequestDecided';
     }
-    if (/\/approval\/requests\/\d+\/review$/.test(p)) return 'ApprovalRequestReviewed';
+    if (/(?:\/approval|\/my-requests)\/requests\/\d+\/review$/.test(p)) return 'ApprovalRequestReviewed';
     return null;
   }
 

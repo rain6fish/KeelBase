@@ -310,18 +310,27 @@ GoRouter createRouter(
           projectId: int.parse(state.pathParameters['id']!),
         ),
       ),
-      // AI Approval 旗舰应用
+      // My Requests（单人额度校验；0-C 由 /approval 改名）
       GoRoute(
-        path: '/approval',
+        path: '/my-requests',
         builder: (_, _) => const ApprovalRequestsPage(),
       ),
       GoRoute(
-        path: '/approval/requests/:id',
+        path: '/my-requests/requests/:id',
         redirect: (_, state) =>
-            int.tryParse(state.pathParameters['id'] ?? '') == null ? '/approval' : null,
+            int.tryParse(state.pathParameters['id'] ?? '') == null ? '/my-requests' : null,
         builder: (_, state) => ApprovalRequestDetailPage(
           requestId: int.parse(state.pathParameters['id']!),
         ),
+      ),
+      // 旧路径兼容：既有深链/历史导航仍可用
+      GoRoute(
+        path: '/approval',
+        redirect: (_, _) => '/my-requests',
+      ),
+      GoRoute(
+        path: '/approval/requests/:id',
+        redirect: (_, state) => '/my-requests/requests/${state.pathParameters['id']}',
       ),
       // 图书（EASY-2 生成）
       GoRoute(

@@ -238,13 +238,13 @@ describe('approvalApi', () => {
   it('requests 带分页参数', async () => {
     api.get.mockResolvedValue({ items: [] })
     await approvalApi.requests({ page: 1 })
-    expect(api.get).toHaveBeenCalledWith('/approval/requests', expect.objectContaining({ page: 1 }))
+    expect(api.get).toHaveBeenCalledWith('/my-requests/requests', expect.objectContaining({ page: 1 }))
   })
 
   it('review 触发 AI 预审', async () => {
     api.post.mockResolvedValue({ id: 2 })
     await approvalApi.review(2)
-    expect(api.post).toHaveBeenCalledWith('/approval/requests/2/review')
+    expect(api.post).toHaveBeenCalledWith('/my-requests/requests/2/review')
   })
 })
 

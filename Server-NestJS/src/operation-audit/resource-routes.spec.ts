@@ -111,7 +111,7 @@ describe('resource-routes 单一资源注册表', () => {
       ['crm_task', ['/crm/tasks/']],
       ['pm_task', ['/pm/tasks/']],
       ['pm_project', ['/pm/projects/']],
-      ['app_request', ['/approval/requests/']],
+      ['app_request', ['/my-requests/requests/', '/approval/requests/']],
       ['contract', ['/contracts/']],
       ['todo', ['/todos/']],
       ['event', ['/events/']],
@@ -122,6 +122,12 @@ describe('resource-routes 单一资源注册表', () => {
     it('未知 resultType → 空数组（不放大查询范围）', () => {
       expect(pathsForResultType('proxy_call')).toEqual([]);
       expect(pathsForResultType('nonexistent')).toEqual([]);
+    });
+
+    it('0-C：my-requests 主路径可解析实体，历史 approval 前缀仍返回', () => {
+      expect(resourceEntityFor('/api/v1/my-requests/requests/5')).toBe('ApprovalRequest');
+      expect(resourceEntityFor('/api/v1/my-requests/policies/5')).toBe('ApprovalPolicy');
+      expect(pathsForResultType('app_request')).toEqual(['/my-requests/requests/', '/approval/requests/']);
     });
 
     it('resultType 在表内唯一，且与 pathPrefix 同生同灭', () => {

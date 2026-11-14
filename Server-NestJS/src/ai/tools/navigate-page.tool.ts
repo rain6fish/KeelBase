@@ -53,7 +53,9 @@ export const PAGE_ROUTES: Record<string, { route: string; description: string }>
   points: { route: '/points', description: '积分签到/排行榜/成就' },
   crm: { route: '/crm', description: '客户管理（AI CRM）' },
   pm: { route: '/pm', description: '项目管理（AI Project）' },
-  approval: { route: '/approval', description: '审批中心（AI Approval）' },
+  myRequests: { route: '/my-requests', description: '我的申请（单人额度校验）' },
+  // 旧键保留给既有提示词/历史对话；跳到同一新路径。
+  approval: { route: '/my-requests', description: '我的申请（旧称审批中心，单人额度校验）' },
 
   upload: { route: '/upload', description: '文件上传' },
   privacy: { route: '/privacy', description: '隐私政策' },

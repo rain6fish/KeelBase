@@ -47,6 +47,8 @@ export interface ResourceRoute {
   resultType?: string;
   /** 该 `resultType` 在操作审计里对应的路径前缀（`pathsForResultType` 按 `LIKE %前缀%` 过滤用）。 */
   pathPrefix?: string;
+  /** 0-C：改名前的兼容前缀 —— 同一 resultType 的历史行仍须查得到（主路径 + 旧路径都返回）。 */
+  pathPrefixAlt?: string;
 }
 
 /**
@@ -113,15 +115,16 @@ export const RESOURCE_ROUTES: readonly ResourceRoute[] = [
     resultType: 'pm_task',
     pathPrefix: '/pm/tasks/',
   },
-  // 审批 / approval
+  // 审批 / approval（0-C：主路径 my-requests，旧路径保留；两个前缀都要匹配，否则快照/事件/历史断档）
   {
-    match: /\/approval\/requests/,
+    match: /(?:\/approval|\/my-requests)\/requests/,
     entity: 'ApprovalRequest',
     event: 'ApprovalRequest',
     resultType: 'app_request',
-    pathPrefix: '/approval/requests/',
+    pathPrefix: '/my-requests/requests/',
+    pathPrefixAlt: '/approval/requests/',
   },
-  { match: /\/approval\/policies/, entity: 'ApprovalPolicy', event: 'ApprovalPolicy' },
+  { match: /(?:\/approval|\/my-requests)\/policies/, entity: 'ApprovalPolicy', event: 'ApprovalPolicy' },
   // 生成模块 / generated modules
   {
     match: /\/contracts/,
@@ -185,5 +188,7 @@ export function resourceEventFor(path: string): string | null {
 /** 该 AI 副作用 `resultType` 在操作审计里的路径前缀（防跨资源 id 碰撞）；未知类型返回空数组。 */
 export function pathsForResultType(resultType: string): string[] {
   const route = RESOURCE_ROUTES.find((r) => r.resultType === resultType);
-  return route?.pathPrefix ? [route.pathPrefix] : [];
+  if (!route) return [];
+  // 0-C：主路径与旧路径都返回 —— 只看主路径会把改名前的历史行漏掉。
+  return [route.pathPrefix, route.pathPrefixAlt].filter((p): p is string => !!p);
 }
