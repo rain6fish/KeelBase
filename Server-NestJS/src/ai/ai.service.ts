@@ -746,7 +746,7 @@ export class AiService {
           userId,
           lang,
           model: request.model ?? this.config.defaultModel,
-          initialToolDefs: await this.toolExposure.buildToolDefs(),
+          initialToolDefs: await this.toolExposure.buildToolDefs(userId),
           fallbackProviders: this.llmRouter.fallbackChain(providerName),
           systemPrompt: request.systemPrompt,
           images: request.images,
@@ -811,7 +811,7 @@ export class AiService {
           userId,
           lang,
           model: request.model ?? this.config.defaultModel,
-          initialToolDefs: await this.toolExposure.buildToolDefs(),
+          initialToolDefs: await this.toolExposure.buildToolDefs(userId),
           fallbackProviders: this.llmRouter.fallbackChain(providerName),
           systemPrompt: request.systemPrompt,
           images: request.images,
@@ -830,7 +830,7 @@ export class AiService {
         userId,
         lang,
         model: request.model ?? this.config.defaultModel,
-        initialToolDefs: await this.toolExposure.buildToolDefs(),
+        initialToolDefs: await this.toolExposure.buildToolDefs(userId),
         fallbackProviders: this.llmRouter.fallbackChain(providerName),
         systemPrompt: request.systemPrompt,
         images: request.images,
@@ -1014,8 +1014,10 @@ export class AiService {
     // （审计的 chat 行每轮对话只写一次，故必须在此聚合，不能只取最后一轮）
     let turnUsage: LlmUsage | undefined = builtMessages.usage;
 
+    // 0-A turn 级缓存：工具面按主体收窄，整轮只构造一次（不再逐轮重建 + 逐轮发现外部工具）
+    const turnToolDefs = await this.toolExposure.buildToolDefs(userId);
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-      const tools = await this.toolExposure.buildToolDefs();
+      const tools = turnToolDefs;
       const stream = this.llmRouter.streamWithProviderFallback({
         chain: streamFallbackChain,
         messages,

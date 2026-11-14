@@ -23,6 +23,8 @@ import { ToolDefinition, ToolResult, RISK_STRATEGY, resolveRevokeClass } from '.
 import { ExternalToolProvider, ExternalToolDef } from '../external-tool-provider.interface';
 import { GovernancePolicyService, effectiveGateMode } from '../../governance-shared/services/governance-policy.service';
 import { SettingsService, SETTING_KEYS } from '../../settings/settings.service';
+import { UsersService } from '../../users/users.service';
+import { UserRole } from '../../common/entities/user.entity';
 
 @Injectable()
 export class ToolExposureService {
@@ -32,6 +34,7 @@ export class ToolExposureService {
     private readonly externalTools: ExternalToolRegistry,
     @Optional() private readonly governancePolicy?: GovernancePolicyService,
     @Optional() private readonly settingsService?: SettingsService,
+    @Optional() private readonly usersService?: UsersService,
   ) {}
 
   /**
@@ -44,22 +47,72 @@ export class ToolExposureService {
 
   /**
    * HS-10：内置 + 外部工具定义合并（供 LLM 工具流）。外部工具发现失败静默降级为内置。
+   *
+   * 0-A 工具面收窄：下发给 LLM 的定义按**调用主体**收窄 —— 治理策略禁用的工具、角色白名单外的
+   * 工具、非管理员主体的 adminOnly 工具都不下发 schema。执行点（`ToolGateService`）本来就会拦，
+   * 这里收窄的是「模型能看见什么」：少一份可被诱导的不可用 schema，也少一份无谓 token。
+   * 身份解析不到时按 fail-closed（adminOnly / 白名单工具不下发），与仓库「身份缺失一律 DENY」一致。
+   *
+   * 每次对话调用一次即可（turn 级）：外部工具发现也随这一次完成，不再逐轮重建。
+   *
+   * 0-A narrows the tool surface exposed to the LLM by caller identity: tools disabled by governance
+   * policy, tools outside their role allow-list, and admin-only tools for non-admin callers are not
+   * described at all. The execution point already refuses them; this only shrinks what the model can
+   * see. An unresolvable identity fails closed. Call once per turn, not once per loop round.
    */
-  async buildToolDefs(): Promise<ToolDefinition[]> {
-    const builtin = this.toolRegistry.getToolDefinitions();
+  async buildToolDefs(userId?: string): Promise<ToolDefinition[]> {
+    const policy = this.governancePolicy ? await this.governancePolicy.getPolicy() : null;
+    const role = await this._roleOf(userId);
+    const overrides = policy?.tools ?? {};
+    const visible = (name: string, adminOnly?: boolean): boolean => {
+      const override = overrides[name] ?? {};
+      if (override.enabled === false) return false;
+      const allowedRoles = Array.isArray(override.allowedRoles) ? override.allowedRoles : [];
+      if (allowedRoles.length > 0 && userId !== '0' && (!role || !allowedRoles.includes(role))) {
+        return false;
+      }
+      if (adminOnly && userId !== '0' && role !== UserRole.ADMIN) return false;
+      return true;
+    };
+
+    const builtin = this.toolRegistry.getToolDefinitions((tool) =>
+      visible(tool.name, tool.permissions?.adminOnly === true),
+    );
     if (!this.externalTools.current) return builtin;
     try {
       const external: ExternalToolDef[] = await this.externalTools.current.listExternalTools();
-      if (external.length === 0) return builtin;
+      const allowed = external.filter((t) => visible(t.name));
+      if (allowed.length === 0) return builtin;
       return [
         ...builtin,
-        ...external.map((t) => ({
+        ...allowed.map((t) => ({
           type: 'function' as const,
           function: { name: t.name, description: t.description, parameters: t.parameters },
         })),
       ];
     } catch {
       return builtin;
+    }
+  }
+
+  /**
+   * 解析调用主体角色。身份缺失/查不到 → undefined（调用方据此 fail-closed）。
+   * 特权哨兵 `'0'` 由受信进程内入口产生，按管理员处理（与 `ToolGateService` 同一口径）。
+   *
+   * Resolve the caller's role; an absent or unknown identity yields `undefined` (fail-closed).
+   * The privileged sentinel `'0'` is produced by trusted in-process callers and reads as admin.
+   */
+  private async _roleOf(userId?: string): Promise<string | undefined> {
+    if (!userId) return undefined;
+    if (userId === '0') return UserRole.ADMIN;
+    if (!this.usersService) return undefined;
+    const id = Number(userId);
+    if (!Number.isFinite(id)) return undefined;
+    try {
+      const user = await this.usersService.findOne(id);
+      return user?.role;
+    } catch {
+      return undefined;
     }
   }
 
