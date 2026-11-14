@@ -312,3 +312,28 @@ export interface AuditAnswerMatrix {
     statement: string
   }
 }
+
+/**
+ * 0-B：某条 `tool_call` 审计行背后的留存正文。链外、已脱敏；`bodyState: 'expired'` 时文本为空、
+ * 哈希与大小仍在（墓碑就是剩下的证据）。
+ *
+ * 0-B: the retained body behind one `tool_call` audit row. Off-chain and masked; with `bodyState:
+ * 'expired'` the text is gone and the hashes/sizes remain — the tombstone is the evidence.
+ */
+export interface ToolResultBody {
+  auditRowId: number
+  toolName: string | null
+  outcome: string | null
+  bodyState: 'stored' | 'capped' | 'expired'
+  body: string | null
+  bodyBytes: number | null
+  storedBytes: number | null
+  bodySha256: string | null
+  originalSha256: string | null
+  wasTruncated: boolean
+  modelText: string | null
+  modelChars: number | null
+  modelSha256: string | null
+  createdAt: string | null
+  expiresAt: string | null
+}

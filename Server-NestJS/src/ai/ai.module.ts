@@ -69,6 +69,7 @@ import { AuthorizationExplainerService } from './authorization-explainer.service
 import { ConversationService } from './conversation/conversation.service';
 import { AuditService } from '../governance-shared/services/audit.service';
 import { AiDailyUsageService } from './audit/ai-daily-usage.service';
+import { ToolResultRetentionService } from './audit/tool-result-retention.service';
 import { ToolGateService } from './tools/tool-gate.service';
 import { R4ApprovalService } from './approvals/r4-approval.service';
 import { ToolPresentationService } from './tools/tool-presentation.service';
@@ -83,6 +84,8 @@ import { TOOL_REGISTRY, AUTHORIZATION_EXPLAINER } from '../governance-shared/di-
 import { OUTBOUND_TARGET_FACTS } from '../governance-shared/outbound-target-facts';
 import { TARGET_STATUS_PROBE } from '../governance-shared/services/tool-effects.types';
 import { TargetStatusLookupRow } from '../governance-shared/entities/target-status-lookup.entity';
+import { AiToolResultBody } from '../governance-shared/entities/ai-tool-result-body.entity';
+import { ToolResultBodyStore } from '../governance-shared/services/tool-result-body.store';
 import { AuditStatsService } from '../governance-shared/services/audit-stats.service';
 import { AuditQueryService } from '../governance-shared/services/audit-query.service';
 import { AuditObjectIndexService } from '../governance-shared/services/audit-object-index.service';
@@ -256,7 +259,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     MetricsModule,
     CacheModule,
     OperationAuditModule,
-    TypeOrmModule.forFeature([AiConversation, AiMessage, AiAuditLog, AiDailyUsage, KnowledgeArticle, UserMemory, EvalCase, AiToolSideEffect, EffectComparability, AiWriteClaim, TargetStatusLookupRow, AiConfirmationRequest, AiAgent, AiGovernancePolicy, AiGovernancePolicyHistory, AiBehaviorAlert, User]),
+    TypeOrmModule.forFeature([AiConversation, AiMessage, AiAuditLog, AiDailyUsage, KnowledgeArticle, UserMemory, EvalCase, AiToolSideEffect, EffectComparability, AiWriteClaim, TargetStatusLookupRow, AiConfirmationRequest, AiAgent, AiGovernancePolicy, AiGovernancePolicyHistory, AiBehaviorAlert, User, AiToolResultBody]),
   ],
   controllers: [AiController, AuditController, InsightsController, KnowledgeController, AiEvalController, AgentsController, InternalEffectsController, ExternalEffectsController, InternalApprovalsController, SecurityShowcaseController],
   providers: [
@@ -266,6 +269,16 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     ToolExecutionService,
     R4ApprovalService,
     ToolPresentationService,
+    // 0-B retention: keeps the tool-result body of audited calls (off-chain, masked, TTL'd).
+    // 0-B 留存：为有审计的调用保留工具结果正文（链外、脱敏、有期限）。
+    // The store is provided **here**, not by GovernanceSharedModule: the standalone governance
+    // runtime has its own database and its own explicit entity list, and retention rows belong to the
+    // business database. There, the optional store stays undefined and the read endpoint honestly
+    // answers «not retained».
+    // 仓储**在本模块**提供，而不是 GovernanceSharedModule：独立治理运行时有自己的库和显式实体清单，
+    // 而留存行属于业务库。治理台里这个可选仓储为 undefined，读端点如实答「未留存」。
+    ToolResultRetentionService,
+    ToolResultBodyStore,
     ToolExposureService,
     ExternalToolRegistry,
     AuditEvidenceService,
@@ -369,6 +382,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         contentSafety: ContentSafetyService,
         toolRegistry: ToolRegistry,
         authorizationExplainer: AuthorizationExplainerService,
+        toolResultRetention: ToolResultRetentionService,
       ) => {
         // 1. 创建 Provider 工厂并注册 LLM 供应商
         const factory = new LlmProviderFactory(circuitBreaker);
@@ -613,9 +627,10 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
           governancePolicy,
           contentSafety,
           toolEffectsService,
+          toolResultRetention,
         );
       },
-      inject: [ConfigService, EventsService, UsersService, OrgService, OrgDirectoryService, ConversationService, AuditService, AiDailyUsageService, ToolGateService, ToolExecutionService, R4ApprovalService, ToolPresentationService, ToolExposureService, KnowledgeService, CaslAbilityFactory, TodosService, LeaveRequestsService, InventoryMovementsService, AssetLoansService, PointsLedgersService, PointRecordsService, PostsService, TagsService, SuppliersService, NotesService, BooksService, ReportsService, FollowupPlansService, ContractsService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, AiToolEffectsService, GovernancePolicyService, CrmService, CrmAnalyticsService, PmService, ApprovalService, DelegationTokenService, ContentSafetyService, ToolRegistry, AuthorizationExplainerService],
+      inject: [ConfigService, EventsService, UsersService, OrgService, OrgDirectoryService, ConversationService, AuditService, AiDailyUsageService, ToolGateService, ToolExecutionService, R4ApprovalService, ToolPresentationService, ToolExposureService, KnowledgeService, CaslAbilityFactory, TodosService, LeaveRequestsService, InventoryMovementsService, AssetLoansService, PointsLedgersService, PointRecordsService, PostsService, TagsService, SuppliersService, NotesService, BooksService, ReportsService, FollowupPlansService, ContractsService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, AiToolEffectsService, GovernancePolicyService, CrmService, CrmAnalyticsService, PmService, ApprovalService, DelegationTokenService, ContentSafetyService, ToolRegistry, AuthorizationExplainerService, ToolResultRetentionService],
     },
   ],
   // `AiToolEffectsService` is exported for the hourly maintenance sweep (F-79): it owns the bounded
@@ -623,6 +638,6 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
   // reader deciding the same thing.
   // `AiToolEffectsService` 导出给每小时维护清扫（F-79）：有界自动重问归它管，在那边另装一份同样的仓储
   // 就是第二个账本读端来判同一件事。
-  exports: [ConversationService, AiAuditModule, AiService, KnowledgeIngestionService, AuthzExplainModule, GovernanceSharedModule, ConfirmationStore, BehaviorBaselineService, AuditStatsService, AuditQueryService, AuditEvidenceService, AiDailyUsageService, ToolGateService, ToolExecutionService, R4ApprovalService, ToolPresentationService, ToolExposureService, WriteClaimDecisionService, AiToolEffectsService],
+  exports: [ConversationService, AiAuditModule, AiService, KnowledgeIngestionService, AuthzExplainModule, GovernanceSharedModule, ConfirmationStore, BehaviorBaselineService, AuditStatsService, AuditQueryService, AuditEvidenceService, AiDailyUsageService, ToolGateService, ToolExecutionService, R4ApprovalService, ToolPresentationService, ToolResultRetentionService, ToolResultBodyStore, ToolExposureService, WriteClaimDecisionService, AiToolEffectsService],
 })
 export class AiModule {}

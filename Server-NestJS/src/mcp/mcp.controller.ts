@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Controller, Post, Body, Logger, Headers } from '@nestjs/common';
+import { Controller, Post, Body, Logger, Headers, Optional } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -12,6 +12,7 @@ import {
 import { ToolExposureService } from '../ai/tools/tool-exposure.service';
 import { AuditService } from '../governance-shared/services/audit.service';
 import { boundedToolArgs, toolCallOutcome } from '../ai/audit/tool-call-audit';
+import { ToolResultRetentionService } from '../ai/audit/tool-result-retention.service';
 import { ConfirmationStore } from '../ai/confirmation/confirmation.store';
 import { R4ApprovalService } from '../ai/approvals/r4-approval.service';
 import { ToolGateService } from '../ai/tools/tool-gate.service';
@@ -120,6 +121,9 @@ export class McpExportController {
     private readonly confirmationStore: ConfirmationStore,
     private readonly r4Approval: R4ApprovalService,
     private readonly toolGate: ToolGateService,
+    // 0-B retention: optional so trimmed assemblies keep working exactly as before.
+    // 0-B 留存：可选，使裁剪装配行为逐字不变。
+    @Optional() private readonly toolResultRetention?: ToolResultRetentionService,
   ) {}
 
   @Post()
@@ -249,7 +253,7 @@ export class McpExportController {
         allowSnapshot = undefined;
       }
     }
-    await this.auditService.log({
+    const auditRow = await this.auditService.log({
       userId,
       username: user.username,
       action: 'tool_call',
@@ -275,6 +279,16 @@ export class McpExportController {
       outcome: !out.executed ? 'pending' : toolCallOutcome(out.result ?? { success: false }),
       tool: toolName,
     });
+    // 0-B：只有真正执行过、且有结果的一支才有正文可留；被扣下等确认的行不留。
+    // 0-B: only a call that ran and produced a result has a body; a held-for-confirmation row does not.
+    if (out.executed && out.result) {
+      await this.toolResultRetention?.capture({
+        auditRowId: auditRow.id,
+        userId,
+        toolName,
+        result: out.result,
+      });
+    }
 
     if (!out.executed) {
       // Holding a call is only half a promise unless the client gets something to hold. Park a

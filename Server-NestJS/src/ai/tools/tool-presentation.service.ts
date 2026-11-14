@@ -28,6 +28,25 @@ import {
 import { deriveWriteImpact } from '../tool-effects/write-impact';
 import { sanitizeExternalContent } from '../security/injection-guard';
 import { TOOL_METADATA, toolLabelKey } from '../../governance-shared/services/tool-metadata';
+
+/**
+ * What one tool result comes to on the two views that matter: the text the model receives, and the
+ * full serialized result that text was projected from. `fullJson` is the unmasked, unprojected
+ * payload (minus `usage`); callers that retain it must mask before storing.
+ *
+ * 一次工具结果在两个要紧视角上的样子：模型收到的文本，以及它投影自的完整序列化结果。`fullJson` 是
+ * 未脱敏、未投影的载荷（去掉 `usage`）；留存方必须先脱敏再存储。
+ */
+export interface RenderedToolResult {
+  /** The masked text handed to the model. / 交给模型的已脱敏文本。 */
+  text: string;
+  /** Full serialized payload (unmasked, no `usage`). / 完整序列化载荷（未脱敏、无 `usage`）。 */
+  fullJson: string;
+  /** UTF-8 bytes of `fullJson`. / `fullJson` 的 UTF-8 字节数。 */
+  fullBytes: number;
+  /** Whether the projection dropped anything. / 投影是否丢弃了内容。 */
+  wasTruncated: boolean;
+}
 import {
   buildConfirmationRenderProof,
   buildRunRenderProof,
@@ -339,8 +358,9 @@ export class ToolPresentationService {
    * 逐级收紧直到放进预算；最后一步才退回「省略 data」的标记。
    * 返回值注入 LLM 前先过 `sanitizeExternalContent` —— 工具结果里可能有别的用户写入的 DB 内容。
    *
-   * 这里截的是**喂给模型的那一份**，不是审计/业务记录本身 —— 原文仍按各自路径保存。
-   * 旧文案「详情请查审计日志」是假的（`tool-call-audit` 只落 outcome/isError，不落结果内容），已去掉。
+   * 这里截的是**喂给模型的那一份**。完整正文是否可核对由 0-B 留存面决定（默认只留被截断的调用）；
+   * 没开启留存时，模型之外没有任何地方保存结果正文 —— 旧文案「详情请查审计日志」是假的
+   * （`tool-call-audit` 只落 outcome/isError，不落结果内容），已去掉。
    *
    * HS-5 returns a compacted **but still valid** JSON projection when the payload is too large; it
    * never cuts the serialized string mid-JSON. Arrays are trimmed per item and objects per field, with
@@ -349,13 +369,31 @@ export class ToolPresentationService {
    * carry DB content written by other users.
    */
   truncateToolResult(result: ToolResult): string {
+    return this.renderToolResult(result).text;
+  }
+
+  /**
+   * Same calculation as `truncateToolResult`, but also returns the full serialized result and whether
+   * the projection dropped anything. The retention surface needs all three, and computing them in one
+   * place keeps "was it truncated" from becoming a second opinion that can disagree with the text the
+   * model actually received.
+   *
+   * 与 `truncateToolResult` 同一份计算，但一并返回完整序列化结果与「是否发生过截断」。留存面需要这
+   * 三样；在一处算清，才不会让「是否截断」变成第二个可能与模型实际所见相左的判断。
+   */
+  renderToolResult(result: ToolResult): RenderedToolResult {
     // usage 是给审计记账的，不进 LLM 上下文——否则既污染提示词、又凭空多花 token
     const payload: ToolResult = { ...result };
     delete payload.usage;
 
     const full = JSON.stringify(payload);
     if (full.length <= ToolPresentationService.TOOL_RESULT_MAX_CHARS) {
-      return sanitizeExternalContent(full);
+      return {
+        text: sanitizeExternalContent(full),
+        fullJson: full,
+        fullBytes: Buffer.byteLength(full, 'utf8'),
+        wasTruncated: false,
+      };
     }
 
     const data = payload.data;
@@ -367,20 +405,30 @@ export class ToolPresentationService {
       };
       const json = JSON.stringify(projected);
       if (json.length <= ToolPresentationService.TOOL_RESULT_MAX_CHARS) {
-        return sanitizeExternalContent(json);
+        return {
+          text: sanitizeExternalContent(json),
+          fullJson: full,
+          fullBytes: Buffer.byteLength(full, 'utf8'),
+          wasTruncated: true,
+        };
       }
     }
 
     // 最后一步：结构本身已放不进预算 → 只留成功标志/错误与一条诚实的截断标记。
     // 仍是合法 JSON（不做字符串硬切）。
-    return sanitizeExternalContent(
-      JSON.stringify({
-        success: payload.success,
-        error: payload.error,
-        data: { _truncated: '结果过大，已省略' },
-        _truncated: this._truncationNote(data),
-      }),
-    );
+    return {
+      text: sanitizeExternalContent(
+        JSON.stringify({
+          success: payload.success,
+          error: payload.error,
+          data: { _truncated: '结果过大，已省略' },
+          _truncated: this._truncationNote(data),
+        }),
+      ),
+      fullJson: full,
+      fullBytes: Buffer.byteLength(full, 'utf8'),
+      wasTruncated: true,
+    };
   }
 
   /**

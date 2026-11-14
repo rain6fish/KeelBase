@@ -611,6 +611,9 @@ TRUST_PROXY=
 # 运维
 BACKUP_KEEP=7                      # npm run backup 轮转保留份数
 NOTIFICATION_RETENTION_DAYS=30     # 已读通知保留天数（定时清理）
+TOOL_RESULT_BODY_RETENTION_DAYS=30 # 0-B：工具结果正文保留天数（0 = 关闭留存；过期只清正文留哈希）
+TOOL_RESULT_BODY_MAX_BYTES=262144  # 0-B：单条正文上限（字节）；超出只留模型投影 + 哈希/大小
+TOOL_RESULT_BODY_SCOPE=truncated   # 0-B：truncated（默认，仅被截断的调用）| all（全部调用）
 ALERT_WEBHOOK_ENABLED=false        # 异常告警 Webhook（钉钉/飞书/Slack）
 ALERT_WEBHOOK_URL=
 ALERT_WEBHOOK_TYPE=dingtalk        # dingtalk | feishu | slack
@@ -787,6 +790,7 @@ npm run migration:run
 | PUT | /api/v1/events/:id | Yes | 本人或同组织或管理员 | 更新事件 |
 | DELETE | /api/v1/events/:id | Yes | 本人或同组织或管理员 | 删除事件 |
 | GET | /api/v1/audit/logs | Yes | 管理员或审计读者 | AI 审计日志（可按 userId / agentId / orgId / 业务对象（objectType+objectId，两者须成对）/ 闭合区间（since+until）过滤，ORG-5 组织维度；审计读者按组织收窄） |
+| GET | /api/v1/audit/logs/:id/tool-result | Yes | 管理员或审计读者 | 0-B 工具结果留存正文（链外、脱敏）：`bodyState` = stored / capped / expired；过期正文 200 但文本为空、哈希与大小仍在；非工具行 / 未留存 / 范围外 404 |
 | GET | /api/v1/audit/verify | Yes (ADMIN) | — | AI 审计哈希链完整性校验（HS-11）：`checked` 只数已入链的行，`tableRows` 是表内行数（差额即从未参与校验的行） |
 | GET | /api/v1/audit/stats | Yes (ADMIN) | — | 全局 AI 用量统计 |
 | GET | /api/v1/audit/coverage | Yes | 管理员或审计读者 | 审计覆盖声明：口径 + 已知缺口（AW-3，默认最近 30 天；结论由服务按事实算出） |

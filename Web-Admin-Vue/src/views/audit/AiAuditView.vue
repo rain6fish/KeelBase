@@ -379,6 +379,35 @@
       <div v-else-if="chainVerify" class="text-caption text-medium-emphasis">
         {{ chainVerify.chain?.length ? t('hashChainHint') : t('noChainData') }}
       </div>
+
+      <!-- 0-B：留存的结果正文。按需取（不在列表里预取），未留存与已过期是两句不同的话。 -->
+      <!-- 0-B: the retained result body, fetched on demand (never prefetched for the list);
+           «nothing kept» and «expired» are two different sentences. -->
+      <template v-if="expanded?.action === 'tool_call'">
+        <el-divider />
+        <div class="d-flex align-center ga-2 mb-2">
+          <span class="text-subtitle-2">{{ t('toolResultTitle') }}</span>
+          <el-button size="small" :loading="toolResultLoading" @click="loadToolResult">
+            {{ t('toolResultLoad') }}
+          </el-button>
+        </div>
+        <div v-if="toolResult" class="text-caption">
+          <div v-if="toolResult.bodyState === 'expired'" class="text-warning">
+            {{ t('toolResultExpired') }}
+          </div>
+          <template v-else>
+            <div class="text-medium-emphasis mb-1">{{ toolResultMeta }}</div>
+            <pre class="tool-result-body">{{ toolResult.body ?? '' }}</pre>
+            <template v-if="toolResult.modelText">
+              <div class="text-subtitle-2 mt-3 mb-1">{{ t('toolResultModelText') }}</div>
+              <pre class="tool-result-body">{{ toolResult.modelText }}</pre>
+            </template>
+          </template>
+        </div>
+        <div v-else-if="toolResultError" class="text-caption text-medium-emphasis">
+          {{ toolResultError }}
+        </div>
+      </template>
     </el-card>
 
     <!-- AU-4（§22.19）会话下钻：**引用优先**——先元数据，正文需显式「查看正文」才取 -->
@@ -437,7 +466,7 @@ import { adminApi } from '@/api/admin'
 import { downloadCsv } from '@/utils/csv'
 import { formatTime } from '@/utils/format'
 import { toolLabel, toolArgsSummary, errorLabel } from '@/utils/businessLabel'
-import type { AuditLog, UsageStats, ChainVerifyResult, AuditInterpretation, IdentityChain, CoverageStatement, ExplanationState, AuditReviewStatus } from '@/types/audit'
+import type { AuditLog, UsageStats, ChainVerifyResult, AuditInterpretation, IdentityChain, CoverageStatement, ExplanationState, AuditReviewStatus, ToolResultBody } from '@/types/audit'
 import type { AiConversationMeta, AiConversationMessage } from '@/types/admin'
 
 const { t, te, messages, locale } = useI18n()
@@ -698,6 +727,8 @@ function toggleExpand(id: number) {
   expanded.value = isSame ? null : (log ?? null)
   interpretation.value = null
   identityChain.value = null
+  toolResult.value = null
+  toolResultError.value = ''
   if (!isSame && log) {
     auditApi.interpretation(id).then((r) => { interpretation.value = r }).catch(() => { interpretation.value = null })
     auditApi.chain(id).then((c) => { identityChain.value = c }).catch(() => { identityChain.value = null })
@@ -708,6 +739,43 @@ function toggleExpand(id: number) {
 const interpretation = ref<AuditInterpretation | null>(null)
 /** §internal.16 A-5 跨系统身份链：展开行的 Human→Agent→Tool→Action + 授权依据 */
 const identityChain = ref<IdentityChain | null>(null)
+
+/**
+ * 0-B：留存的结果正文。按需取 —— 列表不为每行预取；未留存（404）与已过期是两句不同的话，
+ * 因为它们是两件不同的事：一个从来没留，一个留过但已按保留期清掉。
+ *
+ * 0-B: the retained result body, fetched on demand — the list never prefetches per row. «Not
+ * retained» (404) and «expired» are different sentences because they are different facts: one was
+ * never kept, the other was kept and then cleared by the retention window.
+ */
+const toolResult = ref<ToolResultBody | null>(null)
+const toolResultLoading = ref(false)
+const toolResultError = ref('')
+
+const toolResultMeta = computed(() => {
+  const r = toolResult.value
+  if (!r) return ''
+  const size = r.bodyBytes == null ? '-' : `${r.bodyBytes} B`
+  const state = r.wasTruncated ? t('toolResultTruncated') : t('toolResultComplete')
+  const sha = (r.bodySha256 ?? r.originalSha256 ?? '-').slice(0, 12)
+  return t('toolResultMeta', { tool: r.toolName ?? '-', size, state, sha })
+})
+
+async function loadToolResult() {
+  const id = expanded.value?.id
+  if (!id) return
+  toolResultLoading.value = true
+  toolResultError.value = ''
+  try {
+    toolResult.value = await auditApi.toolResult(id)
+  } catch (e: unknown) {
+    toolResult.value = null
+    const status = (e as { response?: { status?: number } })?.response?.status
+    toolResultError.value = status === 404 ? t('toolResultNotFound') : t('toolResultUnavailable')
+  } finally {
+    toolResultLoading.value = false
+  }
+}
 
 /**
  * P0-20：解释面的状态词表。**不是** tool-effects 那套四值 —— 那套里 `revoke_failed` 说的是「撤销失败」，
@@ -918,5 +986,18 @@ onMounted(() => {
 .error-msg {
   color: var(--el-color-danger);
   word-break: break-all;
+}
+.tool-result-body {
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 260px;
+  overflow: auto;
+  margin: 0;
+  padding: 8px;
+  border-radius: 8px;
+  background: var(--el-fill-color-light);
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 1.5;
 }
 </style>
