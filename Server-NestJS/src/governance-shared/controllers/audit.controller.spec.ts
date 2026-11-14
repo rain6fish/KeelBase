@@ -33,7 +33,7 @@ describe('AuditController', () => {
   beforeEach(() => {
     // 证据/报表域已拆到 AuditEvidenceService（阶段 3 第三刀）
     auditEvidence = Object.fromEntries(
-      ['verifyChain', 'getActionReport', 'getActionReportExport', 'getChain', 'getInterpretation'].map((m) => [m, jest.fn()]),
+      ['verifyChain', 'getActionReport', 'getActionReportExport', 'getChain', 'getInterpretation', 'getToolResultBody'].map((m) => [m, jest.fn()]),
     );
     auditService = Object.fromEntries([].map((m: string) => [m, jest.fn()]));
     // 查询域已拆到 AuditQueryService（阶段 3 第二刀）
@@ -259,6 +259,15 @@ describe('AuditController', () => {
     );
   });
 
+  it('0-B：留存正文按行读取，把读者的身份交给同一个范围解析', async () => {
+    auditEvidence.getToolResultBody.mockResolvedValue({ auditRowId: 7, bodyState: 'stored' });
+    await expect(controller.toolResult(7, auditor as any)).resolves.toMatchObject({ auditRowId: 7 });
+    expect(auditEvidence.getToolResultBody).toHaveBeenCalledWith(7, {
+      userId: auditor.sub,
+      role: UserRole.AUDITOR,
+    });
+  });
+
   it('每个读端点都声明了判据，且该判据默认拒（不再是清一色 manage-all）', () => {
     // 直接 new 实例不经过装饰器执行路径，从 Reflect metadata 取出策略处理器并调用。
     // 标题改了：自 AW-2 起本控制器的判据是 `read AuditLog` 而不是 `manage all`，因为审计读者要能进来。
@@ -267,7 +276,7 @@ describe('AuditController', () => {
     // The title changed: since AW-2 this controller judges `read AuditLog` rather than `manage all`,
     // because an audit reader has to get in. `manage all` implies `read`, so admins are unaffected;
     // what this pins is that there IS a non-trivial handler and that it denies by default.
-    const methods = ['getLogs', 'verify', 'getStats', 'getCost', 'getActionReport', 'getCoverage', 'getReviews', 'createReview'];
+    const methods = ['getLogs', 'verify', 'getStats', 'getCost', 'getActionReport', 'getCoverage', 'getReviews', 'createReview', 'toolResult'];
     for (const m of methods) {
       const handlers = Reflect.getMetadata(
         CHECK_POLICIES_KEY,

@@ -190,6 +190,12 @@ export const envValidationSchema = Joi.object({
   // 定时任务（PL-7）：已读通知保留天数，超期清理
   NOTIFICATION_RETENTION_DAYS: Joi.number().default(30),
 
+  // 0-B 工具结果留存：保留天数（0 = 关闭留存）、单条正文上限（字节）、留存范围（truncated = 仅被截断的调用）
+  // 0-B tool-result retention: days (0 = off), per-body byte cap, scope (`truncated` = only truncated calls).
+  TOOL_RESULT_BODY_RETENTION_DAYS: Joi.number().min(0).default(30),
+  TOOL_RESULT_BODY_MAX_BYTES: Joi.number().min(1024).default(262144),
+  TOOL_RESULT_BODY_SCOPE: Joi.string().valid('truncated', 'all').default('truncated'),
+
   // Headless API（AI-19）：第三方集成用 API Key
   HEADLESS_API_KEY: Joi.string().allow('').default(''),
 

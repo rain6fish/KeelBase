@@ -25,6 +25,7 @@ import { buildToolCallAudit, confirmationOutcome } from './audit/tool-call-audit
 // ACT-3：免确认作用域键要按**规范化**参数算（与副作用幂等键同一口径，防同一逻辑调用两种写法算出两个键）
 import { AiToolEffectsService, sortKeys } from '../governance-shared/services/ai-tool-effects.service';
 import { AiDailyUsageService } from './audit/ai-daily-usage.service';
+import { ToolResultRetentionService } from './audit/tool-result-retention.service';
 import { RouterAgent, Intent, WRITE_ACTION_VERBS } from './agents/router-agent.service';
 import { LlmUsage, addLlmUsage } from './llm-usage';
 import { CaslAbilityFactory } from '../common/casl/casl-ability.factory';
@@ -139,6 +140,14 @@ export class AiService {
      * **自己**那条触发行。**@Optional** —— 缺失时挂链静默跳过（旧数据继续走保守配对），不影响任何判定。
      */
     @Optional() private readonly toolEffectsService?: AiToolEffectsService,
+    /**
+     * 0-B: the off-chain retention of tool-result bodies. **@Optional** — a missing service keeps the
+     * old behaviour exactly (no retention), which is what unit tests and the governance runtime want.
+     *
+     * 0-B：工具结果正文的链外留存。**@Optional** —— 缺失时行为与从前逐字相同（不留存），正是单测与
+     * 治理运行时需要的。
+     */
+    @Optional() private readonly toolResultRetention?: ToolResultRetentionService,
   ) {}
 
   /**
@@ -229,7 +238,7 @@ export class AiService {
                 args,
               )
             : undefined;
-          await this.auditService.log(
+          const auditRow = await this.auditService.log(
             buildToolCallAudit({
               userId,
               conversationId,
@@ -242,6 +251,17 @@ export class AiService {
               parentActionId: agentRunId,
             }),
           );
+          // 0-B：plan / 子代理路径没有「模型实收文本」这一层（子代理自己拼接消息），
+          // 故只留完整正文；留存服务会自行判定是否发生过截断。
+          // 0-B: the plan / sub-agent paths have no model-facing text of their own (the orchestrator
+          // assembles its messages), so only the body is retained; the service decides truncation.
+          await this.toolResultRetention?.capture({
+            auditRowId: auditRow.id,
+            conversationId,
+            userId,
+            toolName,
+            result,
+          });
         }
         return result;
       } catch (err) {
@@ -1439,9 +1459,14 @@ export class AiService {
               },
             };
           }
+          // 一份渲染，两处消费：push 给模型的文本与留存面要的完整正文/截断标记。分开算两次会让
+          // 「是否截断」变成可能与模型实际所见相左的第二个判断。
+          // One render, two consumers: the model-facing text and what retention needs (full body +
+          // truncation flag). Computing twice would let "was truncated" disagree with what was sent.
+          const rendered = this.presentation.renderToolResult(result);
           messages.push({
             role: 'tool',
-            content: this.presentation.truncateToolResult(result),
+            content: rendered.text,
             tool_call_id: tc.id,
           });
           // CR-2：流式工具执行审计（对齐非流式 runToolLoop）——行形状见 buildToolCallAudit
@@ -1477,6 +1502,18 @@ export class AiService {
                     : undefined,
               }),
             );
+            // 0-B：留存这一行的结果正文（链外、脱敏、有期限）。审计粒度 off 时根本没有这一行，
+            // 也就不留存 —— 与「这个部署不记 AI 活动」的意图一致。
+            // 0-B: retain this row's body (off-chain, masked, TTL'd). With audit granularity off
+            // there is no row to anchor to, so nothing is retained — matching the deployment's intent.
+            await this.toolResultRetention?.capture({
+              auditRowId: auditRow.id,
+              conversationId,
+              userId,
+              toolName: tc.name,
+              result,
+              rendered,
+            });
             // ACT-5（消费者①）：**执行过**的这一支才挂链 —— 未执行的（deny / 待批）没有占位行可挂。
             // 证据根据此把 effect 配到**它自己**那条触发行（ACT-2 的精确支路）。
             if (result.success) {
@@ -1690,6 +1727,10 @@ export class AiService {
             navigateTo = (resolvedResult.data as any).navigateTo;
           }
 
+          // 同流式路径：一份渲染供模型与留存两处使用。
+          // Same as the streaming path: one render for both the model and retention.
+          const rendered = this.presentation.renderToolResult(resolvedResult);
+
           // 审计日志：工具调用（HS-9 粒度门控：tool 级在 off 时不记录）
           if (await this._shouldAudit('tool')) {
             // §internal.16 A-5 事件时点放行授权依据快照：对齐流式路径（对象格式 parseChecks 不误判为拒绝）。
@@ -1716,6 +1757,16 @@ export class AiService {
                 authorization: authz ? buildAllowSnapshot(tc.name, authz) : undefined,
               }),
             );
+            // 0-B：留存这一行的结果正文（链外、脱敏、有期限）。
+            // 0-B: retain this row's body (off-chain, masked, TTL'd).
+            await this.toolResultRetention?.capture({
+              auditRowId: auditRow.id,
+              conversationId: params.conversationId,
+              userId: params.userId,
+              toolName: tc.name,
+              result: resolvedResult,
+              rendered,
+            });
             // ACT-5（消费者①）：执行过的这一支才挂链（同流式路径）—— 证据根配到 effect 自己的触发行。
             if (resolvedResult.success) {
               await this.toolEffectsService?.attachAuditRow(
@@ -1732,7 +1783,7 @@ export class AiService {
 
           messages.push({
             role: 'tool',
-            content: this.presentation.truncateToolResult(resolvedResult),
+            content: rendered.text,
             tool_call_id: tc.id,
           });
         } catch (err) {

@@ -24,6 +24,7 @@ import { ToolExecutionService } from '../tools/tool-execution.service';
 import { AuditService } from '../../governance-shared/services/audit.service';
 import { deriveAiBusinessEvent } from '../audit/ai-business-event';
 import { boundedToolArgs, toolCallOutcome } from '../audit/tool-call-audit';
+import { ToolResultRetentionService } from '../audit/tool-result-retention.service';
 import { AiToolEffectsService } from '../../governance-shared/services/ai-tool-effects.service';
 import { PresentationText, ToolResult } from '../interfaces/tool.interface';
 import { buildConfirmationRenderProof } from '../confirmation/confirmation-render';
@@ -81,6 +82,9 @@ export class R4ApprovalService {
     // AW-11 的正向边：本执行器自己写审计行，故也必须把该行接到 `executeWrite` 创建的写占位上 ——
     // 否则占位的 `audit_row_id` 恒空、解释面没有副作用可指。裁剪装配里可缺省。
     @Optional() private readonly toolEffectsService?: AiToolEffectsService,
+    // 0-B retention: optional so trimmed assemblies keep working exactly as before.
+    // 0-B 留存：可选，使裁剪装配行为逐字不变。
+    @Optional() private readonly toolResultRetention?: ToolResultRetentionService,
   ) {}
 
   /**
@@ -403,6 +407,15 @@ export class R4ApprovalService {
       // 且经由对话那条**同一个** helper 点名，两端才不会把同一个结局写成两个词。
       outcome: toolCallOutcome(result),
       tool: req.toolName,
+    });
+    // 0-B：R4 这条路上没有模型看到结果，故 `model_text` 为空；完整正文照留。
+    // 0-B: no model saw the result on this path, so `model_text` stays null; the body is retained.
+    await this.toolResultRetention?.capture({
+      auditRowId: auditRow.id,
+      conversationId: req.conversationId,
+      userId: req.operatorId,
+      toolName: req.toolName,
+      result,
     });
     // Same condition as the chat path: only a call that actually ran has a claim to link. A failed
     // execution has its claim settled/released elsewhere, and a pending one never reached this door.

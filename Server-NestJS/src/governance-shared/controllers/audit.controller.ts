@@ -295,6 +295,21 @@ export class AuditController {
     return this.auditEvidence.getChain(id, { userId: user.sub, role: user.role });
   }
 
+  /**
+   * 0-B: the retained body behind one `tool_call` row — the answer to «what did the model/agent
+   * actually get», which the audit row itself never stored. Off-chain and masked; `bodyState:
+   * 'expired'` still answers 200, because the tombstone (hashes and sizes) is the remaining evidence.
+   *
+   * 0-B：某条 `tool_call` 行背后的留存正文 —— 回答「模型/代理到底拿到了什么」，而审计行本身从未存过。
+   * 链外、已脱敏；`bodyState: 'expired'` 仍答 200，因为墓碑（哈希与大小）就是剩下的证据。
+   */
+  @Get('logs/:id/tool-result')
+  @CheckPolicies((ability) => ability.can('read', 'AuditLog'))
+  @ApiOperation({ summary: '0-B 工具结果留存正文（管理员 / 审计读者）' })
+  toolResult(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: JwtPayload) {
+    return this.auditEvidence.getToolResultBody(id, { userId: user.sub, role: user.role });
+  }
+
   @Get('verify')
   @CheckPolicies((ability) => ability.can('read', 'AuditLog'))
   @ResponseOrdering(CHAIN_WALK_ORDERING)

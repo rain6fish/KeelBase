@@ -21,6 +21,7 @@ import { AuditService } from '../governance-shared/services/audit.service';
 import { WriteClaimDecisionService } from '../governance-shared/services/write-claim-decision.service';
 import { AiToolEffectsService } from '../governance-shared/services/ai-tool-effects.service';
 import { boundedToolArgs } from '../ai/audit/tool-call-audit';
+import { ToolResultBodyStore } from '../governance-shared/services/tool-result-body.store';
 
 /**
  * 定时任务（PL-7，@nestjs/schedule cron）。
@@ -59,6 +60,9 @@ export class MaintenanceTasksService {
     // F-79: the bounded automatic re-ask in the same pass. It still goes through `reconcileClaim`, so
     // the guards, evidence and target-side identity are not duplicated here.
     private readonly toolEffects: AiToolEffectsService,
+    // 0-B：工具结果留存的到期清理（只清文本、留墓碑；不删行）
+    // 0-B: expiry sweep for retained tool-result bodies (clears text, keeps the tombstone; no deletes).
+    private readonly toolResultBodies: ToolResultBodyStore,
   ) {}
 
   /**
@@ -195,8 +199,12 @@ export class MaintenanceTasksService {
       createdAt: LessThan(cutoff),
     });
 
+    // 0-B：过期工具结果正文 → 只清文本与模型投影，保留哈希/大小/标记（「过期」≠「从未留存」）
+    // 0-B: expired tool-result bodies lose text only; hashes, sizes and flags stay.
+    const expiredBodies = await this.toolResultBodies.expireBefore(now);
+
     this.logger.log(
-      `清理过期数据完成: sessions=${sessions.affected ?? 0} phoneCodes=${phoneCodes.affected ?? 0} readNotifications=${notifications.affected ?? 0}`,
+      `清理过期数据完成: sessions=${sessions.affected ?? 0} phoneCodes=${phoneCodes.affected ?? 0} readNotifications=${notifications.affected ?? 0} expiredToolResultBodies=${expiredBodies}`,
     );
   }
 

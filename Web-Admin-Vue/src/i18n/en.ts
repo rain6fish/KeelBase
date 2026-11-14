@@ -1614,6 +1614,17 @@ const en: ZhDict = {
   authzBasisOwn: 'Own scope (enforced by handler)',
 
   aiAuditTitle: 'AI Audit',
+  // 0-B retained tool-result body. "Expired" and "not retained" are deliberately different sentences:
+  // one was kept and then cleared, the other never existed.
+  toolResultTitle: 'Retained tool result',
+  toolResultLoad: 'Show retained body',
+  toolResultExpired: 'The retention window passed: the body was cleared; the hashes and sizes remain.',
+  toolResultModelText: 'What the model actually received',
+  toolResultMeta: 'Tool {tool} · {size} · {state} · sha {sha}',
+  toolResultTruncated: 'truncated',
+  toolResultComplete: 'not truncated',
+  toolResultNotFound: 'No body was retained for this call (retention off, not truncated, or an older row).',
+  toolResultUnavailable: 'Could not read the retained body.',
   // AW-3 coverage statement. **Root level** (`t('coverageTitle')` resolves from the root; nesting these
   // under `feature` makes the raw key show up instead). The wording that matters: `unknown` is NOT a
   // stronger "partial" — it means "we cannot even say what is missing".

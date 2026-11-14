@@ -41,6 +41,8 @@ function mockQueryBuilder() {
   return qb;
 }
 
+import { ToolResultBodyStore } from '../governance-shared/services/tool-result-body.store';
+
 describe('MaintenanceTasksService', () => {
   let service: MaintenanceTasksService;
   let sessionsRepo: ReturnType<typeof mockRepo>;
@@ -111,6 +113,10 @@ describe('MaintenanceTasksService', () => {
         // The bounded automatic re-ask. Its criteria live in the two specs named above; here we only
         // pin that the sweep actually calls it.
         { provide: AiToolEffectsService, useValue: toolEffects },
+        // 0-B：到期清理会调用它；本文件只验「被调用」，墓碑语义由 store 的用例覆盖
+        // 0-B: the expiry sweep calls it; this file only pins the call, the tombstone semantics live
+        // with the store's own spec.
+        { provide: ToolResultBodyStore, useValue: { expireBefore: jest.fn().mockResolvedValue(0) } },
       ],
     }).compile();
 

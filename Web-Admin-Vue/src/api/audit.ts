@@ -2,7 +2,7 @@
 
 import { api } from './client'
 import type { Paginated } from '@/types/api'
-import type { AuditLog, AuditAnswerMatrix, UsageStats, ActionReport, ChainVerifyResult, AuditInterpretation, IdentityChain, CoverageStatement, AuditReviewStatus } from '@/types/audit'
+import type { AuditLog, AuditAnswerMatrix, UsageStats, ActionReport, ChainVerifyResult, AuditInterpretation, IdentityChain, CoverageStatement, AuditReviewStatus, ToolResultBody } from '@/types/audit'
 import type { OperationAuditLog } from '@/types/admin'
 
 /** D4/A-6 审计证据包导出（GET /audit/action-report/export；v2 含 compliance 合规段） */
@@ -76,6 +76,15 @@ export const auditApi = {
   /** §internal.16 A-5 跨系统身份链：Human→Agent→Tool→Action + 授权依据 */
   chain(id: number): Promise<IdentityChain> {
     return api.get(`/audit/logs/${id}/chain`)
+  },
+  /**
+   * 0-B：留存的结果正文。未留存的调用返回 404（「什么都没留」是答案，不是空正文）。
+   *
+   * 0-B: the retained result body. A call with nothing retained answers 404 — «nothing was kept» is
+   * the answer, not an empty body.
+   */
+  toolResult(id: number): Promise<ToolResultBody> {
+    return api.get<ToolResultBody>(`/audit/logs/${id}/tool-result`)
   },
   /**
    * AW-12 复核状态：谁被指派读这些记录、多久一次、哪些链位已有回执、哪些没有。

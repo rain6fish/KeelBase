@@ -18,6 +18,7 @@ import { createHash, createHmac } from 'crypto';
 import { AiAuditLog } from '../../governance-shared/entities/ai-audit-log.entity';
 import { CoverageService, type CoverageStatement } from './coverage.service';
 import { AuditReviewService } from './audit-review.service';
+import { ToolResultBodyStore } from './tool-result-body.store';
 import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
 // ACT-5（消费者①）：占位行 —— 证据根据此把 effect 配到**它自己**那条触发行（无则退回保守规则）
 import { AiWriteClaim } from '../entities/ai-write-claim.entity';
@@ -279,7 +280,72 @@ export class AuditEvidenceService {
      * AW-12：被打包动作的复核覆盖。与邻居一样可选 —— 缺席时包说「无法确证」，而不是「已复核」。
      */
     @Optional() private readonly auditReview?: AuditReviewService,
+    /**
+     * 0-B: the off-chain tool-result bodies. Optional — absent (trimmed assemblies, older databases)
+     * the by-id read answers 404, the same answer as «not retained», never a fabricated body.
+     *
+     * 0-B：链外的工具结果正文。可选 —— 缺席时（裁剪装配、旧库）按 id 的读取答 404，与「未留存」同一个
+     * 答案，绝不编造正文。
+     */
+    @Optional() private readonly resultBodyStore?: ToolResultBodyStore,
   ) {}
+
+  /**
+   * The retained body behind one `tool_call` row, gated by the same row scope as every other by-id
+   * read. Out of scope is a 404 (never a hint that the row exists); a row with no retained body is a
+   * 404 too, because «nothing was kept» is the honest answer and the console has a message for it.
+   * An **expired** body is a 200 with `bodyState: 'expired'` and no text: the tombstone is the point.
+   *
+   * 某条 `tool_call` 行背后的留存正文，与其它按 id 的读面共用同一行范围。范围外 404（绝不暗示该行存在）；
+   * 没有留存正文的行同样 404 —— 「什么都没留」才是诚实答案，管理台对它有专门文案。**已过期**的正文是
+   * 200 + `bodyState: 'expired'` 且无文本：墓碑才是要点。
+   */
+  async getToolResultBody(
+    auditRowId: number,
+    reader?: AuditReaderContext,
+  ): Promise<{
+    auditRowId: number;
+    toolName: string | null;
+    outcome: string | null;
+    bodyState: string;
+    body: string | null;
+    bodyBytes: number | null;
+    storedBytes: number | null;
+    bodySha256: string | null;
+    originalSha256: string | null;
+    wasTruncated: boolean;
+    modelText: string | null;
+    modelChars: number | null;
+    modelSha256: string | null;
+    createdAt: string | null;
+    expiresAt: string | null;
+  }> {
+    const row = await this._findRowInReaderScope(auditRowId, reader);
+    if (row.action !== 'tool_call') {
+      throw new NotFoundException('该行不是工具调用');
+    }
+    const body = await this.resultBodyStore?.findOneByAuditRow(auditRowId);
+    if (!body) {
+      throw new NotFoundException('该调用未留存工具结果正文');
+    }
+    return {
+      auditRowId,
+      toolName: body.toolName ?? row.tool ?? null,
+      outcome: body.outcome ?? row.outcome ?? null,
+      bodyState: body.bodyState,
+      body: body.bodyText ?? null,
+      bodyBytes: body.bodyBytes ?? null,
+      storedBytes: body.storedBytes ?? null,
+      bodySha256: body.bodySha256 ?? null,
+      originalSha256: body.originalSha256 ?? null,
+      wasTruncated: body.wasTruncated,
+      modelText: body.modelText ?? null,
+      modelChars: body.modelChars ?? null,
+      modelSha256: body.modelSha256 ?? null,
+      createdAt: body.createdAt ? body.createdAt.toISOString() : null,
+      expiresAt: body.expiresAt ? body.expiresAt.toISOString() : null,
+    };
+  }
 
   /** HS-11：沿 id 升序校验审计哈希链完整性。返回含逐行链明细（切片，供 E-2 哈希链可视化）。60s 缓存（消除 action-report 二次全表扫描）。 */
   async verifyChain(): Promise<ChainVerification & { chain: AuditChainNode[]; tableRows: number }> {

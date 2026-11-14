@@ -1621,6 +1621,16 @@ const zh = {
 
   // AI 审计
   aiAuditTitle: 'AI 审计',
+  // 0-B 留存结果正文。「已过期」与「未留存」刻意分成两句：一个是留过又按期限清掉，另一个从来没留。
+  toolResultTitle: '留存的结果正文',
+  toolResultLoad: '查看留存正文',
+  toolResultExpired: '已过保留期：正文已清除，哈希与大小仍在。',
+  toolResultModelText: '模型实际收到的那份',
+  toolResultMeta: '工具 {tool} · {size} · {state} · sha {sha}',
+  toolResultTruncated: '已截断',
+  toolResultComplete: '未截断',
+  toolResultNotFound: '该调用未留存结果正文（留存关闭 / 未发生截断 / 旧记录）。',
+  toolResultUnavailable: '留存正文读取失败。',
   // AW-3 覆盖声明。**根级**（`t('coverageTitle')` 从根取；放进 `feature` 之类嵌套对象就会原样显示 key）。
   // 措辞要点：`unknown` **不是**更强的「部分」，它是「连漏了什么都说不出」—— 一旦被读成「更严重一点」，
   // 整件事的诚实性就没了。

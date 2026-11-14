@@ -136,6 +136,9 @@ export const POSTGRES_MIGRATION_GLOBS: string[] = [
   // AW-16 F-64: the claim row's governance disposition — postgres needs it too, or the entity's
   // decision_state has no column there.
   '*AddClaimDecisionState*',
+  // 0-B 留存：工具结果正文独立表（实体在，pg 侧也要有，否则实体↔迁移漂移）
+  // 0-B retention: the tool-result body table (the entity exists, so postgres needs it too).
+  '*AddAiToolResultBodies*',
 ];
 
 /** 有意排除于 postgres 的迁移（仅 sqlite；postgres 由 PostgresInitialSchema / PostgresIncrementalSchema 基线覆盖） */
