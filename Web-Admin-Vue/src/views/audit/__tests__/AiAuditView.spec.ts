@@ -148,13 +148,13 @@ describe('AiAuditView', () => {
     expect(answersMock).toHaveBeenCalledWith(
       expect.objectContaining({ objectType: 'crm_customer', objectId: 9005, limit: 1000 }),
     )
-    // The six columns are untouched; the scope sentence rides ahead of the header as a note line.
+    // The six columns are untouched; the scope sentences ride ahead of the header as a note line.
     // 六列原样不动；口径句作为**列头之前**的一行注释随文件写出。
     expect(csvMock).toHaveBeenCalledWith(
       'audit-six-answers',
       matrix.headers,
       matrix.rows,
-      zh.auditObjectScope,
+      `${zh.auditObjectScope} ${zh.auditObjectScopeLegacy}`,
     )
     wrapper.unmount()
   })
@@ -172,6 +172,7 @@ describe('AiAuditView', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain(zh.auditObjectScope)
+    expect(wrapper.text()).toContain(zh.auditObjectScopeLegacy)
     wrapper.unmount()
   })
 
