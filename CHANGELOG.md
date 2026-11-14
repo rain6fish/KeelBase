@@ -4,6 +4,63 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 本文件记录 KeelBase 所有值得关注的变更。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.3.2] - 2026-11-15
+
+**v1.3.2 — The image stops shipping a secret it was born with, and the tool surface follows the caller / 镜像不再自带密钥，工具面跟着调用者走**
+
+### Security
+
+- **The single-container image no longer carries built-in secrets.** `Dockerfile.single` used to bake a
+  `JWT_SECRET`, a refresh secret and an encryption key into the image, so every copy of it accepted
+  tokens minted from a publicly readable value. Those defaults are gone; a container started without
+  them now fails fast instead of coming up with a known key.
+
+- **Webhook delivery is scoped to the event owner.** `publish()` used to reach subscribers outside the
+  event's owner, so a delivery could cross tenants. It now filters by the owning user and organisation.
+
+### Fixed
+
+- **A truncated tool result stays valid JSON and is sanitized before it goes back to the model.** Cutting
+  the payload at a fixed length could leave the assistant with unparseable JSON, and the cut text was
+  handed back unfiltered.
+
+- **The audit object search states its scope, and names what an older runtime cannot recover.** The page
+  and the exported file now say what an object search covers, and label rows that a runtime before
+  `0.1.18` can no longer return.
+
+### Changed
+
+- **AI Approval is presented as My Requests.** The flagship module's user-facing name is now My Requests;
+  the `/api/v1/approval/*` routes stay as a compatibility alias, so existing callers keep working. It is
+  still a single-person limit check, not organisational multi-level approval.
+
+- **The tool surface offered to the model is narrowed by caller identity**, so a user is not shown tools
+  they could not use.
+
+### 安全
+
+- **单容器镜像不再内置密钥。** `Dockerfile.single` 曾把 `JWT_SECRET`、refresh 密钥与加密密钥烤进镜像，
+  于是任何一份镜像都接受用公开可读值签发的 token。这些默认值已移除；没提供密钥的容器现在直接失败，
+  而不是带着一个已知密钥起来。
+
+- **Webhook 投递按事件归属收窄。** `publish()` 原本会触达事件所有者之外的订阅，投递可能跨租户。
+  现在按归属用户与组织过滤。
+
+### 修复
+
+- **截断后的工具结果仍是合法 JSON，并在回注模型前脱敏。** 按固定长度截断可能把 JSON 切坏，且被截掉的
+  文本未经过滤就交回模型。
+
+- **审计对象检索写明口径，并点名旧运行时代不回的行。** 页面与导出件现在说明对象检索覆盖什么，并标注
+  `0.1.18` 之前的运行时代不回来的行。
+
+### 变更
+
+- **AI Approval 对外改称 My Requests。** 该旗舰模块的用户侧名称改为 My Requests；`/api/v1/approval/*`
+  路由保留为兼容别名，既有调用方不受影响。它仍是单人额度校验，不是组织多级审批。
+
+- **喂给模型的工具面按调用主体收窄**，用户不会再看到自己用不上的工具。
+
 ## [1.3.1] - 2026-11-07
 
 **v1.3.1 — Every write with no answer gets a name, a reader and a way to close / 每一次没有答案的写，都有名字、有读面、也有收口的路**
