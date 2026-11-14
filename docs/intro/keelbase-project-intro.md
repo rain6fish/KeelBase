@@ -245,7 +245,7 @@ Docker 单容器一键启动（`docker run` 一条命令起全栈）、离线 / 
 
 ## 11. 演示
 
-- **一键体验**：`docker run -d --name keelbase -p 3000:3000 ghcr.io/rain6fish/keelbase:latest`
+- **一键体验**：`docker run -d --name keelbase -p 3000:3000 -e JWT_SECRET=$(openssl rand -hex 32) -e JWT_REFRESH_SECRET=$(openssl rand -hex 32) -e ENCRYPTION_KEY=$(openssl rand -hex 32) ghcr.io/rain6fish/keelbase:latest`（镜像不内置默认密钥，缺失即拒绝启动）
 - **演示账号**：`alex / Alex@2026$Demo`（工作台）· `admin / Admin@2026$KeelBase`（管理台）——所有环境统一
 - **黄金流程**：登录 → AI CRM → 「哪些客户本周最值得跟进？」→ 观察 AI 分析 → 确认跟进任务 → 查看审计轨迹
 

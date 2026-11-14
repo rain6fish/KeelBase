@@ -5,8 +5,12 @@
 #   - 手动 workflow_dispatch → 发布 latest + run 号
 #
 # 产物：ghcr.io/rain6fish/keelbase:latest / :vX.Y.Z
-# 使用（公开镜像免登录）：
-#   docker run -p 3000:3000 ghcr.io/rain6fish/keelbase:latest
+# 使用（公开镜像免登录）：镜像不内置密钥，三条密钥必须由运行方提供（缺失即启动失败）
+# Usage: the image ships no secrets; supply all three at run time (it refuses to start without them).
+#   docker run -p 3000:3000 \
+#     -e JWT_SECRET=$(openssl rand -hex 32) -e JWT_REFRESH_SECRET=$(openssl rand -hex 32) \
+#     -e ENCRYPTION_KEY=$(openssl rand -hex 32) \
+#     ghcr.io/rain6fish/keelbase:latest
 #
 # 构建策略：flutter-action 在 runner 宿主机构建 Flutter web（build/web），
 # Dockerfile.single 的 flutter-build stage 是 scratch COPY 该产物 —— 与本机一致、Linux 稳定。

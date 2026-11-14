@@ -32,12 +32,17 @@
 Docker only — one command brings up the entire application (backend + workbench + Admin Console + mobile preview), no build:
 
 ```bash
-docker run -d --name keelbase -p 3000:3000 ghcr.io/rain6fish/keelbase:latest
+docker run -d --name keelbase -p 3000:3000 \
+  -e JWT_SECRET=$(openssl rand -hex 32) -e JWT_REFRESH_SECRET=$(openssl rand -hex 32) \
+  -e ENCRYPTION_KEY=$(openssl rand -hex 32) \
+  ghcr.io/rain6fish/keelbase:latest
 ```
+
+> The image carries **no default secrets** — supply the three above (or pin your own) at run time; without them the process refuses to start and prints how to generate them.
 
 > No LLM API key needed to try it: when no cloud/local model is configured, the AI runs in **deterministic demo mode** — the full golden path (analyze → confirm → create → audit → revoke) works out of the box. Bring your own DeepSeek/Qwen/OpenAI/Ollama key (`-e DEEPSEEK_API_KEY=...`) for real LLM responses.
 >
-> **Reset to a clean demo state anytime**: `docker rm -f keelbase && docker run -d --name keelbase -p 3000:3000 ghcr.io/rain6fish/keelbase:latest` — data lives in the container's SQLite (no volume), so removing the container wipes demo data and the seed re-runs on next start.
+> **Reset to a clean demo state anytime**: `docker rm -f keelbase && docker run -d --name keelbase -p 3000:3000 -e JWT_SECRET=$(openssl rand -hex 32) -e JWT_REFRESH_SECRET=$(openssl rand -hex 32) -e ENCRYPTION_KEY=$(openssl rand -hex 32) ghcr.io/rain6fish/keelbase:latest` — data lives in the container's SQLite (no volume), so removing the container wipes demo data and the seed re-runs on next start.
 
 Then walk the golden path in 6 steps:
 

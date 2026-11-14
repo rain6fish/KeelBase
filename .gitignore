@@ -19,6 +19,8 @@ build/
 .env.staging
 .env.production
 .env.private-ai
+# scripts/docker-single.sh 生成的单容器密钥（首次运行产生，勿入库）
+.env.single
 
 # IDE
 .idea/

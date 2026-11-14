@@ -7,14 +7,18 @@
 
 ## 0. 一键起环境（约 2 分钟）
 
-**方式 A — 单容器镜像（推荐，零配置）**
+**方式 A — 单容器镜像（推荐；只需装 Docker，密钥由命令生成）**
 
 ```bash
-docker run -d --name keelbase -p 3000:3000 ghcr.io/rain6fish/keelbase:latest
+docker run -d --name keelbase -p 3000:3000 \
+  -e JWT_SECRET=$(openssl rand -hex 32) -e JWT_REFRESH_SECRET=$(openssl rand -hex 32) \
+  -e ENCRYPTION_KEY=$(openssl rand -hex 32) \
+  ghcr.io/rain6fish/keelbase:latest
 ```
 
+> 镜像不内置默认密钥（2026-11 整改）；缺这三条会拒绝启动并打印生成方法。
 > 镜像内置**确定性 Demo Provider**：无 LLM key 也能跑通 AI 黄金流程（分析→确认→创建→审计→撤销）；配 `-e DEEPSEEK_API_KEY=...` 用真实 LLM。
-> 重置到干净状态：`docker rm -f keelbase && docker run -d --name keelbase -p 3000:3000 ghcr.io/rain6fish/keelbase:latest`
+> 重置到干净状态：`docker rm -f keelbase` 后用上面同一条命令重新起（密钥可重新生成）。
 
 **方式 B — 本地开发**
 

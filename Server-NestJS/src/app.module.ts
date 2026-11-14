@@ -73,7 +73,7 @@ import { AlertWebhookModule } from './alert-webhook/alert-webhook.module';
 import { McpModule } from './mcp/mcp.module';
 import { WebhookModule } from './webhooks/webhook.module';
 import { RealtimeModule } from './realtime/realtime.module';
-import { envValidationSchema } from './config/env.config';
+import { validateEnv } from './config/env.config';
 import { createLoggerOptions } from './config/logging';
 import { buildTypeOrmOptions } from './config/typeorm-options';
 
@@ -90,7 +90,9 @@ import { buildTypeOrmOptions } from './config/typeorm-options';
         !process.env.NODE_ENV || process.env.NODE_ENV === 'development'
           ? ['.env.development', '.env']
           : `.env.${process.env.NODE_ENV}`,
-      validationSchema: envValidationSchema,
+      // 校验 + 失败即停（含「生产不得使用已公开密钥」）；见 config/env.config.ts 的 validateEnv。
+      // Validation and fail-fast (including "production must not use a published secret").
+      validate: validateEnv,
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],

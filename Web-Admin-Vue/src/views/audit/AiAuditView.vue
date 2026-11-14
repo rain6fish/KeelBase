@@ -126,6 +126,18 @@
           {{ t('filter') }}
         </el-button>
       </div>
+      <!-- U1: the scope of object search. A blocked, pending or declined call has no side effect and
+           is not in the result; an older runtime's approval row never recorded the execution link,
+           so it cannot be recovered. Both sentences are written into the export too. -->
+      <!-- U1：对象检索的口径。被阻断、待决、否决的调用没有副作用，不在结果里；旧运行时的批准行从未记录
+           执行关联，补不回来。两句话同时写进导出件。 -->
+      <div
+        v-if="objectType && objectIdText.trim()"
+        class="text-caption text-medium-emphasis mt-2"
+      >
+        <div>{{ t('auditObjectScope') }}</div>
+        <div>{{ t('auditObjectScopeLegacy') }}</div>
+      </div>
     </el-card>
 
     <AppTable :headers="headers" :items="filteredLogs" :loading="loading" :total="filteredLogs.length" :items-per-page="limit" :hide-footer="true">
@@ -807,9 +819,12 @@ const exporting = ref(false)
 /**
  * U1: the export is the six answers, produced by the server in product words. The console writes
  * exactly what it received — it adds no column, and it cannot leak a name the server did not send.
+ * An object search carries one more line **before** the header: the scope sentence, so the artifact
+ * says on its face that it covers the writes that landed and not every mention of the object.
  *
  * U1：导出就是六问，由服务端以产品词产出。控制台原样写出收到的内容 —— 不添列，也漏不出服务端
- * 没有发的名字。
+ * 没有发的名字。对象检索的导出在列头**之前**多一行**口径**：这份文件写明它覆盖的是已落地的写，
+ * 不是对这条对象的每一次提及。
  */
 async function onExport() {
   const object = objectPair()
@@ -829,7 +844,13 @@ async function onExport() {
       snackbar.show(matrix.match.statement, 'info')
       return
     }
-    downloadCsv('audit-six-answers', matrix.headers, matrix.rows)
+    // The scope belongs to an object search; a window-wide export is a different question and these
+    // sentences would misdescribe it. The second one is the part an older runtime cannot recover.
+    // 口径属于**对象检索**；整体窗口的导出是另一个问题，这两句都会把它说错。第二句是旧运行时补不回来的那一格。
+    const note = object.objectType
+      ? `${t('auditObjectScope')} ${t('auditObjectScopeLegacy')}`
+      : undefined
+    downloadCsv('audit-six-answers', matrix.headers, matrix.rows, note)
     if (matrix.match.truncated) snackbar.warning(matrix.match.statement)
     else snackbar.success(t('exportDone'))
   } catch (err) {
