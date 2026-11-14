@@ -14,7 +14,9 @@
 
 ```bash
 # Option A: single container (Docker only, fastest)
-docker run -d --name keelbase -p 3000:3000 ghcr.io/rain6fish/keelbase:latest
+docker run -d --name keelbase -p 3000:3000 \
+  -e JWT_SECRET=$(openssl rand -hex 32) -e JWT_REFRESH_SECRET=$(openssl rand -hex 32) \
+  -e ENCRYPTION_KEY=$(openssl rand -hex 32) ghcr.io/rain6fish/keelbase:latest
 # Visit http://localhost:3000 (workbench), /admin (Admin Console); demo accounts alex/Alex@2026$Demo
 
 # Option B: local development (to change code)

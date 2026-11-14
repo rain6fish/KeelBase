@@ -7,14 +7,18 @@
 
 ## 0. Start the environment (~2 min)
 
-**Option A — single-container image (recommended, zero-config)**
+**Option A — single-container image (recommended; Docker only, the command generates the secrets)**
 
 ```bash
-docker run -d --name keelbase -p 3000:3000 ghcr.io/rain6fish/keelbase:latest
+docker run -d --name keelbase -p 3000:3000 \
+  -e JWT_SECRET=$(openssl rand -hex 32) -e JWT_REFRESH_SECRET=$(openssl rand -hex 32) \
+  -e ENCRYPTION_KEY=$(openssl rand -hex 32) \
+  ghcr.io/rain6fish/keelbase:latest
 ```
 
+> The image carries **no default secrets** (2026-11 fix); without these three it refuses to start and prints how to generate them.
 > Built-in **deterministic Demo Provider**: the full AI golden path (analyze → confirm → create → audit → revoke) works without any LLM key; add `-e DEEPSEEK_API_KEY=...` for real-LLM responses.
-> Reset to a clean state: `docker rm -f keelbase && docker run -d --name keelbase -p 3000:3000 ghcr.io/rain6fish/keelbase:latest`
+> Reset to a clean state: `docker rm -f keelbase`, then run the command above again (fresh secrets are fine).
 
 **Option B — local dev**
 

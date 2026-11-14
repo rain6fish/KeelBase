@@ -5,6 +5,7 @@
 # EASY-1 单容器 all-in-one 交付
 # 一条命令起全栈（后端 API + Flutter web 主 App + 管理台），只需装 Docker。
 # 默认 SQLite 零配置 + Redis/队列降级；数据落在命名卷 keelbase_data 持久化。
+# 首次运行生成随机密钥存到 .env.single（镜像自 2026-11 起不再内置默认密钥）。
 #
 # 用法：
 #   ./scripts/docker-single.sh          # 构建并启动
@@ -28,8 +29,28 @@ IMAGE="${IMAGE:-keelbase:single}"
 CONTAINER="${CONTAINER:-keelbase}"
 VOLUME="${VOLUME:-keelbase_data}"
 PORT="${PORT:-3000}"
+# 镜像不再内置密钥（2026-11 安全整改）。本机密钥落在这个文件里，首次运行生成、之后复用 ——
+# 删除它等于更换加密密钥（存量密文将解不开）并让所有会话失效。
+# The image ships no secrets anymore; this file holds unique ones, generated once and reused
+# (deleting it rotates ENCRYPTION_KEY and invalidates stored ciphertext).
+SECRETS_FILE="${SECRETS_FILE:-$ROOT/.env.single}"
 
 cmd="${1:-up}"
+
+ensure_secrets() {
+  [ -f "$SECRETS_FILE" ] && return
+  command -v openssl >/dev/null 2>&1 ||
+    { echo "✗ 需要 openssl 生成密钥（或设 SECRETS_FILE 指向已有的密钥文件）"; exit 1; }
+  echo "→ 首次运行：生成随机密钥 $SECRETS_FILE（请备份）"
+  (
+    umask 077
+    {
+      echo "JWT_SECRET=$(openssl rand -hex 32)"
+      echo "JWT_REFRESH_SECRET=$(openssl rand -hex 32)"
+      echo "ENCRYPTION_KEY=$(openssl rand -hex 32)"
+    } > "$SECRETS_FILE"
+  )
+}
 
 # flutter build web 在容器内（BuildKit）偶发 dart2js 崩溃（宿主机稳定）；
 # Dockerfile 只 COPY build/web 产物，这里先宿主机构建（需已装 Flutter SDK）
@@ -68,6 +89,7 @@ case "$cmd" in
     ;;
   up)
     ensure_image
+    ensure_secrets
     if docker ps -a --format '{{.Names}}' | grep -qx "$CONTAINER"; then
       echo "→ 容器 $CONTAINER 已存在，启动..."
       docker start "$CONTAINER"
@@ -77,6 +99,7 @@ case "$cmd" in
         --name "$CONTAINER" \
         -p "$PORT:3000" \
         -v "$VOLUME:/app/server/data" \
+        --env-file "$SECRETS_FILE" \
         -e PORT=3000 \
         --restart unless-stopped \
         "$IMAGE"

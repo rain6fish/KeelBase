@@ -1,8 +1,13 @@
 # ---- EASY-1 单容器 all-in-one 交付 ----
-# `docker run -p 80:3000 ghcr.io/rain6fish/keelbase:single` 一条命令可用
+# One image = backend API + Flutter web app + admin console; SQLite and degraded Redis out of the box.
+# Large projects still use docker-compose.yml (multi-container postgres + redis).
+# Usage: docker build -f Dockerfile.single -t keelbase:single . then run it with the three secrets the
+# ENV section below lists; or run ./scripts/docker-single.sh up, which generates random secrets once
+# and keeps them in a local .env.single file.
 # 一个镜像 = 后端 API + Flutter web 主 App + 管理台，SQLite 零配置 + Redis 降级。
 # 大项目仍用 docker-compose.yml（多容器 postgres+redis）。
-# 用法：docker build -f Dockerfile.single -t keelbase:single . && docker run -p 80:3000 keelbase:single
+# 用法：docker build -f Dockerfile.single -t keelbase:single . 后，必须带上 ENV 段所述的三条密钥运行；
+# 或直接用便捷脚本 ./scripts/docker-single.sh up（首次运行生成随机密钥并存到 .env.single）。
 
 # Base images are pinned by digest. A floating tag is what let the 2026-11 audit find JVMs below the
 # fix line with nothing in CI saying so: `node:22-alpine` moves underneath a rebuild, and a container
@@ -90,7 +95,16 @@ COPY --from=server-build /app/server/package*.json ./
 COPY --from=flutter-build /build/web ./public/mobile
 COPY --from=admin-build /app/admin/dist ./public
 # 单容器默认 SQLite + 降级 Redis/队列（大项目用 compose 覆盖这些 env）
-# 安全密钥：内置 dev 默认值保证 `docker run` 零配置可用；生产部署请用 -e 覆盖真实密钥
+# Secrets are deliberately not baked in (2026-11 security fix): a default inside a published image is
+# a key everybody holds — this one was 57 chars, so it passed the min(32) check without a warning.
+# Supply JWT_SECRET / JWT_REFRESH_SECRET (>=32 chars) and ENCRYPTION_KEY (64 hex) at run time; the
+# process exits at validation with an actionable message when they are missing or still
+# known-public. `./scripts/docker-single.sh up` generates random ones once and keeps them in .env.single.
+# 安全密钥**不内置**（2026-11 安全整改）：镜像里的默认密钥会随 ghcr 公开分发 —— 57 字符恰好过 min(32)
+# 校验、不报警，于是这个镜像签出来的 token 人人都能签。现在启动时必须由运行方提供
+# JWT_SECRET / JWT_REFRESH_SECRET（≥32 字符）与 ENCRYPTION_KEY（64 位 hex），缺失或仍是已公开的值
+# 时进程在校验阶段就退出，并打印生成方法。便捷入口 `./scripts/docker-single.sh up` 会在首次运行时
+# 生成随机密钥并存到本机 `.env.single`（复用，不会每次重启换掉）。
 # AI（P0-0）：未配置 DEEPSEEK/QWEN/OPENAI key 且无 OLLAMA_BASE_URL 时，自动注册确定性 Demo Provider——
 #   `docker run` 零配置即可跑通 AI 黄金流程（分析→确认→创建跟进→审计→撤销），AI 文本为模板化回复；
 #   配置真实 key（-e DEEPSEEK_API_KEY=...）后自动用真实 LLM（默认降级链 deepseek→qwen→openai→demo）。
@@ -100,11 +114,7 @@ ENV NODE_ENV=production \
     QUEUE_ENABLED=false \
     SERVE_STATIC=1 \
     DB_SYNCHRONIZE=true \
-    PORT=3000 \
-    JWT_SECRET=keelbase-single-container-dev-secret-at-least-32-chars!! \
-    JWT_REFRESH_SECRET=keelbase-single-container-refresh-secret-32chars!! \
-    ENCRYPTION_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef \
-    ENCRYPTION_HMAC_KEY=00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff
+    PORT=3000
 EXPOSE 3000
 USER keelbase
 # 一键部署零配置：先补种演示账号（admin + alex，幂等），再启动后端

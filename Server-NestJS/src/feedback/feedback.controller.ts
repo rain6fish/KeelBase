@@ -36,6 +36,6 @@ export class FeedbackController {
     @CurrentUser() user: JwtPayload,
     @Body() dto: SubmitAppFeedbackDto,
   ) {
-    return this.feedbackService.submit(String(user.sub), dto);
+    return this.feedbackService.submit(user.sub, dto);
   }
 }

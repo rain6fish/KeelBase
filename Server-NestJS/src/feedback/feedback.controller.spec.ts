@@ -12,11 +12,11 @@ describe('FeedbackController', () => {
     controller = new FeedbackController(feedbackService as unknown as FeedbackService);
   });
 
-  it('提交反馈委托 service（userId 转字符串）', () => {
+  it('提交反馈委托 service（userId 保持 number，与 user_id 列同型）', () => {
     const dto = { type: 'bug', content: '页面白屏', contact: 'test@example.com' };
     feedbackService.submit.mockResolvedValue({ id: 1 });
 
     expect(controller.submit({ sub: 42, username: 'alex' } as any, dto as any)).resolves.toEqual({ id: 1 });
-    expect(feedbackService.submit).toHaveBeenCalledWith('42', dto);
+    expect(feedbackService.submit).toHaveBeenCalledWith(42, dto);
   });
 });
