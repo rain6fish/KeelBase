@@ -106,7 +106,7 @@ class ExplorePage extends StatelessWidget {
                   leading: const Icon(CupertinoIcons.checkmark_seal, color: CupertinoColors.systemGreen),
                   title: Text(l10n.apExploreEntry),
                   trailing: const CupertinoListTileChevron(),
-                  onTap: () => context.push('/approval'),
+                  onTap: () => context.push('/my-requests'),
                 ),
               CupertinoListTile(
                 leading: const Icon(CupertinoIcons.pencil, color: CupertinoColors.systemOrange),

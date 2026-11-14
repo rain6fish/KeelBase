@@ -54,7 +54,7 @@ class _AiChatPageState extends State<AiChatPage> {
   static const Set<String> _aiAllowedRoutes = {
     '/', '/events', '/explore', '/ai', '/profile', '/settings', '/todos',
     '/flows/tasks', '/tags', '/notes', '/books', '/posts', '/my-org',
-    '/points', '/upload', '/privacy', '/terms', '/crm', '/pm', '/approval',
+    '/points', '/upload', '/privacy', '/terms', '/crm', '/pm', '/my-requests',
   };
 
   void _sendMessage(String text) {

@@ -73,8 +73,9 @@ export function deriveFeature(method: string, url: string): FeatureAction {
     }
   }
 
-  // approval 审批决策（带 :id——decide/review 是业务决策非资源创建，避免兜底成 approval.create）
-  const decision = /^\/approval\/requests\/\d+\/(decide|review)$/.exec(path);
+  // approval / my-requests 决策（带 :id——decide/review 是业务决策非资源创建，避免兜底成 approval.create）
+  // 0-C：主路径改为 my-requests 后仍回同一审计词键，避免既有审计行与前端词表对不上。
+  const decision = /^\/(?:approval|my-requests)\/requests\/\d+\/(decide|review)$/.exec(path);
   if (decision) {
     return decision[1] === 'decide'
       ? { key: 'approval.decide', fallback: 'Approval · Decide' }
@@ -83,7 +84,8 @@ export function deriveFeature(method: string, url: string): FeatureAction {
 
   // 2) 按模块取第一段
   const segs = path.split('/').filter(Boolean);
-  const module = segs[0];
+  // 0-C：my-requests 是 approval 的新主路径；审计词键仍归一到 approval.*（词表与既有行不变）。
+  const module = segs[0] === 'my-requests' ? 'approval' : segs[0];
   if (!module) return { key: 'unknown.unknown', fallback: 'Unknown' };
 
   const action = METHOD_ACTION[m];

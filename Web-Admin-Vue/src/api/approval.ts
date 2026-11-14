@@ -3,7 +3,7 @@
 import { api } from './client'
 import type { Paginated } from '@/types/api'
 
-/** AI Approval 旗舰应用：工作台（应用侧）审批 */
+/** My Requests（单人额度校验；0-C 由 AI Approval 改名） */
 
 export interface ApprovalRequest {
   id: number
@@ -44,24 +44,24 @@ export const approvalApi = {
     if (q.page) params.page = q.page
     if (q.limit) params.limit = q.limit
     if (q.status) params.status = q.status
-    return api.get<Paginated<ApprovalRequest>>('/approval/requests', params)
+    return api.get<Paginated<ApprovalRequest>>('/my-requests/requests', params)
   },
   createRequest(d: Partial<ApprovalRequest>): Promise<ApprovalRequest> {
-    return api.post<ApprovalRequest>('/approval/requests', d)
+    return api.post<ApprovalRequest>('/my-requests/requests', d)
   },
   getRequest(id: number): Promise<ApprovalRequest> {
-    return api.get<ApprovalRequest>(`/approval/requests/${id}`)
+    return api.get<ApprovalRequest>(`/my-requests/requests/${id}`)
   },
   review(id: number): Promise<ApprovalRequest> {
-    return api.post<ApprovalRequest>(`/approval/requests/${id}/review`)
+    return api.post<ApprovalRequest>(`/my-requests/requests/${id}/review`)
   },
   decide(id: number, decision: 'approved' | 'rejected'): Promise<ApprovalRequest> {
-    return api.post<ApprovalRequest>(`/approval/requests/${id}/decide`, { decision })
+    return api.post<ApprovalRequest>(`/my-requests/requests/${id}/decide`, { decision })
   },
   policies(): Promise<ApprovalPolicy[]> {
-    return api.get<ApprovalPolicy[]>('/approval/policies')
+    return api.get<ApprovalPolicy[]>('/my-requests/policies')
   },
   createPolicy(d: Partial<ApprovalPolicy>): Promise<ApprovalPolicy> {
-    return api.post<ApprovalPolicy>('/approval/policies', d)
+    return api.post<ApprovalPolicy>('/my-requests/policies', d)
   },
 }

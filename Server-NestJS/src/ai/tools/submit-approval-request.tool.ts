@@ -18,7 +18,7 @@ export class SubmitApprovalRequestTool implements AiTool {
   readonly requiresConfirmation = true;
   readonly permissions = { requireVerifiedEmail: true };
   readonly description =
-    '提交审批请求（报销/采购/请假/合同）。用户明确要求"提交/发起/创建报销、采购申请、请假审批"时使用（如"帮我提交一笔采购申请"）。' +
+    '提交申请（报销/采购/请假/合同；单人额度校验，本人提交、本人确认）。用户明确要求"提交/发起/创建报销、采购申请、请假审批"时使用（如"帮我提交一笔采购申请"）。' +
     '这是写操作，调用后系统会弹出确认框，用户确认后才真正创建。' +
     '用户已给出类型/金额等关键信息时应直接调用本工具触发确认流程，不要推迟或先追问；缺失的次要信息由确认流程或后续对话补齐。' +
     '创建后可用 review_approval_request 让 AI 预审。';

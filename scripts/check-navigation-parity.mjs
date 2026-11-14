@@ -30,7 +30,8 @@ const pathsOf = (src) => [...src.matchAll(/path:\s*'([^']*)'/g)].map((m) => m[1]
 
 /** 有意不让 AI 导航的客户端页（显式决策，非默认盲区）。 */
 const ALLOWLIST_ADMIN = [];
-const ALLOWLIST_APP = ['splash', 'onboarding', 'login', 'register', 'forgot-password', 'reset', 'verify-email'];
+// 'approval' is the 0-C legacy redirect to /my-requests — kept for old deep links, not an AI destination.
+const ALLOWLIST_APP = ['splash', 'onboarding', 'login', 'register', 'forgot-password', 'reset', 'verify-email', 'approval'];
 
 const errors = [];
 const read = (rel) => readFileSync(join(ROOT, rel), 'utf8');

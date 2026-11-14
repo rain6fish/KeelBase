@@ -961,14 +961,15 @@ const zh = {
   pmAddTask: '新增任务',
   pmTaskTitleHint: '任务标题',
 
-  // AI Approval 旗舰应用
-  apTitle: '审批中心',
-  apTotal: '共 {n} 个审批',
+  // My Requests（单人额度校验；0-C 由 AI Approval 改名）
+  apTitle: '我的申请',
+  apScopeNote: '单人额度校验：本人提交、本人确认；不是组织多级审批。',
+  apTotal: '共 {n} 个申请',
   apStatus: '状态',
   apStatusLabel: '状态：{s}',
   apType: '类型',
   apAmount: '金额',
-  apSubmitRequest: '提交审批',
+  apSubmitRequest: '提交申请',
   apTitleHint: '标题（如 Q3 差旅报销）',
   apAmountHint: '金额（元）',
   apReasonHint: '事由',

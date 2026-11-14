@@ -106,9 +106,11 @@ Seed seeds 4 projects + milestones + delayed tasks. Demo "judge project delay ri
 
 ---
 
-## 3. AI Approval
+## 3. My Requests (formerly AI Approval)
 
-> **0-C scope (2026-11-14)**: this module is a **single-person limit check** — the requester submits, the AI tiers by policy, and the **same person** confirms (`decide` looks the row up by `requesterId`). It is not organizational multi-level approval; that lives in R4 (`src/ai/approvals/`) and FLOW (`src/flows/`). Routes and table names are unchanged, so existing clients and data are unaffected.
+> **0-C scope and rename (2026-11-14)**: this module is a **single-person limit check** — the requester submits, the AI tiers by policy, and the **same person** confirms (`decide` looks the row up by `requesterId`). It is not organizational multi-level approval; that lives in R4 (`src/ai/approvals/`) and FLOW (`src/flows/`).
+>
+> The canonical path is now `/api/v1/my-requests/*`; `/api/v1/approval/*` stays as a compatibility alias, so existing clients do not have to upgrade in lockstep. Entity/table names (`app_requests`), DTOs, AI tool names and the audit vocabulary are unchanged — they are part of the cross-client and audit contract.
 
 ### 3.1 Data Model (`src/approval/`)
 
@@ -117,7 +119,7 @@ Seed seeds 4 projects + milestones + delayed tasks. Demo "judge project delay ri
 | `ApprovalRequest` | id / title / amount / reason / status(`pending`\|`approved`\|`rejected`\|`needs_review`) / aiSuggestion / userId |
 | `ApprovalPolicy` | id / name / threshold / autoApprove / role / userId |
 
-### 3.2 API (`/api/v1/approval/*`, CASL + feature flag `approval`)
+### 3.2 API (`/api/v1/my-requests/*`; `/api/v1/approval/*` is a compatibility alias, CASL + feature flag `approval`)
 
 - `POST/GET/DELETE /requests` (list with status filter), `GET /requests/:id`
 - `POST /requests/:id/review` (AI pre-review by policy tier)

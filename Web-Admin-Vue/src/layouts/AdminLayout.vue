@@ -207,7 +207,7 @@ const workspaceNavGroups = computed(() => [
       { name: 'workbench-crm-dashboard', to: '/workbench/crm-dashboard', icon: 'mdi-chart-box-outline', label: t('aiIntelligence'), module: 'crm' },
       { name: 'workbench-crm', to: '/workbench/crm', icon: 'mdi-account-star-outline', label: t('crmTitle'), module: 'crm' },
       { name: 'workbench-pm', to: '/workbench/pm', icon: 'mdi-briefcase-outline', label: t('pmTitle'), module: 'pm' },
-      { name: 'workbench-approval', to: '/workbench/approval', icon: 'mdi-check-decagram-outline', label: t('apTitle'), module: 'approval' },
+      { name: 'workbench-my-requests', to: '/workbench/my-requests', icon: 'mdi-check-decagram-outline', label: t('apTitle'), module: 'approval' },
       { name: 'workbench-flows', to: '/workbench/flows', icon: 'mdi-lan-outline', label: t('workbenchFlows') },
     ].filter(menuItemVisible),
   },

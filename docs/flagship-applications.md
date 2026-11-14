@@ -108,9 +108,11 @@ Seed 种 4 项目 + 里程碑 + 延期任务。演示「判断项目延期风险
 
 ---
 
-## 3. AI Approval
+## 3. My Requests（原 AI Approval）
 
-> **0-C 口径（2026-11-14）**：本模块是**单人额度校验** —— 申请人提交、AI 按政策分级、**本人**确认（`decide` 只按 `requesterId` 查行），**不是**组织多级审批。真正的双人审批在 R4（`src/ai/approvals/`）与 FLOW 工作流（`src/flows/`）。路由与表名保持不变，故既有客户端与数据不受影响。
+> **0-C 口径与改名（2026-11-14）**：本模块是**单人额度校验** —— 申请人提交、AI 按政策分级、**本人**确认（`decide` 只按 `requesterId` 查行），**不是**组织多级审批。真正的双人审批在 R4（`src/ai/approvals/`）与 FLOW 工作流（`src/flows/`）。
+>
+> 对外主路径改为 `/api/v1/my-requests/*`；`/api/v1/approval/*` 保留为**兼容别名**，旧客户端不必同时升级。实体/表名（`app_requests`）、DTO、AI 工具名与审计词表**不改** —— 那些是跨端与审计契约的一部分。
 
 ### 3.1 数据模型 / Data Model（`src/approval/`）
 
@@ -119,7 +121,7 @@ Seed 种 4 项目 + 里程碑 + 延期任务。演示「判断项目延期风险
 | `ApprovalRequest` | id / title / amount / reason / status(`pending`\|`approved`\|`rejected`\|`needs_review`) / aiSuggestion / userId |
 | `ApprovalPolicy` | id / name / threshold / autoApprove / role / userId |
 
-### 3.2 API（`/api/v1/approval/*`，CASL + feature flag `approval`）
+### 3.2 API（`/api/v1/my-requests/*`；`/api/v1/approval/*` 为兼容别名，CASL + feature flag `approval`）
 
 - `POST/GET/DELETE /requests`（列表含 status 筛选）、`GET /requests/:id`
 - `POST /requests/:id/review`（AI 预审按政策分级）

@@ -111,15 +111,15 @@ class AppLocalizations {
   String get pmAddTask => _t('Add task', '新增任务');
   String get pmTaskTitleHint => _t('Task title', '任务标题');
 
-  // --- AI Approval 旗舰应用 ---
-  String get apTitle => _t('AI Approval', '审批中心');
-  String get apExploreEntry => _t('AI Approval', 'AI 审批');
+  // --- My Requests（单人额度校验；0-C 由 AI Approval 改名） ---
+  String get apTitle => _t('My Requests', '我的申请');
+  String get apExploreEntry => _t('My Requests', '我的申请');
   // 0-C：本模块是「本人提交、本人确认」的单人额度校验，不是组织多级审批（真正的双人审批在 R4 / FLOW）。
   String get apScopeNote => _t(
         'Single-person limit check: you submit and you decide. This is not an organizational multi-level approval.',
         '单人额度校验：本人提交、本人确认；不是组织多级审批。',
       );
-  String get apSubmitRequest => _t('Submit request', '提交审批');
+  String get apSubmitRequest => _t('New request', '提交申请');
   String get apTitleHint => _t('Title (e.g. Q3 travel reimbursement)', '标题（如 Q3 差旅报销）');
   String get apTypeReimbursement => _t('Reimbursement', '报销');
   String get apTypePurchase => _t('Purchase', '采购');
@@ -127,7 +127,7 @@ class AppLocalizations {
   String get apAmountHint => _t('Amount (yuan)', '金额（元）');
   String get apReasonHint => _t('Reason', '事由');
   String get apRequired => _t('Fill in title, amount and reason', '请填写标题、金额和事由');
-  String get apEmpty => _t('No requests yet — submit one, or ask the AI to review a reimbursement.', '暂无审批——提交一个，或让 AI 帮你预审批。');
+  String get apEmpty => _t('No requests yet — submit one, or ask the AI to pre-check a reimbursement.', '暂无申请——提交一个，或让 AI 帮你预审。');
   String get apReview => _t('AI review (apply policy)', 'AI 预审（按政策分级）');
   String get apApprove => _t('Approve', '通过');
   String get apReject => _t('Reject', '驳回');

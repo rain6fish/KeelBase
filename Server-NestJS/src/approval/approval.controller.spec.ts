@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { PATH_METADATA } from '@nestjs/common/constants';
 import { ApprovalController } from './approval.controller';
 import { ApprovalService } from './approval.service';
 
@@ -19,6 +20,10 @@ describe('ApprovalController（AI Approval 旗舰）', () => {
   beforeEach(() => {
     approvalService = Object.fromEntries(methods.map((m) => [m, jest.fn()]));
     controller = new ApprovalController(approvalService as unknown as ApprovalService);
+  });
+
+  it('0-C：同时挂载 my-requests（主）与 approval（兼容别名）', () => {
+    expect(Reflect.getMetadata(PATH_METADATA, ApprovalController)).toEqual(['my-requests', 'approval']);
   });
 
   it('审批请求 CRUD + AI 预审 + 人工复核委托 service', async () => {

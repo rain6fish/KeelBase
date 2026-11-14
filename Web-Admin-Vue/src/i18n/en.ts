@@ -961,14 +961,15 @@ const en: ZhDict = {
   pmAddTask: 'Add task',
   pmTaskTitleHint: 'Task title',
 
-  // AI Approval flagship app
-  apTitle: 'AI Approval',
+  // My Requests (single-person limit check; renamed from AI Approval)
+  apTitle: 'My Requests',
+  apScopeNote: 'Single-person limit check: you submit and you decide. This is not an organizational multi-level approval.',
   apTotal: '{n} requests',
   apStatus: 'Status',
   apStatusLabel: 'Status: {s}',
   apType: 'Type',
   apAmount: 'Amount',
-  apSubmitRequest: 'Submit request',
+  apSubmitRequest: 'New request',
   apTitleHint: 'Title (e.g. Q3 travel reimbursement)',
   apAmountHint: 'Amount (yuan)',
   apReasonHint: 'Reason',

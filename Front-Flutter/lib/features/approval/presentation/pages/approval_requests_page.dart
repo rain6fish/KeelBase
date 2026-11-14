@@ -140,7 +140,7 @@ class _ApprovalRequestsPageState extends State<ApprovalRequestsPage> {
                           const CupertinoListTileChevron(),
                         ],
                       ),
-                      onTap: () => ctx.push('/approval/requests/${r.id}'),
+                      onTap: () => ctx.push('/my-requests/requests/${r.id}'),
                     );
                   },
                 ),

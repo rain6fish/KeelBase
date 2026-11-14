@@ -21,7 +21,7 @@ export class ReviewApprovalRequestTool implements AiTool {
   readonly riskLevel: ToolRiskLevel = 'R4';
   readonly permissions = { requireVerifiedEmail: true };
   readonly description =
-    'AI 预审审批请求：读取请求并按审批政策分级——金额不超过阈值则自动通过（低风险），超出阈值转人工复核（需人工决定）。' +
+    'AI 预审申请（单人额度校验）：读取申请并按额度政策分级——金额不超过阈值则自动通过（低风险），超出阈值转人工复核（需本人决定）。' +
     '用户要求"帮我审批/预审/看下这个报销能不能过"时，先 query_approval_policies 拿政策、query_approval_requests 拿请求，再调用本工具。' +
     '这是写操作，系统会弹出确认框，用户确认后 AI 才执行预审。';
   readonly parameters: ToolParameter[] = [

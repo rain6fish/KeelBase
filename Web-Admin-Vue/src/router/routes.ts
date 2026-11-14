@@ -118,8 +118,11 @@ const workbenchRoute: RouteRecordRaw = {
     { path: 'crm-dashboard', name: 'workbench-crm-dashboard', component: () => import('@/views/workbench/CrmDashboardView.vue'), meta: { title: 'aiIntelligence', permission: PERMISSIONS.CRM_VIEW } },
     { path: 'pm', name: 'workbench-pm', component: () => import('@/views/workbench/PmProjectsView.vue'), meta: { title: 'pmTitle', permission: PERMISSIONS.PM_VIEW } },
     { path: 'pm/:id', name: 'workbench-pm-detail', component: () => import('@/views/workbench/PmProjectDetailView.vue'), meta: { title: 'pmTitle', permission: PERMISSIONS.PM_VIEW } },
-    { path: 'approval', name: 'workbench-approval', component: () => import('@/views/workbench/ApprovalRequestsView.vue'), meta: { title: 'apTitle', permission: PERMISSIONS.APPROVAL_MANAGE } },
-    { path: 'approval/:id', name: 'workbench-approval-detail', component: () => import('@/views/workbench/ApprovalRequestDetailView.vue'), meta: { title: 'apTitle', permission: PERMISSIONS.APPROVAL_MANAGE } },
+    // 0-C：canonical path is my-requests; the old approval paths stay as redirects.
+    { path: 'my-requests', name: 'workbench-my-requests', component: () => import('@/views/workbench/ApprovalRequestsView.vue'), meta: { title: 'apTitle', permission: PERMISSIONS.APPROVAL_MANAGE } },
+    { path: 'my-requests/:id', name: 'workbench-my-request-detail', component: () => import('@/views/workbench/ApprovalRequestDetailView.vue'), meta: { title: 'apTitle', permission: PERMISSIONS.APPROVAL_MANAGE } },
+    { path: 'approval', name: 'workbench-approval', redirect: () => ({ name: 'workbench-my-requests' }) },
+    { path: 'approval/:id', name: 'workbench-approval-detail', redirect: (to) => ({ name: 'workbench-my-request-detail', params: { id: to.params.id } }) },
     { path: 'flows', name: 'workbench-flows', component: () => import('@/views/workbench/FlowInstancesView.vue'), meta: { title: 'workbenchFlows' } },
     { path: 'flows/:id', name: 'workbench-flow-detail', component: () => import('@/views/workbench/FlowInstanceDetailView.vue'), meta: { title: 'workbenchFlows' } },
   ],
