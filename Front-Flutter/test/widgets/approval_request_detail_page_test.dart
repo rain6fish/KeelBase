@@ -114,8 +114,8 @@ void main() {
 
     await pumpPage(tester);
 
-    expect(find.text('审批中心'), findsOneWidget);
-    expect(find.textContaining('暂无审批'), findsOneWidget);
+    expect(find.text('我的申请'), findsOneWidget);
+    expect(find.textContaining('暂无申请'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

@@ -47,7 +47,7 @@ void main() {
 
     await pumpPage(tester);
 
-    expect(find.text('审批中心'), findsOneWidget);
+    expect(find.text('我的申请'), findsOneWidget);
     expect(find.text('差旅报销'), findsOneWidget);
     expect(find.text('采购申请'), findsOneWidget);
     expect(find.textContaining('¥1200'), findsOneWidget);
@@ -63,11 +63,11 @@ void main() {
 
     await pumpPage(tester);
 
-    expect(find.textContaining('暂无审批'), findsOneWidget);
+    expect(find.textContaining('暂无申请'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('提交审批弹层校验必填', (tester) async {
+  testWidgets('提交申请弹层校验必填', (tester) async {
     when(() => repo.getRequests(status: any(named: 'status'))).thenAnswer((_) async => []);
     when(() => repo.getPolicies()).thenAnswer((_) async => []);
 
@@ -76,7 +76,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('提交审批'), findsOneWidget);
+    expect(find.text('提交申请'), findsOneWidget);
 
     // 不填任何字段直接保存 → 提示
     await tester.tap(find.text('保存'));

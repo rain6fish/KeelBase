@@ -59,7 +59,7 @@ beforeEach(() => {
   requestsMock.mockResolvedValue({ items: [], total: 0 })
 })
 
-describe('ApprovalRequestsView（工作台·审批中心）', () => {
+describe('ApprovalRequestsView（工作台·我的申请）', () => {
   it('挂载 → 调用 approvalApi.requests() 并渲染请求行', async () => {
     requestsMock.mockResolvedValue({ items: [request], total: 1 })
 
@@ -106,11 +106,11 @@ describe('ApprovalRequestsView（工作台·审批中心）', () => {
     expect(wrapper.exists()).toBe(true)
   })
 
-  it('新建：打开「提交审批」弹窗后空表单保存 → 校验错误且不调用 createRequest', async () => {
+  it('新建：打开「提交申请」弹窗后空表单保存 → 校验错误且不调用 createRequest', async () => {
     const wrapper = mountView()
     await flushPromises()
 
-    const addBtn = wrapper.findAll('button').find((b) => b.text().includes('提交审批'))
+    const addBtn = wrapper.findAll('button').find((b) => b.text().includes('提交申请'))
     expect(addBtn).toBeTruthy()
     await addBtn!.trigger('click')
     await flushPromises()
