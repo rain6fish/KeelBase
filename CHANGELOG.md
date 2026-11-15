@@ -4,6 +4,63 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 本文件记录 KeelBase 所有值得关注的变更。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.4.1] - 2026-11-15
+
+**v1.4.1 — A 256 KB line no longer stalls a reply, and every retained-body state now has an explanation / 256 KB 单行不再拖住回答，留存正文的每个状态都有说法**
+
+### Fixed
+
+- **Email masking on the retention and AI-input path is linear.** The rule retried the rest of the input
+  at every starting position, so a long token-shaped run with no `@` cost O(n²): 3.3 s at 64 KB and
+  about 56 s at 256 KB — the size the retention cap allows, on the path that awaits it before answering.
+  A single forward scan reproduces the same matches (a differential test compares it with the old regex
+  over 3,000 deterministic strings); a 256 KB adversarial line now takes about 4 ms.
+
+- **The retained copy of the model's input is field-name redacted before storage.** Values under
+  `firstName`, `lastName`, `bio` and `address` no longer reach the admin console in clear text; the body
+  path is unchanged.
+
+- **The tool surface offered to the model follows the same gate as execution.** Exposure and the
+  execution gate now call one predicate, so the schema sent to the model also honours feature flags, R5
+  and verified email. The gate's messages, denial causes and refusal counters are word for word
+  unchanged.
+
+- **The admin console's retained-body panel explains every state.** `capped` now says the body exceeded
+  the retention cap and only the commitment remains, instead of showing an empty box; a call that was
+  never retained says exactly that instead of a generic read failure (the 404 branch could never match
+  because the client normalises errors to `ApiError.statusCode`); and the error sentence follows a
+  language switch.
+
+### Changed
+
+- **The release workflow attaches the SBOM to the tag's existing release object.** It resolves the
+  release through the releases list (which includes drafts to a write token), prefers a published
+  release and uploads by release id, so a concurrent draft and a published release can no longer split
+  the SBOM onto a second, invisible release.
+
+### 修复
+
+- **留存与 AI 输入路径上的邮箱脱敏改为线性。** 原规则在每个起点重跑剩余输入，没有 `@` 的长 token 形状串
+  因此是 O(n²)：64 KB 要 3.3 秒、256 KB 约 56 秒 —— 而留存上限正好允许这个尺寸，且该路径在回答前被
+  await。改为一次前向扫描并复现同样的匹配（差分测试用 3 000 条确定性字符串与旧正则对比）；256 KB
+  对抗串现约 4 毫秒。
+
+- **留存里模型那份输入在落库前按字段名打码。** `firstName`、`lastName`、`bio`、`address` 的值不再
+  明文进入管理台；正文路径不变。
+
+- **喂给模型的工具面与执行门共用同一判据。** 可见面与执行门现在调用同一个判据，下发给模型的 schema 也
+  开始遵守特性开关、R5 与邮箱验证。门的拒绝消息、拒绝原因与计数逐字不变。
+
+- **管理台留存正文面板把每个状态都说清楚。** `capped` 现在明说正文超过留存上限、只保留承诺，而不是
+  一个空框；从未留存正文的调用如实说明，而不是笼统的「读取失败」（客户端把错误规范成
+  `ApiError.statusCode`，原 404 分支永远匹配不到）；错误句也不再停留在切换语言之前。
+
+### 变更
+
+- **发布工作流把 SBOM 附到该 tag 已存在的那份 Release 对象上。** 它通过 releases 列表解析 Release
+  （写权限 token 能看到草稿），优先已发布的 Release 并按 release id 上传，于是并发出现的草稿与已发布
+  Release 不会再把 SBOM 分裂到第二份看不见的 Release 上。
+
 ## [1.4.0] - 2026-11-15
 
 **v1.4.0 — Truncated tool results keep a checkable body off-chain, and the image stops shipping a secret it was born with / 被截断的工具结果在链外留存一份可核对的正文，镜像不再自带密钥**

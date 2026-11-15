@@ -66,14 +66,22 @@ enters the audit hash payload, so the chain, `/audit/verify` and the evidence pa
 before. The `main` branch is the development line; each tagged release is a stable snapshot that passes
 the full CI and test suite.
 
+v1.4.1 (2026-11-15) is the line's first incremental release. It makes the email masking on the
+retention and AI-input path linear, so a 256 KB line can no longer stall a reply; redacts the retained
+model input by field name before storage; gives the tool surface offered to the model the same gate as
+execution (feature flags, R5, verified email); and completes the admin console's retained-body panel
+for the `capped` and not-retained states.
+
 1.4.x 线延续可核证据版。其首个版本 v1.4.0（2026-11-15）带有原为 1.3.2 准备的修复——单容器镜像不再
 内置密钥、Webhook 投递按事件归属收窄、喂给模型的工具面跟随调用者、截断的工具结果仍是合法 JSON 并在
 回注模型前脱敏、审计对象检索写明口径、AI Approval 对外改称 My Requests——并加入一项新能力：被截断的
 工具结果的完整正文以**链外**方式存入 `ai_tool_result_bodies`，可通过
 `GET /api/v1/audit/logs/:id/tool-result` 读回。正文脱敏并带哈希，保留
 `TOOL_RESULT_BODY_RETENTION_DAYS` 天（默认 30）后只留墓碑；留存内容不进入审计哈希 payload，审计链、
-`/audit/verify` 与证据包行为不变。`main` 分支为开发线，每个打了 tag 的版本都是通过完整 CI 与测试
-套件的稳定快照。
+`/audit/verify` 与证据包行为不变。v1.4.1（2026-11-15）是本线首个增量版：留存与 AI 输入路径上的邮箱
+脱敏改为线性，256 KB 单行不再拖住回答；留存里模型那份输入在落库前按字段名打码；喂给模型的工具面与
+执行门共用同一判据（特性开关、R5、邮箱验证）；并补齐管理台留存正文面板在 `capped` 与未留存两种状态
+下的说明。`main` 分支为开发线，每个打了 tag 的版本都是通过完整 CI 与测试套件的稳定快照。
 
 ### Superseded: 1.3.x — Accountable Evidence edition / 已被取代：1.3.x 可核证据版
 
