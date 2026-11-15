@@ -87,6 +87,48 @@ npm run build    # → dist/（base=/admin/）
 
 Serve `dist/` as static files. Recommended: separate domain (e.g. `admin.example.com`) + optional IP whitelist/VPN/MFA.
 
+### 2.4 Secret Rotation / 密钥轮换
+
+**Any deployment that ran an image published before v1.4.0 must rotate its secrets.** Those images
+(`<= v1.3.1`) baked a publicly known `JWT_SECRET`, refresh secret and encryption key into the image, so
+treat every token they issued and every value they encrypted as already compromised. Deploying an older
+image is not an option at any point — it accepts tokens minted from the same public value. A deployment
+on a current image (v1.4.0+) starts only on secrets you supplied and needs no migration; rotate it on
+your own schedule.
+
+1. **Stop the service.**
+2. **Replace the secrets.** `JWT_SECRET` and `JWT_REFRESH_SECRET`: rotating them invalidates every
+   issued token, so all sessions sign in again. `ENCRYPTION_KEY`: rotating it makes existing
+   `AES-256-GCM` columns (phone, providerId) unreadable — decrypt them under the old key and re-encrypt
+   under the new one before the switch if that data must survive. `ENCRYPTION_HMAC_KEY`, when it was
+   left to fall back to `ENCRYPTION_KEY`, also derives `providerHash`, so rotating changes every hash
+   and existing OAuth links stop resolving to their user; set it explicitly before rotating.
+3. **Keep the audit chain verifiable.** If the deployment never set `AUDIT_HMAC_KEY`, its rows were
+   signed by a fallback derived from `ENCRYPTION_KEY` (or `JWT_SECRET` when that was unset):
+   `HMAC-SHA256(key "keelbase:audit-chain:v1", message = that secret)`, hex. Rotating either secret
+   changes it, so compute the old value and put it in `AUDIT_HMAC_KEY_PREVIOUS` before the switch —
+   `node -e "console.log(require('crypto').createHmac('sha256','keelbase:audit-chain:v1').update(process.argv[1]).digest('hex'))" "$OLD_ENCRYPTION_KEY"`
+   — or old rows stop verifying.
+4. **Start the service and check the chain.** `GET /api/v1/audit/verify` should report the same verdict
+   it reported before the rotation.
+
+**任何部署只要跑过 v1.4.0 之前发布的镜像，都必须轮换密钥。** 那些镜像（`<= v1.3.1`）把公开已知的
+`JWT_SECRET`、refresh 密钥与加密密钥烤进了镜像，因此它们签出的每一个 token、加密的每一个值都应视为已经泄露。
+任何时点都不要部署旧镜像 —— 它同样接受用同一公开值签发的 token。跑在当前镜像（v1.4.0 及以上）上的部署
+只在你自己提供的密钥上启动，不涉及这次迁移；它的轮换按自己的节奏安排即可。
+
+1. **停服。**
+2. **更换密钥。** `JWT_SECRET` 与 `JWT_REFRESH_SECRET`：轮换会让所有已签发的 token 失效，全部会话需要重新登录。
+   `ENCRYPTION_KEY`：轮换会让存量 `AES-256-GCM` 列（phone、providerId）不可读 —— 若这些数据必须保留，
+   请在切换前用旧密钥解出、再用新密钥重新加密。`ENCRYPTION_HMAC_KEY` 若一直回退使用 `ENCRYPTION_KEY`，
+   `providerHash` 也由它派生，轮换后每个 hash 都会变、既有 OAuth 关联将无法定位到原用户 —— 请在轮换前显式配置它。
+3. **保持审计链可校验。** 若部署从未配置 `AUDIT_HMAC_KEY`，其审计行由 `ENCRYPTION_KEY`（未配置时用 `JWT_SECRET`）
+   的回退派生值签名：`HMAC-SHA256(key "keelbase:audit-chain:v1", message = 该密钥)` 取 hex。轮换其中任一个都会改变它，
+   因此请在切换前算出旧值写进 `AUDIT_HMAC_KEY_PREVIOUS` ——
+   `node -e "console.log(require('crypto').createHmac('sha256','keelbase:audit-chain:v1').update(process.argv[1]).digest('hex'))" "$OLD_ENCRYPTION_KEY"`
+   —— 否则存量审计行将无法校验。
+4. **起服并校验链。** `GET /api/v1/audit/verify` 应与轮换前给出同样的结论。
+
 ---
 
 ## 3. Database Migration / 数据库迁移

@@ -33,6 +33,8 @@ docker run -d --name keelbase -p 3000:3000 \
 
 > 镜像**不内置默认密钥** —— 上面三条在运行时提供（或换成你自己的固定值）。缺了它们进程会拒绝启动并打印生成方法。
 
+> **v1.4.0 之前发布的镜像（`<= v1.3.1`）携带公开已知的密钥 —— 禁止部署；已经用旧镜像跑过的实例必须轮换密钥。** 轮换会让这些镜像签出的 token 失效、让它们加密过的列不可读，也可能使它们写入的审计行无法校验；步骤见[运维手册](docs/manual/operations.md)。
+
 > 无需 LLM API Key 即可体验：未配置云端/本地模型时，AI 以**确定性演示模式**运行——黄金流程（分析→确认→创建→审计→撤销）开箱即用。配置 DeepSeek/Qwen/OpenAI/Ollama Key（`-e DEEPSEEK_API_KEY=...`）后自动切换真实 LLM。
 >
 > **随时重置到干净演示状态**：`docker rm -f keelbase && docker run -d --name keelbase -p 3000:3000 -e JWT_SECRET=$(openssl rand -hex 32) -e JWT_REFRESH_SECRET=$(openssl rand -hex 32) -e ENCRYPTION_KEY=$(openssl rand -hex 32) ghcr.io/rain6fish/keelbase:latest`——数据在容器内 SQLite（无 volume），删除容器即清空演示数据，下次启动自动重新 seed。
