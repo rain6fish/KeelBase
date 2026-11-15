@@ -45,16 +45,18 @@ Table `ai_tool_result_bodies` (new; one row per audited tool call, anchored by `
 ## 3. 写入规则 / 3. Writing
 
 English. Captured only where an audit row exists, immediately after it is written: the two chat
-paths, `_agentStepExecutor` (plan / sub-agent), the R4 executor and the MCP export. With audit
-granularity `off` nothing is retained — there is no row to anchor to, and the deployment's intent is
-"do not record AI activity". `redactSensitive` (field names) then `sanitizeExternalContent` (emails,
+paths, `_agentStepExecutor` (plan / sub-agent), the R4 executor and the MCP export. On the chat
+paths, audit granularity `off` leaves no row to anchor to, so nothing is retained there; the R4
+executor and the MCP export write their rows regardless of that setting (their own pre-existing
+behaviour), so their bodies are retained whenever retention itself is on. `redactSensitive` (field names) then `sanitizeExternalContent` (emails,
 phones, tokens, long hex) mask the body before it is stored; `model_text` is kept verbatim because the
 model's copy is produced by project-then-sanitize, which the sanitize-then-store body cannot be
 inverted into. A capture failure logs a warning and never fails the tool call, the answer or the
 audit row.
 
 中文。只在已有审计行时留存，且紧接该行之后：对话两条路径、`_agentStepExecutor`（plan / 子代理）、
-R4 执行器与 MCP 出口。审计粒度 `off` 时不留存 —— 没有行可锚，且部署意图就是「不记 AI 活动」。写入前
+R4 执行器与 MCP 出口。对话路径上审计粒度 `off` 时没有行可锚，故不留存；R4 执行器与 MCP 出口不随该
+设置停止写行（这是它们既有的行为），因此只要留存本身开启，那两条路径的正文仍会留存。写入前
 先 `redactSensitive`（字段名）再 `sanitizeExternalContent`（邮箱/手机/token/长 hex）；`model_text`
 原样保留，因为模型那份是「先投影、再脱敏」，无法从「先脱敏、再存」的正文反推。留存失败只告警，
 绝不让工具调用、回答或审计行失败。

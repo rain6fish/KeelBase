@@ -1625,6 +1625,7 @@ const zh = {
   toolResultTitle: '留存的结果正文',
   toolResultLoad: '查看留存正文',
   toolResultExpired: '已过保留期：正文已清除，哈希与大小仍在。',
+  toolResultCapped: '正文超过留存上限（{size}），未保存正文；仅保留大小与哈希承诺（以及模型实收的那份，若有）。',
   toolResultModelText: '模型实际收到的那份',
   toolResultMeta: '工具 {tool} · {size} · {state} · sha {sha}',
   toolResultTruncated: '已截断',

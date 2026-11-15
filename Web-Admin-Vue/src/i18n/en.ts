@@ -1619,6 +1619,7 @@ const en: ZhDict = {
   toolResultTitle: 'Retained tool result',
   toolResultLoad: 'Show retained body',
   toolResultExpired: 'The retention window passed: the body was cleared; the hashes and sizes remain.',
+  toolResultCapped: 'The body exceeded the retention cap ({size}) and was not stored; only the size and hash commitment remain (plus the model projection, when there was one).',
   toolResultModelText: 'What the model actually received',
   toolResultMeta: 'Tool {tool} · {size} · {state} · sha {sha}',
   toolResultTruncated: 'truncated',
