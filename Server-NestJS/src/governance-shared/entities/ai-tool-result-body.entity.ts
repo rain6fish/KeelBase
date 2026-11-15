@@ -131,6 +131,10 @@ export class AiToolResultBody {
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 
-  @Column({ type: 'datetime', name: 'expires_at' })
+  // `type: Date` (not `'datetime'`): let TypeORM map per driver — sqlite keeps `datetime`, postgres
+  // wants `timestamp`. A hard-coded `'datetime'` throws `DataTypeNotSupportedError` on postgres.
+  // 用 `type: Date`（而非 `'datetime'`）：由 TypeORM 按方言映射 —— sqlite 仍是 `datetime`，postgres
+  // 需要 `timestamp`。写死 `'datetime'` 会在 postgres 上抛 `DataTypeNotSupportedError`。
+  @Column({ type: Date, name: 'expires_at' })
   expiresAt!: Date;
 }
