@@ -109,11 +109,14 @@ export class AiToolResultBody {
   originalSha256?: string | null;
 
   /**
-   * Exactly the text handed to the model (≤ the 4000-char projection budget, already masked). Null on
-   * paths where no model saw the result (R4 executor, MCP export).
+   * The model's input after field-name redaction (`redactSensitive`), within the 4000-char projection
+   * budget. It is not a byte-for-byte copy of what the model saw: masking is applied before storage so
+   * the console never shows plaintext PII. Null on paths where no model saw the result (R4 executor,
+   * MCP export).
    *
-   * 交给模型的那份原样文本（≤4000 字符预算，已脱敏）。没有模型看到结果的路径（R4 执行器、MCP 出口）
-   * 为 null。
+   * 模型输入经字段名打码（`redactSensitive`）后的那份，在 4000 字符投影预算内。它**不是**模型所见
+   * 文本的逐字节副本：落库前先打码，管理台因此不会出现明文 PII。没有模型看到结果的路径（R4 执行器、
+   * MCP 出口）为 null。
    */
   @Column({ type: 'text', nullable: true, name: 'model_text' })
   modelText?: string | null;
