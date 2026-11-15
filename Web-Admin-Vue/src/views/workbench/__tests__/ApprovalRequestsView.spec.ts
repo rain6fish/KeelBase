@@ -59,7 +59,7 @@ beforeEach(() => {
   requestsMock.mockResolvedValue({ items: [], total: 0 })
 })
 
-describe('ApprovalRequestsView（工作台·审批中心）', () => {
+describe('ApprovalRequestsView（工作台·我的申请）', () => {
   it('挂载 → 调用 approvalApi.requests() 并渲染请求行', async () => {
     requestsMock.mockResolvedValue({ items: [request], total: 1 })
 
@@ -106,11 +106,15 @@ describe('ApprovalRequestsView（工作台·审批中心）', () => {
     expect(wrapper.exists()).toBe(true)
   })
 
-  it('新建：打开「提交审批」弹窗后空表单保存 → 校验错误且不调用 createRequest', async () => {
+  it('新建：打开「提交申请」弹窗后空表单保存 → 校验错误且不调用 createRequest', async () => {
     const wrapper = mountView()
     await flushPromises()
 
-    const addBtn = wrapper.findAll('button').find((b) => b.text().includes('提交审批'))
+    // Match the copy from its single source (the i18n dictionary), not a hard-coded literal:
+    // the "My Requests" rename changed this label and left the spec asserting the old wording.
+    //
+    // 按单一来源（i18n 词典）匹配文案，不写死字面量：「我的申请」改名改过这个标签，而 spec 仍在断言旧文案。
+    const addBtn = wrapper.findAll('button').find((b) => b.text().includes(zh.apSubmitRequest))
     expect(addBtn).toBeTruthy()
     await addBtn!.trigger('click')
     await flushPromises()
