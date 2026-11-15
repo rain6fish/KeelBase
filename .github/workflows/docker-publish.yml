@@ -210,8 +210,9 @@ jobs:
   # separate identity/key decision.
   #
   # If the tag is pushed before a maintainer writes the release notes, this creates a DRAFT release with
-  # the asset; nothing is public until a human fills in the notes and publishes it. Re-running uploads to
-  # the existing release with --clobber.
+  # the asset; nothing is public until a human fills in the notes and publishes it. The release is found
+  # through the list endpoint (which also returns drafts) and the asset is uploaded by release id, so a
+  # concurrent draft and a published release cannot split the SBOM onto a second release object.
   #
   # SBOM 是清单、不是判定：能不能发由上面的镜像门禁决定。本 job 把 CI 门禁核过的那份 BOM 附到该 tag 的
   # GitHub Release 上，评审或客户不用重建这棵树就能取证。它用同一个脚本（`scripts/generate-sbom.sh`）
@@ -219,7 +220,8 @@ jobs:
   # 有意不在射程内 —— 那是另一个关于身份与密钥的决定。
   #
   # 若 tag 先于维护者写发布说明被推送，本 job 会建一份**草稿**Release 并附上资产；在人填好说明并发布之前
-  # 不公开。重跑时以 `--clobber` 改传到已有的 Release 上。
+  # 不公开。通过列表端点找 Release（它会返回草稿），并按 release id 上传资产，于是并发出现的草稿与已发布
+  # Release 不会把 SBOM 分裂到第二个 Release 对象上。
   sbom-release:
     needs: publish
     if: startsWith(github.ref, 'refs/tags/v')
@@ -241,9 +243,27 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" sbom.cdx.json --clobber
-          else
+          REPO="${GITHUB_REPOSITORY}"
+          # `gh release view <tag>` resolves only a *published* release. A draft created by a concurrent
+          # run is invisible to it, so the old check could create a second Release object on the same tag
+          # and leave the SBOM on the invisible one. The list endpoint returns drafts to a token with
+          # contents:write; `sort_by(.draft)` puts the published release first when both exist.
+          RELEASE_ID=$(gh api "repos/$REPO/releases?per_page=100" \
+            --jq "[.[] | select(.tag_name == \"$TAG\")] | sort_by(.draft) | .[0].id // empty")
+          if [ -z "$RELEASE_ID" ]; then
             NOTES=$'Draft created by the release workflow; add the release notes before publishing.\n\n由发布工作流创建的草稿；发布前请补上发布说明。'
             gh release create "$TAG" sbom.cdx.json --title "$TAG" --draft --notes "$NOTES"
+          else
+            # Keep `--clobber` semantics: drop a previous same-named asset before uploading the new one.
+            gh api "repos/$REPO/releases/$RELEASE_ID/assets?per_page=100" \
+              --jq '.[] | select(.name == "sbom.cdx.json") | .id' |
+              while read -r ASSET_ID; do
+                if [ -n "$ASSET_ID" ]; then
+                  gh api --method DELETE "repos/$REPO/releases/assets/$ASSET_ID"
+                fi
+              done
+            gh api --method POST \
+              -H "Content-Type: application/json" \
+              "https://uploads.github.com/repos/$REPO/releases/$RELEASE_ID/assets?name=sbom.cdx.json" \
+              --input sbom.cdx.json
           fi
