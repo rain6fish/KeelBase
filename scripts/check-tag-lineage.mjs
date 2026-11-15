@@ -8,7 +8,7 @@
  * release line was merged. This runs on every tag push and fails before any
  * consumer can treat the tag as a release.
  *
- *   node scripts/check-tag-lineage.mjs --tag v1.3.2 --main origin/main --workflow CI
+ *   node scripts/check-tag-lineage.mjs --tag v1.4.0 --main origin/main --workflow CI
  *
  * Exit codes
  *   0  the tag is on main and has a completed successful CI run
@@ -22,7 +22,7 @@
  * v1.22.0 在发布线并入 main 之前两者都占。本检查在每次 tag 推送时运行，任何消费方
  * 把它当发布之前，先让它失败。
  *
- *   node scripts/check-tag-lineage.mjs --tag v1.3.2 --main origin/main --workflow CI
+ *   node scripts/check-tag-lineage.mjs --tag v1.4.0 --main origin/main --workflow CI
  *
  * 退出码
  *   0  tag 在 main 上，且其提交有一次已完成、成功的 CI

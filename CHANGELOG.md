@@ -4,9 +4,22 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 本文件记录 KeelBase 所有值得关注的变更。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [1.3.2] - 2026-11-15
+## [1.4.0] - 2026-11-15
 
-**v1.3.2 — The image stops shipping a secret it was born with, and the tool surface follows the caller / 镜像不再自带密钥，工具面跟着调用者走**
+**v1.4.0 — Truncated tool results keep a checkable body off-chain, and the image stops shipping a secret it was born with / 被截断的工具结果在链外留存一份可核对的正文，镜像不再自带密钥**
+
+### Added
+
+- **A truncated tool result's full body is kept off-chain and can be read back.** When an audited tool
+  call's result was truncated before it reached the model, the full body is now stored in
+  `ai_tool_result_bodies` — masked, hashed and off the hash chain — and can be read through
+  `GET /api/v1/audit/logs/:id/tool-result` by an administrator or an audit reader scoped to their
+  organisation. `bodyState` says what happened: `stored`, `capped` (the body exceeded
+  `TOOL_RESULT_BODY_MAX_BYTES`, so only the model projection and the hash/size commitment remain) or
+  `expired`. Retention is `TOOL_RESULT_BODY_RETENTION_DAYS` (default 30); the hourly sweep clears the
+  texts and keeps the tombstone — hashes, byte sizes and the truncation flag stay, and an expired body
+  still answers 200. Nothing enters the audit hash payload, so the chain, `/audit/verify`, the action
+  report and evidence packages behave exactly as before.
 
 ### Security
 
@@ -36,6 +49,16 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 - **The tool surface offered to the model is narrowed by caller identity**, so a user is not shown tools
   they could not use.
+
+### 新增
+
+- **被截断的工具结果正文在链外留存，并可读回。** 一条有审计的工具调用若其结果进入模型前被截断，
+  完整正文现在以脱敏、带哈希的方式存入 `ai_tool_result_bodies`（链外），可由管理员或按其组织收窄的
+  审计读者通过 `GET /api/v1/audit/logs/:id/tool-result` 读回。`bodyState` 说明发生了什么：`stored`、
+  `capped`（正文超过 `TOOL_RESULT_BODY_MAX_BYTES`，只留模型投影与哈希/大小承诺）或 `expired`。
+  保留期由 `TOOL_RESULT_BODY_RETENTION_DAYS` 决定（默认 30 天）；每小时清扫清空文本、保留墓碑 ——
+  哈希、字节数与截断标记仍在，过期正文仍答 200。留存内容不进入审计哈希 payload，审计链、
+  `/audit/verify`、行动报告与证据包行为逐字不变。
 
 ### 安全
 

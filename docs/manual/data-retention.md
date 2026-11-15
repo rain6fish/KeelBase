@@ -1,6 +1,6 @@
 # 审计与数据保留 / Audit and Data Retention
 
-> 适用版本 / Applies to: v1.3.2+
+> 适用版本 / Applies to: v1.4.0+
 > 关联 / Related: `docs/tool-result-retention.spec.md`、`docs/hs11-audit-chain.spec.md`
 
 ## 1. 保留什么、留多久 / What is kept and for how long
