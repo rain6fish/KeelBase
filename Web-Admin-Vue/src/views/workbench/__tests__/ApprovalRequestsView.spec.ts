@@ -110,7 +110,11 @@ describe('ApprovalRequestsView（工作台·我的申请）', () => {
     const wrapper = mountView()
     await flushPromises()
 
-    const addBtn = wrapper.findAll('button').find((b) => b.text().includes('提交申请'))
+    // Match the copy from its single source (the i18n dictionary), not a hard-coded literal:
+    // the "My Requests" rename changed this label and left the spec asserting the old wording.
+    //
+    // 按单一来源（i18n 词典）匹配文案，不写死字面量：「我的申请」改名改过这个标签，而 spec 仍在断言旧文案。
+    const addBtn = wrapper.findAll('button').find((b) => b.text().includes(zh.apSubmitRequest))
     expect(addBtn).toBeTruthy()
     await addBtn!.trigger('click')
     await flushPromises()
