@@ -12,14 +12,97 @@
  * 本工具提供：敏感字段掩码 + 系统边界标注 + 基础注入检测。
  */
 
+/*
+ * Linear-time email masking.
+ *
+ * The previous pattern (`([a-zA-Z0-9._%+-])[a-zA-Z0-9._%+-]*@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})`)
+ * retried the whole remaining string at every starting position, so a long token-shaped run with
+ * no `@` cost O(n²): ~56 s for one 256 KB line once the retention cap was raised to that size.
+ * This scanner reproduces the same matches in one pass. A match's local part is always the run of
+ * local characters immediately before an `@`, and its domain is the greedy `domain+ . letters{2,}`
+ * span after it; the scan resumes at the end of each match, like the global regex did.
+ *
+ * 线性时间的邮箱掩码。
+ *
+ * 原正则会在每个起点把剩余整段重跑一遍，一段没有 `@` 的长 token 形状串因此是 O(n²)：留存上限抬到
+ * 256 KB 后，单行可被拖到约 56 秒。本扫描一趟复现同样的匹配：邮箱的本地部分必定是 `@` 前那段连续的
+ * 本地字符，域则取其后 `域字符+ . 字母{2,}` 的贪婪跨度；每命中一处就从该匹配末尾继续，与全局正则一致。
+ */
+function isLocalChar(code: number): boolean {
+  return (
+    (code >= 48 && code <= 57) || // 0-9
+    (code >= 65 && code <= 90) || // A-Z
+    (code >= 97 && code <= 122) || // a-z
+    code === 46 || // .
+    code === 95 || // _
+    code === 37 || // %
+    code === 43 || // +
+    code === 45 // -
+  );
+}
+
+function isDomainChar(code: number): boolean {
+  return (
+    (code >= 48 && code <= 57) || // 0-9
+    (code >= 65 && code <= 90) || // A-Z
+    (code >= 97 && code <= 122) || // a-z
+    code === 46 || // .
+    code === 45 // -
+  );
+}
+
+function isAsciiLetter(code: number): boolean {
+  return (code >= 65 && code <= 90) || (code >= 97 && code <= 122);
+}
+
+/**
+ * End index (exclusive) of the greedy email domain starting at `from`, or -1 when none matches.
+ * 从 `from` 起贪婪匹配邮箱域，返回结束下标（不含）；不匹配返回 -1。
+ */
+function emailDomainEnd(input: string, from: number): number {
+  const n = input.length;
+  if (from >= n || !isDomainChar(input.charCodeAt(from))) return -1;
+  let end = from + 1;
+  while (end < n && isDomainChar(input.charCodeAt(end))) end++;
+  // `domain+` needs at least one character before the literal dot, so the dot cannot sit at `from`.
+  // `域字符+` 至少要占一个字符才轮到字面点号，故点号不能落在 `from`。
+  for (let dot = end - 2; dot > from; dot--) {
+    if (input.charCodeAt(dot) !== 46) continue;
+    let lettersEnd = dot + 1;
+    while (lettersEnd < end && isAsciiLetter(input.charCodeAt(lettersEnd))) lettersEnd++;
+    if (lettersEnd - (dot + 1) >= 2) return lettersEnd;
+  }
+  return -1;
+}
+
+function maskEmails(input: string): string {
+  const n = input.length;
+  let out = '';
+  let copied = 0;
+  // Like `lastIndex` for a global regex: no match may start before this.
+  // 与全局正则的 `lastIndex` 同理：起点不得早于这里。
+  let cursor = 0;
+  for (let at = 0; at < n; at++) {
+    if (input.charCodeAt(at) !== 64 /* @ */) continue;
+    if (at < cursor) continue;
+    let start = at;
+    while (start > cursor && isLocalChar(input.charCodeAt(start - 1))) start--;
+    if (start === at) continue; // empty local part / 本地部分为空
+    const domainEnd = emailDomainEnd(input, at + 1);
+    if (domainEnd === -1) continue;
+    out += input.slice(copied, start) + input[start] + '***@' + input.slice(at + 1, domainEnd);
+    copied = domainEnd;
+    cursor = domainEnd;
+    at = domainEnd - 1; // the loop's increment resumes the scan at `domainEnd` / 循环自增从 `domainEnd` 继续
+  }
+  return out + input.slice(copied);
+}
+
 /** 敏感字段掩码：phone/email/token/密钥等，注入前打码，避免隐私泄漏给 LLM */
 export function sanitizeExternalContent(input: string): string {
   let out = input;
   // 邮箱 → a***@example.com
-  out = out.replace(
-    /([a-zA-Z0-9._%+-])[a-zA-Z0-9._%+-]*@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g,
-    (match, first: string, domain: string) => `${first}***@${domain}`,
-  );
+  out = maskEmails(out);
   // 手机号（国内 1 开头 11 位）→ 138****8000
   out = out.replace(/\b(1[3-9]\d)(\d{4})(\d{4})\b/g, '$1****$3');
   // JWT / 长 token（三段 base64url 以 . 连接，首段 ≥10 字符为强信号）
