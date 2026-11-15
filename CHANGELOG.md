@@ -21,6 +21,75 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
   still answers 200. Nothing enters the audit hash payload, so the chain, `/audit/verify`, the action
   report and evidence packages behave exactly as before.
 
+- **An operation is found by its business object over a closed period, and exported as six answers.** An
+  audit reader can now locate a single operation by its business object plus a closed time window, and
+  the object is reached the only identity-based way — side effect to write claim to audit row, never by
+  matching a tool name against a timestamp. `GET /api/v1/audit/answers` answers time, action, result,
+  object, authorization and initiator through one fail-closed vocabulary: an internal token the
+  vocabulary does not know becomes a generic product word, never itself, so the export has six columns
+  and no internal names. `GET /api/v1/audit/object-types` feeds the picker from the same vocabulary. A
+  search with no match says so in words instead of returning an empty file; a plain user gets 403 and an
+  audit reader is scoped to their organisation exactly like the list. The console gains the object
+  picker, an absolute date range, the no-match line and the export.
+
+- **The audit chain tail is anchored, so a deleted tail can be seen.** `Server-NestJS/scripts/build-chain-anchor.ts`
+  records, at `observedAt`, each chain's hashed row count and last row (`rows/lastId/lastHash`) and signs
+  `rootDigest = sha256(canonicalJSON({period,date,observedAt,chains}))` with SM2; a later reader compares
+  the signed tails against the current rows and reports tail-missing, last-row-changed or tail-replaced,
+  while a longer chain is `grew`, not a deletion, as long as the anchored last row still matches.
+  `verify-chain-anchor` is the read-only entry point, and the runbook it belongs to is in the chain spec.
+  The contract moves to **v1.22.0**, which adds the `audit-chain-anchor` v1 schema without rewriting any
+  published file. Coverage is bounded: only up to `observedAt`, only hashed rows, and only when someone
+  outside the trust domain compares.
+
+- **The person who approves leaves an audit row of their own, and both decision words name them.** The R4
+  decision path used to write only the operator's `tool_call` row, so an audit reader saw a numeric
+  `approverId` on the confirmation and no row naming who decided. `decideApproval` now writes a
+  `tool_confirmation` row attributed to the approver with a username snapshot, in the same detail shape
+  the inline confirmation path writes, so the interpreter, the decision trace and `deriveOutcome` read it
+  without a second parser. The execution row's note and the approval leg of the audit read face show
+  `name (#id)`, and the six-answer export names the approver for both approval and rejection — falling
+  back to the bare id, and saying so, when no name snapshot exists.
+
+- **A stuck write claim is asked again automatically, a bounded number of times.** A hold parked in
+  `awaiting_decision` used to wait for an administrator to press a button. The hourly sweep now asks
+  every due hold through the existing reconcile path on a decaying schedule —
+  `CLAIM_RECONCILE_BACKOFF_MINUTES` (default 60, 360, 1440, 4320 minutes) up to
+  `CLAIM_RECONCILE_MAX_ATTEMPTS` (default 4) — and then stops. Attempts are counted from the lookup
+  evidence rows, manual reconciles included, so no column and no migration are needed. A pass sends at
+  most `CLAIM_RECONCILE_MAX_PER_PASS` queries (default 25) across all claims, oldest first, and reports
+  what it deferred as `deferredByPassCap` rather than going quiet. The automatic ask records
+  `system:sweep` as who asked, while `as_user_id` stays the original writer as whom it asked; the
+  in-flight list reports `lookupCount`, `autoReconcileStopped` and `autoReconcileDueAt`.
+
+- **An effect whose identity cannot be compared says so, and carries the reason.** The identity reading
+  used to be a boolean, so "nobody captured this member" and "captured and matched" produced the same
+  verdict, and an incomparable member defaulted to `complete`. It is now three-valued — `complete`,
+  `disputed`, `incomparable` — and an incomparable member carries `not_captured`, `after_missing`,
+  `empty_snapshot` or `unparsable`. An identity that cannot be read is `null`, never a placeholder such
+  as `''` or `hash('')`, because one shared indexable value would collide every reverse index. The
+  verdict is exposed read-only on the business-action governance view; it changes no revoke conclusion
+  and the schema is untouched.
+
+- **The other four authorization items get a second source.** Replaying a decision used to re-run only
+  `tool_enabled` against the recorded revision's policy, so "this write was authorized" rested on a
+  single source for role, writable field domain, destination and approval requirement. The snapshot
+  writer now freezes each of those four decisions along with the structured inputs they were taken on
+  (argument names only, never values), and the replayer re-runs each against the policy history of the
+  recorded revision. The result names the divergent items in `changedChecks`, and an item that cannot be
+  re-run is reported as `notComparable` with a reason code instead of defaulting to "unchanged".
+  `reproducible` now means "no item diverged". The change is additive: existing `check`/`ok`/`note` are
+  untouched, and snapshots written before it behave exactly as before.
+
+- **The evidence root cross-checks its anchor set against the rows it carries.** Its sections used to be
+  verified each on their own — row hashes, anchor digest, package signature — and never against each
+  other; and because `chains.aiAudit` is read by the effect's conversation while the `ai-audit` anchor is
+  the row the write claim attributes the action to, the two are different key spaces, so a package could
+  anchor an audit row it never carried and still verify PASS. `verify-evidence` now diffs the two
+  readings into `onlyDeclared` / `onlyStored` and fails on any finding, and it also names chain-section
+  rows that carry no chain hash and carried side-effect rows that no side-effect anchor vouches for. No
+  field was added to the package and the exporter is untouched.
+
 ### Security
 
 - **The single-container image no longer carries built-in secrets.** `Dockerfile.single` used to bake a
@@ -29,7 +98,29 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
   them now fails fast instead of coming up with a known key.
 
 - **Webhook delivery is scoped to the event owner.** `publish()` used to reach subscribers outside the
-  event's owner, so a delivery could cross tenants. It now filters by the owning user and organisation.
+  event's owner, so a delivery could cross tenants. It now delivers only to the event owner's own
+  subscriptions, and drops an event whose owner cannot be resolved instead of broadcasting it.
+
+- **Releases carry a full-tree CycloneDX SBOM, and the image is scanned before it is pushed.** One SBOM
+  covers the whole tree, a coverage check fails when a component is missing from it, and the SBOM is
+  attached to the release so a reviewer or a customer need not rebuild the tree to take evidence. The
+  published image is scanned before the push, and a finding outside the baseline blocks it. A weekly
+  report-only scan covers a wider set of references without failing the build, so what it finds stays
+  visible instead of becoming a surprise red.
+
+- **Every compose image is pinned to a registry digest, and the gate reads the whole tree.** The composed
+  services, the CI service image, the nested compose file and the offline staging references are all
+  pinned by digest and checked by one gate, which also catches pull references that live outside YAML.
+
+- **The dependency baseline is enforced, and it was remediated rather than deferred.** An entry with no
+  triage decision or past its review date fails the gate; development-dependency findings are judged
+  against the same baseline as production ones, so a new finding cannot hide behind a stale row. The
+  entries that could be cleared were cleared with in-line upgrades — `vue-i18n` **11** among them, whose
+  advisory applied to the 10.x line — and what remains carries an accepted reading with a date.
+
+- **The runtime images no longer carry build-time tooling.** Build-time dependencies and `npm` are gone
+  from the published images, `create-admin` is compiled at build time, and what ships is left with only
+  what the process needs.
 
 ### Fixed
 
@@ -40,6 +131,25 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 - **The audit object search states its scope, and names what an older runtime cannot recover.** The page
   and the exported file now say what an object search covers, and label rows that a runtime before
   `0.1.18` can no longer return.
+
+- **A chain truncated after it was anchored is no longer reported clean by both sides.** `verifyAnchor`
+  only proved the anchor record itself had not changed and never compared the anchored digest set with
+  the current one, so a truncation left the chain and the anchor both reporting clean. A read-only
+  coverage check now compares the two sets and names the missing digests as a tail deletion.
+
+- **A policy-blocked action no longer reads as "failed", and an exported instant no longer shifts by the
+  machine's offset.** The explanation state put the `isError` fallback ahead of the rejected outcomes, so
+  every blocked action was labelled a failure even though blocked rows carry `isError: true`; and a
+  zone-less database instant was parsed as local time, moving the exported clock by the reader's
+  timezone.
+
+- **Record-review coverage is computed from every receipt, not from the oldest page of them.**
+  `status()` and `coveredRanges()` read only the first 2000 receipts, so once a chain held more, a newer
+  genuine receipt silently stopped counting as reviewed. Both now read the whole sparse set, and the
+  response states `receiptsTotal` and `receiptsTruncated`, so a cut list is visible rather than silent.
+
+- **"Approve" is no longer offered on your own pending request.** The console hides the action on a
+  request the same person raised, so the decision cannot look like a second approval.
 
 ### Changed
 
@@ -60,6 +170,53 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
   哈希、字节数与截断标记仍在，过期正文仍答 200。留存内容不进入审计哈希 payload，审计链、
   `/audit/verify`、行动报告与证据包行为逐字不变。
 
+- **一次操作可以按业务对象 + 闭合区间找到，并导出为六问。** 审计读者现在可以按业务对象加闭合时间窗定位
+  一次操作，而对象只走唯一按身份搭的桥 —— 副作用 → 写占位 → 审计行，绝不按工具名对时间戳配对。
+  `GET /api/v1/audit/answers` 回答时间、动作、结果、对象、授权、发起人，且由一个 fail-closed 词表产出：
+  词表不认识的内部令牌变成通用产品词，绝不原样回显，故导出件是六列、0 处内部名。
+  `GET /api/v1/audit/object-types` 用同一份词表喂选择器。无匹配用话说出来，而不是返回空文件；普通用户
+  403，审计读者按组织收窄，与列表完全相同。管理台增加对象选择器、绝对日期区间、无匹配提示与导出。
+
+- **审计链尾被锚定，尾部被删也看得见。** `Server-NestJS/scripts/build-chain-anchor.ts` 在 `observedAt` 记下每条链的
+  已入链行数与末行（`rows/lastId/lastHash`），并对
+  `rootDigest = sha256(canonicalJSON({period,date,observedAt,chains}))` 做 SM2 签名；后来的读者拿签名过的
+  链尾与当前行对照，报尾部缺失、末行被改或尾部被替换，而链更长是「锚后新增」、不是删除 —— 只要锚定末行
+  仍然匹配。`verify-chain-anchor` 是只读入口，配套规程写在该链规格里。契约抬到 **v1.22.0**，加的是
+  `audit-chain-anchor` v1 的 schema，没有重写任何已发布文件。覆盖有边界：只到 `observedAt`、只数已入链的
+  行、且必须有信任域之外的人来对照。
+
+- **批准人留下自己的一行审计，且批准与拒绝两种措辞都点名。** R4 的裁决路径此前只写 operator 的
+  `tool_call` 行，审计读者在确认行上只看到一个数字 `approverId`，没有任何一行点名做出决定的人。
+  `decideApproval` 现在以批准人身份写一条 `tool_confirmation` 审计行并带用户名快照，detail 形状与内联
+  确认路径一致，故解释器、决策轨迹与 `deriveOutcome` 无需第二个解析器；执行行的注记与审计读面的批准一腿
+  显示 `姓名 (#id)`，六问导出对批准与拒绝都点名，取不到姓名快照时回落到纯 id 并如实说明。
+
+- **卡住的写占位会被自动重问，且次数有界。** 停在 `awaiting_decision` 的占位此前只能等管理员按按钮。
+  现在每小时清扫把到期的逐个经既有对账路径问一遍，按衰减计划 —— `CLAIM_RECONCILE_BACKOFF_MINUTES`
+  （默认 60、360、1440、4320 分钟）与 `CLAIM_RECONCILE_MAX_ATTEMPTS`（默认 4）—— 之后停止。次数由查询
+  证据行推出（人工对账也计入），故不加列、不写迁移。每趟跨全部占位最多发
+  `CLAIM_RECONCILE_MAX_PER_PASS` 个询问（默认 25），最老在前，没轮到的以 `deferredByPassCap` 报出来，
+  而不是沉默。自动询问记 `system:sweep` 为「谁问的」，`as_user_id` 仍是原写入者「以谁的身份问的」；
+  在途清单报 `lookupCount`、`autoReconcileStopped` 与 `autoReconcileDueAt`。
+
+- **无法比对的 effect 身份会说出来，并携带成因。** 身份读数此前是布尔，「没人捕获过该成员」与「捕获到且
+  一致」给出同一个判定，不可比成员默认落进 `complete`。现在是三值 —— `complete`、`disputed`、
+  `incomparable` —— 不可比成员携带 `not_captured`、`after_missing`、`empty_snapshot` 或 `unparsable`。
+  读不出的身份是 `null`，绝不是 `''` 或 `hash('')` 之类的占位值，否则一个可索引的共享值会让所有反向索引
+  碰撞。判定只读地暴露在业务动作治理视图上；不改任何撤销结论，也不动 schema。
+
+- **授权另四项也有第二来源。** 重演一次决策此前只对 `tool_enabled` 按记录版本的策略重跑，
+  「这次写被授权了」在角色、可写字段域、目的地、审批要求四项上仍只有单一来源。写入侧现在把这四项判定连同
+  其结构化输入一起冻结（只留参数名，不留取值），读侧按记录版本的策略历史逐项重跑；结果用 `changedChecks`
+  命名不一致项，无法重跑的项报 `notComparable` 与原因码，而不是默认「没变」。`reproducible` 改为
+  「无一项偏离」。改动是加性的：既有 `check`/`ok`/`note` 不动，改动之前的快照行为逐字不变。
+
+- **证据根把锚集合与它携带的行互相对照。** 各段此前各自单独校验 —— 每行 hash、锚摘要、整包签名 ——
+  从不互相对照；又因 `chains.aiAudit` 按副作用行的会话读，而 `ai-audit` 锚是占位行把这次动作归因到的
+  那一行，两者是两套键空间：包可以锚定一条它从未携带过的审计行，却仍验出 PASS。`verify-evidence` 现在把
+  两份读数差分成 `onlyDeclared` / `onlyStored`，命中任一条即判失败；它还会点名链段里没有链 hash 的行，
+  以及没有被副作用锚作保的副作用行。包没有新增字段，导出侧未改动。
+
 ### 安全
 
 - **单容器镜像不再内置密钥。** `Dockerfile.single` 曾把 `JWT_SECRET`、refresh 密钥与加密密钥烤进镜像，
@@ -67,7 +224,23 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
   而不是带着一个已知密钥起来。
 
 - **Webhook 投递按事件归属收窄。** `publish()` 原本会触达事件所有者之外的订阅，投递可能跨租户。
-  现在按归属用户与组织过滤。
+  现在只投递到事件所有者自己的订阅；取不到归属的事件直接丢弃并告警，而不是向外广播。
+
+- **每个 Release 附带一份全仓 CycloneDX SBOM，镜像在推送前先扫描。** 一份 SBOM 覆盖整棵树，有组件漏收时
+  覆盖校验判失败，且该 SBOM 附到 Release，评审或客户不必重建这棵树就能取证。发布镜像在推送前扫描，基线
+  之外的发现会挡住推送。每周一次的报告制扫描覆盖更宽的引用集合，但不判构建失败，故发现看得见，而不至于
+  变成意外的红。
+
+- **所有编排镜像按摘要钉住，门禁读整棵树。** 编排里的服务、CI 用的服务镜像、嵌套编排文件与离线预置引用
+  全部按摘要钉住并由同一道门禁检查，连不在 YAML 里的拉取引用也在射程内。
+
+- **依赖基线从「记录」变成「判红」，且靠整改收紧而不是靠顺延。** 缺 triage 决定或已过复核日期的条目会让
+  门禁失败；开发依赖的发现与生产依赖按同一份基线判定，新发现再也藏不到过期行后面。能清掉的条目已用同线
+  升级清掉 —— 其中管理台把 `vue-i18n` 升到 **11**，那条公告适用于 10.x 线 —— 剩下的每条都带着已接受的读数
+  与日期。
+
+- **运行镜像不再带构建期工具。** 构建期依赖与 `npm` 已从发布镜像中移除，`create-admin` 改为构建期编译，
+  镜像里只剩进程真正需要的东西。
 
 ### 修复
 
@@ -76,6 +249,20 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 - **审计对象检索写明口径，并点名旧运行时代不回的行。** 页面与导出件现在说明对象检索覆盖什么，并标注
   `0.1.18` 之前的运行时代不回来的行。
+
+- **锚定之后被截断的链，不再被链与锚两侧同时报干净。** `verifyAnchor` 只证明锚记录自身未被改，从不把锚里的
+  digest 集合与当前集合对照，故截断之后链与锚都报干净。新增只读的覆盖校验对照两份集合，并把缺失的 digest
+  点名为尾部删除。
+
+- **被策略挡下的动作不再读成「失败」，导出的时刻也不再随机器时差漂移。** 解释状态把 `isError` 兜底排在
+  被拒结果之前，而真实的 blocked 行同时带 `isError: true`，于是每次被挡下的动作都被标成失败；无时区的库内
+  时刻又被按本地时间解析，导出的钟面随读者时区移动。
+
+- **记录复核覆盖由全部回执算出，而不是只看最旧的一页。** `status()` 与 `coveredRanges()` 原先只读最旧的
+  2000 条回执，链上回执一多，较新的真实回执就悄悄不再计入「已复核」。两者改为读取整批稀疏行，响应新增
+  `receiptsTotal` 与 `receiptsTruncated`，被截断的清单因此看得见。
+
+- **自己发起的待批请求不再提供「批准」。** 管理台对本人提交的请求隐藏该动作，裁决不会被误当作第二次批准。
 
 ### 变更
 
