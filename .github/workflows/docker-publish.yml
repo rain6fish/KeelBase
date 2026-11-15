@@ -275,11 +275,17 @@ jobs:
           ID=$(resolve_release)
           if [ -z "$ID" ]; then
             NOTES=$'Draft created by the release workflow; add the release notes before publishing.\n\n由发布工作流创建的草稿；发布前请补上发布说明。'
-            gh release create "$TAG" --title "$TAG" --draft --notes "$NOTES"
-            ID=$(resolve_release)
+            # Create through the API so the id comes back in the same response. Re-resolving the list
+            # right after creation raced with visibility on v1.4.1: the draft (445848306) existed, the
+            # list did not show it yet, and this guard failed the job with nothing uploaded.
+            # 通过 API 创建，id 在同一次响应里返回。v1.4.1 实测过「建完立刻重查列表」的竞态：草稿
+            # 445848306 已存在，列表却还没出现它，守卫因此让作业失败、资产没传上去。
+            ID=$(gh api --method POST "repos/$GITHUB_REPOSITORY/releases" \
+              -f tag_name="$TAG" -f name="$TAG" -F draft=true -f body="$NOTES" \
+              --jq '.id')
           fi
           if [ -z "$ID" ]; then
-            echo "::error::no release for $TAG after creating a draft — nothing was uploaded"
+            echo "::error::could not create a draft release for $TAG — nothing was uploaded"
             exit 1
           fi
           echo "attaching sbom.cdx.json to release id $ID"
