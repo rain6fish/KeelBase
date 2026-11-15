@@ -447,4 +447,129 @@ describe('ToolExposureService（工具对外面）', () => {
       });
     });
   });
+
+  /**
+   * M3：可见面与执行门必须是**同一个判据**。
+   *
+   * 此前两处各写一遍同一套治理规则，且可见面漏了 featureFlag —— 开关关闭的工具仍作为 schema
+   * 下发给模型，直到执行才被拒。这些用例不比较两段代码是否相似，而是驱动两个真实入口
+   * （`buildToolDefs` / `assertToolAllowed`）对**同一主体、同一工具**给出同一判定。
+   */
+  describe('M3 可见面与执行门同一判据', () => {
+    const toDef = (name: string) => ({
+      type: 'function' as const,
+      function: { name, description: '', parameters: { type: 'object', properties: {} } },
+    });
+
+    const TOOLS = [
+      'query_events',
+      'generate_image',
+      'admin_tool',
+      'create_event',
+      'delete_customer',
+      'restricted_tool',
+    ];
+
+    /** 主体矩阵：已验证普通用户 / 未验证普通用户 / 管理员 / 特权哨兵 / 查不到的身份。 */
+    const SUBJECT_IDS = ['2', '3', '1', '0', '999'];
+    const USERS: Record<number, { id: number; role: string; emailVerified: boolean }> = {
+      2: { id: 2, role: 'user', emailVerified: true },
+      3: { id: 3, role: 'user', emailVerified: false },
+      1: { id: 1, role: 'admin', emailVerified: false },
+    };
+
+    const wire = (featureFlagOn: boolean) => {
+      const overrides: Record<string, any> = { restricted_tool: { allowedRoles: ['admin'] } };
+      const registry = new ToolRegistry();
+      const register = (name: string, extra: Record<string, unknown> = {}) =>
+        registry.register({
+          name,
+          description: '',
+          parameters: [],
+          toToolDefinition: () => toDef(name),
+          execute: jest.fn(),
+          ...extra,
+        } as any);
+      register('query_events');
+      register('generate_image', { permissions: { featureFlag: 'ai' } });
+      register('admin_tool', { permissions: { adminOnly: true } });
+      register('create_event', {
+        permissions: { requireVerifiedEmail: true },
+        requiresConfirmation: true,
+        revokeClass: 'local_compensate',
+      });
+      register('delete_customer', { riskLevel: 'R5' });
+      register('restricted_tool');
+
+      const external = new ExternalToolRegistry();
+      const users = {
+        findOne: jest.fn(async (id: number) => USERS[id] ?? null),
+      };
+      const policy = {
+        getPolicy: jest.fn().mockResolvedValue({ tools: overrides, audit: { granularity: 'all' } }),
+        isToolEnabled: jest.fn(async (name: string) => overrides[name]?.enabled ?? true),
+        getAllowedRoles: jest.fn(async (name: string) => overrides[name]?.allowedRoles ?? []),
+      };
+      const flags = { isEnabled: jest.fn(() => featureFlagOn) };
+      const gate = new ToolGateService(registry, external, policy as any, flags as any, users as any);
+      const exposure = new ToolExposureService(
+        registry,
+        gate,
+        external,
+        policy as any,
+        undefined,
+        users as any,
+        flags as any,
+      );
+      return { gate, exposure };
+    };
+
+    const namesOf = async (svc: ToolExposureService, userId: string) =>
+      (await svc.buildToolDefs(userId)).map((d) => d.function.name);
+    const gateAllows = async (gate: ToolGateService, name: string, userId: string) =>
+      gate.assertToolAllowed(name, userId).then(
+        () => true,
+        () => false,
+      );
+
+    it('特性开关关闭：工具不出现在可见面，且执行被拒（同一主体）', async () => {
+      const { gate, exposure } = wire(false);
+      expect(await namesOf(exposure, '2')).not.toContain('generate_image');
+      await expect(gate.assertToolAllowed('generate_image', '2')).rejects.toThrow(/feature flag/);
+    });
+
+    it('特性开关打开：同一工具重新可见，且执行放行', async () => {
+      const { gate, exposure } = wire(true);
+      expect(await namesOf(exposure, '2')).toContain('generate_image');
+      await expect(gate.assertToolAllowed('generate_image', '2')).resolves.toBeUndefined();
+    });
+
+    it('同一主体、同一工具：可见面与执行门给出同一判定（全矩阵）', async () => {
+      // 正向对照：矩阵不是「一律不可见/一律拒绝」。
+      expect(await namesOf(wire(true).exposure, '2')).toEqual(
+        expect.arrayContaining(['query_events', 'generate_image', 'create_event']),
+      );
+      expect(await namesOf(wire(true).exposure, '1')).toEqual(
+        expect.arrayContaining(['admin_tool', 'restricted_tool']),
+      );
+
+      const mismatches: string[] = [];
+      for (const featureFlagOn of [false, true]) {
+        const { gate, exposure } = wire(featureFlagOn);
+        for (const userId of SUBJECT_IDS) {
+          const visible = await namesOf(exposure, userId);
+          for (const tool of TOOLS) {
+            const isVisible = visible.includes(tool);
+            const isAllowed = await gateAllows(gate, tool, userId);
+            if (isVisible !== isAllowed) {
+              mismatches.push(
+                `flag=${featureFlagOn} subject=${userId} tool=${tool} visible=${isVisible} gateAllowed=${isAllowed}`,
+              );
+            }
+          }
+        }
+      }
+      expect(mismatches).toEqual([]);
+    });
+  });
 });
