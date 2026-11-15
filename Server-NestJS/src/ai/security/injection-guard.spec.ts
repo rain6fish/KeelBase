@@ -64,6 +64,86 @@ describe('injection-guard (HS-8 上下文注入防线)', () => {
         expect(out).not.toBe('[hash]');
       });
     });
+
+    // Regression for the O(n²) email regex (2026-11-15). The old pattern retried the remaining
+    // string at every start, so a 256 KB line without `@` took ~56 s; the retention cap now allows
+    // exactly that size on the awaited conversation path.
+    //
+    // O(n²) 邮箱正则的回归（2026-11-15）。旧模式在每个起点重跑剩余整段，256 KB 的无 `@` 单行要
+    // 约 56 秒；而留存上限如今正好允许这个尺寸，且该路径在对话链路上被 await。
+    describe('邮箱掩码的线性实现（O(n²) 回归）', () => {
+      // The pre-fix implementation, kept here as the reference the scanner must match verbatim.
+      // 修复前的实现，留作扫描器必须逐字对齐的参照。
+      const legacySanitize = (input: string): string => {
+        let out = input;
+        out = out.replace(
+          /([a-zA-Z0-9._%+-])[a-zA-Z0-9._%+-]*@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g,
+          (_match, first: string, domain: string) => `${first}***@${domain}`,
+        );
+        out = out.replace(/\b(1[3-9]\d)(\d{4})(\d{4})\b/g, '$1****$3');
+        out = out.replace(
+          /\b[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{3,}\b/g,
+          '[token]',
+        );
+        out = out.replace(/\bsk-[A-Za-z0-9_-]{10,}\b/g, '[api-key]');
+        out = out.replace(/\bAKIA[A-Z0-9]{16}\b/g, '[aws-key]');
+        out = out.replace(/\b[0-9a-f]{40,64}\b/g, '[hash]');
+        return out;
+      };
+
+      it('与旧正则逐字一致（确定性随机构造语料）', () => {
+        // Deterministic LCG so a failure is reproducible.
+        // 确定性 LCG，失败可复现。
+        let seed = 0x5eed1234;
+        const next = () => {
+          seed = (seed * 1664525 + 1013904223) >>> 0;
+          return seed;
+        };
+        const alphabet = 'ab.c@%-+_019XZ ,;';
+        for (let i = 0; i < 3000; i++) {
+          const len = next() % 64;
+          let s = '';
+          for (let j = 0; j < len; j++) s += alphabet[next() % alphabet.length];
+          expect(sanitizeExternalContent(s)).toBe(legacySanitize(s));
+        }
+      });
+
+      it('相邻/重叠形状与旧正则一致', () => {
+        const cases = [
+          'a@b@c.com',
+          'a@b.com1@c.com',
+          'a@b.c@d.cc',
+          'a.b@c.de, x@y.com',
+          'a@b.com.',
+          '@x.com',
+          'x@y..com',
+          'a@b.c1',
+          'mixed 13812345678 and alex@example.com end',
+        ];
+        for (const s of cases) {
+          expect(sanitizeExternalContent(s)).toBe(legacySanitize(s));
+        }
+      });
+
+      it('256 KB 无 `@` 的对抗串：线性耗时（上限 1 s，实测见报告）', () => {
+        const adversarial = 'x'.repeat(256 * 1024);
+        const started = Date.now();
+        const out = sanitizeExternalContent(adversarial);
+        const elapsed = Date.now() - started;
+        expect(out).toBe(adversarial);
+        expect(elapsed).toBeLessThan(1000);
+      });
+
+      it('256 KB 对抗串（带无效域）+ 末尾一个合法邮箱：仍能掩码且耗时受限', () => {
+        const input = `${'x'.repeat(200 * 1024)}@${'y'.repeat(50 * 1024)} alex@example.com`;
+        const started = Date.now();
+        const out = sanitizeExternalContent(input);
+        const elapsed = Date.now() - started;
+        expect(out).toContain('a***@example.com');
+        expect(out).not.toContain('alex@example.com');
+        expect(elapsed).toBeLessThan(1000);
+      });
+    });
   });
 
   describe('markSystemBoundary', () => {
