@@ -573,6 +573,8 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         // 4.1 创建 SubAgentOrchestrator（子代理委托 + Skills）
         const subAgentOrchestrator = new SubAgentOrchestrator(
           new SkillsRegistry(DEFAULT_SKILLS),
+          // 子代理回注模型的工具结果与主路径同一份渲染（脱敏 + 截断）
+          presentation,
         );
 
         // 4.5 B 路径 ProxyTool（AI Bridge §4）：从 Settings ai_proxy_tools 动态注册代理工具
