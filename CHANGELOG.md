@@ -152,7 +152,9 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 - **The single-container image no longer carries built-in secrets.** `Dockerfile.single` used to bake a
   `JWT_SECRET`, a refresh secret and an encryption key into the image, so every copy of it accepted
   tokens minted from a publicly readable value. Those defaults are gone; a container started without
-  them now fails fast instead of coming up with a known key.
+  them now fails fast instead of coming up with a known key. Images published before this release
+  (`<= v1.3.1`) still carry those values, so do not deploy them, and rotate the secrets on any
+  instance that ran one — `docs/manual/operations.md` §2.4 Secret Rotation walks through it.
 
 - **Webhook delivery is scoped to the event owner.** `publish()` used to reach subscribers outside the
   event's owner, so a delivery could cross tenants. It now delivers only to the event owner's own
@@ -278,7 +280,8 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 - **单容器镜像不再内置密钥。** `Dockerfile.single` 曾把 `JWT_SECRET`、refresh 密钥与加密密钥烤进镜像，
   于是任何一份镜像都接受用公开可读值签发的 token。这些默认值已移除；没提供密钥的容器现在直接失败，
-  而不是带着一个已知密钥起来。
+  而不是带着一个已知密钥起来。本版之前发布的镜像（`<= v1.3.1`）仍带着这些值，禁止部署；跑过它们的实例
+  必须轮换密钥 —— 步骤见 `docs/manual/operations.md` §2.4「密钥轮换」。
 
 - **Webhook 投递按事件归属收窄。** `publish()` 原本会触达事件所有者之外的订阅，投递可能跨租户。
   现在只投递到事件所有者自己的订阅；取不到归属的事件直接丢弃并告警，而不是向外广播。
