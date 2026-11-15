@@ -26,11 +26,12 @@ import {
 import { resolveToolDestination } from './tool-destination';
 import { BusinessException } from '../../common/errors/business.exception';
 import type { DenialCause } from '../../common/errors/denial-guidance';
-import { UserRole } from '../../common/entities/user.entity';
 import { MetricsService } from '../../metrics/metrics.service';
 import { isFixtureUser } from '../constants/fixture-identity';
 // ACT-7：执行点重算审批要求时要读**凭据本身**（确认行），故这里取确认存储
 import { ConfirmationStore } from '../confirmation/confirmation.store';
+// M3：这个主体能不能用这个工具 —— 与可见面共用的同一纯函数
+import { decideToolAccess, type ToolAccessDenial } from './tool-access';
 
 @Injectable()
 export class ToolGateService {
@@ -80,11 +81,13 @@ export class ToolGateService {
 
   /**
    * HS-2 + HS-9 工具执行前权限门控：按工具声明 + 治理策略检查调用资格。
-   * - HS-9 策略开关：工具被策略禁用时拒绝
-   * - HS-9 角色白名单：allowedRoles 非空时仅列内角色可调（headless 系统账号由 API Key 鉴权，跳过）
-   * - featureFlag：对应特性开关关闭时拒绝（对齐 HTTP 层 @FeatureFlag）
-   * - requireVerifiedEmail：写操作需已验证邮箱（对齐 EmailVerificationGuard，admin/headless 视为已验证）
-   * 无 permissions 声明的工具视为允许（数据隔离已由 execute 的 userId 保证）。
+   *
+   * 判定本身只有一处 —— `decideToolAccess`（与可见面共用的纯函数）。本方法只负责解析事实、把拒绝码
+   * 换回既有消息/拒绝原因/拒绝计数；放行与拒绝的语义、留痕口径均不变。
+   *
+   * The decision itself lives in one place: `decideToolAccess`, the pure predicate shared with the
+   * exposure surface. This method only resolves the facts and maps a denial code back to the existing
+   * message, denial cause and refusal counter; decisions and audit behaviour are unchanged.
    */
   async assertToolAllowed(
     toolName: string,
@@ -97,112 +100,140 @@ export class ToolGateService {
       // 工具未注册：让后续 execute 抛「not found」，这里不拦截
     }
 
-    // W5 风险模型：R5（不可逆/外部动作）→ 阻断，不进入确认/执行（评审二 §7）
-    if (tool && this.toolRegistry.riskLevel(toolName) === 'R5') {
-      this._refuse(
-        userId,
-        { name: 'risk_policy', ok: false, note: `风险级 R5（不可逆/外部动作）→ 阻断` },
-        `Tool "${toolName}" is blocked (risk level R5)`,
-        { kind: 'risk_r5', params: { tool: toolName } },
-      );
+    const riskLevel = tool ? this.toolRegistry.riskLevel(toolName) : undefined;
+
+    // W5 风险模型：R5（不可逆/外部动作）先判 —— 策略/用户读取发生在它之后，保持既有顺序与留痕。
+    const riskDecision = decideToolAccess({ userId, riskLevel });
+    if (!riskDecision.allowed) {
+      this._deny(riskDecision.denial, { toolName, userId, user: null, allowedRoles: [], featureFlag: '' });
     }
 
     // HS-9 治理策略：工具开关 + 角色白名单
+    let policyEnabled: boolean | undefined;
+    let allowedRoles: string[] | undefined;
     if (this.governancePolicy) {
-      const enabled = await this.governancePolicy.isToolEnabled(toolName);
-      if (!enabled) {
-        this._refuse(
-          userId,
-          { name: 'tool_enabled', ok: false, note: '治理策略禁用此工具' },
-          `Tool "${toolName}" is disabled by governance policy`,
-          { kind: 'tool_disabled', params: { tool: toolName } },
-        );
-      }
-      const allowedRoles = await this.governancePolicy.getAllowedRoles(toolName);
-      if (allowedRoles.length > 0 && userId !== '0') {
-        // A14：角色白名单每次工具调用实时查库取用户——角色降权对下一次工具调用立即生效；
-        // 治理策略本身经 SettingsService 缓存提供（写 settings 即失效重载），非持久缓存，
-        // 因此「策略降权不生效」的感知来自设置未落库，而非本层缓存。此处不做额外 TTL 缓存。
-        const user = this.usersService
-          ? await this.usersService.findOne(Number(userId))
-          : null;
-        if (!user || !user.role || !allowedRoles.includes(user.role)) {
-          this._refuse(
-            userId,
-            {
-              name: 'role_allowed',
-              ok: false,
-              note: `需要角色 [${allowedRoles.join(', ')}]${user ? `，当前 ${user.role ?? '无角色'}` : ''}`,
-            },
-            `Tool "${toolName}" is restricted to roles: ${allowedRoles.join(', ')}`,
-            {
-              kind: 'role_denied',
-              params: {
-                tool: toolName,
-                allowedRoles: allowedRoles.join(', '),
-                currentRole: user?.role ?? 'none',
-              },
-            },
-          );
-        }
+      policyEnabled = await this.governancePolicy.isToolEnabled(toolName);
+      // 禁用先于角色：工具已被禁用时不再取白名单（与判定顺序一致）。
+      if (policyEnabled) {
+        allowedRoles = await this.governancePolicy.getAllowedRoles(toolName);
       }
     }
 
     const perms = tool?.permissions;
-    if (!perms) return;
 
-    if (
-      perms.featureFlag &&
-      this.featureFlagsService &&
-      !this.featureFlagsService.isEnabled(perms.featureFlag as never)
-    ) {
-      this._refuse(
-        userId,
-        { name: 'feature_flag', ok: false, note: `特性开关 ${perms.featureFlag} 关闭` },
-        `Tool "${toolName}" is disabled (feature flag "${perms.featureFlag}" off)`,
-        {
-          kind: 'feature_disabled',
-          params: { tool: toolName, featureFlag: perms.featureFlag },
-        },
-      );
-    }
-
-    // System AI Assistant：adminOnly 工具仅管理员（或系统账号 '0'——eval/兼容）可调用。
-    // 管理端助手已改为真实管理员身份，故按角色放行（与角色白名单一致实时查库）。
-    if (perms.adminOnly && userId !== '0') {
-      const user = this.usersService
-        ? await this.usersService.findOne(Number(userId))
-        : null;
-      if (!user || user.role !== UserRole.ADMIN) {
-        this._refuse(
-          userId,
-          { name: 'admin_only', ok: false, note: '仅管理员/系统账号可用' },
-          `Tool "${toolName}" is admin-only`,
-          { kind: 'admin_only', params: { tool: toolName } },
-        );
-      }
-    }
-
-    // The privileged sentinel (userId '0', the system account) is produced by trusted in-process callers
-    // only — today that is the eval fixture's admin-assistant category — so it is not re-checked here.
-    // No request-side identity may be mapped to '0' (docs/authorization-architecture.md §3 L1).
+    // 角色白名单 / adminOnly / 邮箱验证都要读用户行。读不到时 role 留 undefined，纯函数据此
+    // fail-closed（与既有行为一致）。特权哨兵不读用户行。
     //
-    // 特权哨兵（userId '0'，系统账号）只由受信进程内入口产生 —— 今天是评测夹具的 admin-assistant
-    // 类目 —— 故此处不重复拦截。请求侧身份不得映射为 '0'（docs/authorization-architecture.md §3 L1）。
-    if (userId === '0') return;
+    // A14：角色白名单每次工具调用实时查库取用户——角色降权对下一次工具调用立即生效；
+    // 治理策略本身经 SettingsService 缓存提供（写 settings 即失效重载），非持久缓存，
+    // 因此「策略降权不生效」的感知来自设置未落库，而非本层缓存。此处不做额外 TTL 缓存。
+    const needsUser =
+      userId !== '0' &&
+      ((allowedRoles?.length ?? 0) > 0 ||
+        perms?.adminOnly === true ||
+        (perms?.requireVerifiedEmail === true && this.usersService !== undefined));
+    const user =
+      needsUser && this.usersService ? await this.usersService.findOne(Number(userId)) : null;
 
-    if (perms.requireVerifiedEmail && this.usersService) {
-      const user = await this.usersService.findOne(Number(userId));
-      // Consistent with EmailVerificationGuard: admin counts as verified (the system account '0' already
-      // returned above).
-      //
-      // 与 EmailVerificationGuard 一致：admin 视为已验证（系统账号 '0' 已在上面返回）。
-      if (user && user.role !== UserRole.ADMIN && !user.emailVerified) {
-        // 与上面各条**同闸门同计数器**：这里抛的是 BusinessException（错误码路径），但拒绝就是拒绝，
-        // 不能因为抛出类型不同就不计入——否则「门在守」的证据会缺一块。
-        this._countRefusal(userId, 'email_verified');
+    const decision = decideToolAccess({
+      userId,
+      role: user?.role,
+      permissions: perms,
+      riskLevel,
+      policyEnabled,
+      policyAllowedRoles: allowedRoles,
+      featureFlagEnabled:
+        perms?.featureFlag && this.featureFlagsService
+          ? this.featureFlagsService.isEnabled(perms.featureFlag as never)
+          : undefined,
+      emailVerified: user ? user.emailVerified === true : undefined,
+    });
+
+    if (!decision.allowed) {
+      this._deny(decision.denial, {
+        toolName,
+        userId,
+        user,
+        allowedRoles: allowedRoles ?? [],
+        featureFlag: perms?.featureFlag ?? '',
+      });
+    }
+  }
+
+  /**
+   * 把纯函数的拒绝码换回既有拒绝出口：消息、`AuthorizationCheck`、结构化原因与 M3 之前逐字一致。
+   * 邮箱验证沿用 `BusinessException`（错误码路径），但同样计入拒绝计数 —— 拒绝就是拒绝，
+   * 不因抛出类型不同而少一块「门在守」的证据。
+   */
+  private _deny(
+    denial: ToolAccessDenial,
+    ctx: {
+      toolName: string;
+      userId: string;
+      user: { role?: string } | null;
+      allowedRoles: string[];
+      featureFlag: string;
+    },
+  ): never {
+    switch (denial) {
+      case 'risk_r5':
+        return this._refuse(
+          ctx.userId,
+          { name: 'risk_policy', ok: false, note: `风险级 R5（不可逆/外部动作）→ 阻断` },
+          `Tool "${ctx.toolName}" is blocked (risk level R5)`,
+          { kind: 'risk_r5', params: { tool: ctx.toolName } },
+        );
+      case 'tool_disabled':
+        return this._refuse(
+          ctx.userId,
+          { name: 'tool_enabled', ok: false, note: '治理策略禁用此工具' },
+          `Tool "${ctx.toolName}" is disabled by governance policy`,
+          { kind: 'tool_disabled', params: { tool: ctx.toolName } },
+        );
+      case 'role_denied':
+        return this._refuse(
+          ctx.userId,
+          {
+            name: 'role_allowed',
+            ok: false,
+            note: `需要角色 [${ctx.allowedRoles.join(', ')}]${ctx.user ? `，当前 ${ctx.user.role ?? '无角色'}` : ''}`,
+          },
+          `Tool "${ctx.toolName}" is restricted to roles: ${ctx.allowedRoles.join(', ')}`,
+          {
+            kind: 'role_denied',
+            params: {
+              tool: ctx.toolName,
+              allowedRoles: ctx.allowedRoles.join(', '),
+              currentRole: ctx.user?.role ?? 'none',
+            },
+          },
+        );
+      case 'feature_disabled':
+        return this._refuse(
+          ctx.userId,
+          { name: 'feature_flag', ok: false, note: `特性开关 ${ctx.featureFlag} 关闭` },
+          `Tool "${ctx.toolName}" is disabled (feature flag "${ctx.featureFlag}" off)`,
+          {
+            kind: 'feature_disabled',
+            params: { tool: ctx.toolName, featureFlag: ctx.featureFlag },
+          },
+        );
+      case 'admin_only':
+        // System AI Assistant：adminOnly 工具仅管理员（或系统账号 '0'——eval/兼容）可调用。
+        // 管理端助手已改为真实管理员身份，故按角色放行（与角色白名单一致实时查库）。
+        return this._refuse(
+          ctx.userId,
+          { name: 'admin_only', ok: false, note: '仅管理员/系统账号可用' },
+          `Tool "${ctx.toolName}" is admin-only`,
+          { kind: 'admin_only', params: { tool: ctx.toolName } },
+        );
+      case 'email_verified':
+        // Consistent with EmailVerificationGuard: admin counts as verified (the system account '0'
+        // never reaches this branch).
+        //
+        // 与 EmailVerificationGuard 一致：admin 视为已验证（系统账号 '0' 不会走到这里）。
+        this._countRefusal(ctx.userId, 'email_verified');
         throw new BusinessException('EMAIL_NOT_VERIFIED');
-      }
     }
   }
 

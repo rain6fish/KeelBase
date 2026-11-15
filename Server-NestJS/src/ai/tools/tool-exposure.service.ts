@@ -19,12 +19,20 @@ import { Injectable, Optional } from '@nestjs/common';
 import { ToolRegistry } from './tool-registry';
 import { ToolGateService } from './tool-gate.service';
 import { ExternalToolRegistry } from './external-tool-registry';
-import { ToolDefinition, ToolResult, RISK_STRATEGY, resolveRevokeClass } from '../interfaces/tool.interface';
+import {
+  AiTool,
+  ToolDefinition,
+  ToolResult,
+  RISK_STRATEGY,
+  resolveRevokeClass,
+} from '../interfaces/tool.interface';
 import { ExternalToolProvider, ExternalToolDef } from '../external-tool-provider.interface';
 import { GovernancePolicyService, effectiveGateMode } from '../../governance-shared/services/governance-policy.service';
 import { SettingsService, SETTING_KEYS } from '../../settings/settings.service';
 import { UsersService } from '../../users/users.service';
+import { FeatureFlagsService } from '../../feature-flags/feature-flags.service';
 import { UserRole } from '../../common/entities/user.entity';
+import { decideToolAccess } from './tool-access';
 
 @Injectable()
 export class ToolExposureService {
@@ -35,6 +43,7 @@ export class ToolExposureService {
     @Optional() private readonly governancePolicy?: GovernancePolicyService,
     @Optional() private readonly settingsService?: SettingsService,
     @Optional() private readonly usersService?: UsersService,
+    @Optional() private readonly featureFlagsService?: FeatureFlagsService,
   ) {}
 
   /**
@@ -46,42 +55,56 @@ export class ToolExposureService {
   }
 
   /**
+   * HS-10: built-in + external tool definitions (the LLM tool stream). External discovery degrades
+   * silently to built-ins.
+   *
+   * The surface is narrowed by caller identity with the **same predicate the execution gate uses**
+   * (`decideToolAccess`): tools disabled by governance policy, outside their role allow-list, whose
+   * feature flag is off, that are admin-only for a non-admin caller, whose R5 risk level blocks them,
+   * or that require a verified email the caller does not have are never described. Execution still
+   * refuses them; narrowing only shrinks what the model can see — one misleading schema less and one
+   * pointless token less. An unresolvable identity fails closed for the role/admin criteria, exactly
+   * as the gate does.
+   *
+   * Call once per turn: external discovery happens on that one call, not per loop round.
+   *
    * HS-10：内置 + 外部工具定义合并（供 LLM 工具流）。外部工具发现失败静默降级为内置。
    *
-   * 0-A 工具面收窄：下发给 LLM 的定义按**调用主体**收窄 —— 治理策略禁用的工具、角色白名单外的
-   * 工具、非管理员主体的 adminOnly 工具都不下发 schema。执行点（`ToolGateService`）本来就会拦，
-   * 这里收窄的是「模型能看见什么」：少一份可被诱导的不可用 schema，也少一份无谓 token。
-   * 身份解析不到时按 fail-closed（adminOnly / 白名单工具不下发），与仓库「身份缺失一律 DENY」一致。
+   * 工具面按调用主体收窄，判据与执行门**同一个纯函数**（`decideToolAccess`）：治理策略禁用的、
+   * 角色白名单外的、特性开关关闭的、非管理员的 adminOnly、R5 阻断的、以及要求已验证邮箱而主体
+   * 未验证的工具都不下发 schema。执行点本来就会拒，这里收窄的是「模型能看见什么」：少一份可被
+   * 诱导的不可用 schema，也少一份无谓 token。身份解析不到时按 fail-closed 处理角色/管理员判据，
+   * 与门一致。
    *
    * 每次对话调用一次即可（turn 级）：外部工具发现也随这一次完成，不再逐轮重建。
-   *
-   * 0-A narrows the tool surface exposed to the LLM by caller identity: tools disabled by governance
-   * policy, tools outside their role allow-list, and admin-only tools for non-admin callers are not
-   * described at all. The execution point already refuses them; this only shrinks what the model can
-   * see. An unresolvable identity fails closed. Call once per turn, not once per loop round.
    */
   async buildToolDefs(userId?: string): Promise<ToolDefinition[]> {
     const policy = this.governancePolicy ? await this.governancePolicy.getPolicy() : null;
-    const role = await this._roleOf(userId);
-    const overrides = policy?.tools ?? {};
-    const visible = (name: string, adminOnly?: boolean): boolean => {
-      const override = overrides[name] ?? {};
-      if (override.enabled === false) return false;
-      const allowedRoles = Array.isArray(override.allowedRoles) ? override.allowedRoles : [];
-      if (allowedRoles.length > 0 && userId !== '0' && (!role || !allowedRoles.includes(role))) {
-        return false;
-      }
-      if (adminOnly && userId !== '0' && role !== UserRole.ADMIN) return false;
-      return true;
+    const subject = await this._subjectOf(userId);
+
+    const canUse = (name: string, tool?: AiTool): boolean => {
+      const override = policy?.tools?.[name];
+      const perms = tool?.permissions;
+      return decideToolAccess({
+        userId: userId ?? '',
+        role: subject.role,
+        permissions: perms,
+        riskLevel: tool ? this.toolRegistry.riskLevel(name) : undefined,
+        policyEnabled: policy ? (override?.enabled ?? true) : undefined,
+        policyAllowedRoles: policy ? override?.allowedRoles : undefined,
+        featureFlagEnabled:
+          perms?.featureFlag && this.featureFlagsService
+            ? this.featureFlagsService.isEnabled(perms.featureFlag as never)
+            : undefined,
+        emailVerified: subject.emailVerified,
+      }).allowed;
     };
 
-    const builtin = this.toolRegistry.getToolDefinitions((tool) =>
-      visible(tool.name, tool.permissions?.adminOnly === true),
-    );
+    const builtin = this.toolRegistry.getToolDefinitions((tool) => canUse(tool.name, tool));
     if (!this.externalTools.current) return builtin;
     try {
       const external: ExternalToolDef[] = await this.externalTools.current.listExternalTools();
-      const allowed = external.filter((t) => visible(t.name));
+      const allowed = external.filter((t) => canUse(t.name));
       if (allowed.length === 0) return builtin;
       return [
         ...builtin,
@@ -96,23 +119,27 @@ export class ToolExposureService {
   }
 
   /**
-   * 解析调用主体角色。身份缺失/查不到 → undefined（调用方据此 fail-closed）。
-   * 特权哨兵 `'0'` 由受信进程内入口产生，按管理员处理（与 `ToolGateService` 同一口径）。
+   * Resolve the caller's identity facts used by `decideToolAccess`. An absent or unknown identity
+   * yields no role (fail-closed for role/admin criteria). The privileged sentinel `'0'` is produced
+   * by trusted in-process callers and reads as admin.
    *
-   * Resolve the caller's role; an absent or unknown identity yields `undefined` (fail-closed).
-   * The privileged sentinel `'0'` is produced by trusted in-process callers and reads as admin.
+   * 解析调用主体的事实（角色与邮箱验证状态）。身份缺失/查不到 → 没有角色（角色/管理员判据据此
+   * fail-closed）。特权哨兵 `'0'` 由受信进程内入口产生，按管理员处理。
    */
-  private async _roleOf(userId?: string): Promise<string | undefined> {
-    if (!userId) return undefined;
-    if (userId === '0') return UserRole.ADMIN;
-    if (!this.usersService) return undefined;
+  private async _subjectOf(
+    userId?: string,
+  ): Promise<{ role?: string; emailVerified?: boolean }> {
+    if (!userId) return {};
+    if (userId === '0') return { role: UserRole.ADMIN };
+    if (!this.usersService) return {};
     const id = Number(userId);
-    if (!Number.isFinite(id)) return undefined;
+    if (!Number.isFinite(id)) return {};
     try {
       const user = await this.usersService.findOne(id);
-      return user?.role;
+      if (!user) return {};
+      return { role: user.role, emailVerified: user.emailVerified === true };
     } catch {
-      return undefined;
+      return {};
     }
   }
 
