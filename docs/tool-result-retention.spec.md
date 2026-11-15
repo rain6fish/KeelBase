@@ -34,7 +34,7 @@ Table `ai_tool_result_bodies` (new; one row per audited tool call, anchored by `
 | `stored_bytes` | integer | bytes of `body_text` |
 | `body_sha256` | varchar(64) | sha256 of `body_text`; kept after expiry as a commitment |
 | `original_sha256` | varchar(64) | sha256 of the pre-masking full result |
-| `model_text` | text | exactly what the model received (≤4000 chars, masked); null on R4 / MCP |
+| `model_text` | text | the model input after field-name masking (≤4000 chars); null on R4 / MCP |
 | `model_chars` / `model_sha256` | integer / varchar(64) | length and hash of `model_text` |
 | `was_truncated` | boolean | whether the projection dropped anything |
 | `created_at` / `expires_at` | datetime | write time and end of the retention window |
@@ -49,17 +49,18 @@ paths, `_agentStepExecutor` (plan / sub-agent), the R4 executor and the MCP expo
 paths, audit granularity `off` leaves no row to anchor to, so nothing is retained there; the R4
 executor and the MCP export write their rows regardless of that setting (their own pre-existing
 behaviour), so their bodies are retained whenever retention itself is on. `redactSensitive` (field names) then `sanitizeExternalContent` (emails,
-phones, tokens, long hex) mask the body before it is stored; `model_text` is kept verbatim because the
-model's copy is produced by project-then-sanitize, which the sanitize-then-store body cannot be
-inverted into. A capture failure logs a warning and never fails the tool call, the answer or the
-audit row.
+phones, tokens, long hex) mask the body before it is stored. The model's copy is produced by
+project-then-sanitize, which the sanitize-then-store body cannot be inverted into, so it is kept on
+its own; before it is stored it gets the same field-name redaction, i.e. `model_text` is the model
+input **after** `redactSensitive`. A capture failure logs a warning and never fails the tool call,
+the answer or the audit row.
 
 中文。只在已有审计行时留存，且紧接该行之后：对话两条路径、`_agentStepExecutor`（plan / 子代理）、
 R4 执行器与 MCP 出口。对话路径上审计粒度 `off` 时没有行可锚，故不留存；R4 执行器与 MCP 出口不随该
 设置停止写行（这是它们既有的行为），因此只要留存本身开启，那两条路径的正文仍会留存。写入前
-先 `redactSensitive`（字段名）再 `sanitizeExternalContent`（邮箱/手机/token/长 hex）；`model_text`
-原样保留，因为模型那份是「先投影、再脱敏」，无法从「先脱敏、再存」的正文反推。留存失败只告警，
-绝不让工具调用、回答或审计行失败。
+先 `redactSensitive`（字段名）再 `sanitizeExternalContent`（邮箱/手机/token/长 hex）。模型那份是
+「先投影、再脱敏」，无法从「先脱敏、再存」的正文反推，故单独留存；落库前同样过字段名打码，即
+`model_text` 是 `redactSensitive` **之后**的模型输入。留存失败只告警，绝不让工具调用、回答或审计行失败。
 
 Default scope is `truncated` (only calls whose full body exceeded the 4000-char budget); `all` keeps
 every call. A body over `TOOL_RESULT_BODY_MAX_BYTES` is stored as `capped`: no text, but sizes and
@@ -135,7 +136,7 @@ TOOL_RESULT_BODY_SCOPE=truncated     # truncated | all
 ## 8. 验收 / 8. Acceptance
 
 1. A call over 4000 chars: `body_text` equals the same two-stage masking of the full result; `was_truncated=true`.
-2. `model_text` is byte-for-byte what the model received; `model_sha256` matches it.
+2. `model_text` is byte-for-byte the model input after field-name redaction; `model_sha256` matches it.
 3. After forcing expiry: 200, `bodyState=expired`, texts null, hashes and sizes remain.
 4. `/audit/verify` passes before and after; audit row width unchanged.
 5. Audit granularity `off` → no audit row, no retention row.
