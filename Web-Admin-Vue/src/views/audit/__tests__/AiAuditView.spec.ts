@@ -7,7 +7,7 @@ import { createI18n } from 'vue-i18n'
 import zh from '@/i18n/zh'
 import en from '@/i18n/en'
 
-const { logsMock, statsMock, verifyMock, interpretationMock, identityChainMock, coverageMock, reviewsMock, objectTypesMock, answersMock, errorMock, successMock, warningMock, showMock, csvMock } = vi.hoisted(() => ({
+const { logsMock, statsMock, verifyMock, interpretationMock, identityChainMock, coverageMock, reviewsMock, objectTypesMock, answersMock, toolResultMock, errorMock, successMock, warningMock, showMock, csvMock } = vi.hoisted(() => ({
   logsMock: vi.fn(),
   statsMock: vi.fn(),
   verifyMock: vi.fn(),
@@ -17,6 +17,7 @@ const { logsMock, statsMock, verifyMock, interpretationMock, identityChainMock, 
   reviewsMock: vi.fn(),
   objectTypesMock: vi.fn(),
   answersMock: vi.fn(),
+  toolResultMock: vi.fn(),
   errorMock: vi.fn(),
   successMock: vi.fn(),
   warningMock: vi.fn(),
@@ -35,6 +36,7 @@ vi.mock('@/api/audit', () => ({
     reviews: reviewsMock,
     objectTypes: objectTypesMock,
     answers: answersMock,
+    toolResult: toolResultMock,
   },
 }))
 // AU-4：会话下钻用 adminApi（元数据 + 正文）；mock 掉避免测试里出现真实网络调用
@@ -49,6 +51,7 @@ vi.mock('@/utils/csv', () => ({ downloadCsv: csvMock }))
 vi.mock('vue-router', () => ({ useRoute: () => ({ query: {} }) }))
 
 import ElementPlus from 'element-plus'
+import { ApiError } from '@/api/client'
 import AiAuditView from '../AiAuditView.vue'
 
 // PageHeader stub：渲染默认插槽，使页头里的「导出」按钮在测试里可点（真 stub 会吞掉插槽）。
@@ -66,8 +69,11 @@ const AppTableStub = defineComponent({
     '<div class="app-table-stub"><template v-for="item in items" :key="item.id"><slot name="item.action" :item="item" /><slot name="item.reviewed" :item="item" /><slot name="item.expand" :item="item" /></template></div>',
 })
 
-function mountView() {
-  const i18n = createI18n({ legacy: false, locale: 'zh', messages: { zh, en } })
+function makeI18n() {
+  return createI18n({ legacy: false, locale: 'zh', messages: { zh, en } })
+}
+
+function mountView(i18n = makeI18n()) {
   return mount(AiAuditView, {
     global: {
       plugins: [i18n, ElementPlus],
@@ -421,6 +427,91 @@ describe('AiAuditView', () => {
 
       expect(wrapper.text()).toContain('批准人: 2')
       expect(wrapper.text()).not.toContain('（#2）')
+      wrapper.unmount()
+    })
+  })
+
+  // 0-B：留存正文三态 + 「未留存」与「读不了」两句不同的话。
+  // 0-B: the three retention states, and the two sentences «nothing kept» vs «could not read».
+  describe('0-B 留存正文', () => {
+    const base = {
+      auditRowId: 1,
+      toolName: 'query_customers',
+      outcome: 'executed',
+      bodyBytes: 149,
+      storedBytes: 149,
+      bodySha256: 'a'.repeat(64),
+      originalSha256: 'a'.repeat(64),
+      modelChars: 146,
+      modelSha256: 'b'.repeat(64),
+      createdAt: null,
+      expiresAt: null,
+    }
+
+    beforeEach(() => {
+      statsMock.mockResolvedValue({ totalTokens: 0 })
+      logsMock.mockResolvedValue([{ id: 1, action: 'tool_call', tool: 'query_customers', createdAt: '2026-11-15' }])
+    })
+
+    async function openRetention(i18n = makeI18n()) {
+      const wrapper = mountView(i18n)
+      await flushPromises()
+      await wrapper.find('.app-table-stub button').trigger('click')
+      await flushPromises()
+      const load = wrapper.findAll('button').find((b) => b.text().trim() === zh.toolResultLoad)
+      expect(load).toBeTruthy()
+      await load!.trigger('click')
+      await flushPromises()
+      return wrapper
+    }
+
+    it('stored：正文与模型实收那份都在', async () => {
+      toolResultMock.mockResolvedValue({
+        ...base, bodyState: 'stored', body: '{"email":"[REDACTED]"}', wasTruncated: true,
+        modelText: '{"email":"[REDACTED]"}',
+      })
+      const wrapper = await openRetention()
+      expect(wrapper.text()).toContain('{"email":"[REDACTED]"}')
+      expect(wrapper.text()).toContain(zh.toolResultModelText)
+      wrapper.unmount()
+    })
+
+    it('capped：明说正文超过上限未保存，且不渲染空正文框', async () => {
+      toolResultMock.mockResolvedValue({
+        ...base, bodyState: 'capped', body: null, bodyBytes: 524288, storedBytes: null,
+        bodySha256: null, wasTruncated: true, modelText: null,
+      })
+      const wrapper = await openRetention()
+      expect(wrapper.text()).toContain(zh.toolResultCapped.replace('{size}', '524288 B'))
+      expect(wrapper.findAll('pre.tool-result-body')).toHaveLength(0)
+      wrapper.unmount()
+    })
+
+    it('expired：墓碑文案，不渲染正文', async () => {
+      toolResultMock.mockResolvedValue({
+        ...base, bodyState: 'expired', body: null, wasTruncated: true, modelText: null,
+      })
+      const wrapper = await openRetention()
+      expect(wrapper.text()).toContain(zh.toolResultExpired)
+      expect(wrapper.findAll('pre.tool-result-body')).toHaveLength(0)
+      wrapper.unmount()
+    })
+
+    it('404（未留存）≠ 读取失败：各说各的话；切换语言后那句话也跟着换', async () => {
+      const i18n = makeI18n()
+      toolResultMock.mockRejectedValue(new ApiError('未留存', 404))
+      let wrapper = await openRetention(i18n)
+      expect(wrapper.text()).toContain(zh.toolResultNotFound)
+      expect(wrapper.text()).not.toContain(zh.toolResultUnavailable)
+
+      i18n.global.locale.value = 'en'
+      await flushPromises()
+      expect(wrapper.text()).toContain(en.toolResultNotFound)
+
+      toolResultMock.mockRejectedValue(new ApiError('boom', 500))
+      wrapper.unmount()
+      wrapper = await openRetention()
+      expect(wrapper.text()).toContain(zh.toolResultUnavailable)
       wrapper.unmount()
     })
   })

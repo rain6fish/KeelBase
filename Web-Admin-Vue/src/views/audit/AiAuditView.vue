@@ -395,9 +395,12 @@
           <div v-if="toolResult.bodyState === 'expired'" class="text-warning">
             {{ t('toolResultExpired') }}
           </div>
-          <template v-else>
+          <div v-else-if="toolResult.bodyState === 'capped'" class="text-warning mb-1">
+            {{ t('toolResultCapped', { size: toolResultSize }) }}
+          </div>
+          <template v-if="toolResult.bodyState !== 'expired'">
             <div class="text-medium-emphasis mb-1">{{ toolResultMeta }}</div>
-            <pre class="tool-result-body">{{ toolResult.body ?? '' }}</pre>
+            <pre v-if="toolResult.body" class="tool-result-body">{{ toolResult.body }}</pre>
             <template v-if="toolResult.modelText">
               <div class="text-subtitle-2 mt-3 mb-1">{{ t('toolResultModelText') }}</div>
               <pre class="tool-result-body">{{ toolResult.modelText }}</pre>
@@ -462,6 +465,7 @@ import FieldDiff from '@/components/FieldDiff.vue'
 import TrendBarList from '@/components/TrendBarList.vue'
 import { useSnackbarStore } from '@/stores/snackbar'
 import { auditApi } from '@/api/audit'
+import { ApiError } from '@/api/client'
 import { adminApi } from '@/api/admin'
 import { downloadCsv } from '@/utils/csv'
 import { formatTime } from '@/utils/format'
@@ -728,7 +732,7 @@ function toggleExpand(id: number) {
   interpretation.value = null
   identityChain.value = null
   toolResult.value = null
-  toolResultError.value = ''
+  toolResultErrorKey.value = ''
   if (!isSame && log) {
     auditApi.interpretation(id).then((r) => { interpretation.value = r }).catch(() => { interpretation.value = null })
     auditApi.chain(id).then((c) => { identityChain.value = c }).catch(() => { identityChain.value = null })
@@ -750,28 +754,45 @@ const identityChain = ref<IdentityChain | null>(null)
  */
 const toolResult = ref<ToolResultBody | null>(null)
 const toolResultLoading = ref(false)
-const toolResultError = ref('')
+// Keep the *key*, not the translated sentence: a sentence frozen at request time stays in the old
+// language after the header's language switch, which reads as a half-translated page.
+// 存键而不是译好的句子：请求时冻住的句子在顶栏切换语言后仍停在旧语言，看起来像半截翻译。
+const toolResultErrorKey = ref<'' | 'notFound' | 'unavailable'>('')
+const toolResultError = computed(() =>
+  toolResultErrorKey.value === 'notFound'
+    ? t('toolResultNotFound')
+    : toolResultErrorKey.value === 'unavailable'
+      ? t('toolResultUnavailable')
+      : '',
+)
+
+const toolResultSize = computed(() => {
+  const bytes = toolResult.value?.bodyBytes
+  return bytes == null ? '-' : `${bytes} B`
+})
 
 const toolResultMeta = computed(() => {
   const r = toolResult.value
   if (!r) return ''
-  const size = r.bodyBytes == null ? '-' : `${r.bodyBytes} B`
   const state = r.wasTruncated ? t('toolResultTruncated') : t('toolResultComplete')
   const sha = (r.bodySha256 ?? r.originalSha256 ?? '-').slice(0, 12)
-  return t('toolResultMeta', { tool: r.toolName ?? '-', size, state, sha })
+  return t('toolResultMeta', { tool: r.toolName ?? '-', size: toolResultSize.value, state, sha })
 })
 
 async function loadToolResult() {
   const id = expanded.value?.id
   if (!id) return
   toolResultLoading.value = true
-  toolResultError.value = ''
+  toolResultErrorKey.value = ''
   try {
     toolResult.value = await auditApi.toolResult(id)
   } catch (e: unknown) {
     toolResult.value = null
-    const status = (e as { response?: { status?: number } })?.response?.status
-    toolResultError.value = status === 404 ? t('toolResultNotFound') : t('toolResultUnavailable')
+    // The axios layer normalizes failures into `ApiError` (with `statusCode`), so reading
+    // `response.status` here never matched and a 404 was shown as a generic failure — the two
+    // sentences this block exists to keep apart. Read the class first, then the raw axios shape.
+    const status = e instanceof ApiError ? e.statusCode : (e as { response?: { status?: number } })?.response?.status
+    toolResultErrorKey.value = status === 404 ? 'notFound' : 'unavailable'
   } finally {
     toolResultLoading.value = false
   }
