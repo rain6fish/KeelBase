@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { createHash } from 'crypto';
+import { redactSensitive } from '../../common/utils/mask';
+import { sanitizeExternalContent } from '../security/injection-guard';
 import { ToolResultRetentionService } from './tool-result-retention.service';
 import { ToolPresentationService } from '../tools/tool-presentation.service';
 
@@ -61,7 +63,7 @@ describe('ToolResultRetentionService', () => {
     expect(store.saveIfAbsent).not.toHaveBeenCalled();
   });
 
-  it('被截断的调用：留完整正文（键级 + 字符串级脱敏）、字节数、双哈希、模型实收文本', async () => {
+  it('被截断的调用：留完整正文（键级 + 字符串级脱敏）、字节数、双哈希、模型输入（字段名脱敏后）', async () => {
     const store = { saveIfAbsent: jest.fn() };
     const svc = makeService(store);
     const presentation = new ToolPresentationService({} as never, {} as never);
@@ -92,11 +94,50 @@ describe('ToolResultRetentionService', () => {
     expect(row.bodyText).not.toContain('user0@example.com');
     expect(row.bodySha256).toBe(sha256(row.bodyText));
     expect(row.originalSha256).toBe(sha256(rendered.fullJson));
-    // 模型实收的那份是原样保留的（字符串级脱敏），用于逐字节核对。
-    expect(row.modelText).toBe(rendered.text);
-    expect(row.modelChars).toBe(rendered.text.length);
-    expect(row.modelSha256).toBe(sha256(rendered.text));
+    // 模型那份在落库前同样过字段名打码（模型输入已经是字符串级脱敏过的 JSON）。
+    expect(row.modelText).toBe(redactSensitive(rendered.text));
+    expect(row.modelChars).toBe(row.modelText.length);
+    expect(row.modelSha256).toBe(sha256(row.modelText));
     expect(row.expiresAt.getTime()).toBeGreaterThan(Date.now() + 29 * 24 * 3600 * 1000);
+  });
+
+  it('model_text 里的字段名值也打码（body_text 行为不变）', async () => {
+    const store = { saveIfAbsent: jest.fn() };
+    const svc = makeService(store);
+    const presentation = new ToolPresentationService({} as never, {} as never);
+    // 字符串级清洗管不到 firstName / lastName / bio / address —— 只有字段名打码能盖住它们。
+    const result = {
+      success: true,
+      data: Array.from({ length: 30 }, (_, i) => ({
+        id: i,
+        firstName: `Alice${i}`,
+        lastName: `Smith${i}`,
+        bio: 'loves cats',
+        address: `${i} Main Street`,
+        note: 'x'.repeat(200),
+      })),
+    };
+    const rendered = presentation.renderToolResult(result);
+
+    await svc.capture({
+      auditRowId: 21,
+      userId: '42',
+      toolName: 'query_customers',
+      result,
+      rendered,
+    });
+
+    expect(rendered.wasTruncated).toBe(true);
+    const row = store.saveIfAbsent.mock.calls[0][0];
+    // 模型那份：字段名下的值不再明文。
+    expect(row.modelText).toContain('[REDACTED]');
+    expect(row.modelText).not.toContain('Alice0');
+    expect(row.modelText).not.toContain('Smith0');
+    expect(row.modelText).not.toContain('loves cats');
+    expect(row.modelText).not.toContain('0 Main Street');
+    expect(row.modelSha256).toBe(sha256(row.modelText));
+    // 正文：仍是既有的两道（字段名 + 字符串级），本次改动不碰它。
+    expect(row.bodyText).toBe(sanitizeExternalContent(redactSensitive(rendered.fullJson)));
   });
 
   it('scope=all：未截断的调用也留存', async () => {

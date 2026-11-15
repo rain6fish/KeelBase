@@ -33,26 +33,30 @@ export interface RetainToolResultInput {
  * Three rules shape it:
  * - **Off-chain.** Nothing here enters `buildPayload`; the audit chain is untouched.
  * - **Masked before stored.** Field-level masking (`redactSensitive`, the same predicate the audit
- *   before-snapshot uses) plus the string-level sanitizer the model input already gets. The admin
- *   console must never show plaintext PII, and this is the only store that could.
+ *   before-snapshot uses) on both the full body and the model's copy, plus the string-level
+ *   sanitizer. The admin console must never show plaintext PII, and this is the only store that
+ *   could.
  * - **Never in the caller's way.** A failure here degrades to "no body retained" with a warning; it
  *   never fails the tool call, the answer, or the audit row. Retention is evidence, not a gate.
  *
- * The model-facing text is kept **verbatim** (`model_text`) because the truncation order is
+ * The model's copy is retained separately (`model_text`) because the truncation order is
  * project-then-sanitize, while the stored full body is sanitize-then-(not)-project: the two cannot be
  * derived from each other in general (a long hex string cut in half stops matching the mask regex).
+ * It gets the same field-name redaction before it is stored, so what is kept is the model input
+ * **after** `redactSensitive`, not a byte-for-byte copy of it.
  *
  * 0-B 留存的写入侧：保存一次工具调用的结果正文，使被截断的结果事后仍可核对。
  *
  * 三条规则：
  * - **链外**：这里没有任何东西进 `buildPayload`，审计链不受影响。
- * - **先脱敏再存**：字段级（`redactSensitive`，与审计 before 快照同一判据）+ 模型输入本就会过的
- *   字符串级脱敏。管理台不得出现明文 PII，而这是唯一可能有的存储。
+ * - **先脱敏再存**：字段级（`redactSensitive`，与审计 before 快照同一判据）对完整正文与模型那份都做，
+ *   外加模型输入本就会过的字符串级脱敏。管理台不得出现明文 PII，而这是唯一可能有的存储。
  * - **绝不挡路**：这里失败只降级为「没有留存正文」并告警；绝不让工具调用、回答或审计行失败。
  *   留存是证据，不是闸。
  *
- * 模型实收文本**原样**保留（`model_text`）：截断的顺序是「先投影、再脱敏」，而留存的完整正文是
- * 「先脱敏、再（未）投影」—— 两者一般不互为反推（长 hex 串被切断后不再命中掩码正则）。
+ * 模型那份单独留存（`model_text`）：截断的顺序是「先投影、再脱敏」，而留存的完整正文是「先脱敏、再
+ * （未）投影」—— 两者一般不互为反推（长 hex 串被切断后不再命中掩码正则）。落库前它同样过字段名打码，
+ * 故存下的是 `redactSensitive` 之后的模型输入，而非逐字节原件。
  */
 @Injectable()
 export class ToolResultRetentionService {
@@ -98,7 +102,15 @@ export class ToolResultRetentionService {
         }
       }
 
-      const modelText = input.rendered?.text ?? null;
+      // The model's copy gets the same field-name masking the body does. `rendered.text` is already
+      // string-level sanitized; redacting it here is what keeps `firstName` / `bio` / `address`
+      // values out of the console, which only ever reads this store. Kept from `input.rendered` on
+      // purpose: a locally rendered copy on the R4 / MCP paths did not go to any model.
+      //
+      // 模型那份与正文一样过字段名打码。`rendered.text` 已经过字符串级脱敏；在这里再打码，才能让
+      // `firstName` / `bio` / `address` 的值不进管理台 —— 管理台只读这张表。仍只取 `input.rendered`：
+      // R4 / MCP 路径上本地渲染的那份没有任何模型看到过。
+      const modelText = input.rendered ? redactSensitive(input.rendered.text) : null;
       const now = new Date();
       await this.store.saveIfAbsent({
         auditRowId: input.auditRowId,
