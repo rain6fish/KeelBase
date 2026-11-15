@@ -51,11 +51,13 @@ const PRODUCT_VERSION = readPackageVersion();
  * 只保留**当前仍在服务**的版本；更早的要点由 `CHANGELOG.md` 承载（权威历史），此处不留不可达的旧数据。
  */
 const RELEASE_NOTES: Record<string, readonly string[]> = {
-  // 1.3.2 的发布提交（bca61ff0）bump 了 package.json 与 CHANGELOG，却漏了这张按版本索引的表 ——
-  // 合并最新 main 后 `app-version.service.spec` 立刻转红，正是该测试存在的理由：发版要点不能静默缺失。
-  // The 1.3.2 release commit bumped package.json and CHANGELOG but missed this version-keyed map; the
-  // unit test turned red as soon as main was merged, which is exactly what that test exists to catch.
-  '1.3.2': [
+  // The 1.4.0 release recuts 1.3.2: that release commit (bca61ff0) bumped package.json and CHANGELOG
+  // but missed this version-keyed map, and the unit test turned red as soon as main was merged — which
+  // is exactly what that test exists to catch: release notes cannot go missing silently.
+  // 1.4.0 是 1.3.2 的改记发布：1.3.2 的发布提交（bca61ff0）bump 了 package.json 与 CHANGELOG，却漏了这张
+  // 按版本索引的表 —— 合并最新 main 后 `app-version.service.spec` 立刻转红，正是该测试存在的理由：发版要点不能静默缺失。
+  '1.4.0': [
+    '被截断的工具结果正文在链外留存，可按审计行读回；过期只清正文，哈希与大小仍在',
     '单容器镜像不再内置密钥：缺密钥直接失败，而不是带着一个公开可读的默认值启动',
     'Webhook 投递按事件归属收窄，不再跨租户触达订阅者',
     '截断后的工具结果仍是合法 JSON，并在回注模型前脱敏',

@@ -45,15 +45,43 @@ manifest 旧于当前 CLI 时，`keelbase doctor` 会报出并建议重跑 `keel
 
 | Line / 版本线 | Status / 状态 | Release trigger / 发布触发 |
 |---|---|---|
-| `1.3.x` | **Current — actively maintained / 当前维护线** | Continuous incremental releases / 持续增量发布 |
-| `1.2.x` | **Superseded / 已被取代** — superseded by 1.3.0 / 已被 1.3.0 取代 | Upgrade to `1.3.x` / 升级到 `1.3.x` |
-| `1.1.x` | **Superseded / 已被取代** — superseded by 1.2.0 / 已被 1.2.0 取代 | Upgrade to `1.3.x` / 升级到 `1.3.x` |
-| `1.0.x` | **Superseded / 已被取代** — superseded by 1.1.0 / 已被 1.1.0 取代 | Upgrade to `1.3.x` / 升级到 `1.3.x` |
+| `1.4.x` | **Current — actively maintained / 当前维护线** | Continuous incremental releases / 持续增量发布 |
+| `1.3.x` | **Superseded / 已被取代** — superseded by 1.4.0 / 已被 1.4.0 取代 | Upgrade to `1.4.x` / 升级到 `1.4.x` |
+| `1.2.x` | **Superseded / 已被取代** — superseded by 1.3.0 / 已被 1.3.0 取代 | Upgrade to `1.4.x` / 升级到 `1.4.x` |
+| `1.1.x` | **Superseded / 已被取代** — superseded by 1.2.0 / 已被 1.2.0 取代 | Upgrade to `1.4.x` / 升级到 `1.4.x` |
+| `1.0.x` | **Superseded / 已被取代** — superseded by 1.1.0 / 已被 1.1.0 取代 | Upgrade to `1.4.x` / 升级到 `1.4.x` |
 | `2.x` | Future / 未来 | Breaking changes, when accumulated / 破坏性变更累积后 |
 
-### Current: 1.3.x — Accountable Evidence edition / 当前：1.3.x 可核证据版
+### Current: 1.4.x — Accountable Evidence edition (continued) / 当前：1.4.x 可核证据版（续）
 
-The current line is the Accountable Evidence edition, first released on 2026-10-31. It makes the audit
+The 1.4.x line continues the Accountable Evidence edition. Its first release, v1.4.0 (2026-11-15),
+carries the fixes prepared for 1.3.2 — the single-container image no longer ships built-in secrets,
+webhook delivery is scoped to the event owner, the tool surface offered to the model follows the
+caller, a truncated tool result stays valid JSON and is sanitized before it goes back to the model, the
+audit object search states its scope, and AI Approval is presented as My Requests — together with one
+new capability: a truncated tool result's full body is kept **off-chain** in `ai_tool_result_bodies`
+and read back through `GET /api/v1/audit/logs/:id/tool-result`. The body is masked and hashed, expires
+after `TOOL_RESULT_BODY_RETENTION_DAYS` (default 30) with only the tombstone remaining, and nothing
+enters the audit hash payload, so the chain, `/audit/verify` and the evidence packages behave as
+before. The `main` branch is the development line; each tagged release is a stable snapshot that passes
+the full CI and test suite.
+
+1.4.x 线延续可核证据版。其首个版本 v1.4.0（2026-11-15）带有原为 1.3.2 准备的修复——单容器镜像不再
+内置密钥、Webhook 投递按事件归属收窄、喂给模型的工具面跟随调用者、截断的工具结果仍是合法 JSON 并在
+回注模型前脱敏、审计对象检索写明口径、AI Approval 对外改称 My Requests——并加入一项新能力：被截断的
+工具结果的完整正文以**链外**方式存入 `ai_tool_result_bodies`，可通过
+`GET /api/v1/audit/logs/:id/tool-result` 读回。正文脱敏并带哈希，保留
+`TOOL_RESULT_BODY_RETENTION_DAYS` 天（默认 30）后只留墓碑；留存内容不进入审计哈希 payload，审计链、
+`/audit/verify` 与证据包行为不变。`main` 分支为开发线，每个打了 tag 的版本都是通过完整 CI 与测试
+套件的稳定快照。
+
+### Superseded: 1.3.x — Accountable Evidence edition / 已被取代：1.3.x 可核证据版
+
+v1.4.0 superseded the 1.3.x line on 2026-11-15; the text below is kept as history.
+
+1.3.x 线于 2026-11-15 由 v1.4.0 取代，以下内容保留为历史。
+
+The 1.3.x line was the Accountable Evidence edition, first released on 2026-10-31. It makes the audit
 record accountable from both ends: an audit row links to the write claim that produced it and a
 reachability reading says how many rows cannot be traced to one, a refused call gets its own counter, and
 the explanation face names the authorization that actually let the write run. The readings instrument
@@ -68,7 +96,7 @@ audit reader can read back onto the scope that reader actually holds, and turns 
 into a readable, closable record. The `main` branch is the development line; each tagged release is a
 stable snapshot that passes the full CI and test suite.
 
-当前版本线是可核证据版，首发于 2026-10-31。它让审计记录两端都可核：审计行挂回产生它的那条写占位，
+1.3.x 版本线是可核证据版，首发于 2026-10-31。它让审计记录两端都可核：审计行挂回产生它的那条写占位，
 并有一条可达性读数说明有多少行追不到写占位；被拒的调用有自己的计数；解释面点名真正放行这次写入的
 那次授权。读数仪器用一条命令取七类动作的读数，每夜在 CI 里跑、只告警。`v1.3.0` 把契约钉在
 **v1.16.0**；`v1.3.1` 是本线的首个增量版，按落地时的实况把契约移到 **v1.21.0**：**v1.18.0** 承载
@@ -82,11 +110,11 @@ action 枚举加上 `audit_review`，使复核回执成为同一条链上的合�
 
 v1.3.0 superseded the 1.2.x line on 2026-10-31; v1.2.0 superseded 1.1.x on 2026-10-18, and v1.1.0
 superseded 1.0.x on 2026-10-05. No further `1.2.x`, `1.1.x` or `1.0.x` releases are planned: fixes and
-security updates land on `main` and ship in the next `1.3.x` release. Upgrading to the current line is the
+security updates land on `main` and ship in the next `1.4.x` release. Upgrading to the current line is the
 supported path.
 
 1.3.0 于 2026-10-31 取代 1.2.x 线；1.2.0 于 2026-10-18 取代 1.1.x 线，1.1.0 于 2026-10-05 取代 1.0.x 线。
-不再计划发布 `1.2.x`、`1.1.x` 或 `1.0.x` 版本：修复与安全更新落在 `main`，随下一个 `1.3.x` 版本发布。
+不再计划发布 `1.2.x`、`1.1.x` 或 `1.0.x` 版本：修复与安全更新落在 `main`，随下一个 `1.4.x` 版本发布。
 升级到当前版本线是受支持的路径。
 
 ## Release process / 发版流程
