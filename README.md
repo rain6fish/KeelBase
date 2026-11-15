@@ -299,6 +299,7 @@ first release rather than assembled when someone asks.
 
 | Runtime | Runtime version | Contract version |
 |---|---|---|
+| `KeelBase` (TypeScript) | `v1.4.0` | **v1.22.0** — bound as a submodule |
 | `KeelBase` (TypeScript) | `v1.3.1` | **v1.21.0** — bound as a submodule |
 | `KeelBase` (TypeScript) | `v1.3.0` | **v1.16.0** — bound as a submodule |
 | `KeelBase` (TypeScript) | `v1.2.0` | **v1.12.0** — bound as a submodule |

@@ -290,6 +290,7 @@ Docker）· 想让存量 Java 系统具备 AI 能力：
 
 | Runtime | Runtime 版本 | Contract 版本 |
 |---|---|---|
+| **KeelBase**（TypeScript） | `v1.4.0` | **v1.22.0**——以 submodule 绑定 |
 | **KeelBase**（TypeScript） | `v1.3.1` | **v1.21.0**——以 submodule 绑定 |
 | **KeelBase**（TypeScript） | `v1.3.0` | **v1.16.0**——以 submodule 绑定 |
 | **KeelBase**（TypeScript） | `v1.2.0` | **v1.12.0**——以 submodule 绑定 |
