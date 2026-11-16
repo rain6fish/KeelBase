@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Injectable, Logger, Optional, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { createHmac, randomBytes } from 'crypto';
@@ -12,6 +12,12 @@ export interface WebhookRetryConfig {
   attempts: number;
   backoffMs: number;
 }
+
+/**
+ * Injection token for the retry config — an interface erases at runtime, so the token has to be explicit.
+ * 重试配置的注入令牌 —— 接口在运行时会被擦除，令牌必须显式写出。
+ */
+export const WEBHOOK_RETRY_CONFIG = Symbol('WEBHOOK_RETRY_CONFIG');
 
 const DEFAULT_RETRY: WebhookRetryConfig = { attempts: 2, backoffMs: 1000 };
 
@@ -45,7 +51,7 @@ export class WebhookService implements WebhookPublisher {
   constructor(
     @InjectRepository(WebhookSubscription)
     private readonly repo: Repository<WebhookSubscription>,
-    @Optional() private readonly retryConfig?: WebhookRetryConfig,
+    @Optional() @Inject(WEBHOOK_RETRY_CONFIG) private readonly retryConfig?: WebhookRetryConfig,
     @Optional() private readonly alertWebhook?: AlertWebhookService,
   ) {}
 
