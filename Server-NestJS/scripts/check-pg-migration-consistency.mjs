@@ -2,7 +2,8 @@
 
 /**
  * NC-4 本地 postgres 迁移一致性校验（与 CI migration-consistency-postgres job 同源，杜绝两处逻辑漂移）：
- * 全量白名单迁移在真实 pg 上跑通 + migration:generate 无实体漂移（No changes）。
+ * 全量白名单迁移在真实 pg 上跑通 + migration:generate 无实体漂移（No changes）+ 最后一条迁移的
+ * down() 回滚并在同一连接上重跑。sqlite 的单测只覆盖 sqlite 方言，pg 的 down 由本门覆盖。
  * - 已提供 DB_TYPE=postgres + DB_HOST 环境（如 CI services）→ 直连现有 pg，不自起容器
  * - 否则自动起临时 pgvector/pg17 容器（用完即清）
  * sqlite 侧请跑 npm run migration-consistency:sqlite 的 CI（长度类漂移 sqlite 检测不到——本脚本专门补 pg）。
@@ -125,7 +126,24 @@ async function main() {
     if (drifted) {
       throw new Error('::error::postgres 实体新增了未迁移的变更，请运行 migration:generate 提交迁移（sqlite 绿不代表 pg 无漂移）');
     }
-    console.log('[consistency:pg] PASS — postgres 全量迁移跑通且实体↔迁移无漂移（No changes）');
+    // The newest migration's `down()` must actually run in the postgres dialect: the jest spec only
+    // exercises sqlite's. `migration:revert` reverts whatever ran last (today that is
+    // 1850000000000-AddAiToolResultBodies), and re-running proves the same connection can recreate it.
+    //
+    // 最后一条迁移的 `down()` 必须在 postgres 方言下真跑一遍：jest 单测只覆盖 sqlite 的。
+    // `migration:revert` 回滚最后执行的那条（当前即 1850000000000-AddAiToolResultBodies），随后的重跑
+    // 证明同一连接能把它重新建起来。
+    console.log('=== migration:revert（pg down 校验） ===');
+    const r2 = sh('npm run migration:revert', { env: childEnv });
+    if (r2.status !== 0) {
+      throw new Error('migration:revert 失败（postgres 方言的 down 有误），详见上方输出');
+    }
+    console.log('=== migration:run（回滚后重跑） ===');
+    const r3 = sh('npm run migration:run', { env: childEnv });
+    if (r3.status !== 0) {
+      throw new Error('回滚后重跑 migration:run 失败，详见上方输出');
+    }
+    console.log('[consistency:pg] PASS — postgres 全量迁移跑通、实体↔迁移无漂移，且最后一条迁移的 down/重跑成立（No changes）');
   } finally {
     cleanDriftFiles();
     if (provisioned) provisioned.cleanup();

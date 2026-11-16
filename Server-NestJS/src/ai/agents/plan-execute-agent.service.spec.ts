@@ -86,6 +86,58 @@ describe('PlanExecuteAgent', () => {
     expect(toolRegistry.execute).toHaveBeenCalledWith('get_user_stats', {}, userId);
   });
 
+  // The step results are embedded in the summary prompt, so a raw tool payload used to reach a model
+  // untouched — the same class of gap as F1 on the sub-agent path.
+  // 步骤结果会被拼进汇总提示词，原先原始工具结果就这样进了模型 —— 与 F1 在子代理路径上的缺口同类。
+  it('步骤结果进汇总提示词前过渲染器；无渲染器时至少字符串级脱敏', async () => {
+    mockProvider.generate.mockResolvedValue({
+      content: JSON.stringify([{ description: '查联系人', tool: 'query_events', args: {} }]),
+    });
+    toolRegistry.execute.mockResolvedValue({ success: true, data: { email: 'alice@example.com' } });
+
+    const render = jest.fn(() => '{"email":"a***@example.com"}');
+    const withRender = await agent.planAndExecute(
+      messages,
+      mockProvider as any,
+      toolRegistry as any,
+      userId,
+      undefined,
+      undefined,
+      render,
+    );
+    expect(render).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
+    expect(withRender.stepResults[0]).toBe('{"email":"a***@example.com"}');
+
+    const withoutRender = await agent.planAndExecute(
+      messages,
+      mockProvider as any,
+      toolRegistry as any,
+      userId,
+    );
+    expect(withoutRender.stepResults[0]).not.toContain('alice@example.com');
+    expect(withoutRender.stepResults[0]).toContain('a***@example.com');
+  });
+
+  it('失败信息也过字符串级脱敏', async () => {
+    mockProvider.generate.mockResolvedValue({
+      content: JSON.stringify([{ description: '查联系人', tool: 'query_events', args: {} }]),
+    });
+    toolRegistry.execute.mockResolvedValue({
+      success: false,
+      error: '联系人 alice@example.com 不存在',
+    });
+
+    const result = await agent.planAndExecute(
+      messages,
+      mockProvider as any,
+      toolRegistry as any,
+      userId,
+    );
+    expect(result.stepResults[0]).toContain('ERROR:');
+    expect(result.stepResults[0]).not.toContain('alice@example.com');
+    expect(result.stepResults[0]).toContain('a***@example.com');
+  });
+
   it('NC-3 注入只读 executor：写工具步骤被拒且不经 toolRegistry.execute 直调', async () => {
     mockProvider.generate.mockResolvedValue({
       content: JSON.stringify([

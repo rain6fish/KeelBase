@@ -1,4 +1,4 @@
-# 审计与数据保留 / Audit and Data Retention
+# Audit and Data Retention / 审计与数据保留
 
 > 适用版本 / Applies to: v1.4.0+
 > 关联 / Related: `docs/tool-result-retention.spec.md`、`docs/hs11-audit-chain.spec.md`
