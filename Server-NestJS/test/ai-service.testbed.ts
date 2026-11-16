@@ -153,7 +153,17 @@ export const mockConversation = {
   createdAt: new Date().toISOString(),
   lastActivityAt: new Date().toISOString(),
 };
-export function installAiServiceTestbed(): void {
+/**
+ * Build the shared fixture, optionally with a retention collaborator injected. The service is
+ * `@Optional` on `AiService`, so the default assembly must stay exactly as it was (no retention);
+ * only the wiring spec passes one, and it must be the very instance it later asserts on.
+ *
+ * 装配共享夹具，可选地注入留存协作者。`AiService` 对它是 `@Optional`，故默认装配必须与从前逐字相同
+ * （不留存）；只有接线 spec 传入，且它必须就是之后被断言的那个实例。
+ */
+export function installAiServiceTestbed(
+  options: { toolResultRetention?: { capture: jest.Mock } } = {},
+): void {
   mockProvider = {
     name: 'deepseek',
     displayName: 'DeepSeek',
@@ -283,5 +293,9 @@ export function installAiServiceTestbed(): void {
     mockSubAgentOrchestrator as any,
     mockAuthorizationExplainer as any,
     mockSettingsService as any,
+    undefined, // governancePolicy —— 缺省 ⇒ _shouldAudit 恒真，与既有用例同口径
+    undefined, // contentSafety
+    undefined, // toolEffectsService
+    options.toolResultRetention as any,
   );
 }
