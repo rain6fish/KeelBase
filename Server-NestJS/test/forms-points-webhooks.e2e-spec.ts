@@ -372,12 +372,25 @@ describe('Forms / Points / Webhooks / Feedback (e2e)', () => {
         );
     };
     const deliveredUrls = () => (fetchSpy?.mock.calls ?? []).map((call) => String(call[0]));
+    // url + event header, so a test can say both "which tenant" and "which trigger fired".
+    // 同时取 URL 与事件头：既能断言投给哪个租户，也能断言是哪个入口触发的。
+    const deliveredCalls = () =>
+      (fetchSpy?.mock.calls ?? []).map((call) => ({
+        url: String(call[0]),
+        event: (call[1] as { headers?: Record<string, string> } | undefined)?.headers?.[
+          'X-Webhook-Event'
+        ],
+      }));
 
     beforeAll(async () => {
       const mine = await request(app.getHttpServer())
         .post('/api/v1/webhooks')
         .set(authHeader(userToken))
-        .send({ name: 'tenant-1 sink', url: TENANT_1_URL, events: ['feedback.created'] })
+        .send({
+          name: 'tenant-1 sink',
+          url: TENANT_1_URL,
+          events: ['feedback.created', 'event.created', 'todo.created'],
+        })
         .expect(201);
       tenant1SubId = mine.body.data.id;
 
@@ -422,6 +435,43 @@ describe('Forms / Points / Webhooks / Feedback (e2e)', () => {
         app.get(WebhookService).publish('feedback.created', {} as never),
       ).resolves.toBeUndefined();
       expect(deliveredUrls()).toEqual([]);
+    });
+
+    // The three business entries must actually reach publish() — the filter tests above pass even
+    // when the publisher never gets injected, so each entry is driven through its HTTP route.
+    // 三个业务入口必须真的走到 publish()：上面的过滤用例在发布者没被注入时也照样通过，所以这里逐个走 HTTP 路由。
+    it('事件创建触发 event.created 投递', async () => {
+      stubOutbound();
+      await request(app.getHttpServer())
+        .post('/api/v1/events')
+        .set(authHeader(userToken))
+        .send({
+          title: 'tenant probe event',
+          startTime: '2026-11-20T09:00:00Z',
+          endTime: '2026-11-20T10:00:00Z',
+        })
+        .expect(201);
+      expect(deliveredCalls()).toEqual([{ url: TENANT_1_URL, event: 'event.created' }]);
+    });
+
+    it('待办创建触发 todo.created 投递', async () => {
+      stubOutbound();
+      await request(app.getHttpServer())
+        .post('/api/v1/todos')
+        .set(authHeader(userToken))
+        .send({ title: 'tenant probe todo' })
+        .expect(201);
+      expect(deliveredCalls()).toEqual([{ url: TENANT_1_URL, event: 'todo.created' }]);
+    });
+
+    it('反馈提交触发 feedback.created 投递', async () => {
+      stubOutbound();
+      await request(app.getHttpServer())
+        .post('/api/v1/feedback')
+        .set(authHeader(userToken))
+        .send({ type: 'praise', content: 'tenant probe feedback' })
+        .expect(200);
+      expect(deliveredCalls()).toEqual([{ url: TENANT_1_URL, event: 'feedback.created' }]);
     });
   });
 });
