@@ -140,6 +140,41 @@ describe('ToolResultRetentionService', () => {
     expect(row.bodyText).toBe(sanitizeExternalContent(redactSensitive(rendered.fullJson)));
   });
 
+  // The model's copy is sanitized before it is redacted. A numeric phone in the payload is rewritten
+  // (`13800138000` → `138****8000`), which makes that text invalid JSON — and invalid JSON used to
+  // bypass redaction entirely, leaving the same body's password in clear text. The fallback masks it,
+  // so nothing under a sensitive key survives.
+  // 模型那份是「先字符串级、再字段名」。载荷里的数值型手机号被改写（`13800138000` → `138****8000`）
+  // 后文本不再是合法 JSON，而非法 JSON 过去会完全绕过打码，使同一正文里的 password 明文留存。兜底
+  // 现在会打码，敏感名下的任何值都不再保留。
+  it('模型那份被消毒器改写成非 JSON 时，敏感字段仍不漏出', async () => {
+    const store = { saveIfAbsent: jest.fn() };
+    const svc = makeService(store, { TOOL_RESULT_BODY_SCOPE: 'all' });
+    const presentation = new ToolPresentationService({} as never, {} as never);
+    const result = {
+      success: true,
+      data: { phone: 13800138000, password: 'hunter2', title: 'x' },
+    };
+    const rendered = presentation.renderToolResult(result);
+    // 前提：消毒器确实把这份文本改成了非法 JSON / premise: the sanitizer did invalidate it
+    expect(() => JSON.parse(rendered.text)).toThrow();
+
+    await svc.capture({
+      auditRowId: 31,
+      userId: '42',
+      toolName: 'query_customers',
+      result,
+      rendered,
+    });
+
+    const row = store.saveIfAbsent.mock.calls[0][0];
+    expect(row.modelText).not.toContain('hunter2');
+    expect(row.modelText).not.toContain('13800138000');
+    expect(row.modelText).toContain('[REDACTED]');
+    // 正文那份先经 JSON 打码再消毒，走的一直是合法路径 / body path stays the valid-JSON one
+    expect(row.bodyText).not.toContain('hunter2');
+  });
+
   it('scope=all：未截断的调用也留存', async () => {
     const store = { saveIfAbsent: jest.fn() };
     const svc = makeService(store, { TOOL_RESULT_BODY_SCOPE: 'all' });

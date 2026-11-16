@@ -8,6 +8,7 @@ import {
   REDACTED,
   redactSensitive,
   registerSensitiveKeys,
+  UNREDACTABLE,
 } from './mask';
 
 describe('mask utils', () => {
@@ -55,8 +56,53 @@ describe('mask utils', () => {
       expect(out).toContain('"username":"alex"');
     });
 
-    it('returns original on invalid JSON', () => {
+    // The old contract returned invalid input unchanged, which was a silent fail-open: on the
+    // retention path a string-level sanitizer runs first and can rewrite an unquoted token
+    // (`13800138000` → `138****8000`), leaving the text unparseable. The whole body — including a
+    // password next to that phone — then bypassed field-name redaction.
+    // 旧契约对非法输入原样返回，是静默 fail-open：留存路径上先跑字符串级消毒器，它可能改写未加引号的
+    // token（`13800138000` → `138****8000`），使文本失去可解析性。于是整份正文 —— 包括紧挨着手机号的
+    // password —— 都绕过了字段名打码。
+    it('非 JSON 无键值结构时原样返回（没有可打码的字段，不算漏）', () => {
       expect(redactSensitive('not-json')).toBe('not-json');
+    });
+
+    it('被字符串级消毒器改写坏的 JSON 仍按字段名打码，敏感值不再明文', () => {
+      const damaged = '{"phone":138****8000,"password":"hunter2","title":"x"}';
+      expect(() => JSON.parse(damaged)).toThrow();
+      const out = redactSensitive(damaged);
+      expect(out).not.toContain('hunter2');
+      expect(out).not.toContain('138****8000');
+      expect(out).toContain('"password":"[REDACTED]"');
+      expect(out).toContain('"title":"x"');
+    });
+
+    it('非 JSON 里的裸键与等号形式同样打码', () => {
+      expect(redactSensitive('password=hunter2&title=x')).toBe('password=[REDACTED]&title=x');
+      expect(redactSensitive('{password:"hunter2"}')).toBe('{password:"[REDACTED]"}');
+      expect(redactSensitive('user.password: hunter2')).toBe('user.password: [REDACTED]');
+    });
+
+    it('兜底同样认得模块声明的额外键名', () => {
+      expect(redactSensitive('{idCardNoPiiFallback:"110101"}', ['idCardNoPiiFallback'])).toBe(
+        '{idCardNoPiiFallback:"[REDACTED]"}',
+      );
+    });
+
+    // The fallback may lose evidence, never a secret: shapes it cannot vouch for are withheld whole.
+    // 兜底可以丢证据、绝不丢秘密：无法担保完整的形状整篇隐去。
+    it('字符串未闭合时整篇隐去，不输出明文', () => {
+      const out = redactSensitive('{"password":"hunter2');
+      expect(out).toBe(UNREDACTABLE);
+      expect(out).not.toContain('hunter2');
+    });
+
+    it('敏感名下的值是嵌套结构时整篇隐去，不输出明文', () => {
+      const input = '{"phone":138****8000,"address":{"city":"Paris"}}';
+      const out = redactSensitive(input);
+      expect(out).toBe(UNREDACTABLE);
+      expect(out).not.toContain('Paris');
+      expect(out).not.toContain('138****8000');
     });
 
     // Fragment names: the built-in list cannot enumerate them, so they can only come from the
