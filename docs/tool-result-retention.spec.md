@@ -52,15 +52,21 @@ behaviour), so their bodies are retained whenever retention itself is on. `redac
 phones, tokens, long hex) mask the body before it is stored. The model's copy is produced by
 project-then-sanitize, which the sanitize-then-store body cannot be inverted into, so it is kept on
 its own; before it is stored it gets the same field-name redaction, i.e. `model_text` is the model
-input **after** `redactSensitive`. A capture failure logs a warning and never fails the tool call,
-the answer or the audit row.
+input **after** `redactSensitive`. Where that sanitizer rewrites an unquoted token and leaves the
+model's copy unparseable, redaction falls back to masking sensitive values by field name in the raw
+text, and withholds the whole document (`[REDACTED: unparseable payload]`) for shapes it cannot
+vouch for — invalid input is never stored as-is. A capture failure logs a warning and never fails
+the tool call, the answer or the audit row.
 
 中文。只在已有审计行时留存，且紧接该行之后：对话两条路径、`_agentStepExecutor`（plan / 子代理）、
 R4 执行器与 MCP 出口。对话路径上审计粒度 `off` 时没有行可锚，故不留存；R4 执行器与 MCP 出口不随该
 设置停止写行（这是它们既有的行为），因此只要留存本身开启，那两条路径的正文仍会留存。写入前
 先 `redactSensitive`（字段名）再 `sanitizeExternalContent`（邮箱/手机/token/长 hex）。模型那份是
 「先投影、再脱敏」，无法从「先脱敏、再存」的正文反推，故单独留存；落库前同样过字段名打码，即
-`model_text` 是 `redactSensitive` **之后**的模型输入。留存失败只告警，绝不让工具调用、回答或审计行失败。
+`model_text` 是 `redactSensitive` **之后**的模型输入。若该消毒器改写了未加引号的 token、使模型那份
+无法解析，打码改为在原始文本上按字段名逐键遮盖；无法担保完整的形状则整篇隐去
+（`[REDACTED: unparseable payload]`）—— 非法输入绝不原样留存。留存失败只告警，绝不让工具调用、
+回答或审计行失败。
 
 Default scope is `truncated` (only calls whose full body exceeded the 4000-char budget); `all` keeps
 every call. A body over `TOOL_RESULT_BODY_MAX_BYTES` is stored as `capped`: no text, but sizes and

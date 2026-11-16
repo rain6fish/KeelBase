@@ -153,22 +153,172 @@ export const REDACTED = '[REDACTED]';
  * the characters `"password":"…"` is a note, and stays one. A value under a sensitive name is masked
  * whatever its type — a numeric token is no less a token.
  *
- * Invalid input is returned unchanged.
- *
  * 对 JSON 字符串中的敏感值打码，判据与审计 before 快照共用同一条 `isSensitiveKey` —— 一条规则、一处。
  *
  * 逐层走每个键，因此内建清单枚举不到的名字（模块的 `apiToken`、用户表的 `resetTokenHash`）由判据的
  * 片段那一半覆盖。打码只认**字段名**，绝不认 JSON 的文本：一段正文里恰好含有 `"password":"…"` 这些
  * 字符，它仍是正文。敏感名下的值不分类型一律打码 —— 数字形式的 token 同样是 token。
  *
- * 非法输入原样返回。
+ * Input that is not JSON is **not** returned as-is. A string-level sanitizer runs before this
+ * function on the retention path, and it rewrites unquoted tokens (`"phone":13800138000` becomes
+ * `"phone":138****8000`), which makes the text unparseable. Returning it unchanged would leave every
+ * *other* sensitive field — a password in the same body — in clear text, and nothing would say so.
+ * The fallback therefore walks the raw text and masks the value of any key the shared predicate calls
+ * sensitive, scalar values only. Where it cannot vouch for completeness — an unterminated string, or
+ * a sensitive key whose value is a nested object/array — it withholds the entire document
+ * (`UNREDACTABLE`) instead of guessing. So a rewriter-limited input loses evidence, not a secret.
+ *
+ * 非 JSON 输入**不**再原样返回。留存路径上先跑字符串级消毒器，它会改写未加引号的 token
+ * （`"phone":13800138000` 变成 `"phone":138****8000`），文本因此失去可解析性。原样返回会让同一份正文
+ * 里**其它**敏感字段（如 password）保持明文，且无人察觉。故兜底改为在原始文本上按共用判据逐键扫描，
+ * 只打码标量值。凡是无法担保完整的形状 —— 字符串未闭合、敏感名下的值是嵌套对象/数组 —— 一律整篇
+ * 置为 `UNREDACTABLE`，不猜。也就是说，消毒器改写不了的输入丢的是证据，不是秘密。
  */
 export function redactSensitive(json: string, extraKeys: readonly string[] = []): string {
+  const extra = lowerKeySet(extraKeys);
   try {
-    return JSON.stringify(redactValue(JSON.parse(json), lowerKeySet(extraKeys)));
+    return JSON.stringify(redactValue(JSON.parse(json), extra));
   } catch {
-    return json;
+    return redactUnparseable(json, extra) ?? UNREDACTABLE;
   }
+}
+
+/**
+ * The one output for input that is neither JSON nor safely scannable: the whole document is
+ * withheld, because a partial textual pass cannot prove it covered every sensitive field. Distinct
+ * from `REDACTED`, which stands for one masked value; this one says "no part of this payload is
+ * shown". A caller that sees it must not treat the document as retained evidence.
+ *
+ * 「既不是 JSON、也无法安全扫描」的唯一输出：整篇隐去 —— 文本级部分打码无法证明覆盖了每个敏感字段。
+ * 与 `REDACTED` 不同：后者代表一个被打码的值，本常量代表「这份载荷没有任何部分可见」。调用方见到它，
+ * 不得把该文档当作已留存的证据。
+ */
+export const UNREDACTABLE = '[REDACTED: unparseable payload]';
+
+/**
+ * Text-level fallback for unparseable input. Returns the redacted text, or `null` when completeness
+ * cannot be vouched for.
+ *
+ * Every position is examined: a quote opens a string literal, an identifier run is a bare word. If
+ * the token is followed by `:` or `=`, it is a key under this contract; when the shared predicate
+ * calls it sensitive, its value is masked — quoted scalars keep their quotes, bare scalars are
+ * replaced outright. A sensitive key whose value cannot be delimited (a nested `{`/`[`, or a string
+ * that never closes) returns `null`, which the caller turns into `UNREDACTABLE`.
+ *
+ * 不可解析输入的文本级兜底。返回打码后的文本；无法担保完整时返回 `null`。
+ *
+ * 每个位置都会被检查：引号开启一个字符串字面量，标识符连跑是一个裸词。若该 token 后面跟着 `:` 或
+ * `=`，按本约定它就是键；共用判据判为敏感时打码它的值 —— 带引号的标量保留引号，裸标量整体替换。
+ * 敏感键的值无法定界（嵌套 `{`/`[`，或永不闭合的字符串）则返回 `null`，由调用方转为 `UNREDACTABLE`。
+ */
+function redactUnparseable(input: string, extra: ReadonlySet<string>): string | null {
+  const n = input.length;
+  let out = '';
+  let copied = 0;
+  let i = 0;
+  while (i < n) {
+    const ch = input[i];
+    if (ch === '"' || ch === "'") {
+      const end = stringEnd(input, i);
+      if (end < 0) return null;
+      if (isKeyPosition(input, end + 1)) {
+        if (isSensitiveKey(input.slice(i + 1, end), extra)) {
+          const value = readScalar(input, valueStart(input, end + 1));
+          if (!value) return null;
+          out += input.slice(copied, value.start) + value.text;
+          copied = value.end;
+          i = value.end;
+          continue;
+        }
+      }
+      i = end + 1;
+      continue;
+    }
+    if (isIdentStart(ch)) {
+      let end = i + 1;
+      while (end < n && isIdentPart(input[end])) end++;
+      if (isKeyPosition(input, end)) {
+        if (isSensitiveKey(input.slice(i, end), extra)) {
+          const value = readScalar(input, valueStart(input, end));
+          if (!value) return null;
+          out += input.slice(copied, value.start) + value.text;
+          copied = value.end;
+          i = value.end;
+          continue;
+        }
+      }
+      i = end;
+      continue;
+    }
+    i++;
+  }
+  return out + input.slice(copied);
+}
+
+/** Whether the token ending at `from` (a key candidate) is followed by `:` or `=`. */
+function isKeyPosition(input: string, from: number): boolean {
+  const at = skipSpace(input, from);
+  return at < input.length && (input[at] === ':' || input[at] === '=');
+}
+
+/** Where the value begins: past the separator following a key candidate. */
+function valueStart(input: string, from: number): number {
+  const separator = skipSpace(input, from);
+  return separator < input.length ? skipSpace(input, separator + 1) : separator;
+}
+
+/** Index of the string literal's closing quote, or -1 when it never closes. */
+function stringEnd(input: string, from: number): number {
+  const quote = input[from];
+  for (let i = from + 1; i < input.length; i++) {
+    if (input[i] === '\\') {
+      i++;
+      continue;
+    }
+    if (input[i] === quote) return i;
+  }
+  return -1;
+}
+
+function skipSpace(input: string, from: number): number {
+  let i = from;
+  while (i < input.length && /\s/.test(input[i])) i++;
+  return i;
+}
+
+function isIdentStart(ch: string): boolean {
+  return ch === '_' || ch === '$' || (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z');
+}
+
+/** Identifier characters, plus `.`/`-` so dotted paths (`user.password`) stay one name. */
+function isIdentPart(ch: string): boolean {
+  return isIdentStart(ch) || ch === '.' || ch === '-' || (ch >= '0' && ch <= '9');
+}
+
+/**
+ * Read the value at `from`, returning where it ends and what replaces it. `null` means the value is
+ * there but cannot be delimited textually (a nested structure or an unclosed string) — the caller
+ * must withhold the document rather than leave it unmasked.
+ */
+function readScalar(
+  input: string,
+  from: number,
+): { start: number; end: number; text: string } | null {
+  if (from >= input.length) return { start: from, end: from, text: '' };
+  const ch = input[from];
+  if (ch === '"' || ch === "'") {
+    const end = stringEnd(input, from);
+    return end < 0 ? null : { start: from, end: end + 1, text: `${ch}${REDACTED}${ch}` };
+  }
+  if (ch === '{' || ch === '[') return null;
+  if (isValueStop(ch)) return { start: from, end: from, text: '' };
+  let end = from;
+  while (end < input.length && !isValueStop(input[end])) end++;
+  return { start: from, end, text: REDACTED };
+}
+
+function isValueStop(ch: string): boolean {
+  return ch === ',' || ch === '}' || ch === ']' || ch === '&' || /\s/.test(ch);
 }
 
 const NO_EXTRA_KEYS: ReadonlySet<string> = new Set();
