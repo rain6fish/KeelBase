@@ -10,7 +10,7 @@
  * 且交出的 `auditRowId` 就是同一次工具调用刚写下的那条审计行的 id。删掉或接错任一处 `capture`，
  * 这里必红。
  */
-import { aiService, installAiServiceTestbed, mockAuditService, mockProvider, mockSubAgentOrchestrator, mockToolRegistry } from '../../test/ai-service.testbed';
+import { aiService, installAiServiceTestbed, mockAuditService, mockProvider, mockSubAgentOrchestrator, mockToolRegistry, presentation } from '../../test/ai-service.testbed';
 
 describe('AiService › retention wiring (0-B)', () => {
   let retention: { capture: jest.Mock };
@@ -135,6 +135,7 @@ describe('AiService › retention wiring (0-B)', () => {
       userId: string;
       toolName: string;
       result: { success: boolean };
+      rendered?: unknown;
     };
     expect(captured).toMatchObject({
       auditRowId: TOOL_AUDIT_ROW_ID,
@@ -143,8 +144,12 @@ describe('AiService › retention wiring (0-B)', () => {
       toolName: 'query_events',
       result: expect.objectContaining({ success: true }),
     });
-    // This path assembles its own messages in the orchestrator, so there is no model-facing render.
-    // 这条路径的消息由编排器自行拼接，故没有「模型实收」的那份渲染。
-    expect('rendered' in captured).toBe(false);
+    // The orchestrator pushes `renderToolResult(result).text` to the model on this path (F1), and L1
+    // makes retention record that same rendering — so `model_text` must be the model's actual input,
+    // not a projection no model saw. Equality with the render of the captured result proves both.
+    // 这条路径上编排器推给模型的就是 `renderToolResult(result).text`（F1），L1 让留存记下同一份渲染 ——
+    // 故 `model_text` 必须是模型实收，而不是一份没人见过的投影。与「对 captured.result 的渲染」全等
+    // 同时证明了两点。
+    expect(captured.rendered).toEqual(presentation.renderToolResult(captured.result));
   });
 });
