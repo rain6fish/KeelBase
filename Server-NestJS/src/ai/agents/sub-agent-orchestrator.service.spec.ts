@@ -2,6 +2,7 @@
 
 import { SubAgentOrchestrator } from './sub-agent-orchestrator.service';
 import { SkillsRegistry, WEEK_PLAN_SKILL } from '../skills/skills-registry';
+import { ToolPresentationService } from '../tools/tool-presentation.service';
 import { actorContext, ActorContext } from '../../governance-shared/actor-context';
 
 describe('SubAgentOrchestrator', () => {
@@ -9,6 +10,8 @@ describe('SubAgentOrchestrator', () => {
   let mockProvider: any;
   let mockRegistry: any;
   const registry = new SkillsRegistry([WEEK_PLAN_SKILL]);
+  // 真实渲染器：本组断言的就是「与主路径同一份渲染」；renderToolResult 不碰构造依赖
+  const presentation = new ToolPresentationService({} as never, {} as never);
 
   beforeEach(() => {
     mockProvider = {
@@ -21,7 +24,7 @@ describe('SubAgentOrchestrator', () => {
       execute: jest.fn().mockResolvedValue({ success: true, data: 'ok' }),
       getToolDefinitions: jest.fn().mockReturnValue([]),
     };
-    orchestrator = new SubAgentOrchestrator(registry);
+    orchestrator = new SubAgentOrchestrator(registry, presentation);
     jest.clearAllMocks();
   });
 
@@ -293,6 +296,53 @@ describe('SubAgentOrchestrator', () => {
       expect(mockRegistry.execute).not.toHaveBeenCalled();
       expect(exec).toHaveBeenCalledWith('query_events', {}, '42');
       expect(result.stepResults[0]).toContain('日程');
+    });
+  });
+
+  describe('工具结果回注模型前与主路径同一份渲染（F1）', () => {
+    it('子代理收到的 tool 消息已脱敏、已截断，且逐字等于主路径渲染', async () => {
+      mockRegistry.getAllTools.mockReturnValue([
+        { name: 'query_events', toToolDefinition: () => ({ name: 'query_events' }) },
+        { name: 'count_events_by_status', toToolDefinition: () => ({ name: 'count_events_by_status' }) },
+        { name: 'get_user_stats', toToolDefinition: () => ({ name: 'get_user_stats' }) },
+      ]);
+      // 别的用户写入 DB 的内容：明文邮箱 + 撑爆上下文的超长字段
+      const execResult = {
+        success: true,
+        data: { email: 'alex@example.com', blob: 'x'.repeat(8000) },
+      };
+      mockRegistry.execute.mockResolvedValue(execResult);
+
+      const calls = [
+        { content: '', toolCalls: [{ id: 'c1', name: 'query_events', arguments: '{}' }] },
+        { content: '日程', toolCalls: [] },
+        { content: '统计', toolCalls: [] },
+        { content: '建议', toolCalls: [] },
+      ];
+      let callIdx = 0;
+      mockProvider.generate.mockImplementation(async () => calls[Math.min(callIdx++, calls.length - 1)]);
+
+      await orchestrator.run({
+        messages: [{ role: 'system', content: 'sys' }],
+        userRequest: '帮我安排本周',
+        provider: mockProvider,
+        toolRegistry: mockRegistry as any,
+        userId: '1',
+      });
+
+      // calendar 子代理执行工具后的第二轮，模型看到的 tool 消息
+      const toolMsg = mockProvider.generate.mock.calls[1][0].messages.find((m: any) => m.role === 'tool');
+      expect(toolMsg).toBeDefined();
+      // 脱敏：明文邮箱不出现，域名保留
+      expect(toolMsg.content).not.toContain('alex@example.com');
+      expect(toolMsg.content).toContain('@example.com');
+      // 截断：8000 字符字段没有原样进上下文，投影带截断标记且仍是合法 JSON
+      expect(toolMsg.content.length).toBeLessThanOrEqual(4000);
+      expect(toolMsg.content).not.toContain('x'.repeat(8000));
+      expect(toolMsg.content).toContain('_truncated');
+      expect(() => JSON.parse(toolMsg.content)).not.toThrow();
+      // 同一份渲染：与主对话路径的产出一致（不是另写的一套）
+      expect(toolMsg.content).toBe(presentation.renderToolResult(execResult as any).text);
     });
   });
 

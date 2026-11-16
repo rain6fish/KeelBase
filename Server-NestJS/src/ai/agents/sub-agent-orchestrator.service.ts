@@ -12,6 +12,7 @@
 import { LlmProvider, ChatMessage, ToolCall } from '../interfaces/llm-provider.interface';
 import { ToolDefinition, ToolResult } from '../interfaces/tool.interface';
 import { ToolRegistry } from '../tools/tool-registry';
+import { ToolPresentationService } from '../tools/tool-presentation.service';
 import { SkillsRegistry } from '../skills/skills-registry';
 import { SkillDefinition } from '../skills/skill.interface';
 import { SUB_AGENTS, SUB_AGENT_NAMES, SubAgentDefinition } from './sub-agent.types';
@@ -75,7 +76,11 @@ const DECOMPOSITION_PROMPT = `你是任务分解器。把用户的复杂请求�
 - 子代理名必须从上面列表选`;
 
 export class SubAgentOrchestrator {
-  constructor(private readonly skillsRegistry: SkillsRegistry) {
+  constructor(
+    private readonly skillsRegistry: SkillsRegistry,
+    /** 工具结果的模型可见形态与主对话路径同一份渲染（脱敏 + 截断），不在这里另写一套。 */
+    private readonly presentation: ToolPresentationService,
+  ) {
     // 断言所有子代理工具集都是只读
     for (const agent of Object.values(SUB_AGENTS)) {
       for (const tool of agent.tools) {
@@ -237,12 +242,13 @@ export class SubAgentOrchestrator {
 
       for (const tc of result.toolCalls) {
         const toolResult = await this.executeSafe(tc, agent, params);
-        // usage 只供审计记账，不进 LLM 上下文（同 ToolPresentationService.truncateToolResult）
-        const toolPayload: ToolResult = { ...toolResult };
-        delete toolPayload.usage;
+        // 与主对话路径同一份渲染：脱敏（sanitizeExternalContent）与 HS-5 截断都在 renderToolResult
+        // 里发生，子代理拿不到未处理的原文；`usage` 也在同一处被去掉，不进 LLM 上下文。
+        // Same rendering as the main chat path: masking and HS-5 truncation both live inside
+        // renderToolResult, so a sub-agent never receives the raw payload.
         messages.push({
           role: 'tool',
-          content: JSON.stringify(toolPayload),
+          content: this.presentation.renderToolResult(toolResult).text,
           tool_call_id: tc.id,
         });
       }
