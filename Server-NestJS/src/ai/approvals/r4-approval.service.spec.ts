@@ -611,4 +611,63 @@ describe('R4ApprovalService（R4 双人审批域）', () => {
       expect(failed.authorization).toBeUndefined();
     });
   });
+
+  /**
+   * 0-B retention wiring: the R4 executor is its own door into tool execution, so it has to hand
+   * the retention surface the audit row **it** wrote. A service-level test of the retention module
+   * cannot see this junction; removing the `capture` call here must turn this red.
+   *
+   * 0-B 留存接线：R4 执行器是进入工具执行的另一扇门，它必须把自己写的那条审计行交给留存面。
+   * 留存模块的服务层测试看不到这个接点；删掉这里的 `capture` 调用必红。
+   */
+  describe('0-B retention 接线：执行器交出的 auditRowId 就是它刚写的审计行', () => {
+    it('审批执行成功后 capture 收到该行 id 与本调用的字段', async () => {
+      const row = {
+        token: 't-retention',
+        operatorId: '1',
+        status: 'approved',
+        toolName: 'create_event',
+        args: '{"title":"x"}',
+        conversationId: 'c',
+        approverId: '9',
+        decidedAt: new Date(),
+        executionClaimedAt: null,
+        executedAt: null,
+        executionError: null,
+      };
+      const repo = { findOne: jest.fn(), update: jest.fn().mockResolvedValue({ affected: 1 }) };
+      const audit = { log: jest.fn().mockResolvedValue({ id: 909 }) };
+      const retention = { capture: jest.fn().mockResolvedValue(undefined) };
+      r4 = new R4ApprovalService(
+        toolExecution,
+        audit as any,
+        repo as any,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        retention as any,
+      );
+      mockToolRegistry.execute.mockResolvedValue({ success: true, data: { id: 5 } });
+
+      await r4.executeApprovedTool(row as never, 'note');
+
+      expect(audit.log).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'tool_call', userId: '1' }),
+      );
+      expect(retention.capture).toHaveBeenCalledTimes(1);
+      expect(retention.capture).toHaveBeenCalledWith(
+        expect.objectContaining({
+          auditRowId: 909,
+          conversationId: 'c',
+          userId: '1',
+          toolName: 'create_event',
+          result: expect.objectContaining({ success: true }),
+        }),
+      );
+      // No model saw this result on the R4 path — `rendered` is absent, so `model_text` stays null.
+      // R4 这条路上没有模型看到结果 —— 不传 `rendered`，故 `model_text` 保持 null。
+      expect('rendered' in retention.capture.mock.calls[0][0]).toBe(false);
+    });
+  });
 });

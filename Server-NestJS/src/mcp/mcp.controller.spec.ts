@@ -9,6 +9,7 @@ import { AuthorizationExplainerService } from '../ai/authorization-explainer.ser
 import { ConfirmationStore } from '../ai/confirmation/confirmation.store';
 import { R4ApprovalService } from '../ai/approvals/r4-approval.service';
 import { ToolGateService } from '../ai/tools/tool-gate.service';
+import { ToolResultRetentionService } from '../ai/audit/tool-result-retention.service';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -20,6 +21,7 @@ describe('McpExportController (HS-10)', () => {
   let store: { create: jest.Mock };
   let r4: { createR4ApprovalRequest: jest.Mock };
   let gate: { destinationOf: jest.Mock; requiresApproval: jest.Mock };
+  let retention: { capture: jest.Mock };
 
   const user = { sub: 1, username: 'alex', role: 'user' } as JwtPayload;
 
@@ -45,7 +47,10 @@ describe('McpExportController (HS-10)', () => {
       ]),
       executeToolForExternal: jest.fn(),
     };
-    audit = { log: jest.fn().mockResolvedValue(undefined) };
+    // A row-shaped result: the retention junction reads `auditRow.id` when the service is present.
+    // 返回行形状：留存接点在服务存在时会读 `auditRow.id`。
+    audit = { log: jest.fn().mockResolvedValue({ id: 321 }) };
+    retention = { capture: jest.fn().mockResolvedValue(undefined) };
     store = { create: jest.fn().mockResolvedValue({ token: 'r3-token', decision: new Promise(() => {}) }) };
     r4 = { createR4ApprovalRequest: jest.fn().mockResolvedValue({ token: 'r4-token', id: 7 }) };
     gate = {
@@ -70,6 +75,7 @@ describe('McpExportController (HS-10)', () => {
         { provide: ConfirmationStore, useValue: store },
         { provide: R4ApprovalService, useValue: r4 },
         { provide: ToolGateService, useValue: gate },
+        { provide: ToolResultRetentionService, useValue: retention },
       ],
     }).compile();
     controller = moduleRef.get(McpExportController);
@@ -164,6 +170,41 @@ describe('McpExportController (HS-10)', () => {
     });
     expect((res as any).result.content[0].text).toContain('3');
     expect((res as any).result.isError).toBe(false);
+  });
+
+  /**
+   * 0-B retention wiring: the MCP export is a third door into tool execution. It must anchor the
+   * retained body to the audit row it wrote — a junction no service-level test of retention sees.
+   *
+   * 0-B 留存接线：MCP 出口是进入工具执行的第三扇门，必须把留存的正文锚到它写的那条审计行上 ——
+   * 留存的服务层测试看不到这个接点。
+   */
+  it('tools/call 读工具 → capture 收到该审计行 id 与本调用的字段', async () => {
+    ai.executeToolForExternal.mockResolvedValue({
+      executed: true,
+      requiresConfirmation: false,
+      result: { success: true, data: { total: 3 } },
+    });
+
+    await controller.handle(user, {
+      jsonrpc: '2.0',
+      id: 41,
+      method: 'tools/call',
+      params: { name: 'query_events', arguments: { status: 'active' } },
+    });
+
+    expect(audit.log).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'tool_call', provider: 'mcp', userId: '1' }),
+    );
+    expect(retention.capture).toHaveBeenCalledTimes(1);
+    expect(retention.capture).toHaveBeenCalledWith(
+      expect.objectContaining({
+        auditRowId: 321,
+        userId: '1',
+        toolName: 'query_events',
+        result: expect.objectContaining({ success: true }),
+      }),
+    );
   });
 
   it('tools/call 读工具执行失败 → 不写放行快照（避免 isError+authorization 被误判为阻断）', async () => {
