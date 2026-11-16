@@ -15,6 +15,7 @@ import {
 import { ToolResult } from '../interfaces/tool.interface';
 import { ToolRegistry } from '../tools/tool-registry';
 import { LlmUsage } from '../llm-usage';
+import { sanitizeExternalContent } from '../security/injection-guard';
 
 /** 只读门控执行器：由 AiService 注入（_assertToolAllowed + 只读强制），缺省回落直调 registry.execute。 */
 export type ReadOnlyToolExecutor = (
@@ -62,6 +63,15 @@ export class PlanExecuteAgent {
     userId: string,
     model?: string,
     readOnlyExecutor?: ReadOnlyToolExecutor,
+    /**
+     * The rendering a model receives for a tool result — the same one the chat paths use (masking +
+     * HS-5 truncation). The step results are embedded in the summary prompt, so without it raw tool
+     * data would reach a model untouched.
+     *
+     * 交给模型的工具结果渲染 —— 与对话路径同一份（脱敏 + HS-5 截断）。步骤结果会被拼进汇总提示词，
+     * 没有它就会被原样交给模型。
+     */
+    render?: (result: ToolResult) => string,
   ): Promise<{ content: string; stepResults: string[]; usage?: LlmUsage }> {
     // Step 1: 让 LLM 生成执行计划
     const planResult = await provider.generate({
@@ -105,11 +115,17 @@ export class PlanExecuteAgent {
 
       try {
         const result = await execute(step.tool, step.args, userId);
+        // The summary model reads these results, so they take the same rendering the chat paths give
+        // a model; without a renderer at least the string-level sanitizer runs. The `ERROR:` prefix
+        // stays the dependency signal below.
+        //
+        // 汇总模型会读到这些结果，故走与对话路径同一份渲染；没有渲染器时至少过字符串级脱敏。
+        // `ERROR:` 前缀仍是下方判定依赖失败的信号。
         stepResults[i] = result.success
-          ? JSON.stringify(result.data)
-          : `ERROR: ${result.error}`;
+          ? (render ? render(result) : sanitizeExternalContent(JSON.stringify(result.data ?? '')))
+          : `ERROR: ${sanitizeExternalContent(String(result.error ?? ''))}`;
       } catch (err) {
-        stepResults[i] = `ERROR: ${(err as Error).message}`;
+        stepResults[i] = `ERROR: ${sanitizeExternalContent((err as Error).message)}`;
       }
     }
 

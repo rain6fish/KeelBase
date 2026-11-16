@@ -220,15 +220,14 @@ export class AiService {
     providerName: string,
     agentRunId: string,
     /**
-     * Whether the model is handed `renderToolResult`'s text for this path's results. Only the
-     * sub-agent path is: the orchestrator pushes exactly that text as the tool message. The plan path
-     * feeds its summary model `JSON.stringify(result.data)` instead, and deterministic navigation has
-     * no model in the loop — both pass `false` so `model_text` stays null rather than recording a
-     * rendering no model ever saw.
+     * Whether the model is handed `renderToolResult`'s text for this path's results: the sub-agent
+     * path (the orchestrator pushes exactly that text as the tool message) and the plan path (the
+     * summary prompt embeds the same rendering). Deterministic navigation has no model in the loop, so
+     * it passes `false` and `model_text` stays null rather than recording a rendering no model saw.
      *
-     * 该路径的结果是否会以 `renderToolResult` 的文本交给模型。只有子代理路径会：编排器推给模型的正是
-     * 那份文本。plan 路径交给汇总模型的是 `JSON.stringify(result.data)`，确定性导航则没有模型看到结果
-     * —— 两者传 `false`，使 `model_text` 保持 null，而不是记一份没有模型见过的渲染。
+     * 该路径的结果是否会以 `renderToolResult` 的文本交给模型：子代理路径（编排器推的正是那份文本）
+     * 与 plan 路径（汇总提示词嵌入同一份渲染）。确定性导航没有模型看到结果，故传 `false`，使
+     * `model_text` 保持 null，而不是记一份没有模型见过的渲染。
      */
     modelSeesRendered = false,
   ): ReadOnlyToolExecutor {
@@ -263,13 +262,11 @@ export class AiService {
               parentActionId: agentRunId,
             }),
           );
-          // 0-B：只有子代理路径把 `renderToolResult` 的文本原样交给模型，故它的 `model_text` 与模型
-          // 实收一致；plan 的汇总模型拿到的是 `JSON.stringify(result.data)`，确定性导航没有模型看到
-          // 结果 —— 这两条不传 rendered，`model_text` 留空而不是记一份没人见过的投影。
-          // 0-B: only the sub-agent path hands the model the very text `renderToolResult` produces, so
-          // its `model_text` matches what the model saw; the plan summary model receives
-          // `JSON.stringify(result.data)` and deterministic navigation has no model in the loop — both
-          // omit `rendered`, leaving `model_text` null instead of recording an unseen projection.
+          // 0-B：子代理与 plan 路径都把 `renderToolResult` 的文本交给模型（编排器直接推送 / 汇总提示词
+          // 嵌入），故它们的 `model_text` 与模型实收一致；确定性导航没有模型看到结果，不传 rendered。
+          // 0-B: the sub-agent and plan paths both hand the model the text `renderToolResult` produces
+          // (pushed directly / embedded in the summary prompt), so their `model_text` matches what the
+          // model saw; deterministic navigation has no model in the loop and omits `rendered`.
           await this.toolResultRetention?.capture({
             auditRowId: auditRow.id,
             conversationId,
@@ -810,8 +807,11 @@ export class AiService {
         this.toolRegistry,
         userId,
         request.model ?? this.config.defaultModel,
-        // NC-3 只读门控：plan 步骤经同一治理层执行，防 LLM 计划的写/禁用工具被直调
-        this._agentStepExecutor(conversationId, providerName, agentRunId),
+        // NC-3 只读门控：plan 步骤经同一治理层执行，防 LLM 计划的写/禁用工具被直调。
+        // 汇总模型会读到渲染后的步骤结果（第 7 参），故留存也记同一份 model_text。
+        this._agentStepExecutor(conversationId, providerName, agentRunId, true),
+        // 与对话路径同一份渲染：步骤结果进汇总提示词前先脱敏 + 截断（F1 同类的计划路径缺口）
+        (result) => this.presentation.renderToolResult(result).text,
       );
 
       if (planResult.stepResults.length > 0) {
