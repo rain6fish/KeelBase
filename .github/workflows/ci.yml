@@ -28,7 +28,11 @@ jobs:
           cache: 'npm'
           cache-dependency-path: Server-NestJS/package-lock.json
       - run: npm ci
-      - run: npm run lint
+      # Strict lint (no --fix): CI must not rewrite the tree it judges. `npm run lint` keeps
+      # --fix for local development; the file set here mirrors that script's glob.
+      # 严格 lint（不带 --fix）：CI 不得改写被判的那棵树。`npm run lint` 保留 --fix 供本地开发；
+      # 这里的文件集与那个脚本的 glob 保持一致。
+      - run: npx eslint "{src,test}/**/*.ts"
 
   # 密钥泄漏扫描（gitleaks）：防真实密钥/令牌/私钥入库。
   # demo 凭据（README/docs 中故意公开的演示账号）在 .gitleaks.toml 白名单内，属预期。
