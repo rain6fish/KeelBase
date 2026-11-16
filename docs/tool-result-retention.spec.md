@@ -1,4 +1,4 @@
-# 0-B 工具结果留存 / 0-B Tool-Result Retention
+# 0-B Tool-Result Retention / 0-B 工具结果留存
 
 > 版本 / Version: v1.0（2026-11-14）
 > 关联 / Related: `docs/hs11-audit-chain.spec.md`（链语义与边界）、`Server-NestJS/src/ai/audit/tool-call-audit.ts`（审计行）
