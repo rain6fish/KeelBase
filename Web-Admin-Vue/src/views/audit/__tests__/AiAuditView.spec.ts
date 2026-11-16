@@ -497,6 +497,26 @@ describe('AiAuditView', () => {
       wrapper.unmount()
     })
 
+    // L6（Divergent Change）：留存正文是这次工具调用的证据，与链级证据是两个关切。它曾挂在
+    // 「哈希链」卡片内，一张卡同时承担两件事；现在必须是独立卡片。
+    // L6: the retained body is evidence for this call, not for the chain. It used to live inside the
+    // hash-chain card, one card carrying two concerns; it must now be its own card.
+    it('留存正文独立成卡，不再出现在哈希链卡片内', async () => {
+      toolResultMock.mockResolvedValue({
+        ...base, bodyState: 'stored', body: '{"a":1}', wasTruncated: true, modelText: null,
+      })
+      const wrapper = await openRetention()
+
+      const cards = wrapper.findAll('.el-card')
+      const chainCard = cards.find((c) => c.text().includes(zh.hashChain))
+      const retentionCard = cards.find((c) => c.text().includes(zh.toolResultTitle))
+      expect(chainCard).toBeTruthy()
+      expect(retentionCard).toBeTruthy()
+      expect(chainCard!.text()).not.toContain(zh.toolResultTitle)
+      expect(retentionCard!.text()).not.toContain(zh.hashChain)
+      wrapper.unmount()
+    })
+
     it('404（未留存）≠ 读取失败：各说各的话；切换语言后那句话也跟着换', async () => {
       const i18n = makeI18n()
       toolResultMock.mockRejectedValue(new ApiError('未留存', 404))

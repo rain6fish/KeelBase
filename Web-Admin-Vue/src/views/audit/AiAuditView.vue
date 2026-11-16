@@ -380,37 +380,46 @@
         {{ chainVerify.chain?.length ? t('hashChainHint') : t('noChainData') }}
       </div>
 
-      <!-- 0-B：留存的结果正文。按需取（不在列表里预取），未留存与已过期是两句不同的话。 -->
-      <!-- 0-B: the retained result body, fetched on demand (never prefetched for the list);
-           «nothing kept» and «expired» are two different sentences. -->
-      <template v-if="expanded?.action === 'tool_call'">
-        <el-divider />
-        <div class="d-flex align-center ga-2 mb-2">
-          <span class="text-subtitle-2">{{ t('toolResultTitle') }}</span>
-          <el-button size="small" :loading="toolResultLoading" @click="loadToolResult">
+    </el-card>
+
+    <!-- 0-B：留存的结果正文单独成卡 —— 它是本次工具调用的证据，与链级证据是两个关切。
+         按需取（不在列表里预取）；未留存、已过期、超上限各有各的说法。
+         0-B: the retained result body gets its own card — it is evidence for this tool call, a
+         different concern from chain-level evidence. Fetched on demand (never prefetched for the
+         list); «nothing kept», «expired» and «capped» each say their own thing. -->
+    <el-card v-if="expanded?.action === 'tool_call'" shadow="never" class="mb-4">
+      <template #header>
+        <div class="d-flex align-center ga-2">
+          <span>{{ t('toolResultTitle') }}</span>
+          <el-button
+            class="ms-auto"
+            size="small"
+            :loading="toolResultLoading"
+            @click="loadToolResult"
+          >
             {{ t('toolResultLoad') }}
           </el-button>
         </div>
-        <div v-if="toolResult" class="text-caption">
-          <div v-if="toolResult.bodyState === 'expired'" class="text-warning">
-            {{ t('toolResultExpired') }}
-          </div>
-          <div v-else-if="toolResult.bodyState === 'capped'" class="text-warning mb-1">
-            {{ t('toolResultCapped', { size: toolResultSize }) }}
-          </div>
-          <template v-if="toolResult.bodyState !== 'expired'">
-            <div class="text-medium-emphasis mb-1">{{ toolResultMeta }}</div>
-            <pre v-if="toolResult.body" class="tool-result-body">{{ toolResult.body }}</pre>
-            <template v-if="toolResult.modelText">
-              <div class="text-subtitle-2 mt-3 mb-1">{{ t('toolResultModelText') }}</div>
-              <pre class="tool-result-body">{{ toolResult.modelText }}</pre>
-            </template>
-          </template>
-        </div>
-        <div v-else-if="toolResultError" class="text-caption text-medium-emphasis">
-          {{ toolResultError }}
-        </div>
       </template>
+      <div v-if="toolResult" class="text-caption">
+        <div v-if="toolResult.bodyState === 'expired'" class="text-warning">
+          {{ t('toolResultExpired') }}
+        </div>
+        <div v-else-if="toolResult.bodyState === 'capped'" class="text-warning mb-1">
+          {{ t('toolResultCapped', { size: toolResultSize }) }}
+        </div>
+        <template v-if="toolResult.bodyState !== 'expired'">
+          <div class="text-medium-emphasis mb-1">{{ toolResultMeta }}</div>
+          <pre v-if="toolResult.body" class="tool-result-body">{{ toolResult.body }}</pre>
+          <template v-if="toolResult.modelText">
+            <div class="text-subtitle-2 mt-3 mb-1">{{ t('toolResultModelText') }}</div>
+            <pre class="tool-result-body">{{ toolResult.modelText }}</pre>
+          </template>
+        </template>
+      </div>
+      <div v-else-if="toolResultError" class="text-caption text-medium-emphasis">
+        {{ toolResultError }}
+      </div>
     </el-card>
 
     <!-- AU-4（§22.19）会话下钻：**引用优先**——先元数据，正文需显式「查看正文」才取 -->
