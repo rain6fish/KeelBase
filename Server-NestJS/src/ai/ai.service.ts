@@ -219,6 +219,18 @@ export class AiService {
     conversationId: string,
     providerName: string,
     agentRunId: string,
+    /**
+     * Whether the model is handed `renderToolResult`'s text for this path's results. Only the
+     * sub-agent path is: the orchestrator pushes exactly that text as the tool message. The plan path
+     * feeds its summary model `JSON.stringify(result.data)` instead, and deterministic navigation has
+     * no model in the loop — both pass `false` so `model_text` stays null rather than recording a
+     * rendering no model ever saw.
+     *
+     * 该路径的结果是否会以 `renderToolResult` 的文本交给模型。只有子代理路径会：编排器推给模型的正是
+     * 那份文本。plan 路径交给汇总模型的是 `JSON.stringify(result.data)`，确定性导航则没有模型看到结果
+     * —— 两者传 `false`，使 `model_text` 保持 null，而不是记一份没有模型见过的渲染。
+     */
+    modelSeesRendered = false,
   ): ReadOnlyToolExecutor {
     return async (toolName, args, userId) => {
       const argsJson = JSON.stringify(args);
@@ -251,16 +263,20 @@ export class AiService {
               parentActionId: agentRunId,
             }),
           );
-          // 0-B：plan / 子代理路径没有「模型实收文本」这一层（子代理自己拼接消息），
-          // 故只留完整正文；留存服务会自行判定是否发生过截断。
-          // 0-B: the plan / sub-agent paths have no model-facing text of their own (the orchestrator
-          // assembles its messages), so only the body is retained; the service decides truncation.
+          // 0-B：只有子代理路径把 `renderToolResult` 的文本原样交给模型，故它的 `model_text` 与模型
+          // 实收一致；plan 的汇总模型拿到的是 `JSON.stringify(result.data)`，确定性导航没有模型看到
+          // 结果 —— 这两条不传 rendered，`model_text` 留空而不是记一份没人见过的投影。
+          // 0-B: only the sub-agent path hands the model the very text `renderToolResult` produces, so
+          // its `model_text` matches what the model saw; the plan summary model receives
+          // `JSON.stringify(result.data)` and deterministic navigation has no model in the loop — both
+          // omit `rendered`, leaving `model_text` null instead of recording an unseen projection.
           await this.toolResultRetention?.capture({
             auditRowId: auditRow.id,
             conversationId,
             userId,
             toolName,
             result,
+            rendered: modelSeesRendered ? this.presentation.renderToolResult(result) : undefined,
           });
         }
         return result;
@@ -362,7 +378,13 @@ export class AiService {
       userId: params.userId,
       model: params.request.model ?? this.config.defaultModel,
       // NC-3 只读门控：子代理经同一治理层执行（R5/策略/角色/adminOnly + 写工具拒绝）
-      readOnlyExecutor: this._agentStepExecutor(params.conversationId, params.providerName, agentRunId),
+      // L1：编排器把 renderToolResult 的文本推给模型 ⇒ 留存也记同一份 model_text
+      readOnlyExecutor: this._agentStepExecutor(
+        params.conversationId,
+        params.providerName,
+        agentRunId,
+        true,
+      ),
       // §22.19 AU-2：子代理尝试调它工具集之外的工具时，那条越界信号也要留痕（此前静默）
       onDenied: (denial) =>
         this._logAgentToolDenial(params.conversationId, params.providerName, agentRunId, denial),

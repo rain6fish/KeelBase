@@ -34,7 +34,7 @@ Table `ai_tool_result_bodies` (new; one row per audited tool call, anchored by `
 | `stored_bytes` | integer | bytes of `body_text` |
 | `body_sha256` | varchar(64) | sha256 of `body_text`; kept after expiry as a commitment |
 | `original_sha256` | varchar(64) | sha256 of the pre-masking full result |
-| `model_text` | text | the model input after field-name masking (≤4000 chars); null on R4 / MCP |
+| `model_text` | text | the model input after field-name masking (≤4000 chars); set on the two chat paths and the sub-agent path, null where no rendered text reaches a model (R4 / MCP / plan / deterministic navigation) |
 | `model_chars` / `model_sha256` | integer / varchar(64) | length and hash of `model_text` |
 | `was_truncated` | boolean | whether the projection dropped anything |
 | `created_at` / `expires_at` | datetime | write time and end of the retention window |
@@ -52,7 +52,9 @@ behaviour), so their bodies are retained whenever retention itself is on. `redac
 phones, tokens, long hex) mask the body before it is stored. The model's copy is produced by
 project-then-sanitize, which the sanitize-then-store body cannot be inverted into, so it is kept on
 its own; before it is stored it gets the same field-name redaction, i.e. `model_text` is the model
-input **after** `redactSensitive`. Where that sanitizer rewrites an unquoted token and leaves the
+input **after** `redactSensitive` — recorded wherever a model receives that rendering (the two chat
+paths and the sub-agent), and left null where none does (R4, MCP, the plan summary, deterministic
+navigation). Where that sanitizer rewrites an unquoted token and leaves the
 model's copy unparseable, redaction falls back to masking sensitive values by field name in the raw
 text, and withholds the whole document (`[REDACTED: unparseable payload]`) for shapes it cannot
 vouch for — invalid input is never stored as-is. A capture failure logs a warning and never fails
@@ -63,7 +65,8 @@ R4 执行器与 MCP 出口。对话路径上审计粒度 `off` 时没有行可�
 设置停止写行（这是它们既有的行为），因此只要留存本身开启，那两条路径的正文仍会留存。写入前
 先 `redactSensitive`（字段名）再 `sanitizeExternalContent`（邮箱/手机/token/长 hex）。模型那份是
 「先投影、再脱敏」，无法从「先脱敏、再存」的正文反推，故单独留存；落库前同样过字段名打码，即
-`model_text` 是 `redactSensitive` **之后**的模型输入。若该消毒器改写了未加引号的 token、使模型那份
+`model_text` 是 `redactSensitive` **之后**的模型输入 —— 凡有模型收到这份渲染就记（对话两条路径与
+子代理），没有模型收到就留空（R4、MCP、plan 汇总、确定性导航）。若该消毒器改写了未加引号的 token、使模型那份
 无法解析，打码改为在原始文本上按字段名逐键遮盖；无法担保完整的形状则整篇隐去
 （`[REDACTED: unparseable payload]`）—— 非法输入绝不原样留存。留存失败只告警，绝不让工具调用、
 回答或审计行失败。
