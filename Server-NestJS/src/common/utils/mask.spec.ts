@@ -83,17 +83,29 @@ describe('mask utils', () => {
       expect(redactSensitive('user.password: hunter2')).toBe('user.password: [REDACTED]');
     });
 
-    // A bare value that contains spaces must be masked whole; stopping at the first space left the
-    // rest of a passphrase in clear.
-    // 含空格的裸值必须整段掩掉；在第一个空格处停下会把口令后半截留在明文里。
-    it('裸值含空格时整段掩掉，直到行尾或结构分隔符', () => {
+    // A bare value is masked whole even when it contains spaces, commas, ampersands or semicolons:
+    // those only end it when the next key/value pair actually begins.
+    // 裸值即使含空格、逗号、& 或分号也整段掩掉：只有下一个键值对真的开始时，它们才终止该值。
+    it('裸值内的空格/逗号/&/分号不截断，直到行尾或下一个键值对', () => {
       expect(redactSensitive('password=correct horse battery')).toBe('password=[REDACTED]');
       expect(redactSensitive('password=correct horse battery&title=x')).toBe(
         'password=[REDACTED]&title=x',
       );
+      expect(redactSensitive('password=correct,horse')).toBe('password=[REDACTED]');
+      expect(redactSensitive('token=ab&cd')).toBe('token=[REDACTED]');
       expect(redactSensitive('password=correct horse\nuser=alice')).toBe(
         'password=[REDACTED]\nuser=alice',
       );
+    });
+
+    // Arbitrary text is not JSON: an apostrophe in prose must not open a string literal (that made
+    // the scanner run to the next apostrophe or withhold the whole document).
+    // 任意文本不是 JSON：散文里的撇号不得开启字符串字面量（否则扫描会跑到下一个撇号或整篇隐去）。
+    it('散文里的撇号不当作字符串定界符', () => {
+      expect(redactSensitive("It's fine, password=hunter2")).toBe(
+        "It's fine, password=[REDACTED]",
+      );
+      expect(redactSensitive("{password:'secret'}")).toBe('{password:[REDACTED]}');
     });
 
     it('兜底同样认得模块声明的额外键名', () => {

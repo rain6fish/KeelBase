@@ -20,8 +20,9 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
   returned the text unchanged when `JSON.parse` failed. The sanitizer can make a payload unparseable by
   rewriting an unquoted phone number, so the retention path could store a body that was never masked.
   It now masks what it can and withholds the whole payload (`UNREDACTABLE`) when it cannot bound the
-  text, turning a silent fail-open into a fail-closed result. A bare value is masked to the end of its
-  line, so a passphrase containing spaces is masked whole instead of up to the first space.
+  text, turning a silent fail-open into a fail-closed result. A bare value is masked whole — up to the
+  next key/value pair or the end of the line — so a passphrase containing spaces, commas or `&` is not
+  cut short.
 
 - **Plan steps reach the summary model only after masking and truncation.** The plan executor pushed
   `JSON.stringify(result.data)` into the summary prompt, so a data-query step's tool result — user data
@@ -81,7 +82,7 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 - **非 JSON 输入不再被 `redactSensitive` 原样放行。** 该函数在 `JSON.parse` 失败时原样返回文本。消毒器会
   把未加引号的手机号改写成打码形状，从而使载荷不再是合法 JSON，留存路径于是可能落下一份从未打过码的正文。
   现在能打码的就打码，无法定界时整篇隐去（`UNREDACTABLE`），把静默的 fail-open 变成 fail-closed；裸值
-  一直掩到行尾，因此含空格的口令会整段掩掉，而不是只掩到第一个空格。
+  整段掩掉（直到下一个键值对或行尾），因此含空格、逗号、`&` 的口令不会被截短。
 
 - **plan 步骤结果先脱敏截断，再进汇总模型。** plan 执行器原先把 `JSON.stringify(result.data)` 拼进汇总
   提示词，数据查询步骤的工具结果（含用户数据）未脱敏、未截断就进了第二个模型。现在改走与对话路径相同的

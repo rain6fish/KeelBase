@@ -4,7 +4,8 @@
  * NC-4 本地 postgres 迁移一致性校验（与 CI migration-consistency-postgres job 同源，杜绝两处逻辑漂移）：
  * 全量白名单迁移在真实 pg 上跑通 + migration:generate 无实体漂移（No changes）+ 最后一条迁移的
  * down() 回滚并在同一连接上重跑。sqlite 的单测只覆盖 sqlite 方言，pg 的 down 由本门覆盖。
- * - 已提供 DB_TYPE=postgres + DB_HOST 环境（如 CI services）→ 直连现有 pg，不自起容器
+ * - 已提供 DB_TYPE=postgres + DB_HOST 环境（如 CI services）→ 直连现有 pg，不自起容器；
+ *   该路径下 migration:revert（删表）默认跳过，除非 CI=true 或 PG_CONSISTENCY_ALLOW_REVERT=1
  * - 否则自动起临时 pgvector/pg17 容器（用完即清）
  * sqlite 侧请跑 npm run migration-consistency:sqlite 的 CI（长度类漂移 sqlite 检测不到——本脚本专门补 pg）。
  *
@@ -133,17 +134,42 @@ async function main() {
     // 最后一条迁移的 `down()` 必须在 postgres 方言下真跑一遍：jest 单测只覆盖 sqlite 的。
     // `migration:revert` 回滚最后执行的那条（当前即 1850000000000-AddAiToolResultBodies），随后的重跑
     // 证明同一连接能把它重新建起来。
-    console.log('=== migration:revert（pg down 校验） ===');
-    const r2 = sh('npm run migration:revert', { env: childEnv });
-    if (r2.status !== 0) {
-      throw new Error('migration:revert 失败（postgres 方言的 down 有误），详见上方输出');
+    // Destructive: `migration:revert` drops the table the newest migration created. That is safe
+    // against the container this script provisions and against CI's throwaway service container,
+    // but not against a database the caller actually uses (the `useExisting` path). It runs there
+    // only on explicit opt-in.
+    // 破坏性：`migration:revert` 会删掉最新迁移建的表。对本脚本自起的容器与 CI 的一次性 service
+    // 容器安全，但对调用方真实在用的库（`useExisting` 路径）不安全。该路径下仅在显式开启时执行。
+    const canRevert =
+      !useExisting || process.env.CI === 'true' || process.env.PG_CONSISTENCY_ALLOW_REVERT === '1';
+    let reverted = false;
+    if (canRevert) {
+      console.log('=== migration:revert（pg down 校验） ===');
+      const r2 = sh('npm run migration:revert', { env: childEnv });
+      if (r2.status !== 0) {
+        throw new Error('migration:revert 失败（postgres 方言的 down 有误），详见上方输出');
+      }
+      console.log('=== migration:run（回滚后重跑） ===');
+      const r3 = sh('npm run migration:run', { env: childEnv });
+      if (r3.status !== 0) {
+        throw new Error('回滚后重跑 migration:run 失败，详见上方输出');
+      }
+      reverted = true;
+    } else {
+      console.log(
+        '[consistency:pg] 复用外部 postgres：跳过破坏性的 migration:revert'
+        + '（设 PG_CONSISTENCY_ALLOW_REVERT=1 或 CI=true 可启用）',
+      );
+      console.log(
+        '[consistency:pg] reused postgres: skipped destructive migration:revert'
+        + ' (set PG_CONSISTENCY_ALLOW_REVERT=1 or CI=true to enable)',
+      );
     }
-    console.log('=== migration:run（回滚后重跑） ===');
-    const r3 = sh('npm run migration:run', { env: childEnv });
-    if (r3.status !== 0) {
-      throw new Error('回滚后重跑 migration:run 失败，详见上方输出');
-    }
-    console.log('[consistency:pg] PASS — postgres 全量迁移跑通、实体↔迁移无漂移，且最后一条迁移的 down/重跑成立（No changes）');
+    console.log(
+      reverted
+        ? '[consistency:pg] PASS — postgres 全量迁移跑通、实体↔迁移无漂移，且最后一条迁移的 down/重跑成立（No changes）'
+        : '[consistency:pg] PASS — postgres 全量迁移跑通、实体↔迁移无漂移；down/重跑已跳过（复用外部库）',
+    );
   } finally {
     cleanDriftFiles();
     if (provisioned) provisioned.cleanup();

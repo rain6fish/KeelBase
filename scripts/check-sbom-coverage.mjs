@@ -242,7 +242,7 @@ function selftest() {
     console.error(`[sbom-coverage] self-test: ${failures} expectation(s) not met`);
     process.exit(1);
   }
-  console.log('[sbom-coverage] self-test: coverage, drift, the shadowed lockfile and installed dependency trees all behave as specified');
+  console.log('[sbom-coverage] self-test: coverage, drift, sibling-directory scoping and installed dependency trees all behave as specified');
 }
 
 function arg(name, fallback) {
