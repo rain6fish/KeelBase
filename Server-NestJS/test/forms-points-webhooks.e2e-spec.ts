@@ -5,6 +5,7 @@ import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { createTestApp, registerUser, loginAs, authHeader } from './helpers';
 import { UserRole } from '../src/common/entities/user.entity';
+import { WebhookService } from '../src/webhooks/webhook.service';
 
 /**
  * e2e coverage for previously untested modules:
@@ -349,6 +350,128 @@ describe('Forms / Points / Webhooks / Feedback (e2e)', () => {
         .set(authHeader(userToken))
         .send({ type: 'not-a-type', content: 'x' })
         .expect(400);
+    });
+  });
+
+  // ── P3 跨租户投递隔离（HTTP 级证据）──
+  describe('Webhook tenant isolation (P3)', () => {
+    // Delivery is stubbed at the HTTP client, and both URLs are public literal IPs so the SSRF
+    // check (which skips DNS for literals) lets them through without any network access.
+    // 投递在 HTTP 客户端处打桩；两条 URL 用公网字面 IP，SSRF 校验对字面地址不做 DNS，全程不出网。
+    const TENANT_1_URL = 'http://93.184.216.34/tenant-1-hook';
+    const TENANT_2_URL = 'http://93.184.216.35/tenant-2-hook';
+    let tenant1SubId = 0;
+    let tenant2SubId = 0;
+    let fetchSpy: jest.SpyInstance | undefined;
+
+    const stubOutbound = () => {
+      fetchSpy = jest
+        .spyOn(globalThis, 'fetch')
+        .mockImplementation(
+          async () => ({ ok: true, status: 200, headers: { get: () => null } }) as unknown as Response,
+        );
+    };
+    const deliveredUrls = () => (fetchSpy?.mock.calls ?? []).map((call) => String(call[0]));
+    // url + event header, so a test can say both "which tenant" and "which trigger fired".
+    // 同时取 URL 与事件头：既能断言投给哪个租户，也能断言是哪个入口触发的。
+    const deliveredCalls = () =>
+      (fetchSpy?.mock.calls ?? []).map((call) => ({
+        url: String(call[0]),
+        event: (call[1] as { headers?: Record<string, string> } | undefined)?.headers?.[
+          'X-Webhook-Event'
+        ],
+      }));
+
+    beforeAll(async () => {
+      const mine = await request(app.getHttpServer())
+        .post('/api/v1/webhooks')
+        .set(authHeader(userToken))
+        .send({
+          name: 'tenant-1 sink',
+          url: TENANT_1_URL,
+          events: ['feedback.created', 'event.created', 'todo.created'],
+        })
+        .expect(201);
+      tenant1SubId = mine.body.data.id;
+
+      const other = await request(app.getHttpServer())
+        .post('/api/v1/webhooks')
+        .set(authHeader(otherToken))
+        .send({ name: 'tenant-2 sink', url: TENANT_2_URL, events: ['feedback.created'] })
+        .expect(201);
+      tenant2SubId = other.body.data.id;
+    });
+
+    afterEach(() => {
+      fetchSpy?.mockRestore();
+      fetchSpy = undefined;
+    });
+
+    afterAll(async () => {
+      await request(app.getHttpServer())
+        .delete(`/api/v1/webhooks/${tenant1SubId}`)
+        .set(authHeader(userToken));
+      await request(app.getHttpServer())
+        .delete(`/api/v1/webhooks/${tenant2SubId}`)
+        .set(authHeader(otherToken));
+    });
+
+    it('一个租户的事件只投递到该租户自己的订阅', async () => {
+      stubOutbound();
+      await request(app.getHttpServer())
+        .post('/api/v1/feedback')
+        .set(authHeader(userToken))
+        .send({ type: 'suggestion', content: 'tenant isolation probe' })
+        .expect(200);
+
+      const urls = deliveredUrls();
+      expect(urls).toEqual([TENANT_1_URL]);
+      expect(urls).not.toContain(TENANT_2_URL);
+    });
+
+    it('载荷缺少 userId 时不投递（fail-closed）', async () => {
+      stubOutbound();
+      await expect(
+        app.get(WebhookService).publish('feedback.created', {} as never),
+      ).resolves.toBeUndefined();
+      expect(deliveredUrls()).toEqual([]);
+    });
+
+    // The three business entries must actually reach publish() — the filter tests above pass even
+    // when the publisher never gets injected, so each entry is driven through its HTTP route.
+    // 三个业务入口必须真的走到 publish()：上面的过滤用例在发布者没被注入时也照样通过，所以这里逐个走 HTTP 路由。
+    it('事件创建触发 event.created 投递', async () => {
+      stubOutbound();
+      await request(app.getHttpServer())
+        .post('/api/v1/events')
+        .set(authHeader(userToken))
+        .send({
+          title: 'tenant probe event',
+          startTime: '2026-11-20T09:00:00Z',
+          endTime: '2026-11-20T10:00:00Z',
+        })
+        .expect(201);
+      expect(deliveredCalls()).toEqual([{ url: TENANT_1_URL, event: 'event.created' }]);
+    });
+
+    it('待办创建触发 todo.created 投递', async () => {
+      stubOutbound();
+      await request(app.getHttpServer())
+        .post('/api/v1/todos')
+        .set(authHeader(userToken))
+        .send({ title: 'tenant probe todo' })
+        .expect(201);
+      expect(deliveredCalls()).toEqual([{ url: TENANT_1_URL, event: 'todo.created' }]);
+    });
+
+    it('反馈提交触发 feedback.created 投递', async () => {
+      stubOutbound();
+      await request(app.getHttpServer())
+        .post('/api/v1/feedback')
+        .set(authHeader(userToken))
+        .send({ type: 'praise', content: 'tenant probe feedback' })
+        .expect(200);
+      expect(deliveredCalls()).toEqual([{ url: TENANT_1_URL, event: 'feedback.created' }]);
     });
   });
 });
