@@ -1070,25 +1070,6 @@ EMBEDDING_DIMENSIONS=1536
 
 ---
 
-## 11. Front-Taro（主 App H5/小程序端） / 11. Front-Taro (Main App H5 / Mini-Program)
-
-主 App 的 H5/小程序渠道。分层：`services/`（API 封装）+ `stores/`（zustand）+ `pages/*/index.tsx`。已实现功能（PL-6 同步自 Flutter）：
-
-The H5/mini-program channel of the main App. Layered as: `services/` (API wrappers) + `stores/` (zustand) + `pages/*/index.tsx`. Features implemented (PL-6, synced from Flutter):
-
-| 功能 / Feature | 页面 / Page | 说明 / Description |
-|------|------|------|
-| 认证/事件/上传/用户/探索/设置 / Auth/events/upload/users/explore/settings | splash/login/register/dashboard/events/event-form/upload/users/explore/settings | 基础功能 / Basic features |
-| 通知中心 / Notification center | `/pages/notifications/index` | 列表/未读/已读/全部已读/删除（分页轮询，SSE 在 H5 支持有限） / List/unread/read/read-all/delete (paginated polling; SSE has limited H5 support) |
-| 会话管理 / Session management | `/pages/sessions/index` | 设备列表/当前设备标记/远程登出 / Device list / current-device marking / remote logout |
-
-`api-client.ts` 支持 GET/POST/PUT/PATCH/DELETE，统一附带 `x-device-id` 头（后端识别当前设备标记会话 isCurrent）。
-
-`api-client.ts` supports GET/POST/PUT/PATCH/DELETE, always attaching the `x-device-id` header (the backend identifies the current device to mark a session isCurrent).
-
-> 渠道策略：AI 对话 / 全局搜索 / 待办清单为 Flutter 重交互能力，H5 小程序轻量渠道按需再同步。
-> Channel strategy: AI chat / global search / todo list are Flutter-heavy-interaction features; the lightweight H5 mini-program channel syncs them on demand.
-
 ---
 
 ## 12. 管理员管理台（Web-Admin-Vue） / 12. Admin Console (Web-Admin-Vue)
@@ -1127,8 +1108,8 @@ Enterprise web host (Vue3 + Element Plus): workbench and admin console share one
 | 系统 AI 助手 / System AI Assistant | 平台能力 Explain/Guide/Navigate 对话，可跳转管理台页 / Platform explain/guide/navigate chat; navigates console pages | POST /admin/ai/chat |
 
 **安全设计**： / **Security design**:
-- 主 app 不打包/不引用任何管理页面（管理入口已从 Front-Taro 移除）
-  The main app does not bundle or reference any admin pages (the admin entry has been removed from Front-Taro)
+- 移动主 App 不打包/不引用任何管理页面（管理入口已在移动端移除）
+  The mobile app does not bundle or reference any admin pages (the admin entry has been removed from the mobile client)
 - 管理台前端仅做 UI 与角色校验；真正的越权防护在后端 CASL（普通用户 token 调管理 API 返回 403）
   The admin frontend only performs UI and role checks; the real privilege enforcement is in backend CASL (a regular user token calling admin APIs returns 403)
 - 部署加固（独立域名/IP 白名单/MFA）属运维项

@@ -75,9 +75,9 @@
 | `package.json`（仓库根） | 产品版本真源 + 生成器来源身份读取源 |
 | `Server-NestJS/package.json` | 后端运行时版本（`/app/version`） |
 | 各 lockfile 根版本字段 | `version` + `packages[""].version`，跟随**其自身清单** |
-| 前端**显示**版本常量 | Flutter `app_constants.dart` 的 `appVersion`、Taro `settings/index.vue` 的 `appVersion` 跟随产品版本 |
+| 前端**显示**版本常量 | Flutter `app_constants.dart` 的 `appVersion` 跟随产品版本 |
 
-**不必再跟着 bump**：`Web-Admin-Vue` / `Front-Taro` / `Front-Flutter` 的清单版本（各自持版），
+**不必再跟着 bump**：`Web-Admin-Vue` / `Front-Flutter` 的清单版本（各自持版），
 以及 `Web-Admin-React`（预览版，未表态转正）。
 
 门禁：`node scripts/check-version-parity.mjs`（CI job `version-parity`）。除了成员与 lockfile，

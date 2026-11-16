@@ -60,7 +60,7 @@ node scripts/keelbase-init.mjs --import-schema specs/examples/legacy-crm.sql --o
 node scripts/keelbase-init.mjs --spec specs/legacy-customer.json --label 老客户
 ```
 
-生成普通源代码（后端 CRUD + Flutter + 管理台 + Taro + 7 处接线 + **自动附 AI 工具** `query_legacy_customers`（读）+ `create_legacy_customer`（写需确认））。
+生成普通源代码（后端 CRUD + Flutter + 管理台 + 接线 + **自动附 AI 工具** `query_legacy_customers`（读）+ `create_legacy_customer`（写需确认））。
 
 ### 4. 补迁移 + 验证
 

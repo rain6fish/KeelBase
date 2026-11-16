@@ -72,16 +72,14 @@ cleanup() {
     "Server-NestJS/src/${PLURAL:-__none__}" \
     "Front-Flutter/lib/features/${PLURAL:-__none__}" \
     "Web-Admin-Vue/src/views/${PLURAL:-__none__}" \
-    "Front-Taro/src/pages/${PLURAL:-__none__}" \
     >/dev/null 2>&1 || true
-  # 生成物里**没有独立目录**的那几件（AI 工具 / 管理台 api / Taro 的 service·type·store / 本脚本的迁移）。
+  # 生成物里**没有独立目录**的那几件（AI 工具 / 管理台 api / 本脚本的迁移）。
   # 未跟踪时靠 clean 清掉；**已被检进仓**时上面那句 `git checkout -- <这一轮的路径>` 已经还原过 —— 这里
   # **不能**再用 `rm -f`：它不认 tracked，会把仓库里的文件真删掉（2026-09-28 实测一次删掉 8 个，且 CI
   # 之外没人会察觉）。
   git clean -fdq -- \
     'Server-NestJS/src/ai/tools/query-*' 'Server-NestJS/src/ai/tools/create-*' \
     'Web-Admin-Vue/src/api/*' \
-    'Front-Taro/src/services/*' 'Front-Taro/src/types/*' 'Front-Taro/src/stores/*' \
     'Server-NestJS/src/migrations/*_c2b*' >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
@@ -120,10 +118,10 @@ for f in "${PLANNED[@]}"; do [ -f "$f" ] || missing+=("$f"); done
 # 结构完整性：后端四件套（实体用**单数**）+ AI 工具 + 三前端都在清单里
 for pat in "/$SINGULAR\.entity\.ts$" "/$PLURAL\.service\.ts$" "/$PLURAL\.controller\.ts$" "/$PLURAL\.module\.ts$" \
            "/ai/tools/query-$PLURAL\.tool\.ts$" "/ai/tools/create-$PLURAL\.tool\.ts$" \
-           "^Front-Flutter/lib/features/$PLURAL/" "^Web-Admin-Vue/" "^Front-Taro/"; do
+           "^Front-Flutter/lib/features/$PLURAL/" "^Web-Admin-Vue/" ; do
   printf '%s\n' "${PLANNED[@]}" | grep -qE "$pat" || fail "生成清单缺结构件：/${pat}/"
 done
-printf '   生成物齐（%s 个文件：后端四件套 + AI 读写工具 + 三前端）\n' "${#PLANNED[@]}"
+printf '   生成物齐（%s 个文件：后端四件套 + AI 读写工具 + 两前端）\n' "${#PLANNED[@]}"
 
 # ── 3. 编译 + 生成模块单测（roadmap S4：单测绿）────────────────────────────────
 log "③ 编译 + 生成模块单测"

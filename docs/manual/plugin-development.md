@@ -83,7 +83,7 @@ const PLUGINS = [HELLO_PLUGIN, GITHUB_PLUGIN];
 
 - **编译期注册**：插件与宿主同编译，无运行时动态加载
 - **装配变更需重启**：增删插件后需重启后端
-- **能力即契约**：`capabilities` 供三端（Flutter/Taro/管理台）展示与权限判断
+- **能力即契约**：`capabilities` 供两端（Flutter/Web 管理台）展示与权限判断
 - **依赖校验**：`requires` 列出的宿主服务不存在时 PluginsService 校验告警
 
 ---

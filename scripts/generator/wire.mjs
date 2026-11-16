@@ -50,10 +50,6 @@ export const WIRED_FILES = [
   'Web-Admin-Vue/src/layouts/AdminLayout.vue',
   'Web-Admin-Vue/src/i18n/zh.ts',
   'Web-Admin-Vue/src/i18n/en.ts',
-  'Front-Taro/src/app.config.ts',
-  'Front-Taro/src/i18n/zh.ts',
-  'Front-Taro/src/i18n/en.ts',
-  'Front-Taro/src/pages/explore/index.vue',
   // wireAdmin appends the new module to the console's module list here.
   // wireAdmin 在这里把新模块补进控制台的模块清单。
   'CLAUDE.md',
@@ -574,89 +570,6 @@ export async function wireAdmin(ctx, root = '') {
   return results;
 }
 
-/** Taro（Vue3）接线（⑤-3）：app.config pages + explore quickCards。 */
-export async function wireTaro(ctx, root = '') {
-  const results = [];
-  const sep = root ? (root.endsWith('/') ? '' : '/') : '';
-  const TARO = `${root}${sep}Front-Taro/src`;
-
-  // Taro 的两份词典（H5/小程序）：页面与 store 的文案都走 `t()` / `translate()`，键在这里**声明一次**、
-  // 两种语言同时加；`'<plural>.title'` 既当守卫也当幂等 marker —— 已生成过的模块不会再插一遍。
-  // The Taro dictionaries: page and store word everything through `t()` / `translate()`, so the keys are
-  // declared here once, in both languages, guarded by the module's own title key.
-  const taroKeys = (labels) =>
-    `\n  // ── ${ctx.label}（EASY-2 生成）──\n` +
-    Object.entries(labels)
-      .map(([k, v]) => `  '${ctx.plural}.${k}': ${v},\n`)
-      .join('');
-  results.push(
-    await applyFile(`${TARO}/i18n/zh.ts`, (c) =>
-      insertAfter(
-        c,
-        `export const zh: I18nDictionary = {`,
-        taroKeys({
-          title: `'${ctx.label}'`,
-          count: `'{total} 条'`,
-          placeholder: `'新增${ctx.label}…'`,
-          add: `'添加'`,
-          empty: `'暂无${ctx.label}'`,
-          inputRequired: `'请输入${ctx.label}内容'`,
-          createFailed: `'创建失败'`,
-          deleteTitle: `'删除${ctx.label}'`,
-          deleteFailed: `'删除失败'`,
-          loadFailed: `'加载${ctx.label}失败'`,
-        }),
-        `'${ctx.plural}.title'`,
-      ),
-    ),
-  );
-  results.push(
-    await applyFile(`${TARO}/i18n/en.ts`, (c) =>
-      insertAfter(
-        c,
-        `export const en: I18nDictionary = {`,
-        taroKeys({
-          title: `'${ctx.pluralPascal}'`,
-          count: `'{total} items'`,
-          // The identifier is an internal name; user-visible English reads it as words, not snake_case.
-          // 模块标识符是内部名；用户看到的英文按词读，不出现下划线。
-          placeholder: `'Add ${ctx.singular.replace(/_/g, ' ')}…'`,
-          add: `'Add'`,
-          empty: `'No ${ctx.plural.replace(/_/g, ' ')} yet'`,
-          inputRequired: `'Please enter a ${ctx.singular.replace(/_/g, ' ')} name'`,
-          createFailed: `'Failed to create'`,
-          deleteTitle: `'Delete ${ctx.singlePascal}'`,
-          deleteFailed: `'Failed to delete'`,
-          loadFailed: `'Failed to load ${ctx.plural.replace(/_/g, ' ')}'`,
-        }),
-        `'${ctx.plural}.title'`,
-      ),
-    ),
-  );
-
-  results.push(
-    await applyFile(`${TARO}/app.config.ts`, (c) =>
-      insertAfter(
-        c,
-        `    'pages/search/index',`,
-        `\n    'pages/${ctx.plural}/index',`,
-        `'pages/${ctx.plural}/index'`,
-      ),
-    ),
-  );
-  results.push(
-    await applyFile(`${TARO}/pages/explore/index.vue`, (c) =>
-      insertAfter(
-        c,
-        `  { icon: '⚙️', label: t('explore.settings'), color: '#9333EA', path: '/pages/settings/index' },`,
-        `\n  { icon: '📦', label: '${ctx.label}', color: '#F97316', path: '/pages/${ctx.plural}/index' },`,
-        `path: '/pages/${ctx.plural}/index'`,
-      ),
-    ),
-  );
-
-  return results;
-}
 
 /** 汇总接线结果，打印已接入/跳过清单。 */
 export function summarize(results) {

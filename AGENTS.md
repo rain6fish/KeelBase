@@ -5,7 +5,7 @@
 
 ## 1. 项目定位（AI 必知）
 
-KeelBase = **业务安全的 AI Agent harness + 全栈应用基座**（Flutter + NestJS + Taro + Vue 管理台）。
+KeelBase = **业务安全的 AI Agent harness + 全栈应用基座**（Flutter + NestJS + Vue 管理台）。
 
 **双 AI 叙事**：
 - **开发期 AI**：`node scripts/keelbase-init.mjs`（仓库自带 CLI）或 AI 按本文件约定**生成业务模块**

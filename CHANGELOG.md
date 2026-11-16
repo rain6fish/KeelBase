@@ -4,6 +4,25 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 本文件记录 KeelBase 所有值得关注的变更。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### Removed
+
+- **The Taro client is gone from the tree and from the generator.** `Front-Taro/` and the generator's
+  Taro templates were removed together: `keelbase init` now renders and wires only the Flutter app and
+  the Web host. The entry model reads two entries — the main app (`Front-Flutter`) and the Web host
+  (`Web-Admin-Vue`) — with a second mobile form kept in the separate `KeelBase-App-X` (uni-app x)
+  repository. The Taro build job, the Dependabot entry, the boundary and version/lockfile gates, the
+  dependency baseline and the current documents follow the removal; published history is left as it was.
+
+### 已移除
+
+- **Taro 客户端已从仓库与生成器一并移除。** `Front-Taro/` 与生成器的 Taro 模板同时删除：
+  `keelbase init` 之后只渲染并接线 Flutter App 与 Web 宿主。入口模型为两个入口 —— 主 App
+  （`Front-Flutter`）与 Web 宿主（`Web-Admin-Vue`）；移动端第二形态留在独立仓 `KeelBase-App-X`
+  （uni-app x）。Taro 构建 job、Dependabot 条目、边界与版本/锁文件门禁、依赖基线及现存文档均已随之
+  更新；已发布的历史记录保持原貌。
+
 ## [1.4.1] - 2026-11-15
 
 **v1.4.1 — A 256 KB line no longer stalls a reply, and every retained-body state now has an explanation / 256 KB 单行不再拖住回答，留存正文的每个状态都有说法**

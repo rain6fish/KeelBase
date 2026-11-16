@@ -19,7 +19,6 @@ import {
 } from './generator/validate.mjs';
 import { pageTemplate } from './generator/templates-frontend.mjs';
 import { adminI18nKeys, adminViewTemplate } from './generator/templates-admin.mjs';
-import { taroPageTemplate } from './generator/templates-taro.mjs';
 import { enumLabelGetterDecls } from './generator/wire.mjs';
 import { validate as validateAgainstSchema } from './generator/schema-validate.mjs';
 import { createRequire } from 'node:module';
@@ -42,9 +41,6 @@ function ctxWith(fields) {
 const labelled = () => ctxWith([{ name: 'name', type: 'string' }, { ...ENUM_FIELD, enumLabels: STATUS_LABELS }]);
 /** Enum field declares no labels at all. / enum 字段完全未声明标签。 */
 const unlabelled = () => ctxWith([{ name: 'name', type: 'string' }, { ...ENUM_FIELD }]);
-/** Enum field is first — the only field Taro renders. / enum 字段在首位 —— Taro 唯一渲染的那个。 */
-const labelledFirst = () =>
-  ctxWith([{ ...ENUM_FIELD, enumLabels: STATUS_LABELS }, { name: 'name', type: 'string' }]);
 
 // ─── Validator ───────────────────────────────────────────────────────────────
 
@@ -128,20 +124,6 @@ test('Web admin i18n：无标签 → 不新增标签键', () => {
   const keys = adminI18nKeys(unlabelled());
   assert.equal('customersStatusLead' in keys.zh, false);
   assert.equal('customersStatusLead' in keys.en, false);
-});
-
-// ─── Taro ────────────────────────────────────────────────────────────────────
-
-test('Taro：首字段为带标签 enum → 显示标签并回落', () => {
-  const page = taroPageTemplate(labelledFirst());
-  assert.ok(page.includes('{{ statusLabels[item.status] ?? item.status }}'));
-  assert.ok(page.includes("'lead': '线索',"), 'Taro 侧取 zh，与页面其余中文单语文案一致');
-});
-
-test('Taro：无标签 → 与既有行为一致', () => {
-  const page = taroPageTemplate(ctxWith([{ ...ENUM_FIELD }, { name: 'name', type: 'string' }]));
-  assert.ok(page.includes('{{ item.status }}'));
-  assert.ok(!page.includes('statusLabels'));
 });
 
 // ─── Wire: generated localizations ───────────────────────────────────────────

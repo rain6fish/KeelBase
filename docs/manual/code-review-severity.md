@@ -12,7 +12,7 @@
 | Low | P2/P3 | 通常进 P3 一次性清理 | 空指针兜底、edge case |
 | Style | P3 | 一次性 formatter/lint 清理，不逐条建 issue | 缩进 / 分号 / 引号 |
 | Documentation | P3 | 随文档改动顺手修 | 过期注释 / HTML 语义标签 |
-| Generated / config | 通常 P3 | 模板型/生成型文件不污染核心指标 | Taro 配置、脚手架样板 |
+| Generated / config | 通常 P3 | 模板型/生成型文件不污染核心指标 | 脚手架样板 |
 | 工具误报 / 规则不适配 | Ignore | 记录原因后忽略 | Flutter Bridging Header 缺 guard、`#import`、一次性脚本 `open` |
 
 ## 处理流程 / Workflow

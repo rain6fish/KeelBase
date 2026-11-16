@@ -41,7 +41,6 @@
 | AI 工具 | `ai/tools/query-<plural>.tool.ts`（读，按 userId 过滤）+ `create-<singular>.tool.ts`（写，`requiresConfirmation` + `requireVerifiedEmail`），各带 `.tool.spec.ts`，注册进 `ai.module.ts` |
 | Flutter | `features/<plural>/` model / repository / provider / page + 接线（main/router/i18n/Explore） |
 | Web-Admin | `views/<plural>/` 管理页 + 接线（routes/nav/i18n） |
-| Taro | `pages/<plural>/` + 接线（app.config/explore） |
 | 安全接线 | CASL 本人所有权 + 全局审计拦截器 + AI 导航（navigate-page.tool） |
 
 ## 3. 已验证的端到端例子

@@ -18,7 +18,6 @@ import { join, relative } from 'node:path';
 /** 前端 / 旗舰 / 生成器前端模板的源码根。 */
 const ROOTS = [
   'Front-Flutter/lib',
-  'Front-Taro/src',
   'Web-Admin-Vue/src',
   'Web-Admin-React/src',
 ];
@@ -29,7 +28,6 @@ const EXTRA_FILES = ['scripts/generator/templates-frontend.mjs'];
 const REPO_FRAGMENTS = [
   'Server-NestJS',
   'Front-Flutter',
-  'Front-Taro',
   'Web-Admin-Vue',
   'Web-Admin-React',
 ];

@@ -32,13 +32,6 @@ import {
   updateDtoTemplate,
 } from './generator/templates-backend.mjs';
 import { modelTemplate, pageTemplate, providerTemplate, repositoryTemplate } from './generator/templates-frontend.mjs';
-import {
-  taroPageTemplate,
-  taroScssTemplate,
-  taroServiceTemplate,
-  taroStoreTemplate,
-  taroTypesTemplate,
-} from './generator/templates-taro.mjs';
 import { adminApiTemplate, adminI18nKeys, adminViewTemplate } from './generator/templates-admin.mjs';
 import { validate as validateAgainstSchema } from './generator/schema-validate.mjs';
 import { createRequire } from 'node:module';
@@ -61,11 +54,6 @@ const ALL_TEMPLATES = [
   repositoryTemplate,
   providerTemplate,
   pageTemplate,
-  taroServiceTemplate,
-  taroTypesTemplate,
-  taroStoreTemplate,
-  taroPageTemplate,
-  taroScssTemplate,
   adminApiTemplate,
   adminViewTemplate,
   adminI18nKeys,
@@ -305,58 +293,3 @@ test('带 attachment 的 ctx 能跑遍所有模板（漏一个映射即抛错）
   }
 });
 
-// ─── Taro：侧表（此前只有 Flutter 与管理台读它） ──────────────────────────────
-//
-// 2026-09-25 登记：附件作为**首字段**时，Taro 页面的 `firstDisplay` 引用 `item.<f>Names`，
-// 而类型映射把 attachment 写成 `'string'` 且从不产该成员 ⇒ 生成物编译不过。
-// 修法不是补一个成员，而是**对齐另一端**：侧表随条目的 `attachments` 数组带回，
-// 与 `templates-admin.mjs`（`attachments?: Admin…Attachment[]`）和 Flutter 读的是同一形状。
-
-test('Taro：条目的类型带侧表数组（与管理台 / Flutter 同一形状）', () => {
-  const types = taroTypesTemplate(ctxWith([ATT_FIELD]));
-  assert.ok(types.includes('export interface OrderAttachment {'));
-  assert.ok(types.includes('attachments?: OrderAttachment[]'));
-  assert.ok(types.includes('storageKey: string'), '存的是存储键，不是裸 URL');
-  assert.ok(types.includes('originalName: string'), '显示用的是原名');
-  // 附件也不是标量成员 —— 接口不发这个键，生成的 create DTO 里同样没有它（与管理台、Flutter 一致）。
-  // 2026-10-07 之前 Taro 两端形状都声明了 `contract: string`，那是个永不出现的成员。
-  assert.ok(!types.includes('contract: string'), '不得声明接口不会发的标量成员（条目或请求形状都不行）');
-
-  // 无附件字段 → 不产侧表类型、不留没人用的成员（不产死代码）
-  const plain = taroTypesTemplate(ctxWith([{ name: 'title', type: 'string' }]));
-  assert.ok(!plain.includes('OrderAttachment'));
-  assert.ok(!plain.includes('attachments?'));
-});
-
-test('Taro：附件为首字段时读侧表，且不引用类型里没有的成员', () => {
-  const page = taroPageTemplate(ctxWith([ATT_FIELD]));
-  assert.ok(!page.includes('contractNames'), '不得引用 Taro 类型从不产出的成员');
-  assert.ok(
-    page.includes(
-      "(item.attachments ?? []).filter((a) => a.field === 'contract').map((a) => a.originalName).join('、')",
-    ),
-    '显示走侧表，且按 field 过滤（一个模块可有多个附件字段，共用一张表）',
-  );
-  // 文案改走词典（`t('common.deleteConfirm', { name })`），故按**键**找那一行，而不是按中文找。
-  // The wording moved into the dictionary, so the line is found by its key rather than by its Chinese.
-  const confirm = page.split('\n').find((l) => l.includes("t('common.deleteConfirm'"));
-  assert.ok(confirm.includes('item.attachments'), '删除确认用同一个表达式，否则行上会显示 undefined');
-  // 附件不是标量：新增栏不得绑定它，否则发的是 API 会丢弃的键、且漏掉真正的字段。
-  // An attachment is not a scalar: the add bar must not bind to it.
-  assert.ok(!page.includes('v-model="contract"'), '新增栏不得绑定附件字段');
-  assert.ok(!page.includes('store.add({ contract'), '新增不得发 API 会丢弃的键');
-  assert.ok(!page.includes('handleAdd'), '没有标量字段时不渲染新增栏与处理函数');
-});
-
-test('Taro：附件为首字段、其后有标量时，新增栏绑定那个标量', () => {
-  const page = taroPageTemplate(ctxWith([ATT_FIELD, { name: 'title', type: 'string' }]));
-  assert.ok(page.includes('v-model="title"'), '新增栏绑定第一个标量字段');
-  assert.ok(page.includes('store.add({ title: text }'), '新增发送第一个标量字段');
-  assert.ok(!page.includes('v-model="contract"'), '新增栏不得绑定附件字段');
-});
-
-test('Taro：附件不是首字段时，首字段显示与确认文案不变', () => {
-  const page = taroPageTemplate(ctxWith([{ name: 'title', type: 'string' }, ATT_FIELD]));
-  assert.ok(page.includes('{{ item.title }}'));
-  assert.ok(!page.includes('item.attachments'), '首个字段不是附件时不该带上侧表取值');
-});

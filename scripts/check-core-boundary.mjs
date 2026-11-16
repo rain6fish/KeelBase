@@ -20,7 +20,6 @@ const FORBIDDEN_IMPORT_FRAGMENTS = [
   'Front-Flutter',
   'Web-Admin-Vue',
   'Web-Admin-React',
-  'Front-Taro',
 ];
 
 /** 完整正则转义（CodeQL js/incomplete-string-encoding：防片段含 .*+?^$()[]{}|\ 时语义被破坏） */

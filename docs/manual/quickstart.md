@@ -129,7 +129,6 @@ npm run dev                   # Vite dev server → http://localhost:10086/admin
 
 **卡住了？**
 - 登录后 403/空白 → 检查是否用 admin 账号；普通用户可进工作台（根路径，见第 0 节），管理台控制台页面会 403
-- 主 App 同步功能（通知/会话）在 Taro 端 → 参照 Front-Taro 构建
 
 ---
 

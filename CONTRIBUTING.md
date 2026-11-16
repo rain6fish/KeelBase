@@ -28,7 +28,7 @@ This project follows a [Code of Conduct](./CODE_OF_CONDUCT.md). By participating
 
 - **Flutter**: >= 3.0 (see [Flutter installation guide](https://flutter.dev/docs/get-started/install))
 - **Dart**: bundled with Flutter
-- **Node.js**: >= 22 (for Taro admin frontend)
+- **Node.js**: >= 22
 - **PostgreSQL**: >= 14
 - **Redis**: >= 6 (optional, for caching/queues)
 - **Docker**: >= 20 (for local infrastructure)

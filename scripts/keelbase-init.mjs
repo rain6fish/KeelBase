@@ -32,9 +32,8 @@ import {
 import { backendFiles } from './generator/templates-backend.mjs';
 import { frontendFiles } from './generator/templates-frontend.mjs';
 import { adminFiles } from './generator/templates-admin.mjs';
-import { taroFiles } from './generator/templates-taro.mjs';
 import { aiFiles } from './generator/templates-ai.mjs';
-import { wireBackend, wireFrontend, wireAdmin, wireTaro, wireAiModule, summarize } from './generator/wire.mjs';
+import { wireBackend, wireFrontend, wireAdmin, wireAiModule, summarize } from './generator/wire.mjs';
 import { extractSpec } from './generator/llm.mjs';
 import { parseOpenApiSpec } from './generator/import-openapi.mjs';
 import { parseOpenApiProxy, summarizeRiskPreview } from './generator/import-openapi-proxy.mjs';
@@ -518,7 +517,6 @@ async function main() {
   const backend = backendFiles(ctx).map((f) => ({ ...f, rel: `Server-NestJS/src/${f.path}` }));
   const frontend = frontendFiles(ctx).map((f) => ({ ...f, rel: `Front-Flutter/lib/${f.path}` }));
   const admin = adminFiles(ctx).map((f) => ({ ...f, rel: `Web-Admin-Vue/${f.path}` }));
-  const taro = taroFiles(ctx).map((f) => ({ ...f, rel: `Front-Taro/${f.path}` }));
   // AI 工具（第 11-12 周）：让 Runtime Agent 能安全调用生成模块
   const ai = aiFiles(ctx).map((f) => ({ ...f, rel: `Server-NestJS/src/${f.path}` }));
 
@@ -527,7 +525,7 @@ async function main() {
   // 此前只查目录 → 静默接线会重复注册同名工具（并 --force 覆盖手写实现）；此检查一律拒绝（不因 --force 放行），要求改名。
   if (!args.dryRun && !(await exists(beDir))) {
     const collided = [];
-    for (const f of [...backend, ...frontend, ...admin, ...taro, ...ai]) {
+    for (const f of [...backend, ...frontend, ...admin, ...ai]) {
       if (await exists(f.rel)) collided.push(f.rel);
     }
     if (collided.length) {
@@ -542,10 +540,9 @@ async function main() {
     console.log(`${C.yellow}[dry-run] 将生成以下文件：${C.reset}`);
     for (const f of [...backend, ...frontend, ...ai]) console.log(`  ${f.rel}`);
     for (const f of admin) console.log(`  ${f.rel}`);
-    for (const f of taro) console.log(`  ${f.rel}`);
     const tabNote = ctx.isTab ? ' + app_shell 底部 Tab' : '';
     const aiNote = ai.length > 0 ? `ai.module（${ai.length / 2} 个工具）` : 'ai.module（aiTools 关闭，不接工具）';
-    console.log(`${C.yellow}[dry-run] 将接线：app.module / modules-manifest / feature-flags / main.dart / app_router / i18n / navigate-page.tool / ${aiNote}${tabNote} + Web-Admin-Vue（routes/navGroups/i18n）+ Taro（app.config/explore）${C.reset}`);
+    console.log(`${C.yellow}[dry-run] 将接线：app.module / modules-manifest / feature-flags / main.dart / app_router / i18n / navigate-page.tool / ${aiNote}${tabNote} + Web-Admin-Vue（routes/navGroups/i18n）${C.reset}`);
     if (args.brand) console.log(`${C.yellow}[dry-run] 将替换品牌 → ${args.brand}${C.reset}`);
     console.log(`${C.yellow}[dry-run] 将写 .keelbase/manifest.json（来源身份：generator/version/protocol/modules）${C.reset}`);
     return;
@@ -555,17 +552,15 @@ async function main() {
   for (const f of backend) await writeGenerated(f.rel, f.content, args.force);
   for (const f of frontend) await writeGenerated(f.rel, f.content, args.force);
   for (const f of admin) await writeGenerated(f.rel, f.content, args.force);
-  for (const f of taro) await writeGenerated(f.rel, f.content, args.force);
   for (const f of ai) await writeGenerated(f.rel, f.content, args.force);
-  console.log(`${C.green}✓ 已生成 ${backend.length + frontend.length + admin.length + taro.length + ai.length} 个文件（后端 + AI 工具 + Flutter + Web-Admin-Vue + Taro）${C.reset}`);
+  console.log(`${C.green}✓ 已生成 ${backend.length + frontend.length + admin.length + ai.length} 个文件（后端 + AI 工具 + Flutter + Web-Admin-Vue）${C.reset}`);
 
   // ── 接线 ──
   const beResults = await wireBackend(ctx);
   const feResults = await wireFrontend(ctx);
   const adminResults = await wireAdmin(ctx);
-  const taroResults = await wireTaro(ctx);
   const aiResults = await wireAiModule(ctx);
-  const all = summarize([...beResults, ...feResults, ...adminResults, ...taroResults, ...aiResults]);
+  const all = summarize([...beResults, ...feResults, ...adminResults, ...aiResults]);
   for (const file of all.wired) console.log(`${C.green}✓ 接线：${file}${C.reset}`);
   // 合成陌生人实测（W3）发现：锚点失败仅「△ 跳过」不阻断，build 检测不出残缺接线（Flutter 页崩 / capabilities 缺）。
   // 区分「幂等跳过（正常）」与「真失败（锚点未命中）」——后者醒目告警 + 汇总 N/M。

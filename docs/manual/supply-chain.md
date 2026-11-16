@@ -26,24 +26,16 @@ file system, not `git ls-files`, which has three consequences:
 - the gate prints the list of lockfiles the scanner actually read (`:238-242`, `:316-320`). For any given
   run, that list — not this document — is the honest answer to "what was covered".
 
-Reading on 2026-11-08 from a clean checkout (7 lockfiles, 3466 packages):
+Reading on 2026-11-08 from a clean checkout (7 lockfiles, 3466 packages; the Taro tree was removed on 2026-11-16, so its two rows are not listed below):
 
 | Lockfile | Packages | Read |
 |---|---|---|
 | `Front-Flutter/pubspec.lock` | 104 | yes |
-| `Front-Taro/package-lock.json` | 1380 | yes |
 | `package-lock.json` | 62 | yes |
 | `Server-NestJS/package-lock.json` | 1054 | yes |
 | `Server-NestJS/specs/protocol/package-lock.json` | 6 | yes — inside the contract submodule |
 | `Web-Admin-React/package-lock.json` | 424 | yes |
 | `Web-Admin-Vue/package-lock.json` | 436 | yes |
-| `Front-Taro/pnpm-lock.yaml` | — | no |
-
-`Front-Taro` carries both a `package-lock.json` and a `pnpm-lock.yaml`. CI installs that tree with
-`npm ci` (`.github/workflows/ci.yml:941`), so the pnpm file is a stale local artefact that would only
-report the same packages twice. `isShadowed` skips any lockfile whose directory also holds a
-`package-lock.json` (`scripts/check-dependency-scan.mjs:144-149`), and the run names what it skipped
-(`:320`).
 
 ### Beyond the lockfiles (2026-11-10)
 
@@ -95,7 +87,7 @@ report the same packages twice. `isShadowed` skips any lockfile whose directory 
   2026-11-10), which is a vulnerability report, not an inventory. `--offline` cannot be used — it exits 127
   with "no offline version of the OSV database is available" and writes an empty BOM.
   `scripts/check-sbom-coverage.mjs` derives the expected set from the scanner's own `Scanned …` lines
-  (7 lockfiles; the shadowed `Front-Taro/pnpm-lock.yaml` is reported, not demanded) and requires one marker
+  (6 lockfiles) and requires one marker
   component per tree. Paths inside an installed `node_modules` tree are dropped before the comparison —
   `--no-ignore` makes the scanner walk into them, and they are output of the declared lockfiles, not
   sources; a directory that merely starts with the same word stays in scope. The document is uploaded as
@@ -476,23 +468,16 @@ which clear only by removing the Taro webpack5 runner.
 - 门禁会打印扫描器实际读过的锁文件清单（`:238-242`、`:316-320`）。对任何一次具体运行来说，
   「覆盖了什么」的诚实答案在那份清单里，不在这份文档里。
 
-2026-11-08 在干净检出上实测（7 份锁文件、3466 个包）：
+2026-11-08 在干净检出上实测（7 份锁文件、3466 个包；Taro 前端已于 2026-11-16 移除，其两行不再列出）：
 
 | 锁文件 | 包数 | 是否读取 |
 |---|---|---|
 | `Front-Flutter/pubspec.lock` | 104 | 是 |
-| `Front-Taro/package-lock.json` | 1380 | 是 |
 | `package-lock.json` | 62 | 是 |
 | `Server-NestJS/package-lock.json` | 1054 | 是 |
 | `Server-NestJS/specs/protocol/package-lock.json` | 6 | 是 —— 在契约子模块内 |
 | `Web-Admin-React/package-lock.json` | 424 | 是 |
 | `Web-Admin-Vue/package-lock.json` | 436 | 是 |
-| `Front-Taro/pnpm-lock.yaml` | — | 否 |
-
-`Front-Taro` 同时带着 `package-lock.json` 与 `pnpm-lock.yaml`。CI 用 `npm ci` 安装这棵树
-（`.github/workflows/ci.yml:941`），所以 pnpm 那份只是本地残留，扫它只会把同一批包重复报一遍。
-`isShadowed` 会跳过「同目录另有 `package-lock.json`」的锁文件
-（`scripts/check-dependency-scan.mjs:144-149`），运行输出里也会点名跳过了哪些（`:320`）。
 
 ### 锁文件之外（2026-11-10）
 
@@ -532,8 +517,7 @@ which clear only by removing the Taro webpack5 runner.
   `scan source -r … --format cyclonedx-1-6 --all-packages --no-ignore`。`--all-packages` 是必需的：
   不带它时输出只含「有漏洞的组件」（2026-11-10 实测：74 个组件 vs 带上后的 2631 个），那是漏洞报告、
   不是清单。`--offline` 不可用 —— 它以 127 退出并报「没有离线 OSV 数据库」，只写出一份空 BOM。
-  `scripts/check-sbom-coverage.mjs` 从扫描器自己的 `Scanned …` 行取期望集合（7 份锁文件；被遮蔽的
-  `Front-Taro/pnpm-lock.yaml` 只报告、不要求），并要求每棵树有一个标记组件。落在已安装 `node_modules`
+  `scripts/check-sbom-coverage.mjs` 从扫描器自己的 `Scanned …` 行取期望集合（6 份锁文件），并要求每棵树有一个标记组件。落在已安装 `node_modules`
   树里的路径在比对前被剔除 —— `--no-ignore` 让扫描器走了进去，而它们是已声明锁文件的产物、不是来源；
   只是以同一个词开头的目录仍在射程内。文档作为 `keelbase-sbom` 产物上传；`docker-publish.yml` 的
   `sbom-release` job 会把同一份文件（由 `scripts/generate-sbom.sh` 生成）附到 `v*` tag 对应的

@@ -45,8 +45,7 @@ Vuetify
 Element Plus
 MUI
 Ant Design
-Flutter
-Taro
+Flutter
 ```
 
 即：Core 的 `package.json` 不得引入任何 UI 框架；Core 模块不得 `import` 前端目录代码。（CI 门禁：`npm run check:boundary`。）
@@ -69,7 +68,7 @@ UI 框架全部位于 Core 之下、作为实现层。一个新渲染器的接�
 
 1. **消费能力声明**：`GET /app/capabilities`（MOD-4）→ 后端声明业务模块/能力/描述，渲染器据此渲染导航与功能入口
 2. **消费 API**：REST（统一响应包装）/ SSE（`/ai/chat/stream`）/ WS（`/ws`）
-3. **生成器适配**：`keelbase init` 的 per-framework 模板（`scripts/generator/templates-{backend,frontend,admin,taro}.mjs`）——新增渲染器 = 新增模板文件，不动 Core
+3. **生成器适配**：`keelbase init` 的 per-framework 模板（`scripts/generator/templates-{backend,frontend,admin}.mjs`）——新增渲染器 = 新增模板文件，不动 Core
 
 **语义路由契约**：`src/ai/tools/navigate-page.tool.ts` 的 `PAGE_ROUTES` 是**跨端语义路由 key → route** 的映射（如 `events: '/events'`），Flutter 与 Vue 各自消费同一 key 渲染到自己的路由实现。**route 是跨端契约，不是某框架专用路径**——改动须同步各端。
 
@@ -99,7 +98,6 @@ UI 框架是 Core 的 **Renderer**（见 §3）——**新框架 = 新 Renderer�
 | **Web-Admin-Vue** | Vue 3 + **Element Plus**（自 Vuetify 迁移，2026-08 完成） | 企业 Web 工作台 + 管理控制台同一壳 | **Official**（官方 Web 渲染器，主版本） |
 | **Web-Admin-React** | React 19 + MUI | 备选前端（React 技术方案预览） | **Experimental**（预览版 0.1.0；正式化以真实用户需求为准，不预设） |
 | **Front-Flutter** | Flutter | 移动主 App（iOS/Android）；Web 预览形态 | **Official Mobile**（移动主渲染器） |
-| **Front-Taro** | Taro Vue3 | H5 / 小程序 | **Channel**（渠道渲染器） |
 
 > 原则：**Renderer / Protocol 是主线，不是某个 UI 框架**。不为"技术栈完整"维护多前端长期同步（Capability Drift）；新增渲染器 = 新增生成器 per-framework 模板 + 消费同一 Core 契约，不进 Core 路线。Element Plus 是企业应用主流 UI 库的官方渲染器。
 
@@ -111,7 +109,6 @@ UI 框架是 Core 的 **Renderer**（见 §3）——**新框架 = 新 Renderer�
 |---|---|---|
 | **Web-Admin-Vue** | Official（主版本） | **长期维护**；Web 业务 UI 唯一宿主（工作台 + 管理台同一壳）；新增面向企业 Web 的能力**缺省只落此渲染器** |
 | **Front-Flutter** | Official Mobile（移动主 App） | **长期维护**（iOS/Android 主 App；Flutter Web 仅预览形态，非主路径） |
-| **Front-Taro** | Channel（渠道渲染器） | **按渠道需求维护**（H5/小程序分发渠道）；接受功能滞后于 Official，不做强制同步追赶 |
 | **Web-Admin-React** | Experimental（预览版） | **预览定位，不承诺与主版本长期同步**；转正（成为官方）或移除**由真实国际用户需求触发，不预设、不按时间表**；在触发前不做为它维护双 admin 的新增功能开发 |
 
 承诺细则：
@@ -120,7 +117,7 @@ UI 框架是 Core 的 **Renderer**（见 §3）——**新框架 = 新 Renderer�
 - 任何渲染器变更（升级主版本/停维护/转正）会更新本表并公告；企业选型以此表为准。
 - 消费端同步义务（§6 验收红线）只约束 **Official** 渲染器；Experimental/Channel 接受滞后不违约。
 
-> 回应 2026-09-07 对抗评测「四套前端 = 方向不定」指控：方向**已定**——Web 主 = Vue、移动主 = Flutter，React 是明确标记的预览（非候选主版本）、Taro 是渠道。维护承诺如上表，不是四套并列长期同步。
+> 回应 2026-09-07 对抗评测「四套前端 = 方向不定」指控：方向**已定**——Web 主 = Vue、移动主 = Flutter，React 是明确标记的预览（非候选主版本）。维护承诺如上表，不是多套并列长期同步。
 
 ## 5. 安全分层防线：Injection Guard 是辅助，治理层是最终防线
 

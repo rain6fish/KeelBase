@@ -8,23 +8,22 @@
 |---|---|---|
 | **Backend** | `Server-NestJS/` | Core：实体 / CASL / AI 运行时 / 治理 / 审计 / Protocol |
 | **Flutter** | `Front-Flutter/` | **移动主 App**（iOS / Android）；Flutter web 仅作移动 App 的 Web 预览形态，不作为独立产品界面 |
-| **Taro** | `Front-Taro/` | H5 / 小程序（轻量入口，不含管理功能） |
 | **Web-Admin** | `Web-Admin-Vue/` | **Web 业务 UI 唯一宿主**——同一壳两套导航：工作台（普通用户业务）/ 控制台（管理员）；Flutter 不再承担 Web 业务界面 |
 
 ## 2. 能力矩阵（✅ 核对现状 / ✗ 该端无 / P1·P2 规划）
 
-| Capability | Backend | Flutter | Taro | Web-Admin |
-|---|---:|---:|---:|---:|
-| Auth | ✅ | ✅ | ✅ | ✅ |
-| AI Chat（用户对话） | ✅ | ✅ | ✅（无确认卡） | ✗（工作台无；控制台 System AI 非用户对话） |
-| Tool Confirmation（写确认） | ✅ | ✅ | ✗ | ✗ |
-| Audit（AI 审计） | ✅ | ✅（本人轨迹） | ✗ | ✅（控制台审计页） |
-| Notification | ✅ | ✅ | ✅ | ✅（工作台 + 控制台） |
-| Agent Decision Trace | ✅ | ✅ | ✗ | ✅（工作台 AiTrace） |
-| Approval（旗舰） | ✅ | ✅ | ✗ | ✅（工作台审批） |
-| AI CRM / PM（旗舰） | ✅ | ✅ | ✗ | ✅（工作台） |
+| Capability | Backend | Flutter | Web-Admin |
+|---|---:|---:|---:|
+| Auth | ✅ | ✅ | ✅ |
+| AI Chat（用户对话） | ✅ | ✅ | ✗（工作台无；控制台 System AI 非用户对话） |
+| Tool Confirmation（写确认） | ✅ | ✅ | ✗ |
+| Audit（AI 审计） | ✅ | ✅（本人轨迹） | ✅（控制台审计页） |
+| Notification | ✅ | ✅ | ✅（工作台 + 控制台） |
+| Agent Decision Trace | ✅ | ✅ | ✅（工作台 AiTrace） |
+| Approval（旗舰） | ✅ | ✅ | ✅（工作台审批） |
+| AI CRM / PM（旗舰） | ✅ | ✅ | ✅（工作台） |
 
-> 注：早期版本的差异（2026-08-23 核对更正）：Taro 的 Tool Confirmation / Audit / Trace 为 ✗（Taro `ai` 页无确认卡）；Web-Admin 工作台无用户 AI 对话页（原表 AI Chat ✓ 属乐观标记）。
+> 注：早期版本的差异（2026-08-23 核对更正）：Web-Admin 工作台无用户 AI 对话页（原表 AI Chat ✓ 属乐观标记）。
 
 ## 3. 新增能力时的核对方法（防 Capability Drift）
 

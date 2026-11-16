@@ -96,7 +96,6 @@ Provide a **standard WebSocket two-way persistent channel** (native `ws`, RFC 64
 ## 8. 前端接入 / 8. Frontend Integration
 
 - **Flutter**：`web_socket_channel`；`WsClient`（baseUrl → ws/wss + `?token=`、`ping` 20s、pong 超时 30s、指数退避重连 1/2/4/…/30s、`connected` 复位）；`NotificationsProvider` 切 WS（`event=='notification'`，SSE flag 降级）；`AiChatProvider.sendMessage` 发 `ai:chat` 消费 `ai:*` 帧，`confirmation_request` → 确认卡 → REST confirm。
-- **Front-Taro**：`Taro.connectSocket`；`ws-client.ts` + `notification-store` 订阅（REST 轮询降级）。
 - **Web-Admin-Vue / Web-Admin-React**：原生 WebSocket 单例 + `useRealtime()` / `RealtimeContext`；通知徽标订阅 `notification`；轮询保留。
 
 ## 9. 集成点 / 9. Integration Points

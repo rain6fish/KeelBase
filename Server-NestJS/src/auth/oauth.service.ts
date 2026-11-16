@@ -224,7 +224,7 @@ export class OAuthService {
       throw new UnauthorizedException('WeChat OAuth is not configured on the server');
     }
 
-    // MINI-3：小程序登录走 jscode2session（Taro.login 的 code → openid + session_key）。
+    // MINI-3：小程序登录走 jscode2session（小程序端 wx.login 的 code → openid + session_key）。
     // 订阅消息 touser 需小程序 openid，故 providerId 存 openid（公众号流程存 unionid，同人两渠道会分账号，unionid 合并二期）。
     if (providerType === 'miniapp') {
       return this.verifyWeChatMiniApp(code, appId, secret);
@@ -282,7 +282,7 @@ export class OAuthService {
     };
   }
 
-  /** MINI-3：小程序 code2Session —— Taro.login 的 js_code 换 openid + session_key（无 userinfo，昵称/头像需后续完善资料）。 */
+  /** MINI-3：小程序 code2Session —— 小程序端 wx.login 的 js_code 换 openid + session_key（无 userinfo，昵称/头像需后续完善资料）。 */
   private async verifyWeChatMiniApp(code: string, appId: string, secret: string): Promise<OAuthUserInfo> {
     const url = `https://api.weixin.qq.com/sns/jscode2session?appid=${appId}&secret=${secret}&js_code=${encodeURIComponent(code)}&grant_type=authorization_code`;
     let res: { openid?: string; session_key?: string; unionid?: string; errcode?: number; errmsg?: string };

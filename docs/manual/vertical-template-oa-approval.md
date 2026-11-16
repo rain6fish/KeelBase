@@ -23,7 +23,7 @@
 | Business Spec | `.keelbase/business-spec/leave-requests.json` | Business language: goal, actor, one object, 7 fields, 2 AI capabilities, 3 rules, decisions, out-of-scope |
 | Interview evidence | `.keelbase/interview/leave-requests.md` | The `evidenceRef` anchor — keeps every decision traceable |
 | Module protocol | `specs/leave-requests.json` | The thin protocol the generator consumes |
-| Generated module | `Server-NestJS/src/leave_requests/` + `Front-Flutter/lib/features/leave_requests/` + `Web-Admin-Vue/src/views/leave_requests/` + `Front-Taro/src/pages/leave_requests/` | Backend CRUD + two AI tools + three front-end skeletons (23 files) |
+| Generated module | `Server-NestJS/src/leave_requests/` + `Front-Flutter/lib/features/leave_requests/` + `Web-Admin-Vue/src/views/leave_requests/` | Backend CRUD + two AI tools + two front-end skeletons (18 files) |
 | Migration | `Server-NestJS/src/migrations/1792450312695-AddLeaveRequests.ts` | Dual-dialect table creation, registered in `src/config/postgres-migrations.ts` |
 | Governance defaults | generated, not stored in a new place | The write tool is R3 + confirmation; the read tool is automatic; both enter the audit chain |
 
@@ -68,8 +68,7 @@ sha1sum Server-NestJS/src/leave_requests/.keelbase-provenance.json   # same befo
 ```
 
 The generator wires the module into `app.module`, `modules-manifest`, feature flags, CASL role
-rules, `ai.module`, the page navigator, the admin routes/menu/i18n, the Flutter router/i18n, and the
-Taro config/explore page. It also appends the module to `.keelbase/manifest.json` and to the
+rules, `ai.module`, the page navigator, the admin routes/menu/i18n, the Flutter router/i18n. It also appends the module to `.keelbase/manifest.json` and to the
 generated-module list in `CLAUDE.md`.
 
 Two label points are **not** generator output and were added by hand, following the inventory
@@ -257,7 +256,7 @@ adds the vertical shape and the governance readings that belong to it.
 | 业务规格 | `.keelbase/business-spec/leave-requests.json` | 业务语言：目标、角色、一个对象、7 个字段、2 个 AI 能力、3 条规则、决策、范围外 |
 | 访谈证据 | `.keelbase/interview/leave-requests.md` | `evidenceRef` 的锚点 —— 每个决策都可追溯 |
 | 模块协议 | `specs/leave-requests.json` | 生成器消费的薄协议 |
-| 生成的模块 | `Server-NestJS/src/leave_requests/` + `Front-Flutter/lib/features/leave_requests/` + `Web-Admin-Vue/src/views/leave_requests/` + `Front-Taro/src/pages/leave_requests/` | 后端 CRUD + 两个 AI 工具 + 三端骨架（23 个文件） |
+| 生成的模块 | `Server-NestJS/src/leave_requests/` + `Front-Flutter/lib/features/leave_requests/` + `Web-Admin-Vue/src/views/leave_requests/` | 后端 CRUD + 两个 AI 工具 + 两端骨架（18 个文件） |
 | 迁移 | `Server-NestJS/src/migrations/1792450312695-AddLeaveRequests.ts` | 双方言建表，已登记到 `src/config/postgres-migrations.ts` |
 | 治理默认值 | 生成物自带，不另存配置 | 写工具 R3 + 确认；读工具自动放行；两者都进审计链 |
 
@@ -297,7 +296,7 @@ sha1sum Server-NestJS/src/leave_requests/.keelbase-provenance.json   # --force �
 ```
 
 生成器会把这个模块接进 `app.module`、`modules-manifest`、特性开关、CASL 角色规则、`ai.module`、
-页面导航、管理台路由/菜单/i18n、Flutter 路由/i18n、Taro 配置/发现页；同时把它追加进
+页面导航、管理台路由/菜单/i18n、Flutter 路由/i18n；同时把它追加进
 `.keelbase/manifest.json` 与 `CLAUDE.md` 的生成模块清单。
 
 有两处标签**不是**生成器的输出，按进销存模板的既有约定手补：

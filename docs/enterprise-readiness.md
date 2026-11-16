@@ -71,13 +71,10 @@
 
 | 能力 Capability | 状态 | 证据 Evidence |
 |---|---|---|
-| 主 App（Flutter 三端）+ 小程序（Taro）+ 管理台/工作台 Three clients | ✅ | Front-Flutter / Front-Taro / Web-Admin-Vue（同壳两套导航） |
-| 小程序 i18n（Taro 主 app）Mini-program i18n | 🚧 部分（2026-10-10 核） | i18n 层**已建立**：`Front-Taro/src/i18n/{zh,en}.ts`（264 key）+ `stores/i18n-store.ts` + `useI18n`；28 个页面中 **25 个已接入**；`login` / `register` / `followup_plans` 三页未接 |
-| 小程序构建链（Taro weapp）Mini-program build | ✅（2026-10-10 核） | `build:h5` + `build:weapp` 均绿；weapp 已修复（主仓 `a15c3eb`，页面样式改 script 侧 import），CI 常驻校验防退化（`.github/workflows/ci.yml` N-1 跑 `npm run build:weapp`） |
+| 主 App（Flutter 三端）+ 管理台/工作台 Two clients | ✅ | Front-Flutter / Web-Admin-Vue（同壳两套导航） |
 | 邮件 / 站内通知 / SSE / Webhook | ✅ | SMTP + notifications + `/webhooks`（PL-14） |
 | 推送（极光抽象层）Push | 🚧 部分 | PushService 抽象 + 极光实现，真实厂商 SDK 待凭据（MS-2.2/2.3） |
 | 微信订阅消息（MINI-2）/ 快捷登录（MINI-3） | ✅（2026-10-10 核） | 订阅消息 `WxSubscribeService`（`WECHAT_REMIND_TEMPLATE_ID`，未配凭据降级）+ 小程序快捷登录（`providerType=miniapp` → code2Session → `openid`）；真机联调待 appid/secret |
-| 微信分享（MINI-4） | ⬜ 待办 | 未实现（`Front-Taro` 无分享处理）；需微信开放平台凭据 |
 
 ---
 
@@ -89,10 +86,9 @@
 2. **WEB-FRONT-4 企业登录安全（SSO）** —— 采购评审硬门槛，招标/合规常直接卡此项。MFA（TOTP）与强制改密已完成（2026-08-17）；**SSO 通用 OIDC 后端已完成（2026-08-18，主仓 036eb46）**——需接入企业 IdP（配 OIDC_ISSUER/CLIENT_ID/SECRET）后前端展示「企业 SSO」按钮；SAML 如需再评估。
 3. **WEB-FRONT-5 普通用户业务 API 面** —— 工作台应用侧的能力底座，随 ORG 联动。
 4. **3.4 性能基准重做** —— 对外基线可信度；当前初版报告方法论有缺陷。
-5. **Taro i18n** —— 小程序渠道一致性（CR-25）。
-6. 其余押后项（MINI-4、AI-23、D.2/D.3、FLOW-8/9）—— 依赖外部市场决策或凭据，不阻塞基座交付。
+5. 其余押后项（MINI-4、AI-23、D.2/D.3、FLOW-8/9）—— 依赖外部市场决策或凭据，不阻塞基座交付。
 
-> **前提约束**：前端 RBAC 只是渲染层（隐藏 ≠ 越权），后端授权仍以 CASL 为唯一来源（CLAUDE.md §5.5 三入口红线不变）。
+> **前提约束**：前端 RBAC 只是渲染层（隐藏 ≠ 越权），后端授权仍以 CASL 为唯一来源（CLAUDE.md §5.5 两入口红线不变）。
 
 ---
 

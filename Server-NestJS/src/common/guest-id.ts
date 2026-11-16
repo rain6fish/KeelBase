@@ -8,7 +8,7 @@
  * 而**不把访客身份并入真人账号**（§22.19 护栏①）。
  *
  * 载体：cookie（`kb_guest`）—— 浏览器自动携带，**Web 端零改动即生效**；同时接受 `X-Guest-Id`
- * 请求头，供 Flutter / Taro / 脚本等不走 cookie 的客户端显式发送。
+ * 请求头，供 Flutter / Web / 脚本等不走 cookie 的客户端显式发送。
  * 不引入 `cookie-parser` 依赖：`req.headers.cookie` 只是 `k=v; k2=v2`，此处手工解析（本仓原本不用 cookie）。
  *
  * 隐私：值是随机 UUID，不含任何个人信息；**不做指纹计算**（不拼 IP/UA），故不构成设备指纹。

@@ -45,8 +45,7 @@ Vuetify
 Element Plus
 MUI
 Ant Design
-Flutter
-Taro
+Flutter
 ```
 
 That is: Core's `package.json` must not import any UI framework; Core modules must not `import` frontend directory code. (CI gate: `npm run check:boundary`.)
@@ -69,7 +68,7 @@ All UI frameworks sit below Core, as implementation layers. A new renderer integ
 
 1. **Consuming the capability declaration**: `GET /app/capabilities` (MOD-4) → the backend declares business modules/capabilities/descriptions; the renderer renders navigation and feature entries from it
 2. **Consuming the API**: REST (unified response wrapper) / SSE (`/ai/chat/stream`) / WS (`/ws`)
-3. **Generator adaptation**: `keelbase init` per-framework templates (`scripts/generator/templates-{backend,frontend,admin,taro}.mjs`) — a new renderer = a new template file, Core untouched
+3. **Generator adaptation**: `keelbase init` per-framework templates (`scripts/generator/templates-{backend,frontend,admin}.mjs`) — a new renderer = a new template file, Core untouched
 
 **Semantic route contract**: `src/ai/tools/navigate-page.tool.ts`'s `PAGE_ROUTES` is a **cross-client semantic-route-key → route** mapping (e.g. `events: '/events'`); Flutter and Vue each consume the same key and render to their own routing implementation. **A route is a cross-client contract, not a framework-specific path** — changes must be synced across all clients.
 
@@ -99,7 +98,6 @@ UI frameworks are Core's **Renderers** (see §3) — **a new framework = a new R
 | **Web-Admin-Vue** | Vue 3 + **Element Plus** (migrated from Vuetify, completed 2026-08) | Enterprise web workbench + admin console in one shell | **Official** (official web renderer, primary version) |
 | **Web-Admin-React** | React 19 + MUI | Alternative frontend (React approach preview) | **Experimental** (preview 0.1.0; formalization depends on real user demand, not presumed) |
 | **Front-Flutter** | Flutter | Mobile main app (iOS/Android); web preview form | **Official Mobile** (mobile primary renderer) |
-| **Front-Taro** | Taro Vue3 | H5 / mini-program | **Channel** (channel renderer) |
 
 > Principle: **Renderer / Protocol is the main line, not any single UI framework**. No long-term multi-frontend sync just to "complete the stack" (capability drift); a new renderer = new generator per-framework template + consuming the same Core contract, not on the Core roadmap. Element Plus is the official renderer of the mainstream enterprise-app UI library.
 
@@ -111,7 +109,6 @@ The primary front-end and per-renderer maintenance commitments are as follows �
 |---|---|---|
 | **Web-Admin-Vue** | Official (primary version) | **Long-term maintained**; sole host of the web business UI (workbench + admin console in one shell); new enterprise-web capabilities **land on this renderer by default** |
 | **Front-Flutter** | Official Mobile (primary mobile app) | **Long-term maintained** (iOS/Android main app; Flutter Web is preview-only, not the primary path) |
-| **Front-Taro** | Channel (channel renderer) | **Maintained per channel needs** (H5 / mini-program distribution); accepts feature lag behind Official, no forced sync catch-up |
 | **Web-Admin-React** | Experimental (preview) | **Preview positioning, no promise of long-term sync with the primary version**; promotion to Official or removal is **driven by real international user demand — not presumed, not on a schedule**; before that trigger, no new-feature development that maintains a second admin in parallel |
 
 Commitment details:
@@ -120,7 +117,7 @@ Commitment details:
 - Any renderer change (major upgrade / deprecation / promotion) updates this table and is announced; enterprise selection is governed by this table.
 - The consumer-sync obligation (§6 acceptance red line) constrains **Official** renderers only; Experimental/Channel may lag without breaching it.
 
-> Response to the 2026-09-07 adversarial review's "four frontends = direction unclear" claim: the direction **is decided** — web primary = Vue, mobile primary = Flutter; React is an explicitly-marked preview (not a candidate primary), Taro is a channel. Commitments are as above — not four stacks in long-term parallel sync.
+> Response to the 2026-09-07 adversarial review's "four frontends = direction unclear" claim: the direction **is decided** — web primary = Vue, mobile primary = Flutter; React is an explicitly-marked preview (not a candidate primary). Commitments are as above — not several stacks in long-term parallel sync.
 
 ## 5. Defense-in-Depth: the Injection Guard is an aid, governance is the final line of defense
 

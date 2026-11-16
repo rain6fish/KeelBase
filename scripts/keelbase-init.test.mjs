@@ -27,14 +27,12 @@ import {
 import { backendFiles } from './generator/templates-backend.mjs';
 import { frontendFiles } from './generator/templates-frontend.mjs';
 import { adminFiles } from './generator/templates-admin.mjs';
-import { taroFiles } from './generator/templates-taro.mjs';
 import { aiFiles } from './generator/templates-ai.mjs';
 import {
   WIRED_FILES,
   wireBackend,
   wireFrontend,
   wireAdmin,
-  wireTaro,
   wireAiModule,
 } from './generator/wire.mjs';
 import { buildSpecPrompt, parseSpecResponse, extractSpec, llmConfig } from './generator/llm.mjs';
@@ -836,28 +834,6 @@ test('wireAdmin：已存在（手工补的、键没加引号）的导航条目�
   assert.equal(pages.match(/route: '\/posts'/g).length, 1);
 });
 
-test('Taro 模板：service/types/store/page 骨架', () => {
-  const files = taroFiles(ctx());
-  assert.equal(files.length, 5);
-  const service = files.find((f) => f.path.endsWith('-service.ts')).content;
-  assert.match(service, /\/posts/);
-  assert.match(service, /api\.get/);
-  const store = files.find((f) => f.path.endsWith('-store.ts')).content;
-  assert.match(store, /defineStore/);
-  const page = files.find((f) => f.path.endsWith('.vue')).content;
-  assert.match(page, /<script setup lang="ts">/);
-  assert.match(page, /usePostsStore/);
-  // 样式走 script 里的 `import './index.scss'`，**不是** `<style src="…">` —— 后者在本仓的
-  // weapp 构建下过不了 postcss（`Cannot read properties of undefined (reading 'source')`），
-  // 而仓里另外 22 个页面用的都是 import 写法。两条断言各钉一半：写法对，且那个坑不回来。
-  //
-  // Styles come in through `import './index.scss'` in the script, **not** `<style src="…">` — the
-  // latter does not survive this repo's weapp build (postcss dies reading `source` of undefined),
-  // while the other 22 pages here all use the import form. The two assertions split the invariant:
-  // the form is right, and the trap has not come back.
-  assert.match(page, /import '\.\/index\.scss'/);
-  assert.doesNotMatch(page, /<style src=/);
-});
 
 test('AI 工具模板：query 读 + create 写需确认', () => {
   const c = buildContext('suppliers', '供应商', [
@@ -907,18 +883,6 @@ test('wireAiModule：ai.module 六处接线 + 幂等', async () => {
   assert.equal(r2.filter((x) => x.changed).length, 0);
 });
 
-test('wireTaro：app.config pages + explore quickCards', async () => {
-  const root = await tempRoot();
-  await write(`${root}/Front-Taro/src/app.config.ts`, `    'pages/search/index',`);
-  await write(`${root}/Front-Taro/src/pages/explore/index.vue`, `  { icon: '⚙️', label: t('explore.settings'), color: '#9333EA', path: '/pages/settings/index' },`);
-
-  const r = await wireTaro(ctx(), root);
-  assert.ok(r.filter((x) => x.changed).length >= 2);
-  const app = await readFile(`${root}/Front-Taro/src/app.config.ts`, 'utf8');
-  assert.match(app, /pages\/posts\/index/);
-  const explore = await readFile(`${root}/Front-Taro/src/pages/explore/index.vue`, 'utf8');
-  assert.match(explore, /pages\/posts\/index/);
-});
 
 // ── 端到端：跑真实 CLI ───────────────────────────────────────────────────────
 test('端到端：非交互 CLI 生成 + 接线', async () => {

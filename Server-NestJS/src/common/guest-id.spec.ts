@@ -45,7 +45,7 @@ describe('readGuestId（cookie 优先，X-Guest-Id 兜底）', () => {
     );
   });
 
-  it('无 cookie 时用请求头（供 Flutter / Taro / 脚本等不走 cookie 的客户端）', () => {
+  it('无 cookie 时用请求头（供 Flutter / Web / 脚本等不走 cookie 的客户端）', () => {
     expect(readGuestId(req({ 'x-guest-id': 'from-header' }))).toBe('from-header');
   });
 

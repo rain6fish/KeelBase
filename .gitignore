@@ -108,5 +108,3 @@ docs/benchmark/full-profile-*
 !docs/benchmark/golden-crm-2026-09-03-2.md
 !docs/benchmark/golden-crm-2026-09-03-2.json
 
-# SWC 编译器缓存（Taro 构建产物，不应入库）
-.swc/

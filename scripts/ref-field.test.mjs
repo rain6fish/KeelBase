@@ -33,13 +33,6 @@ import {
   updateDtoTemplate,
 } from './generator/templates-backend.mjs';
 import { modelTemplate, pageTemplate, providerTemplate, repositoryTemplate } from './generator/templates-frontend.mjs';
-import {
-  taroPageTemplate,
-  taroScssTemplate,
-  taroServiceTemplate,
-  taroStoreTemplate,
-  taroTypesTemplate,
-} from './generator/templates-taro.mjs';
 import { adminApiTemplate, adminI18nKeys, adminViewTemplate } from './generator/templates-admin.mjs';
 import { validate as validateAgainstSchema } from './generator/schema-validate.mjs';
 
@@ -59,11 +52,6 @@ const ALL_TEMPLATES = [
   repositoryTemplate,
   providerTemplate,
   pageTemplate,
-  taroServiceTemplate,
-  taroTypesTemplate,
-  taroStoreTemplate,
-  taroPageTemplate,
-  taroScssTemplate,
   adminApiTemplate,
   adminViewTemplate,
   adminI18nKeys,

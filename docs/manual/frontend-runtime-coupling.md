@@ -1,7 +1,7 @@
 # 前端 Runtime 耦合盘点（FE-1a）
 
 > 2026-09-03。**目的**：FE-1（前端 Runtime-Neutrality）落地前的**只读基线**——盘点三前端 + 生成器前端模板对后端 Runtime（现 TS/NestJS）的耦合面，找「同一前端接不同 Runtime（如 Java）必断」的点。边界参照 = wire Contract v1 + `/app/capabilities` + `/app/provenance`。本次只盘不改；改动方向见 §6。
-> 范围：Web-Admin-Vue/src（204 文件）/ Front-Flutter/lib（168）/ Front-Taro/src（73）/ `scripts/generator/templates-frontend.mjs`。
+> 范围：Web-Admin-Vue/src（204 文件）/ Front-Flutter/lib（168）/ `scripts/generator/templates-frontend.mjs`。
 
 ## 0. 结论摘要
 
@@ -14,7 +14,7 @@
 5. **`/app/capabilities` 消费不足 → 导航/模块/模型硬编码**（§5.5）
 6. **`/app/provenance` 三端零消费**（§5.6）
 
-**最高风险（切 Runtime 必断）**：Flutter AI 触发词与事件 schema 内嵌 / SSE 解析忽略 `event:` 行 / 错误体 `normalizeError`+`guidanceFor` 硬编码 Nest 错误码 / 三端 code 成功语义分叉 / Taro·Flutter capabilities 零导航消费。
+**最高风险（切 Runtime 必断）**：Flutter AI 触发词与事件 schema 内嵌 / SSE 解析忽略 `event:` 行 / 错误体 `normalizeError`+`guidanceFor` 硬编码 Nest 错误码 / 三端 code 成功语义分叉 / Flutter capabilities 零导航消费。
 
 ## 1. Web-Admin-Vue（工作台 + 管理台，Element Plus）
 
@@ -48,20 +48,6 @@
 | MEDIUM | `sse_client.dart` | `[DONE]` 哨兵/text/error 事件约定流结束 |
 | MEDIUM | 25 个 repository 端点字符串内联 | 无路由常量表，切 runtime 端点面人工核对 |
 | LOW | `/app/provenance` | lib 内 0 引用 |
-
-## 3. Front-Taro（小程序/H5）
-
-| 级 | 位置 | 耦合 |
-|----|------|------|
-| HIGH | 全 src | **`/app/capabilities` 与 `/app/provenance` 零消费**（grep 0 命中）——FE-1 边界外立面缺失；模块显隐全静态（`pages/explore` 宫格硬编码） |
-| HIGH | `services/api-client.ts:117-147` | refresh 读 `body.data.accessToken/refreshToken` **双层解包**，NestJS 专属形状 |
-| HIGH | `services/api-client.ts:151` | `errors?: Record<string,string[]>` 假设 Nest validation 错误字典 |
-| HIGH | `services/ws-client.ts:80` + `notification-store.ts:77` | 事件名单硬编码（`notification`/`ping`），切实现即断 |
-| MEDIUM | `services/api-client.ts:84-111` | 错误按 `errMsg` 含 `'timeout'/'fail'` 判定（Taro 专属）；取 `body.message/errors` |
-| MEDIUM | `auth-service.ts:26-29` + `auth-store.ts:66-86` | miniapp 专属 oauth 流（wechat code→Taro.login） |
-| MEDIUM | `types/api.ts:4-9` | 信封 `{code,message,data,timestamp}` 定义但 `isSuccess` 全程未用（死契约）；`event.ts:10` `colorRole:number` 镜像 Nest DTO |
-| MEDIUM | `utils/constants.ts:6-8` | base URL 默认含 TS dev 地址 `localhost:3000/api/v1` |
-| MEDIUM | `services/ws-client.ts:64-74` | base 变换剥 `/api/v1` + http→ws 假设 |
 
 ## 4. 生成器前端模板（`scripts/generator/templates-frontend.mjs`，Build 侧）
 

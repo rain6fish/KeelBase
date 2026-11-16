@@ -44,7 +44,6 @@ const RELEASE_LINE_MEMBERS = [
 /** 独立清单：各自持版，不受产品版本约束（值仍须合法 semver） */
 const INDEPENDENT_MANIFESTS = [
   { path: 'Web-Admin-Vue/package.json', kind: 'json', reason: 'Web 宿主：自带版本，不随产品号' },
-  { path: 'Front-Taro/package.json', kind: 'json', reason: 'Taro：自带版本，不随产品号' },
   { path: 'Front-Flutter/pubspec.yaml', kind: 'pubspec', reason: '移动主 App：自带版本，不随产品号' },
   { path: 'Web-Admin-React/package.json', kind: 'json', reason: '预览版，未表态转正' },
 ];
@@ -73,19 +72,13 @@ const DISPLAY_CONSTANTS = [
     path: 'Front-Flutter/lib/core/constants/app_constants.dart',
     pattern: /appVersion\s*=\s*'([^']+)'/,
   },
-  {
-    label: 'Taro 设置页',
-    path: 'Front-Taro/src/pages/settings/index.vue',
-    pattern: /appVersion\s*=\s*ref\('([^']+)'\)/,
-  },
 ];
 
 /** lockfile 根版本字段须跟随的清单 */
 const LOCK_PARITY = [
   { lock: 'package-lock.json', manifest: 'package.json' },
   { lock: 'Server-NestJS/package-lock.json', manifest: 'Server-NestJS/package.json' },
-  { lock: 'Web-Admin-Vue/package-lock.json', manifest: 'Web-Admin-Vue/package.json' },
-  { lock: 'Front-Taro/package-lock.json', manifest: 'Front-Taro/package.json' },
+  { lock: 'Web-Admin-Vue/package-lock.json', manifest: 'Web-Admin-Vue/package.json' }
 ];
 
 const read = (rel) => readFileSync(join(ROOT, rel), 'utf8');

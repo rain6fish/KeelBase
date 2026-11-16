@@ -103,7 +103,6 @@ KeelBase/
 │   ├── uploads/                   # 上传文件目录
 │   └── data/                      # SQLite 数据文件
 │
-├── Front-Taro/                    # 主 app 的 Taro H5/小程序前端（不含管理功能）
 ├── Web-Admin-Vue/                     # Web 端宿主（Vue3 + Element Plus，工作台 + 管理台同一壳，独立构建/部署）
 │
 ├── .github/
@@ -398,7 +397,7 @@ async findOne(@Param('id') id: number, @CurrentAbility() ability: AppAbility) {
 
 ## 5.5 产品架构红线（必须遵守）
 
-**全平台只有三个入口：主 App（Front-Flutter）/ 小程序（Front-Taro）/ Web 端宿主（Web-Admin-Vue，工作台 + 管理台同一壳）。**
+**全平台只有两个入口：主 App（Front-Flutter）/ Web 端宿主（Web-Admin-Vue，工作台 + 管理台同一壳）；移动端第二形态在独立仓 `KeelBase-App-X`（uni-app x）。**
 
 1. **所有后台管理功能一律并入管理端**，包括但不限于：用户与权限管理、事件/内容管理、监控审计、会话管理、知识库维护、通知广播、系统信息。**禁止**在主 App 或小程序中实现任何面向管理员的 CRUD/权限/审计功能。
 2. **管理页面不出现用户填写的个人数据 / 隐私数据**；必须出现时用掩码遮盖：
@@ -466,7 +465,7 @@ OAUTH_ENABLED_PROVIDERS=wechat,alipay  # 启用的认证商（逗号分隔；goo
 OAUTH_REDIRECT_BASE=     # 原生 OAuth 回调前缀（native flow）
 WECHAT_APP_ID=           # 微信开放平台 AppID
 WECHAT_APP_SECRET=       # 微信开放平台 AppSecret
-WECHAT_REMIND_TEMPLATE_ID=  # MINI-2 微信订阅消息：事件提醒模板 ID（空则不发送；前端构建时 TARO_APP_WX_TEMPLATE_ID 需与此一致）
+WECHAT_REMIND_TEMPLATE_ID=  # MINI-2 微信订阅消息：事件提醒模板 ID（空则不发送）
 ALIPAY_APP_ID=           # 支付宝开放平台 AppID
 ALIPAY_PUBLIC_KEY=       # 支付宝公钥（验签）
 ALIPAY_PRIVATE_KEY=      # 支付宝应用私钥（用于签名）
@@ -1145,7 +1144,7 @@ Role: admin
 
 > **技术栈（2026-08-12 决策）**：Web 端为 **PC Web 宿主（Vue3 + Element Plus + Vite + Pinia + TS，MIT 合规）**。已取代并废弃原 Taro-Admin（React H5）。后端 Admin API 完全复用。
 
-**Web 端宿主（Vue3 + Element Plus）**：企业用户工作台与管理员控制台同一壳、两套导航（WEB-FRONT-1）；与 `Front-Flutter` / `Front-Taro`（移动主 App）代码/构建/部署分离，移动端不携带任何管理逻辑或入口。
+**Web 端宿主（Vue3 + Element Plus）**：企业用户工作台与管理员控制台同一壳、两套导航（WEB-FRONT-1）；与 `Front-Flutter`（移动主 App）代码/构建/部署分离，移动端不携带任何管理逻辑或入口。
 
 **架构原则**：
 - 独立入口 + 独立登录（`/auth/login`），登录后按角色分流：`role === 'admin'` → 控制台，普通用户 → 工作台（非拒绝）

@@ -10,7 +10,7 @@
 
 - Backend CRUD (entity / dto / service / controller / module) + CASL owner-only permissions + global audit
 - **AI tools auto-generated (governance by default)**: `query_invoices` (read, **R1 auto-allowed**, filtered to your own rows by userId) + `create_invoice` (write, **R3 requires human confirmation** + verified email) — operating the module's **own** table, with permission / confirmation / audit / revoke needing **no hand-written code**
-- Client pages wired automatically: Flutter / Web workbench / Taro + routing / navigation / i18n
+- Client pages wired automatically: Flutter / Web workbench + routing / navigation / i18n
 - The generated output is **plain source code** you can keep editing
 
 > Why not `customers`? — `customers` collides with the built-in AI CRM flagship (its `query_customers` tool already exists): generation is refused (or, if forced, silently reuses the flagship tools and the demo reads the wrong data). **Pick a name that collides with nothing** (e.g. invoices / products / orders).

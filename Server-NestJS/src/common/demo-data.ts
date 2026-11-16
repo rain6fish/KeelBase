@@ -489,7 +489,7 @@ export async function seedDemoData(
         title: 'KeelBase 是什么',
         category: '产品介绍',
         content:
-          'KeelBase 是一个生产级、AI 原生的全栈应用基座，覆盖 Flutter/Taro 三端 + NestJS 后端 + AI 编排，支持私有化部署，强调数据主权与企业级安全。',
+          'KeelBase 是一个生产级、AI 原生的全栈应用基座，覆盖 Flutter 与 Web 端 + NestJS 后端 + AI 编排，支持私有化部署，强调数据主权与企业级安全。',
       },
       {
         title: '如何启动后端',
@@ -532,7 +532,7 @@ export async function seedDemoData(
       {
         title: 'What is KeelBase',
         category: 'Product',
-        content: 'KeelBase is a production-grade, AI-native full-stack application base covering Flutter/Taro three clients + NestJS backend + AI orchestration, with private-cloud deployment and enterprise-grade security.',
+        content: 'KeelBase is a production-grade, AI-native full-stack application base covering Flutter and Web clients + NestJS backend + AI orchestration, with private-cloud deployment and enterprise-grade security.',
       },
       {
         title: 'AI Governance in Practice',

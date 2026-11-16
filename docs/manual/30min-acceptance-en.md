@@ -39,7 +39,6 @@
 | AI tools | `ai/tools/query-<plural>.tool.ts` (read, filtered by userId) + `create-<singular>.tool.ts` (write, `requiresConfirmation` + `requireVerifiedEmail`), each with `.tool.spec.ts`, registered in `ai.module.ts` |
 | Flutter | `features/<plural>/` model / repository / provider / page + wiring (main/router/i18n/Explore) |
 | Web-Admin | `views/<plural>/` admin page + wiring (routes/nav/i18n) |
-| Taro | `pages/<plural>/` + wiring (app.config/explore) |
 | Security wiring | CASL owner-only permissions + global audit interceptor + AI navigation (navigate-page.tool) |
 
 ## 3. Verified End-to-End Examples

@@ -40,8 +40,7 @@ Plain source (entity / dto / service / controller + wiring + migration + tests)
 
 - A **Business Spec** is a **build-time** input model; it never enters the runtime contract.
 - The generator completes **roughly twenty wiring points** on its own — backend module registration,
-  CASL role rules, AI tool registration, AI navigation, admin route/sidebar/i18n, and the Flutter and
-  Taro surfaces. **None of this is manual work.**
+  CASL role rules, AI tool registration, AI navigation, admin route/sidebar/i18n, and the Flutter surfaces. **None of this is manual work.**
 
 ---
 

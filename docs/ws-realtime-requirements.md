@@ -20,7 +20,7 @@ Currently the base platform's only realtime channel is SSE (`POST /api/v1/notifi
 2. **通知 WS 化**：`NotificationsService.create()` 同时推 WS `notification` 事件（SSE 保留并存）。
 3. **AI 流式 WS 化**：客户端发 `ai:chat` → 服务端把 `aiService.chatStream` async generator 的 chunk 映射为 `ai:*` 事件推回；支持 `ai:abort` 与单 socket 单流；确认流复用现有 REST `POST /ai/confirmations/:token`。
 4. **双向 message 能力**：通用 `message` 事件收发，为 IM/协同铺路。
-5. **前端四端接入**：Flutter（通知 + AI 流式切 WS）、Front-Taro / Web-Admin-Vue / Web-Admin-React（通知 WS，轮询降级）。
+5. **前端四端接入**：Flutter（通知 + AI 流式切 WS）、Web-Admin-Vue / Web-Admin-React（通知 WS，轮询降级）。
 
 ### 一期（v1）不做 / v1 Out of scope
 

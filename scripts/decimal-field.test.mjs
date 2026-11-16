@@ -37,13 +37,6 @@ import {
   updateDtoTemplate,
 } from './generator/templates-backend.mjs';
 import { modelTemplate, pageTemplate, providerTemplate, repositoryTemplate } from './generator/templates-frontend.mjs';
-import {
-  taroPageTemplate,
-  taroScssTemplate,
-  taroServiceTemplate,
-  taroStoreTemplate,
-  taroTypesTemplate,
-} from './generator/templates-taro.mjs';
 import { adminApiTemplate, adminI18nKeys, adminViewTemplate } from './generator/templates-admin.mjs';
 import { validate as validateAgainstSchema } from './generator/schema-validate.mjs';
 
@@ -62,7 +55,6 @@ const TEMPLATES = {
     serviceSpecTemplate,
   ],
   frontend: [modelTemplate, repositoryTemplate, providerTemplate, pageTemplate],
-  taro: [taroServiceTemplate, taroTypesTemplate, taroStoreTemplate, taroPageTemplate, taroScssTemplate],
   admin: [adminApiTemplate, adminViewTemplate, adminI18nKeys],
 };
 
@@ -120,9 +112,8 @@ test('decimal：Flutter 模型用 String（不是 double）', () => {
   assert.ok(!model.includes('double'), '用 double 会把后端刻意避免的浮点舍入重新引入');
 });
 
-test('decimal：Taro 与管理台的 TS 类型均为 string', () => {
+test('decimal：管理台的 TS 类型为 string', () => {
   const ctx = ctxForType('decimal');
-  assert.ok(taroTypesTemplate(ctx).includes('amount: string'), 'Taro 侧应为 string');
   assert.ok(adminApiTemplate(ctx).includes('amount: string;'), '管理台 TS 应为 string');
 });
 

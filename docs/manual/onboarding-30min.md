@@ -10,7 +10,7 @@
 
 - 后端 CRUD（entity / dto / service / controller / module）+ CASL 本人所有权 + 全局审计
 - **AI 工具自动附带（治理缺省）**：`query_invoices`（读，**R1 自动放行**，按 userId 过滤本人数据）+ `create_invoice`（写，**R3 需人工确认** + 需已验证邮箱）——直接操作**生成模块自己的数据表**，权限 / 确认 / 审计 / 撤销**无需手写**
-- 前端页自动接线：Flutter / Web 工作台 / Taro + 路由 / 导航 / i18n
+- 前端页自动接线：Flutter / Web 工作台 + 路由 / 导航 / i18n
 - 生成物是**普通源代码**，可继续修改
 
 > 为什么不选 `customers`？—— `customers` 与内置 AI CRM 旗舰撞名（其 `query_customers` 工具已存在），生成时会跳过、复用旗舰工具，演示会读错数据。**选一个不与任何已有模块撞名的名字**（如 invoices / products / orders）。

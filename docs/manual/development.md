@@ -13,14 +13,13 @@ Related manuals / 相关手册：
 
 ```
 Front-Flutter (Flutter 3.x)  ──┐
-Front-Taro (Taro H5/小程序)    ├──→  Server-NestJS (NestJS 11)  ──→  SQLite/PostgreSQL
+Web-Admin-Vue (Vue3 管理台)  ──┼──→  Server-NestJS (NestJS 11)  ──→  SQLite/PostgreSQL
 Web-Admin-Vue (Vue3 管理台)      ──┘                                  Redis (缓存/队列)
 ```
 
 | Layer / 层 | Tech / 技术 | Notes / 说明 |
 |-----------|-------------|--------------|
 | Frontend / 前端 | Flutter 3.x + Provider + Dio + GoRouter | Material 3，三端 |
-| Frontend (Taro) / Taro 前端 | Taro 3.6 + React + zustand | 主 App H5/小程序端 |
 | Admin Console / 管理台 | Vue3 + Element Plus + Pinia（Web 端宿主：工作台 + 控制台同一壳） | 与移动主 App 代码/构建/部署分离 |
 | Backend / 后端 | NestJS 11 + TypeScript + TypeORM | 模块化 + 装饰器 |
 | DB / 数据库 | SQLite (dev) / PostgreSQL (prod) | |

@@ -96,14 +96,13 @@
 | A-3 | 声明 `sideEffect: "none"` ⇒ 生成物发射 `readonly revokeClass = 'none'` | 同上 |
 | A-4 | 不声明 ⇒ **不发射** `revokeClass`（沿用推导） | 同上 |
 | A-5 | 非法值被拒 | `validate.mjs` 单测：`sideEffect: "whatever"` / `permission: { role: "admin" }` 报错 |
-| A-6 | 产出**真编译** | 生成一个带这两个声明的模块 → `tsc` / `flutter analyze` / `vue-tsc`（Taro 除外，见 §6） |
+| A-6 | 产出**真编译** | 生成一个带这两个声明的模块 → `tsc` / `flutter analyze` / `vue-tsc` |
 
 ---
 
 ## 6. 边界与不做 / 6. Boundaries and Non-Goals
 
 - **协议红线**（`docs/module-protocol.md` §5）：不表达关联查询、级联、复杂业务逻辑、**授权变体**。本件两个键都在红线内。
-- **不做 Taro 侧**：Taro 的附件形状另有已登记缺陷（`templates-taro.mjs:22-23` 把 `attachment` 映射为 `'string'` 却不产 `<f>Names` 成员），与本件无关，不夹带。
 - **不改运行时**：`ToolRegistry` / 撤销路径一行不动——若落码时发现需要改运行时，**停下重新裁**，那意味着本件的前提不成立。
 
 ---

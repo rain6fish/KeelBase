@@ -6,7 +6,7 @@
  * critical findings in *production* dependencies.
  *
  * Until now the only vulnerability check in CI was `npm audit --omit=dev --audit-level=high`, and it
- * read one package tree (`Server-NestJS`). The two web consoles, the Taro app and the Flutter app were
+ * read one package tree (`Server-NestJS`). The two web consoles and the Flutter app were
  * never audited at all, so a dependency advisory could reach `main` without anything going red. The
  * 2026-11-05 Java security audit found the same shape on the JVM side and named it the structural gap;
  * this script is the npm/Dart half of closing it.
@@ -48,7 +48,7 @@
  * 依赖漏洞门禁：用 osv-scanner 扫全仓每一份锁文件，生产依赖里的高危/严重判红。
  *
  * 在此之前，CI 里唯一的漏洞检查是 `npm audit --omit=dev --audit-level=high`，而它只读一棵包树
- * （`Server-NestJS`）。两个 Web 控制台、Taro 应用和 Flutter 应用从来没有被审过，于是一条依赖公告
+ * （`Server-NestJS`）。两个 Web 控制台和 Flutter 应用从来没有被审过，于是一条依赖公告
  * 可以悄无声息地进 `main`。2026-11-05 的 Java 安全排查在 JVM 侧看到同一形状并把它点名为结构性缺口；
  * 本脚本是补这个缺口的 npm / Dart 那一半。
  *

@@ -52,7 +52,7 @@ Send an email to: **[128766028+rain6fish@users.noreply.github.com](mailto:128766
 
 Please include the following information in your report / 请在你的报告中包含以下信息：
 
-- **Affected component(s)** / 受影响组件（backend / Front-Flutter / Front-Taro / Web-Admin-Vue / Docker / docs）
+- **Affected component(s)** / 受影响组件（backend / Front-Flutter / Web-Admin-Vue / Docker / docs）
 - **Vulnerability type** / 漏洞类型（e.g. XSS, SQL injection, auth bypass, RCE, information disclosure…）
 - **Steps to reproduce** / 复现步骤（尽量最小化）
 - **Impact** / 影响范围（谁能利用、能达到什么效果）
@@ -82,7 +82,7 @@ We consider the following in scope for security review / 以下内容在安全�
 
 - `Server-NestJS/` — NestJS backend (auth, authorization, API, file upload, AI agent harness) / NestJS 后端（认证、授权、API、文件上传、AI Agent 运行时）
 - `Front-Flutter/` — Flutter app (iOS / Android / Web) / Flutter 主 App（三端）
-- `Front-Taro/` and `Web-Admin-Vue/` — Taro H5 / mini-program app and Vue3 + Element Plus web host (workbench + admin console) / Taro 主 App 与 Web 端（工作台+管理台）
+- `Web-Admin-Vue/` — Vue3 + Element Plus web host (workbench + admin console) / Web 端（工作台+管理台）
 - `Dockerfile`, `docker-compose*.yml`, `nginx*.conf` — deployment / 部署配置
 - `deploy/` — deployment scripts / 部署脚本
 
@@ -163,7 +163,7 @@ The security controls above describe what KeelBase *does*. The list below states
 | N-10 | Audit does not cover direct DB modifications that bypass the system's formal paths / 不承诺审计覆盖「绕过系统正式路径的直接数据库修改」 | Covers every write path inside the system (REST / AI tools / MCP / Bridge / SSE …); out-of-band DB writes are deployment discipline (N-1 / N-3) / 覆盖系统内一切写路径（REST / AI 工具 / MCP / Bridge / SSE 等）；库外直改属部署纪律（N-1 / N-3） |
 | N-11 | No ready ecosystem / third-party connectors / independent third-party security audit yet / 不承诺社区生态 / 第三方连接器 / 独立第三方安全审计已就绪 | Currently author-maintained + self-verified; public SECURITY disclosure process, LTS and compatibility commitments are roadmap items (KB-8). Assess single-maintainer risk when selecting / 当前以作者维护 + 自证为主；公开 SECURITY 披露流程 / LTS 与兼容承诺为 roadmap 项（KB-8）。选型请按单点维护风险评估 |
 | N-12 | No full Java-native edition / 不承诺 Java 原生全套 | Existing-system access via OpenAPI / MCP / bridge proxy; the Java starter is an access-layer integration; a full Java port is demand-triggered / 存量系统接入走 OpenAPI / MCP / 代理桥；Java starter 为接入层；整体 Java 移植由需求信号触发 |
-| N-13 | Not all Renderers are maintained in lockstep / 不承诺所有 Renderer 同步同等维护 | Primary front-end = Vue web host (workbench + admin console one shell); Flutter = primary mobile app; React preview / Taro positioning & maintenance commitment is stated before 1.1 (KB-7) / 主前端 = Vue Web 宿主（工作台 + 管理台同一壳）；Flutter = 移动主 App；React preview / Taro 的定位与维护承诺在 1.1 前表态（KB-7） |
+| N-13 | Not all Renderers are maintained in lockstep / 不承诺所有 Renderer 同步同等维护 | Primary front-end = Vue web host (workbench + admin console one shell); Flutter = primary mobile app; React preview / 主前端 = Vue Web 宿主（工作台 + 管理台同一壳）；Flutter = 移动主 App；React 为预览 |
 | N-14 | A hash chain on **SQLite** is not protected when **several server processes / replicas share one database file**: each process serializes its own writes in-process only, so a cross-process read-then-write race forks the chain / 不承诺 **SQLite** 上的哈希链在**多个服务进程 / 多副本共用同一个数据库文件**时不被破坏：每个进程只在**自身进程内**串行化写入，跨进程的「读前序 hash → 插入」竞态会使链分叉 | SQLite is a **single-writer** configuration — one server process per database file. Multi-replica deployments use **PostgreSQL**, where the read-previous-hash + insert pair runs inside one transaction holding a row lock on `audit_chain_lock` (`SELECT … FOR UPDATE`), which is what serializes writers across instances. A fork is **not silent**: `GET /audit/verify` and `GET /audit/operations/verify` detect it and return `valid:false` with `brokenIndex` / SQLite 是**单写者**配置——一个数据库文件只跑一个服务进程。多副本部署使用 **PostgreSQL**：「读前序 hash + 插入本行」在持有 `audit_chain_lock` 行锁（`SELECT … FOR UPDATE`）的同一事务内完成，跨实例写入由此串行化。分叉**不是静默的**：`GET /audit/verify` 与 `GET /audit/operations/verify` 会检出并返回 `valid:false` 与 `brokenIndex` |
 | N-15 | The app-layer hash chain does not, by itself, detect rows removed from the **end** of the chain — a truncated chain is a valid prefix (proving internal continuity, not "append-only") / 不承诺应用层哈希链本身能检出**末尾**被删的行：被截断的链仍是**合法前缀**（它证明的是**内部连续性**，不是「只能追加」） | What answers "was there more" is the **external anchor** (SM2 daily anchor): that day's evidence-package digests are aggregated into one signed `rootDigest` and published **outside** KeelBase's trust domain, so a receiver holding the public key sees the set has changed. Conditions: only days actually anchored, only the packages included in the aggregation, and only with a real out-of-domain receiver — an anchor kept in-house is an empty promise (publication and key custody are the deployer's duty, see N-2). Long-term preservation (WORM / immutable archive) is a third, separate layer this repository does not build / 回答「后面本来还有没有」的是**外部锚**（SM2 日锚）：把该日证据包的 digest 聚合成一个签名的 `rootDigest` 并**发布到 KeelBase 信任域之外**，持公钥者在域外比对应能发现该日集合变了。前提：只覆盖**确实锚定过**的日子、只覆盖**纳入聚合**的包，且**必须有真的域外接收方** —— 自持锚是空心承诺（发布与密钥托管属部署方义务，见 N-2）。长期保全（WORM / 不可变归档）是第三件独立的事，本仓不做 |
 
@@ -204,9 +204,8 @@ cd Front-Flutter
 dart pub deps --json > ../sbom.frontend.json
 ```
 
-### 3. All npm workspaces (Taro app + Vue3 admin) / 前端
+### 3. All npm workspaces (Vue3 admin) / 前端
 ```bash
-cd Front-Taro && cyclonedx-npm --output-file ../sbom.taro.json
 cd ../Web-Admin-Vue && cyclonedx-npm --output-file ../sbom.web-admin.json
 ```
 

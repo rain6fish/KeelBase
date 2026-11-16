@@ -247,7 +247,7 @@ The core is UI-framework-agnostic; Flutter / Vue / React are Renderers ([archite
 
 ---
 
-<!-- BEGIN keelbase-family:en sha256:a9018cd792f0bda42726d79527bdb0310a1da0e268d2b05f2fed603dab417db6 -->
+<!-- BEGIN keelbase-family:en sha256:aed694b448c84bebfff1900d68c48f799065575a6bfe8e28ce458c130fd953dc -->
 ## 🧬 The KeelBase family
 
 <p align="center">
@@ -274,7 +274,7 @@ The core is UI-framework-agnostic; Flutter / Vue / React are Renderers ([archite
 
 | Repository | Role | Stack | Status |
 |---|---|---|---|
-| [`KeelBase`](https://github.com/rain6fish/KeelBase) | Reference implementation · product documentation · demo | TypeScript · NestJS · Vue · Flutter · Taro | active |
+| [`KeelBase`](https://github.com/rain6fish/KeelBase) | Reference implementation · product documentation · demo | TypeScript · NestJS · Vue · Flutter | active |
 | [`KeelBase4J`](https://github.com/rain6fish/KeelBase4J) | The Java carrier of the same protocol | Java 17 · Spring Boot | active |
 | [`KeelBase-java-starter`](https://github.com/rain6fish/KeelBase-java-starter) | Wire an existing Java/Spring system in as governed AI tools | Maven · Gradle | 0.1.x |
 | [`KeelBase-Vue-Pro`](https://github.com/rain6fish/KeelBase-Vue-Pro) | Host adapter — the governance layer on a yudao platform | Java · Vue 3 | active |
@@ -373,7 +373,6 @@ is published and what is on `main` is exactly what you need to see.
 |-----------|-------------|
 | `Server-NestJS/` | NestJS backend (REST API) |
 | `Front-Flutter/` | Flutter main app (iOS / Android / Web) |
-| `Front-Taro/` | Taro H5 / mini-program app |
 | `Web-Admin-Vue/` | Web host — workbench + admin console, one shell (Vue3 + Element Plus) |
 | `Web-Admin-React/` | Admin console React preview (React 19 + MUI) |
 | `docs/` | Specs, requirements, manuals |

@@ -47,7 +47,7 @@ KeelBase 不是几个并列的产品，而是**一套协议 + 多个实现 + 多
 
 ---
 
-<!-- BEGIN keelbase-family:en sha256:a9018cd792f0bda42726d79527bdb0310a1da0e268d2b05f2fed603dab417db6 -->
+<!-- BEGIN keelbase-family:en sha256:aed694b448c84bebfff1900d68c48f799065575a6bfe8e28ce458c130fd953dc -->
 ## 🧬 The KeelBase family
 
 <p align="center">
@@ -74,7 +74,7 @@ KeelBase 不是几个并列的产品，而是**一套协议 + 多个实现 + 多
 
 | Repository | Role | Stack | Status |
 |---|---|---|---|
-| [`KeelBase`](https://github.com/rain6fish/KeelBase) | Reference implementation · product documentation · demo | TypeScript · NestJS · Vue · Flutter · Taro | active |
+| [`KeelBase`](https://github.com/rain6fish/KeelBase) | Reference implementation · product documentation · demo | TypeScript · NestJS · Vue · Flutter | active |
 | [`KeelBase4J`](https://github.com/rain6fish/KeelBase4J) | The Java carrier of the same protocol | Java 17 · Spring Boot | active |
 | [`KeelBase-java-starter`](https://github.com/rain6fish/KeelBase-java-starter) | Wire an existing Java/Spring system in as governed AI tools | Maven · Gradle | 0.1.x |
 | [`KeelBase-Vue-Pro`](https://github.com/rain6fish/KeelBase-Vue-Pro) | Host adapter — the governance layer on a yudao platform | Java · Vue 3 | active |
@@ -93,7 +93,7 @@ Which contract version each runtime answers for is maintained **once**, in the m
 [Compatibility](https://github.com/rain6fish/KeelBase#-compatibility). It is not duplicated here.
 <!-- END keelbase-family:en -->
 
-<!-- BEGIN keelbase-family:zh sha256:ddb20e7b71e425335b08f45a50267ef8d129c1a7944e56da83ec6a71eae6bd3c -->
+<!-- BEGIN keelbase-family:zh sha256:bd6604380e5cd42646536719d4376e038e112097da873316ad9f9c8514d15426 -->
 ## 🧬 KeelBase 家族
 
 <p align="center">
@@ -119,7 +119,7 @@ Which contract version each runtime answers for is maintained **once**, in the m
 
 | 仓 | 角色 | 技术栈 | 状态 |
 |---|---|---|---|
-| [`KeelBase`](https://github.com/rain6fish/KeelBase) | 参考实现 · 产品文档 · 演示 | TypeScript · NestJS · Vue · Flutter · Taro | 活跃 |
+| [`KeelBase`](https://github.com/rain6fish/KeelBase) | 参考实现 · 产品文档 · 演示 | TypeScript · NestJS · Vue · Flutter | 活跃 |
 | [`KeelBase4J`](https://github.com/rain6fish/KeelBase4J) | 同一协议的 Java 载体 | Java 17 · Spring Boot | 活跃 |
 | [`KeelBase-java-starter`](https://github.com/rain6fish/KeelBase-java-starter) | 把存量 Java/Spring 系统接成受治理的 AI 工具 | Maven · Gradle | 0.1.x |
 | [`KeelBase-Vue-Pro`](https://github.com/rain6fish/KeelBase-Vue-Pro) | 宿主适配——芋道平台上的治理层 | Java · Vue 3 | 活跃 |

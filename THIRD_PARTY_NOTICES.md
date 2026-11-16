@@ -24,7 +24,6 @@ Apache-2.0. Notable components and their licenses:
 | Flutter SDK & engine | BSD-3-Clause | Dart language: BSD-3-Clause |
 | NestJS framework | MIT | |
 | Vue.js / Element Plus | MIT | Web-Admin-Vue UI framework |
-| Taro | MIT | Mini-program framework |
 | RxJS / TypeORM | Apache-2.0 | |
 | Dio (Dart HTTP) | MIT | |
 | @fontsource / Material Design Icons | OFL-1.1 / Apache-2.0 | Open-source fonts & icons |

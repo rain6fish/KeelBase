@@ -8,7 +8,7 @@ import { CapabilitiesService } from './capabilities.service';
 
 /**
  * MOD-4 capabilities 端点：返回当前预设 + 启用模块清单。
- * 三端（Flutter/Taro/管理台）按此隐藏未启用模块的导航入口。
+ * 各端（Flutter / Web 管理台）按此隐藏未启用模块的导航入口。
  * 过滤逻辑在 CapabilitiesService（与 System AI Assistant 共享单一事实源）。
  */
 @ApiTags('能力清单')

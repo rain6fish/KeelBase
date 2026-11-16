@@ -12,7 +12,7 @@
 | Low | P2/P3 | Usually batch into a P3 cleanup | Null fallback, edge cases |
 | Style | P3 | One-off formatter/lint cleanup, no per-issue tickets | Indentation / semicolon / quotes |
 | Documentation | P3 | Fix opportunistically with doc changes | Stale comments / HTML semantic tags |
-| Generated / config | Usually P3 | Template/generated files must not pollute core metrics | Taro config, scaffolding boilerplate |
+| Generated / config | Usually P3 | Template/generated files must not pollute core metrics | Scaffolding boilerplate |
 | Tool false positive / rule not applicable | Ignore | Record the reason, then ignore | Flutter Bridging Header missing guard, `#import`, one-off script `open` |
 
 ## Workflow

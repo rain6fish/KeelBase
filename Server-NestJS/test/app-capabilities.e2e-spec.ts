@@ -6,7 +6,7 @@ import { createTestApp } from './helpers';
 
 /**
  * e2e coverage for Capability Metadata (MOD-4):
- * GET /api/v1/app/capabilities — Public 端点，三端（Flutter/Taro/管理台）据此隐藏未启用模块导航。
+ * GET /api/v1/app/capabilities — Public 端点，各端（Flutter / Web 管理台）据此隐藏未启用模块导航。
  * 本 spec 验证「协议生态 → Capability Metadata → 生成模块登记 → 三端消费」闭环。
  */
 describe('App Capabilities (MOD-4, e2e)', () => {

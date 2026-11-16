@@ -15,11 +15,10 @@
  * sources; this check drops them before the set comparison, while a path that merely starts with the
  * same word (`node_modules-backup/…`) is still an undeclared scan object.
  *
- * Six of the seven lockfiles carry a package that appears in no other tree, so a missing marker proves
+ * Five of the six lockfiles carry a package that appears in no other tree, so a missing marker proves
  * the tree is absent. The contract submodule (six packages) has no such marker — every one of its
  * packages also appears elsewhere — so its coverage is the scanner's own `Scanned …` line, made
- * mandatory by the set comparison. `Front-Taro/pnpm-lock.yaml` is shadowed by the npm lockfile in the
- * same directory (CI installs with `npm ci`); it is reported as skipped, exactly as the gate treats it.
+ * mandatory by the set comparison.
  *
  * 证明 SBOM 覆盖了依赖门禁扫描的每一份锁文件。
  *
@@ -32,9 +31,8 @@
  * 来源；本检查在集合比对前把它们剔除，而只是以同一个词开头的路径（`node_modules-backup/…`）仍算未声明的
  * 扫描对象。
  *
- * 七份锁文件里有六份带一个只在本树出现的包，标记缺失即证明该树没进 BOM。契约子模块（六个包）没有这样的
+ * 六份锁文件里有五份带一个只在本树出现的包，标记缺失即证明该树没进 BOM。契约子模块（六个包）没有这样的
  * 标记 —— 它的每个包在别处也出现 —— 所以它的覆盖以扫描器自己的 `Scanned …` 行为证，靠集合比对强制。
- * `Front-Taro/pnpm-lock.yaml` 被同目录的 npm 锁文件遮蔽（CI 用 `npm ci`），按跳过报告，与门禁一致。
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -52,7 +50,6 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
  */
 const MARKERS = new Map([
   ['Front-Flutter/pubspec.lock', 'flutter_secure_storage'],
-  ['Front-Taro/package-lock.json', '@tarojs/taro'],
   ['package-lock.json', 'autocannon'],
   ['Server-NestJS/package-lock.json', '@nestjs/core'],
   ['Server-NestJS/specs/protocol/package-lock.json', null],
@@ -212,10 +209,6 @@ function selftest() {
     result.status === 1 && result.problems.some((p) => p.includes('new/package-lock.json')),
     result,
   );
-
-  write(asComponents(markers), [...expected, 'Scanned Front-Taro/pnpm-lock.yaml file and found 1390 packages']);
-  result = check({ sbomPath, logPath });
-  checkCase('green: the shadowed pnpm lockfile is reported, not demanded', result.status === 0 && result.skipped.length === 1, result);
 
   write(
     asComponents(markers),

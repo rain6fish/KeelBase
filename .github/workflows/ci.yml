@@ -763,7 +763,7 @@ jobs:
       - name: 依赖漏洞审计
         run: npm audit --omit=dev --audit-level=high
 
-      # Every lockfile in the tree, not just `Server-NestJS`: the two web consoles, the Taro app and the
+      # Every lockfile in the tree, not just `Server-NestJS`: the two web consoles and the
       # Flutter app were never audited, so an advisory in any of them could reach `main` silently.
       # `npm audit` above stays as-is — it asks npm's own database and is the project's existing line.
       #
@@ -773,7 +773,7 @@ jobs:
       # and the asset attached to a release come from one definition. To bump it, change both values
       # there and re-run `--update-baseline` if the new database reports findings the old one did not.
       #
-      # 扫全仓每一份锁文件，而不只是 `Server-NestJS`：两个 Web 控制台、Taro 应用和 Flutter 应用从未被审过，
+      # 扫全仓每一份锁文件，而不只是 `Server-NestJS`：两个 Web 控制台和 Flutter 应用从未被审过，
       # 其中任何一条公告都可能悄无声息地进 `main`。上面的 `npm audit` 原样保留 —— 它查的是 npm 自己的库，
       # 是这个项目已有的那条线。
       #
@@ -956,32 +956,6 @@ jobs:
       - run: npx eslint .
       - run: npm test
       - run: npm run build
-
-  taro-build:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: Front-Taro
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          submodules: true
-      - uses: actions/setup-node@v5
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: Front-Taro/package-lock.json
-      - run: npm ci
-      # Race guards (pure Node, seconds) — without this they have no regression protection.
-      # 竞态守卫（纯 Node、秒级）——不接 CI 等于没有回归保护。
-      - run: npm run test:race
-      - run: npm run build:h5
-      # H5 output must not keep bare process.env references (Taro replaces only keys listed in config.env).
-      # H5 产物不得残留裸 process.env（Taro 只替换 config.env 里列出的键）。
-      - run: npm run test:env
-      # N-1 weapp 构建防回归：build:weapp 已修复（a15c3eb），CI 常驻校验防退化（Taro CLI 构建小程序包无需微信开发者工具）
-      - run: npm run build:weapp
-      - run: npm run test:env
 
   flutter-analyze:
     runs-on: ubuntu-latest
