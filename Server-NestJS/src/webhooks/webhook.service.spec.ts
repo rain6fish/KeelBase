@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { WebhookService } from './webhook.service';
+import { Test } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { WebhookService, WEBHOOK_RETRY_CONFIG } from './webhook.service';
 import { WebhookSubscription } from './webhook-subscription.entity';
 import { lookup } from 'dns/promises';
 import { isPrivateV4, isPrivateV6 } from '../common/utils/ssrf';
@@ -378,5 +380,54 @@ describe('WebhookService (PL-14)', () => {
     const list = await svc.list(1);
     expect(list[0].events).toEqual([]);
     expect(list[1].events).toEqual([]);
+  });
+});
+
+// Same reason as the MCP transport factory: an interface erases at runtime, so without the token Nest
+// injected nothing and the configured retry count never took effect.
+// 与 MCP 连接器工厂同理：接口在运行时被擦除，没有令牌时 Nest 什么都没注入，配置的重试次数从不生效。
+describe('WebhookService DI（显式令牌）', () => {
+  beforeEach(() => {
+    (WebhookService.prototype as any)._isBlockedHost = jest.fn().mockResolvedValue(false);
+  });
+
+  async function build(retry?: { attempts: number; backoffMs: number }) {
+    const repo = makeRepo([
+      {
+        userId: 1,
+        name: 'ops',
+        url: 'https://hook.example.com/ops',
+        eventsJson: JSON.stringify(['feedback.created']),
+        secret: 'abcdef123456',
+        enabled: true,
+      } as Partial<WebhookSubscription>,
+    ]);
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        WebhookService,
+        { provide: getRepositoryToken(WebhookSubscription), useValue: repo },
+        ...(retry ? [{ provide: WEBHOOK_RETRY_CONFIG, useValue: retry }] : []),
+      ],
+    }).compile();
+    return { svc: moduleRef.get(WebhookService), moduleRef };
+  }
+
+  it('WEBHOOK_RETRY_CONFIG 注册的配置真正决定重试次数', async () => {
+    const { svc, moduleRef } = await build({ attempts: 4, backoffMs: 0 });
+    const fetchMock = jest.fn().mockRejectedValue(new Error('conn refused'));
+    (global as any).fetch = fetchMock;
+    await svc.publish('feedback.created', { userId: 1 });
+    // 注入值是 4、DEFAULT_RETRY 是 2 —— 命中 4 即证明用的是注入对象而非回退
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    await moduleRef.close();
+  });
+
+  it('未注册令牌时仍回落到 DEFAULT_RETRY（2 次）', async () => {
+    const { svc, moduleRef } = await build();
+    const fetchMock = jest.fn().mockRejectedValue(new Error('conn refused'));
+    (global as any).fetch = fetchMock;
+    await svc.publish('feedback.created', { userId: 1 });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    await moduleRef.close();
   });
 });

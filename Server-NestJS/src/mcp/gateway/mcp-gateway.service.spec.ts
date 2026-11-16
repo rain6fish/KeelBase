@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { McpGatewayService, ExternalMcpTool, ExternalToolCallResult } from './mcp-gateway.service';
+import { Test } from '@nestjs/testing';
+import { McpGatewayService, ExternalMcpTool, ExternalToolCallResult, MCP_TRANSPORT_FACTORY } from './mcp-gateway.service';
 import { SettingsService } from '../../settings/settings.service';
 import { GovernancePolicyService } from '../../governance-shared/services/governance-policy.service';
 import { AuditService } from '../../governance-shared/services/audit.service';
@@ -342,5 +343,34 @@ describe('McpGatewayService (HS-10 入口)', () => {
       expect(out.executed).toBe(false);
       expect(out.error).toContain('not an external tool key');
     });
+  });
+});
+
+// The token is what makes this injection live at all: the parameter's type alias erases to a function
+// type, so before it Nest resolved nothing and `_makeTransport` always took the fallback.
+// 令牌是这处注入能生效的唯一凭据：参数的类型别名被擦除成函数类型，加令牌之前 Nest 什么都解析不到，
+// `_makeTransport` 每次都走回退。
+describe('McpGatewayService DI（显式令牌）', () => {
+  it('MCP_TRANSPORT_FACTORY 注册的工厂被真正使用（不是回退）', async () => {
+    const close = jest.fn();
+    const factory = jest.fn().mockResolvedValue({ transport: { fake: true }, close });
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        McpGatewayService,
+        { provide: SettingsService, useValue: { get: jest.fn(), set: jest.fn() } },
+        { provide: GovernancePolicyService, useValue: {} },
+        { provide: AuditService, useValue: {} },
+        { provide: MCP_TRANSPORT_FACTORY, useValue: factory },
+      ],
+    }).compile();
+
+    const svc = moduleRef.get(McpGatewayService);
+    const server = { name: 'wx', url: 'http://x/mcp' };
+    const made = await (svc as any)._makeTransport(server);
+
+    expect(factory).toHaveBeenCalledWith(server);
+    expect(made.transport).toEqual({ fake: true });
+    expect(made.close).toBe(close);
+    await moduleRef.close();
   });
 });

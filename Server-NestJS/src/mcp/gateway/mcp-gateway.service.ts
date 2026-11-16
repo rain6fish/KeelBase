@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Injectable, Logger, Optional, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, Optional, OnModuleInit, Inject } from '@nestjs/common';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { SettingsService } from '../../settings/settings.service';
@@ -43,6 +43,12 @@ export interface ExternalToolOutcome {
 /** 连接器接口：真实实现走 SDK StreamableHTTPClientTransport，测试可注入 InMemoryTransport */
 export type McpTransportFactory = (server: McpServerConfig) => Promise<{ transport: unknown; close: () => void }>;
 
+/**
+ * Injection token for the factory — a type alias erases at runtime, so the token has to be explicit.
+ * 工厂的注入令牌 —— 类型别名在运行时会被擦除，令牌必须显式写出。
+ */
+export const MCP_TRANSPORT_FACTORY = Symbol('MCP_TRANSPORT_FACTORY');
+
 const defaultTransportFactory: McpTransportFactory = async (server) => {
   const transport = new StreamableHTTPClientTransport(new URL(server.url));
   return { transport, close: () => transport.close() };
@@ -67,7 +73,7 @@ export class McpGatewayService implements ExternalToolProvider, OnModuleInit {
     private readonly governance: GovernancePolicyService,
     private readonly audit: AuditService,
     @Optional() private readonly toolExposure?: ToolExposureService,
-    @Optional() private readonly transportFactory?: McpTransportFactory,
+    @Optional() @Inject(MCP_TRANSPORT_FACTORY) private readonly transportFactory?: McpTransportFactory,
   ) {}
 
   /** HS-10 Agent 对话集成：启动时把本 gateway 注册为工具对外面的外部工具提供者。 */
