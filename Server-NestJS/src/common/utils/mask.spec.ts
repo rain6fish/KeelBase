@@ -83,6 +83,19 @@ describe('mask utils', () => {
       expect(redactSensitive('user.password: hunter2')).toBe('user.password: [REDACTED]');
     });
 
+    // A bare value that contains spaces must be masked whole; stopping at the first space left the
+    // rest of a passphrase in clear.
+    // 含空格的裸值必须整段掩掉；在第一个空格处停下会把口令后半截留在明文里。
+    it('裸值含空格时整段掩掉，直到行尾或结构分隔符', () => {
+      expect(redactSensitive('password=correct horse battery')).toBe('password=[REDACTED]');
+      expect(redactSensitive('password=correct horse battery&title=x')).toBe(
+        'password=[REDACTED]&title=x',
+      );
+      expect(redactSensitive('password=correct horse\nuser=alice')).toBe(
+        'password=[REDACTED]\nuser=alice',
+      );
+    });
+
     it('兜底同样认得模块声明的额外键名', () => {
       expect(redactSensitive('{idCardNoPiiFallback:"110101"}', ['idCardNoPiiFallback'])).toBe(
         '{idCardNoPiiFallback:"[REDACTED]"}',

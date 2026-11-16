@@ -4,7 +4,64 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 本文件记录 KeelBase 所有值得关注的变更。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased]
+## [1.4.2] - 2026-11-16
+
+**v1.4.2 — Every path that hands a tool result to a model masks it first, and webhook delivery works again / 每条把工具结果交给模型的路径都先脱敏，Webhook 投递恢复**
+
+### Security
+
+- **The sub-agent path masks and truncates tool results before re-injection.** The orchestrator handed
+  tool results to the model as raw `JSON.stringify` output, bypassing the `sanitizeExternalContent`
+  masking and the 4,000-character projection every main-path tool result goes through — so v1.4.0's
+  "masked before re-injection" claim held on the main chat path only. Both paths now share one
+  `renderToolResult` rendering instead of a second, divergent one.
+
+- **Input that is not valid JSON is no longer returned in clear by `redactSensitive`.** The function
+  returned the text unchanged when `JSON.parse` failed. The sanitizer can make a payload unparseable by
+  rewriting an unquoted phone number, so the retention path could store a body that was never masked.
+  It now masks what it can and withholds the whole payload (`UNREDACTABLE`) when it cannot bound the
+  text, turning a silent fail-open into a fail-closed result. A bare value is masked to the end of its
+  line, so a passphrase containing spaces is masked whole instead of up to the first space.
+
+- **Plan steps reach the summary model only after masking and truncation.** The plan executor pushed
+  `JSON.stringify(result.data)` into the summary prompt, so a data-query step's tool result — user data
+  included — entered a second model with neither masking nor the 4,000-character projection. It now
+  renders through the same `renderToolResult` as the chat path, and the retained `model_text` records
+  that same text.
+
+- **The side-effect hash chain is actually written.** `AiToolEffectsService` injected
+  `AuditChainService` under `import type` with no token, so Nest passed `undefined`: every
+  `ai_tool_side_effects` row carried no hash while `/verify` reported `valid: true` with `checked: 0`.
+  The service now injects the exported class under an explicit token, and a Nest-module test proves the
+  hash is written.
+
+### Fixed
+
+- **Webhook delivery works again.** `events`, `todos` and `feedback` injected `WebhookPublisher` under
+  `import type`, so the parameter metadata degraded to `Object`, Nest passed `undefined`, and every
+  `publish()` sat behind a falsy check: no event, todo or feedback webhook had been delivered since
+  2026-08-16. The three services now inject the exported `WebhookService` class; behavior is otherwise
+  unchanged. A new e2e proves the tenant boundary at the HTTP level.
+
+- **The retained record of the sub-agent path shows the text the model actually received.** `model_text`
+  was `null` on that path although the orchestrator did push a rendered result. It is now captured from
+  the same rendering, so the admin console no longer reports "not retained" for a call that had a
+  model-facing body.
+
+### Changed
+
+- **The admin console's retained-body panel is its own card.** It used to sit inside the hash-chain card
+  behind a divider, so one card carried two unrelated concerns. The three body states and the error copy
+  are unchanged.
+
+- **The `capped` state explains both of its causes.** A body can exceed the retention cap on its own, or
+  the masking can push the stored text over the cap while the original size stays below it. The spec and
+  the console copy now state both; the size shown is the original size.
+
+- **The release workflow creates its fallback draft through the API.** The SBOM job used to create the
+  draft and then resolve its id from the releases list; on v1.4.1 the list had not caught up, the guard
+  failed the job and nothing was uploaded. The draft is created with `POST /releases` and its id is
+  taken from that response.
 
 ### Removed
 
@@ -14,6 +71,46 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
   (`Web-Admin-Vue`) — with a second mobile form kept in the separate `KeelBase-App-X` (uni-app x)
   repository. The Taro build job, the Dependabot entry, the boundary and version/lockfile gates, the
   dependency baseline and the current documents follow the removal; published history is left as it was.
+
+### 安全
+
+- **子代理路径在回注前先脱敏、再截断工具结果。** 编排器原先把工具结果以 `JSON.stringify` 原样交给模型，
+  绕过了主路径每条工具结果都要过的 `sanitizeExternalContent` 脱敏与 4000 字符投影——1.4.0 所称
+  「回注前已脱敏」因此只在主对话路径成立。现在两条路径共用同一份 `renderToolResult` 渲染，不再各一套。
+
+- **非 JSON 输入不再被 `redactSensitive` 原样放行。** 该函数在 `JSON.parse` 失败时原样返回文本。消毒器会
+  把未加引号的手机号改写成打码形状，从而使载荷不再是合法 JSON，留存路径于是可能落下一份从未打过码的正文。
+  现在能打码的就打码，无法定界时整篇隐去（`UNREDACTABLE`），把静默的 fail-open 变成 fail-closed；裸值
+  一直掩到行尾，因此含空格的口令会整段掩掉，而不是只掩到第一个空格。
+
+- **plan 步骤结果先脱敏截断，再进汇总模型。** plan 执行器原先把 `JSON.stringify(result.data)` 拼进汇总
+  提示词，数据查询步骤的工具结果（含用户数据）未脱敏、未截断就进了第二个模型。现在改走与对话路径相同的
+  `renderToolResult`，留存里的 `model_text` 也记同一份文本。
+
+- **副作用哈希链真正写入。** `AiToolEffectsService` 原先用 `import type` 注入 `AuditChainService` 且无令牌，
+  Nest 注入的是 `undefined`：`ai_tool_side_effects` 每一行都没有哈希，而 `/verify` 却报 `valid: true`、
+  `checked: 0`。现在改为在显式令牌下注入导出的具体类，并有一条 Nest 模块测试证明哈希真的被写出。
+
+### 修复
+
+- **Webhook 投递恢复。** `events`、`todos`、`feedback` 用 `import type` 注入 `WebhookPublisher`，参数元数据
+  退化成 `Object`，Nest 实际注入 `undefined`，而每次 `publish()` 都在假值判断之后：自 2026-08-16 起，事件、
+  待办、反馈三类 Webhook 从未真正投递。三处改为注入 Nest 已导出的 `WebhookService` 具体类，其余行为不变；
+  新增 e2e 在 HTTP 层证明租户边界。
+
+- **子代理路径的留存记录显示模型真正收到的文本。** 该路径的 `model_text` 原为 `null`，尽管编排器确实把
+  渲染结果交给了模型。现在从同一份渲染中采集，管理台不再对一次有模型输入的调用显示「未留存」。
+
+### 变更
+
+- **管理台的留存正文面板独立成卡。** 它原先挂在哈希链卡片内、以一个分隔线隔开，一张卡同时承担两个无关关切。
+  三种正文状态与错误文案保持不变。
+
+- **`capped` 状态把两条成因都说清楚。** 正文本身可能超过留存上限；也可能是打码把落库文本顶过上限，而原始大小
+  仍在上限之内。规范与管理台文案现在都写明两种情形；显示的大小始终是原始大小。
+
+- **发布工作流改为通过 API 创建兜底草稿。** SBOM 作业原先建完草稿后再查 releases 列表取 id；v1.4.1 上列表
+  尚未同步，守卫因此让作业失败、资产没有上传。现在用 `POST /releases` 建草稿，并从同一次响应取 id。
 
 ### 已移除
 

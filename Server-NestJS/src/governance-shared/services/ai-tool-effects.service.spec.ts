@@ -4,6 +4,7 @@ import { Test } from '@nestjs/testing';
 import { getRepositoryToken, getEntityManagerToken } from '@nestjs/typeorm';
 import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
 import { AiToolEffectsService } from './ai-tool-effects.service';
+import { AuditChainService } from '../../common/audit-chain/audit-chain.service';
 import { chainPayload } from './effect-chain';
 import { LocalEntityRevoker, SIDE_EFFECT_REVOKER } from '../../governance-shared/services/side-effect-revoker';
 import { ToolRegistry } from '../../ai/tools/tool-registry';
@@ -888,6 +889,51 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       const s = new AiToolEffectsService(cRepo as any, undefined, undefined, undefined, auditChain);
       return { service: s, cRepo, auditChain };
     }
+
+    // The parameter used to be a type-only import with no token: Nest's metadata degraded to Object,
+    // so the chain was never injected and `record` wrote no hash while verify reported valid/checked 0.
+    // Building through a Nest module with the concrete class registered is the regression guard.
+    // 该参数原先只有类型导入、无令牌：Nest 元数据退化成 Object，链从未被注入，`record` 不写哈希，
+    // 而 verify 报 valid / checked 0。用 Nest 模块并在具体类下注册取值，就是这处的回归护栏。
+    it('auditChain 以具体类令牌注入：record 写出 hash', async () => {
+      const cRepo = {
+        save: jest.fn().mockResolvedValue({ id: 9, hash: 'h' }),
+        find: jest.fn(),
+        findOne: jest.fn(),
+        create: jest.fn((d: any) => d),
+        createQueryBuilder: jest.fn(() => ({
+          select: jest.fn().mockReturnThis(),
+          where: jest.fn().mockReturnThis(),
+          orderBy: jest.fn().mockReturnThis(),
+          limit: jest.fn().mockReturnThis(),
+          getRawOne: jest.fn().mockResolvedValue(null),
+        })),
+      };
+      const auditChain = {
+        computeHash: jest.fn().mockReturnValue('chain-hash'),
+        verifyChain: jest.fn().mockReturnValue({ valid: true, checked: 1 }),
+      };
+      const module = await Test.createTestingModule({
+        providers: [
+          AiToolEffectsService,
+          LocalEntityRevoker,
+          { provide: SIDE_EFFECT_REVOKER, useClass: LocalEntityRevoker },
+          { provide: getRepositoryToken(AiToolSideEffect), useValue: cRepo },
+          { provide: getEntityManagerToken(), useValue: entityManager },
+          { provide: AuditChainService, useValue: auditChain },
+        ],
+      }).compile();
+      const svc = module.get(AiToolEffectsService);
+
+      await svc.record(
+        { userId: '1', conversationId: 'c', toolName: 'create_event', args: { title: 'X' } },
+        'event',
+        42,
+      );
+
+      expect(auditChain.computeHash).toHaveBeenCalled();
+      expect(cRepo.save).toHaveBeenCalledWith(expect.objectContaining({ hash: 'chain-hash' }));
+    });
 
     it('record：无既有已哈希行 → 首行 genesis（prevHash null）+ 写 hash', async () => {
       const { service, cRepo } = buildChained();

@@ -317,8 +317,20 @@ function readScalar(
   return { start: from, end, text: REDACTED };
 }
 
+/**
+ * Where a bare (unquoted) value ends. Whitespace is **not** a terminator: a passphrase can contain
+ * spaces (`password=correct horse battery`), and stopping at the first space would leave the rest of
+ * the secret in clear. The value therefore runs to the line end or to a structural separator; the
+ * cost is over-masking the rest of that line, which the fallback accepts by design (it may lose
+ * evidence, never a secret).
+ *
+ * 裸值（未加引号）的终止位置。**空白不是终止符**：口令可以含空格
+ * （`password=correct horse battery`），在第一个空格处停下会把后半截秘密留在明文里。因此裸值一直
+ * 延伸到行尾或结构分隔符；代价是把该行剩余内容一并掩掉，而这正是兜底接受的取舍（可以丢证据，
+ * 不能丢秘密）。
+ */
 function isValueStop(ch: string): boolean {
-  return ch === ',' || ch === '}' || ch === ']' || ch === '&' || /\s/.test(ch);
+  return ch === ',' || ch === '}' || ch === ']' || ch === '&' || ch === ';' || ch === '\n' || ch === '\r';
 }
 
 const NO_EXTRA_KEYS: ReadonlySet<string> = new Set();
