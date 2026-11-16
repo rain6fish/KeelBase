@@ -108,6 +108,16 @@ describe('mask utils', () => {
       expect(redactSensitive("{password:'secret'}")).toBe('{password:[REDACTED]}');
     });
 
+    // Escaped quotes inside a quoted value exercise stringEnd's escape branch; a separator that is
+    // not followed by a key (`&!x`) must not end the bare value.
+    // 引号值里的转义引号会走到 stringEnd 的转义分支；分隔符后面不是键（`&!x`）时不得终止裸值。
+    it('转义引号与「分隔符后不是键」都按保守方向处理', () => {
+      expect(
+        redactSensitive('{"phone":138****8000,"password":"a\\"b","title":"x"}'),
+      ).toBe('{"phone":[REDACTED],"password":"[REDACTED]","title":"x"}');
+      expect(redactSensitive('password=secret&!x')).toBe('password=[REDACTED]');
+    });
+
     it('兜底同样认得模块声明的额外键名', () => {
       expect(redactSensitive('{idCardNoPiiFallback:"110101"}', ['idCardNoPiiFallback'])).toBe(
         '{idCardNoPiiFallback:"[REDACTED]"}',
