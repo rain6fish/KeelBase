@@ -110,7 +110,7 @@ describe('ToolPresentationService（呈现/摘要域）', () => {
     it('HS-5: should truncate oversized tool results (array)', () => {
       const svc = presentation as any;
       const bigData = Array.from({ length: 500 }, (_, i) => ({ id: i, title: `Event ${i}`.repeat(10) }));
-      const json = svc.truncateToolResult({ success: true, data: bigData });
+      const json = svc.renderToolResult({ success: true, data: bigData }).text;
       expect(json).toContain('_truncated');
       expect(json.length).toBeLessThan(5000);
       // 数组被截断到前 N 条
@@ -121,7 +121,7 @@ describe('ToolPresentationService（呈现/摘要域）', () => {
       const svc = presentation as any;
       const hugeObj: Record<string, string> = {};
       for (let i = 0; i < 200; i++) hugeObj[`key${i}`] = 'x'.repeat(50);
-      const json = svc.truncateToolResult({ success: true, data: hugeObj });
+      const json = svc.renderToolResult({ success: true, data: hugeObj }).text;
       expect(json.length).toBeLessThan(5000);
       expect(json).toContain('_truncated');
     });
@@ -129,7 +129,7 @@ describe('ToolPresentationService（呈现/摘要域）', () => {
     it('HS-5: should keep small tool results unchanged', () => {
       const svc = presentation as any;
       const small = { success: true, data: [{ id: 1, title: 'Meeting' }] };
-      const json = svc.truncateToolResult(small);
+      const json = svc.renderToolResult(small).text;
       expect(json).toBe(JSON.stringify(small));
       expect(json).not.toContain('_truncated');
     });
@@ -141,7 +141,7 @@ describe('ToolPresentationService（呈现/摘要域）', () => {
         title: 'x'.repeat(2000),
         nested: { note: 'y'.repeat(2000) },
       }));
-      const json = svc.truncateToolResult({ success: true, data: bigData });
+      const json = svc.renderToolResult({ success: true, data: bigData }).text;
       expect(() => JSON.parse(json)).not.toThrow();
       expect(json.length).toBeLessThanOrEqual(4000);
       expect(JSON.parse(json)._truncated).toBeTruthy();
@@ -151,7 +151,7 @@ describe('ToolPresentationService（呈现/摘要域）', () => {
       const svc = presentation as any;
       const hugeObj: Record<string, string> = {};
       for (let i = 0; i < 200; i++) hugeObj[`key${i}`] = 'x'.repeat(50);
-      const parsed = JSON.parse(svc.truncateToolResult({ success: true, data: hugeObj }));
+      const parsed = JSON.parse(svc.renderToolResult({ success: true, data: hugeObj }).text);
       expect(Object.keys(parsed.data).length).toBeGreaterThan(0);
       expect(Object.keys(parsed.data)).not.toEqual(['_truncated']);
       expect(parsed._truncated).toContain('200');
@@ -159,10 +159,10 @@ describe('ToolPresentationService（呈现/摘要域）', () => {
 
     it('0-B: masks sensitive values before tool results reach the model', () => {
       const svc = presentation as any;
-      const json = svc.truncateToolResult({
+      const json = svc.renderToolResult({
         success: true,
         data: [{ email: 'alex@example.com', phone: '13812345678', note: 'ok' }],
-      });
+      }).text;
       expect(json).not.toContain('alex@example.com');
       expect(json).not.toContain('13812345678');
       expect(json).toContain('a***@example.com');
