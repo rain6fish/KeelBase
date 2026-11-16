@@ -5,6 +5,7 @@ import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { createTestApp, registerUser, loginAs, authHeader } from './helpers';
 import { UserRole } from '../src/common/entities/user.entity';
+import { WebhookService } from '../src/webhooks/webhook.service';
 
 /**
  * e2e coverage for previously untested modules:
@@ -349,6 +350,78 @@ describe('Forms / Points / Webhooks / Feedback (e2e)', () => {
         .set(authHeader(userToken))
         .send({ type: 'not-a-type', content: 'x' })
         .expect(400);
+    });
+  });
+
+  // ── P3 跨租户投递隔离（HTTP 级证据）──
+  describe('Webhook tenant isolation (P3)', () => {
+    // Delivery is stubbed at the HTTP client, and both URLs are public literal IPs so the SSRF
+    // check (which skips DNS for literals) lets them through without any network access.
+    // 投递在 HTTP 客户端处打桩；两条 URL 用公网字面 IP，SSRF 校验对字面地址不做 DNS，全程不出网。
+    const TENANT_1_URL = 'http://93.184.216.34/tenant-1-hook';
+    const TENANT_2_URL = 'http://93.184.216.35/tenant-2-hook';
+    let tenant1SubId = 0;
+    let tenant2SubId = 0;
+    let fetchSpy: jest.SpyInstance | undefined;
+
+    const stubOutbound = () => {
+      fetchSpy = jest
+        .spyOn(globalThis, 'fetch')
+        .mockImplementation(
+          async () => ({ ok: true, status: 200, headers: { get: () => null } }) as unknown as Response,
+        );
+    };
+    const deliveredUrls = () => (fetchSpy?.mock.calls ?? []).map((call) => String(call[0]));
+
+    beforeAll(async () => {
+      const mine = await request(app.getHttpServer())
+        .post('/api/v1/webhooks')
+        .set(authHeader(userToken))
+        .send({ name: 'tenant-1 sink', url: TENANT_1_URL, events: ['feedback.created'] })
+        .expect(201);
+      tenant1SubId = mine.body.data.id;
+
+      const other = await request(app.getHttpServer())
+        .post('/api/v1/webhooks')
+        .set(authHeader(otherToken))
+        .send({ name: 'tenant-2 sink', url: TENANT_2_URL, events: ['feedback.created'] })
+        .expect(201);
+      tenant2SubId = other.body.data.id;
+    });
+
+    afterEach(() => {
+      fetchSpy?.mockRestore();
+      fetchSpy = undefined;
+    });
+
+    afterAll(async () => {
+      await request(app.getHttpServer())
+        .delete(`/api/v1/webhooks/${tenant1SubId}`)
+        .set(authHeader(userToken));
+      await request(app.getHttpServer())
+        .delete(`/api/v1/webhooks/${tenant2SubId}`)
+        .set(authHeader(otherToken));
+    });
+
+    it('一个租户的事件只投递到该租户自己的订阅', async () => {
+      stubOutbound();
+      await request(app.getHttpServer())
+        .post('/api/v1/feedback')
+        .set(authHeader(userToken))
+        .send({ type: 'suggestion', content: 'tenant isolation probe' })
+        .expect(200);
+
+      const urls = deliveredUrls();
+      expect(urls).toEqual([TENANT_1_URL]);
+      expect(urls).not.toContain(TENANT_2_URL);
+    });
+
+    it('载荷缺少 userId 时不投递（fail-closed）', async () => {
+      stubOutbound();
+      await expect(
+        app.get(WebhookService).publish('feedback.created', {} as never),
+      ).resolves.toBeUndefined();
+      expect(deliveredUrls()).toEqual([]);
     });
   });
 });

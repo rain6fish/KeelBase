@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Injectable, NotFoundException, ForbiddenException, Optional } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, Optional, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { subject } from '@casl/ability';
@@ -9,7 +9,7 @@ import { CreateTodoDto } from './dto/create-todo.dto';
 import { UpdateTodoDto } from './dto/update-todo.dto';
 import type { AppAbility } from '../common/casl/casl-ability.factory';
 import { OrgService } from '../org/org.service';
-import type { WebhookPublisher } from '../webhooks/webhook.service';
+import { WebhookService, type WebhookPublisher } from '../webhooks/webhook.service';
 import { type OrgContext } from '../common/scope/scope-policy';
 import { assertCallerIdentity, orgContextOf, resolveScopeDescriptor } from '../common/scope/scope-resolution';
 import { buildScopeWhere, rowInScope } from '../common/scope/scope-where';
@@ -21,7 +21,9 @@ export class TodosService {
     @InjectRepository(Todo)
     private readonly todosRepository: Repository<Todo>,
     @Optional() private readonly orgService?: OrgService,
-    @Optional() private readonly webhookPublisher?: WebhookPublisher,
+    // The interface erases at runtime, so Nest needs the concrete class as the token.
+    // 接口在运行时会被擦除，Nest 需要具体类作为注入令牌。
+    @Optional() @Inject(WebhookService) private readonly webhookPublisher?: WebhookPublisher,
     @Optional() private readonly dataScope?: DataScopeService,
   ) {}
 

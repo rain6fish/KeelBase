@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Injectable, Logger, Optional, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User, UserRole } from '../common/entities/user.entity';
 import { NotificationsService } from '../notifications/notifications.service';
-import type { WebhookPublisher } from '../webhooks/webhook.service';
+import { WebhookService, type WebhookPublisher } from '../webhooks/webhook.service';
 
 export interface FeedbackInput {
   type: 'suggestion' | 'bug' | 'praise';
@@ -30,7 +30,9 @@ export class FeedbackService {
   constructor(
     @InjectRepository(User) private readonly usersRepo: Repository<User>,
     private readonly notificationsService: NotificationsService,
-    @Optional() private readonly webhookPublisher?: WebhookPublisher,
+    // The interface erases at runtime, so Nest needs the concrete class as the token.
+    // 接口在运行时会被擦除，Nest 需要具体类作为注入令牌。
+    @Optional() @Inject(WebhookService) private readonly webhookPublisher?: WebhookPublisher,
   ) {}
 
   // userId 用 number：webhook 投递按 user_id 列（int）限定租户；字符串 "1" 在 Postgres 上根本比不了。
