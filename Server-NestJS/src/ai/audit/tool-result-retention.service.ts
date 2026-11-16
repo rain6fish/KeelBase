@@ -85,6 +85,14 @@ export class ToolResultRetentionService {
       if (this._scope() === 'truncated' && !rendered.wasTruncated) return;
 
       const maxBytes = this._maxBytes();
+      // Two ways to reach `capped`: the original is over the cap (`overCap`, so it is never masked at
+      // all), or the masked text that would be stored is (the `bytes <= maxBytes` check below —
+      // masking expands a short sensitive value to `[REDACTED]`). `body_bytes` stays the original
+      // size either way.
+      //
+      // 落 `capped` 有两条路：原始正文超限（`overCap`，故不再脱敏），或将要落库的打码文本超限（下方
+      // `bytes <= maxBytes` 的判断 —— 短敏感值替换成 `[REDACTED]` 会变长）。两种情况下 `body_bytes`
+      // 都是原始大小。
       const overCap = rendered.fullBytes > maxBytes;
 
       // Do not mask a body we are not going to store: a very large result should not pay a parse +

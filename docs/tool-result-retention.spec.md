@@ -72,11 +72,14 @@ R4 执行器与 MCP 出口。对话路径上审计粒度 `off` 时没有行可�
 回答或审计行失败。
 
 Default scope is `truncated` (only calls whose full body exceeded the 4000-char budget); `all` keeps
-every call. A body over `TOOL_RESULT_BODY_MAX_BYTES` is stored as `capped`: no text, but sizes and
-`original_sha256` remain.
+every call. A body is stored as `capped` when the original serialized result **or** the masked text
+that would be stored exceeds `TOOL_RESULT_BODY_MAX_BYTES`: no text, but sizes and `original_sha256`
+remain. `body_bytes` is always the original size, so when masking is what pushed the stored text
+over the cap, a capped row can show a value at or under the cap.
 
-默认范围 `truncated`（只留完整正文超过 4000 字符预算的调用）；`all` 留全部。正文超过
-`TOOL_RESULT_BODY_MAX_BYTES` 时落 `capped`：不存文本，但大小与 `original_sha256` 仍在。
+默认范围 `truncated`（只留完整正文超过 4000 字符预算的调用）；`all` 留全部。原始正文**或**将要落库的
+打码文本超过 `TOOL_RESULT_BODY_MAX_BYTES` 时落 `capped`：不存文本，但大小与 `original_sha256` 仍在。
+`body_bytes` 始终是原始大小，故当超限发生在打码之后时，capped 行显示的大小可能不高于上限。
 
 ## 4. 接口规格 / 4. API
 
@@ -153,4 +156,4 @@ TOOL_RESULT_BODY_SCOPE=truncated     # truncated | all
 7. An injected capture failure leaves the tool call, answer and audit row intact.
 8. sqlite and postgres migrations run and revert; the postgres glob guard is green.
 9. Non-admin without scope → 404; audit reader within scope → 200.
-10. A body over the cap → `capped`, `body_text` null, `body_bytes` the original size.
+10. A body whose original or masked size is over the cap → `capped`, `body_text` null, `body_bytes` the original size.
