@@ -330,11 +330,11 @@ export class AuditEvidenceService {
     }
     return {
       auditRowId,
-      toolName: body.toolName ?? row.tool ?? null,
-      outcome: body.outcome ?? row.outcome ?? null,
+      toolName: body.toolName,
+      outcome: body.outcome,
       bodyState: body.bodyState,
       body: body.bodyText ?? null,
-      bodyBytes: body.bodyBytes ?? null,
+      bodyBytes: body.bodyBytes,
       storedBytes: body.storedBytes ?? null,
       bodySha256: body.bodySha256 ?? null,
       originalSha256: body.originalSha256 ?? null,

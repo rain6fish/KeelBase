@@ -353,33 +353,34 @@ export class ToolPresentationService {
   private static readonly TOOL_RESULT_MAX_DEPTH = 4;
 
   /**
-   * HS-5 截断工具结果：超限时返回**仍是合法 JSON** 的投影，而不是在 JSON 中间切断。
+   * HS-5 renders the tool result fed to the model: when the payload exceeds the budget it returns a
+   * compacted **but still valid** JSON projection instead of cutting the serialized string mid-JSON.
+   * Arrays are trimmed per item and objects per field (an over-long value is trimmed, not the whole
+   * `data` destroyed), with the field cap tightened until the projection fits; only then does it fall
+   * back to omitting `data`. The value handed to the LLM is passed through `sanitizeExternalContent`,
+   * because tool results can carry DB content written by other users.
+   *
+   * It also returns the full serialized result and whether the projection dropped anything. The
+   * retention surface needs all three, and computing them in one place keeps "was it truncated" from
+   * becoming a second opinion that can disagree with the text the model actually received.
+   *
+   * What is truncated here is the copy fed to the model. Whether the full body can be checked
+   * afterwards is the 0-B retention surface's call (by default only truncated calls are kept); with
+   * retention off, nothing outside the model stores the result body — the old wording "see the audit
+   * log for details" was false (`tool-call-audit` records only outcome/isError, not the content) and
+   * is gone.
+   *
+   * HS-5 渲染给模型的工具结果：超限时返回**仍是合法 JSON** 的投影，而不是在 JSON 中间切断。
    * 数组按条目截断、对象按字段逐个截断（值过长只截值，不销毁整个 data），
    * 逐级收紧直到放进预算；最后一步才退回「省略 data」的标记。
    * 返回值注入 LLM 前先过 `sanitizeExternalContent` —— 工具结果里可能有别的用户写入的 DB 内容。
    *
+   * 同时返回完整序列化结果与「是否发生过截断」：留存面需要这三样，在一处算清，才不会让
+   * 「是否截断」变成第二个可能与模型实际所见相左的判断。
+   *
    * 这里截的是**喂给模型的那一份**。完整正文是否可核对由 0-B 留存面决定（默认只留被截断的调用）；
    * 没开启留存时，模型之外没有任何地方保存结果正文 —— 旧文案「详情请查审计日志」是假的
    * （`tool-call-audit` 只落 outcome/isError，不落结果内容），已去掉。
-   *
-   * HS-5 returns a compacted **but still valid** JSON projection when the payload is too large; it
-   * never cuts the serialized string mid-JSON. Arrays are trimmed per item and objects per field, with
-   * the field cap tightened until the projection fits; only then does it fall back to omitting `data`.
-   * The value handed to the LLM is passed through `sanitizeExternalContent`, because tool results can
-   * carry DB content written by other users.
-   */
-  truncateToolResult(result: ToolResult): string {
-    return this.renderToolResult(result).text;
-  }
-
-  /**
-   * Same calculation as `truncateToolResult`, but also returns the full serialized result and whether
-   * the projection dropped anything. The retention surface needs all three, and computing them in one
-   * place keeps "was it truncated" from becoming a second opinion that can disagree with the text the
-   * model actually received.
-   *
-   * 与 `truncateToolResult` 同一份计算，但一并返回完整序列化结果与「是否发生过截断」。留存面需要这
-   * 三样；在一处算清，才不会让「是否截断」变成第二个可能与模型实际所见相左的判断。
    */
   renderToolResult(result: ToolResult): RenderedToolResult {
     // usage 是给审计记账的，不进 LLM 上下文——否则既污染提示词、又凭空多花 token
