@@ -154,6 +154,6 @@ TOOL_RESULT_BODY_SCOPE=truncated     # truncated | all
 5. Audit granularity `off` → no audit row, no retention row.
 6. Masked emails/phones/tokens/names; no plaintext PII in the console.
 7. An injected capture failure leaves the tool call, answer and audit row intact.
-8. sqlite and postgres migrations run and revert; the postgres glob guard is green.
+8. Migrations up and down on both backends: the jest spec covers sqlite up / unique / down; `migration:consistency:pg` covers postgres up + drift check + revert of the newest migration (this one, until a newer migration lands) + re-run. The postgres glob guard is green.
 9. Non-admin without scope → 404; audit reader within scope → 200.
 10. A body whose original or masked size is over the cap → `capped`, `body_text` null, `body_bytes` the original size.
