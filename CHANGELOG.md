@@ -4,7 +4,7 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 本文件记录 KeelBase 所有值得关注的变更。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [1.4.2] - 2026-11-16
+## [1.4.2] - 2026-11-17
 
 **v1.4.2 — Every path that hands a tool result to a model masks it first, and webhook delivery works again / 每条把工具结果交给模型的路径都先脱敏，Webhook 投递恢复**
 
@@ -120,6 +120,50 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
   （`Front-Flutter`）与 Web 宿主（`Web-Admin-Vue`）；移动端第二形态留在独立仓 `KeelBase-App-X`
   （uni-app x）。Taro 构建 job、Dependabot 条目、边界与版本/锁文件门禁、依赖基线及现存文档均已随之
   更新；已发布的历史记录保持原貌。
+
+### Release Precheck（2026-11-16）
+
+- **Four layers of code review**: OpenCodeReview ran in Docker over `v1.4.1..b51fd2d6` (47 files after
+  the default excludes) — **9 groups / 47 files / 14 comments / CNY 1.13 / 3m42s** — and its blocking
+  findings were fixed before the tag. Claude's multi-axis review found nothing blocking and contributed
+  two fixes (the bare-value end rule in the unparseable-input masking fallback, and the side-effect hash
+  chain that was never written). The code-review skill's Standards and Spec axes: **0 hard violations,
+  0 blocking**, three judgment items. AI Code Economy Review: **PASS** — Critical 0, High 0, two LOW
+  items, −43,515 lines net in the interval.
+- **Full test run**: backend unit **443 suites / 4,138 tests** with the security-module tier gate 6/6 ·
+  backend e2e **45 suites / 449 tests** (4 shards) · Web-Admin-Vue vitest **88 files passed and 1
+  skipped** · Flutter **675 tests** · generator / CLI **79 + 8** · PostgreSQL migration consistency
+  PASS · Golden Application **10/10** · endpoint-docs consistency **0 missing declarations** · contract
+  release gate **C1–C5** · `check:all` **35/35** on `4da87626` · version parity PASS — all green.
+- **Coverage**: backend statements **95.38%** / branches **80.4%** / functions **91.36%** / lines
+  **96.48%** (thresholds 86 / 72 / 81 / 86, every security module past its tier gate); Web-Admin-Vue
+  **85.66 / 78.2 / 62.05 / 85.66**; Flutter lines **67.61%** (threshold 45%) — thresholds met, every
+  figure at or above the `77b510ca` baseline.
+- **Deliberately left as follow-ups (recorded honestly, not overlooked)**: the no-renderer plan fallback
+  masks but does not apply the 4,000-character budget (production always passes the renderer) ·
+  `WEBHOOK_RETRY_CONFIG` remains a test-only seam token by design · `UNREDACTABLE` is still a plain
+  string that callers must recognise by value · `check:test-types` can lower its baseline from 188 to
+  178 after the Taro removal.
+
+### 发布前检查（Release Precheck，2026-11-16）
+
+- **四层代码审核**：OpenCodeReview 由 Docker 承载，评审 `v1.4.1..b51fd2d6`（默认排除后 47 个文件）——
+  **9 组 / 47 文件 / 14 条评论 / 1.13 元 / 3 分 42 秒**，阻塞项已在打 tag 前修掉。Claude 多维审查无阻塞，
+  并促成两项修复（不可解析输入打码兜底的裸值结束规则、从未写入的副作用哈希链）。code-review skill 的
+  Standards 与 Spec 双轴：**0 条硬违规、0 阻塞**，三条判断项。AI Code Economy Review：**PASS** ——
+  Critical 0、High 0，两条 LOW；区间净删除 −43,515 行。
+- **全量测试**：后端单测 **443 套 / 4,138 例**（安全模块分档门禁 6/6）· 后端 e2e **45 套 / 449 例**
+  （4 分片）· Web-Admin-Vue vitest **88 个文件通过、1 个跳过** · Flutter **675 例** · 生成器 / CLI
+  **79 + 8** · PostgreSQL 迁移一致性 PASS · Golden Application **10/10** · 端点-文档一致性
+  **0 条声明缺失** · 契约发版闸 **C1–C5** · `check:all` 在 `4da87626` 上 **35/35** · 版本对账 PASS ——
+  全过。
+- **覆盖率**：后端 statements **95.38%** / branches **80.4%** / functions **91.36%** / lines
+  **96.48%**（门槛 86 / 72 / 81 / 86，安全模块逐模块过分档门禁）；Web-Admin-Vue
+  **85.66 / 78.2 / 62.05 / 85.66**；Flutter 行 **67.61%**（门槛 45%）—— 达标，且逐项不低于
+  `77b510ca` 基线。
+- **有意留作后续（如实记录，不是漏掉）**：无渲染器的 plan 兜底只脱敏、不套 4000 字符预算（生产路径
+  总是传渲染器）· `WEBHOOK_RETRY_CONFIG` 按设计只是测试缝令牌 · `UNREDACTABLE` 仍是普通字符串、调用方
+  须按值识别 · `check:test-types` 的基线可在移除 Taro 后从 188 降到 178。
 
 ## [1.4.1] - 2026-11-15
 
