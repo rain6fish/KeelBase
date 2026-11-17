@@ -138,6 +138,26 @@ describe('PlanExecuteAgent', () => {
     expect(result.stepResults[0]).toContain('a***@example.com');
   });
 
+  it('工具以非 Error 值拒绝时也能脱敏并记为 ERROR', async () => {
+    // A proxied or external tool may reject with a string; coercing it first is what
+    // `sanitizeExternalContent` needs (it reads `input.length`).
+    // 代理或外部工具可能以字符串拒绝；先归一成字符串才满足 `sanitizeExternalContent`（它读 `input.length`）。
+    mockProvider.generate.mockResolvedValue({
+      content: JSON.stringify([{ description: '查联系人', tool: 'query_events', args: {} }]),
+    });
+    toolRegistry.execute.mockRejectedValue('boom alice@example.com');
+
+    const result = await agent.planAndExecute(
+      messages,
+      mockProvider as any,
+      toolRegistry as any,
+      userId,
+    );
+    expect(result.stepResults[0]).toContain('ERROR:');
+    expect(result.stepResults[0]).not.toContain('alice@example.com');
+    expect(result.stepResults[0]).toContain('a***@example.com');
+  });
+
   it('NC-3 注入只读 executor：写工具步骤被拒且不经 toolRegistry.execute 直调', async () => {
     mockProvider.generate.mockResolvedValue({
       content: JSON.stringify([

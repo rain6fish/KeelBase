@@ -78,7 +78,7 @@ const DISPLAY_CONSTANTS = [
 const LOCK_PARITY = [
   { lock: 'package-lock.json', manifest: 'package.json' },
   { lock: 'Server-NestJS/package-lock.json', manifest: 'Server-NestJS/package.json' },
-  { lock: 'Web-Admin-Vue/package-lock.json', manifest: 'Web-Admin-Vue/package.json' }
+  { lock: 'Web-Admin-Vue/package-lock.json', manifest: 'Web-Admin-Vue/package.json' },
 ];
 
 const read = (rel) => readFileSync(join(ROOT, rel), 'utf8');

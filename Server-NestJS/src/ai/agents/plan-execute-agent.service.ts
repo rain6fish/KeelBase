@@ -125,7 +125,14 @@ export class PlanExecuteAgent {
           ? (render ? render(result) : sanitizeExternalContent(JSON.stringify(result.data ?? '')))
           : `ERROR: ${sanitizeExternalContent(String(result.error ?? ''))}`;
       } catch (err) {
-        stepResults[i] = `ERROR: ${sanitizeExternalContent((err as Error).message)}`;
+        // A rejected value is not necessarily an `Error`: a proxied or external tool can throw a
+        // string or a plain object, and `(err as Error).message` is then undefined — which
+        // `sanitizeExternalContent` cannot take (it reads `input.length`). Coerce first.
+        // 被拒的值不一定是 `Error`：代理或外部工具可能抛出字符串或普通对象，此时
+        // `(err as Error).message` 为 undefined，而 `sanitizeExternalContent` 读 `input.length`，
+        // 会在此处再抛一次。先归一成字符串。
+        const message = err instanceof Error ? err.message : String(err);
+        stepResults[i] = `ERROR: ${sanitizeExternalContent(message)}`;
       }
     }
 

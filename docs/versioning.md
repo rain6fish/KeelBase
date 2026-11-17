@@ -72,6 +72,12 @@ model input by field name before storage; gives the tool surface offered to the 
 execution (feature flags, R5, verified email); and completes the admin console's retained-body panel
 for the `capped` and not-retained states.
 
+v1.4.2 (2026-11-16) closes the model-facing paths that v1.4.1 left open: the sub-agent and plan-summary
+steps mask and truncate tool results the same way the main chat path does, `redactSensitive` no longer
+returns input it cannot parse in clear, the retained record matches what the model actually received,
+and webhook delivery works again. The Taro client and its generator wiring are removed; the entry model
+is the main app and the Web host.
+
 1.4.x 线延续可核证据版。其首个版本 v1.4.0（2026-11-15）带有原为 1.3.2 准备的修复——单容器镜像不再
 内置密钥、Webhook 投递按事件归属收窄、喂给模型的工具面跟随调用者、截断的工具结果仍是合法 JSON 并在
 回注模型前脱敏、审计对象检索写明口径、AI Approval 对外改称 My Requests——并加入一项新能力：被截断的
@@ -81,7 +87,10 @@ for the `capped` and not-retained states.
 `/audit/verify` 与证据包行为不变。v1.4.1（2026-11-15）是本线首个增量版：留存与 AI 输入路径上的邮箱
 脱敏改为线性，256 KB 单行不再拖住回答；留存里模型那份输入在落库前按字段名打码；喂给模型的工具面与
 执行门共用同一判据（特性开关、R5、邮箱验证）；并补齐管理台留存正文面板在 `capped` 与未留存两种状态
-下的说明。`main` 分支为开发线，每个打了 tag 的版本都是通过完整 CI 与测试套件的稳定快照。
+下的说明。v1.4.2（2026-11-16）补齐 v1.4.1 未覆盖的模型路径：子代理与 plan 汇总步骤现在和主对话路径
+一样先脱敏、再截断，`redactSensitive` 不再把无法解析的输入原样放行，留存记录与模型实收一致，Webhook
+投递恢复；Taro 客户端与生成器接线移除，入口模型为主 App 与 Web 宿主。`main` 分支为开发线，每个打了
+tag 的版本都是通过完整 CI 与测试套件的稳定快照。
 
 ### Superseded: 1.3.x — Accountable Evidence edition / 已被取代：1.3.x 可核证据版
 

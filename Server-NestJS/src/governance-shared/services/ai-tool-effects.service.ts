@@ -13,7 +13,7 @@ import { SIDE_EFFECT_REVOKER } from '../../governance-shared/services/side-effec
 import type { SideEffectRevoker } from '../../governance-shared/services/side-effect-revoker';
 import { GOVERNANCE_REPORTER } from '../../governance-shared/services/governance-reporter.service';
 import type { GovernanceReporter } from '../../governance-shared/services/governance-reporter.service';
-import type { AuditChainService } from '../../common/audit-chain/audit-chain.service';
+import { AuditChainService } from '../../common/audit-chain/audit-chain.service';
 import { OperationAuditService } from '../../operation-audit/operation-audit.service';
 import type { ToolRegistry } from '../../ai/tools/tool-registry';
 import { resolveRevokeClass, type RevokeClass } from './revoke-class';
@@ -116,8 +116,15 @@ export class AiToolEffectsService {
     // D2-3c：可选治理上报（业务系统配 GOVERNANCE_URL 时副作用双写）
     @Optional() @Inject(GOVERNANCE_REPORTER)
     private readonly reporter?: GovernanceReporter,
+    // G-3 (§internal.17 ① G-3): the side-effect hash chain (AuditChainService; ai.module imports
+    // AuditChainModule; absent ⇒ the chain degrades to unhashed).
     // G-3（§internal.17 ① G-3）：副作用哈希链（AuditChainService，ai.module 已 import AuditChainModule；缺失降级不链化）
-    @Optional() private readonly auditChain?: AuditChainService,
+    // The parameter used to be `import type` with no token, so its metadata erased to Object and Nest
+    // injected undefined: no hash was ever written while `/verify` reported valid with checked 0. The
+    // value import plus the explicit token is what makes the chain live.
+    // 该参数原先用 `import type` 且无令牌，元数据退化成 Object，Nest 注入的是 undefined：链上从不写哈希，
+    // 而 `/verify` 报 valid / checked 0。值导入加显式令牌才让链生效。
+    @Optional() @Inject(AuditChainService) private readonly auditChain?: AuditChainService,
     // KB-6：工具注册表（解析副作用撤销能力档位快照；ToolRegistry 为 AiModule provider，构造器注入）
     @Optional() @Inject(TOOL_REGISTRY) private readonly toolRegistry?: ToolRegistry,
     // G-3 链写入串行化（postgres 走 DB 锁事务；缺失则退化为进程内串行）——见 _withChainWrite

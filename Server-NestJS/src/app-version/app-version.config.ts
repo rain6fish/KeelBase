@@ -51,6 +51,13 @@ const PRODUCT_VERSION = readPackageVersion();
  * 只保留**当前仍在服务**的版本；更早的要点由 `CHANGELOG.md` 承载（权威历史），此处不留不可达的旧数据。
  */
 const RELEASE_NOTES: Record<string, readonly string[]> = {
+  // 1.4.2 closes the model-facing paths and restores webhook delivery.
+  // 1.4.2 补齐喂给模型的路径，并恢复 Webhook 投递。
+  '1.4.2': [
+    '子代理与 plan 汇总路径现在和主对话路径一样，工具结果先脱敏、再截断后才交给模型',
+    '无法解析的输入不再被原样放行：能打码就打码，无法定界时整篇隐去',
+    'Webhook 投递恢复：事件、待办、反馈三类订阅重新投递',
+  ],
   // The 1.4.0 release recuts 1.3.2: that release commit (bca61ff0) bumped package.json and CHANGELOG
   // but missed this version-keyed map, and the unit test turned red as soon as main was merged — which
   // is exactly what that test exists to catch: release notes cannot go missing silently.

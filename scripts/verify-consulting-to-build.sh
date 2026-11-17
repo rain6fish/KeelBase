@@ -115,7 +115,7 @@ node scripts/keelbase-init.mjs --spec "$SPEC" --force >/dev/null
 missing=()
 for f in "${PLANNED[@]}"; do [ -f "$f" ] || missing+=("$f"); done
 [ "${#missing[@]}" -eq 0 ] || { printf '   缺失：\n'; printf '     %s\n' "${missing[@]}"; fail "生成物与 dry-run 清单不一致"; }
-# 结构完整性：后端四件套（实体用**单数**）+ AI 工具 + 三前端都在清单里
+# 结构完整性：后端四件套（实体用**单数**）+ AI 工具 + 两前端都在清单里
 for pat in "/$SINGULAR\.entity\.ts$" "/$PLURAL\.service\.ts$" "/$PLURAL\.controller\.ts$" "/$PLURAL\.module\.ts$" \
            "/ai/tools/query-$PLURAL\.tool\.ts$" "/ai/tools/create-$PLURAL\.tool\.ts$" \
            "^Front-Flutter/lib/features/$PLURAL/" "^Web-Admin-Vue/" ; do

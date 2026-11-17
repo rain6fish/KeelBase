@@ -218,7 +218,15 @@ function redactUnparseable(input: string, extra: ReadonlySet<string>): string | 
   let i = 0;
   while (i < n) {
     const ch = input[i];
-    if (ch === '"' || ch === "'") {
+    // Only `"` opens a string literal. Arbitrary text is not JSON, and an apostrophe in prose
+    // (`It's fine`, `don't retry`) is far more common than a single-quoted value; treating it as a
+    // delimiter makes the scanner run to the next apostrophe or withhold the whole document. A
+    // single-quoted value is still masked as a bare value — to the end of its line — which is the
+    // fail-closed direction.
+    // 只有 `"` 开启字符串字面量。任意文本不是 JSON，散文里的撇号（`It's fine`、`don't retry`）远比
+    // 单引号值常见；把它当定界符会让扫描跑到下一个撇号或整篇隐去。单引号值仍按裸值掩到行尾 ——
+    // 这是 fail-closed 的方向。
+    if (ch === '"') {
       const end = stringEnd(input, i);
       if (end < 0) return null;
       if (isKeyPosition(input, end + 1)) {
@@ -306,19 +314,59 @@ function readScalar(
 ): { start: number; end: number; text: string } | null {
   if (from >= input.length) return { start: from, end: from, text: '' };
   const ch = input[from];
-  if (ch === '"' || ch === "'") {
+  if (ch === '"') {
     const end = stringEnd(input, from);
-    return end < 0 ? null : { start: from, end: end + 1, text: `${ch}${REDACTED}${ch}` };
+    return end < 0 ? null : { start: from, end: end + 1, text: `"${REDACTED}"` };
   }
   if (ch === '{' || ch === '[') return null;
-  if (isValueStop(ch)) return { start: from, end: from, text: '' };
+  if (ch === '\n' || ch === '\r') return { start: from, end: from, text: '' };
+  return readBareValue(input, from);
+}
+
+/**
+ * Read a bare (unquoted) value. It ends at a line break, a structural close, or a separator that
+ * begins the next key/value pair.
+ *
+ * A comma, `&` or `;` **inside** the value is not a terminator: `password=correct,horse` has no key
+ * after the comma, so the whole phrase is masked; `password=x&title=y` stops before `&title=`, so
+ * the next field survives. Whitespace alone never ends it. Before this rule, stopping at every
+ * separator left the tail of a passphrase containing one of those characters in clear.
+ *
+ * 读取裸值（未加引号）。终止于换行、结构闭合符，或「下一个键值对」开始的分隔符。
+ *
+ * 值**内部**的逗号、`&`、`;` 不是终止符：`password=correct,horse` 的逗号后面没有键，于是整句都被
+ * 掩掉；`password=x&title=y` 在 `&title=` 前停下，下一个字段得以保留。空白本身永不终止。改此规则前，
+ * 在每个分隔符处停下会让含这些字符的口令后半截留在明文。
+ */
+function readBareValue(
+  input: string,
+  from: number,
+): { start: number; end: number; text: string } {
   let end = from;
-  while (end < input.length && !isValueStop(input[end])) end++;
+  while (end < input.length) {
+    const ch = input[end];
+    if (ch === '\n' || ch === '\r' || ch === '}' || ch === ']') break;
+    if ((ch === ',' || ch === '&' || ch === ';') && startsKeyValue(input, end + 1)) break;
+    end++;
+  }
   return { start: from, end, text: REDACTED };
 }
 
-function isValueStop(ch: string): boolean {
-  return ch === ',' || ch === '}' || ch === ']' || ch === '&' || /\s/.test(ch);
+/** Whether the text at `from` (after optional spaces) begins `key:` or `key=`. */
+function startsKeyValue(input: string, from: number): boolean {
+  const at = skipSpace(input, from);
+  if (at >= input.length) return false;
+  const ch = input[at];
+  if (ch === '"') {
+    const end = stringEnd(input, at);
+    return end >= 0 && isKeyPosition(input, end + 1);
+  }
+  if (isIdentStart(ch)) {
+    let end = at + 1;
+    while (end < input.length && isIdentPart(input[end])) end++;
+    return isKeyPosition(input, end);
+  }
+  return false;
 }
 
 const NO_EXTRA_KEYS: ReadonlySet<string> = new Set();

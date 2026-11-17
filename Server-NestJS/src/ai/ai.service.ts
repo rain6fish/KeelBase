@@ -58,7 +58,7 @@ import { checkContentSafety } from './security/content-safety';
 import { ContentSafetyService } from './security/content-safety.service';
 import { deriveAiBusinessEvent } from './audit/ai-business-event';
 import { SettingsService, SETTING_KEYS } from '../settings/settings.service';
-import { NotFoundException, Optional } from '@nestjs/common';
+import { Logger, NotFoundException, Optional } from '@nestjs/common';
 import { BusinessException } from '../common/errors/business.exception';
 import {
   LlmProvider,
@@ -101,6 +101,7 @@ export interface AiServiceConfig {
 }
 
 export class AiService {
+  private readonly logger = new Logger(AiService.name);
   private readonly routerAgent = new RouterAgent();
   private readonly reflectionAgent = new ReflectionAgent();
   private readonly planExecuteAgent = new PlanExecuteAgent();
@@ -230,6 +231,17 @@ export class AiService {
      * `model_text` 保持 null，而不是记一份没有模型见过的渲染。
      */
     modelSeesRendered = false,
+    /**
+     * Whether **failed** results are also rendered for the model. The sub-agent orchestrator pushes
+     * `renderToolResult(...).text` for every result, failures included; the plan path replaces a
+     * failed step with `ERROR: <sanitized error>`, so its failures never see the rendering and must
+     * not be recorded as if they did.
+     *
+     * 失败的结果是否同样以渲染形式交给模型。子代理编排器对每条结果（含失败）都推
+     * `renderToolResult(...).text`；plan 路径把失败步骤换成 `ERROR: <脱敏后的错误>`，其失败从未见过
+     * 那份渲染，故不得按见过记录。
+     */
+    renderFailures = true,
   ): ReadOnlyToolExecutor {
     return async (toolName, args, userId) => {
       const argsJson = JSON.stringify(args);
@@ -262,18 +274,34 @@ export class AiService {
               parentActionId: agentRunId,
             }),
           );
-          // 0-B：子代理与 plan 路径都把 `renderToolResult` 的文本交给模型（编排器直接推送 / 汇总提示词
-          // 嵌入），故它们的 `model_text` 与模型实收一致；确定性导航没有模型看到结果，不传 rendered。
-          // 0-B: the sub-agent and plan paths both hand the model the text `renderToolResult` produces
-          // (pushed directly / embedded in the summary prompt), so their `model_text` matches what the
-          // model saw; deterministic navigation has no model in the loop and omits `rendered`.
+          // 0-B：子代理路径对每条结果（含失败）都推渲染文本；plan 路径只在成功步骤上嵌入渲染，
+          // 失败步骤换成 `ERROR: …`。故 `model_text` 只在模型真正收到那份渲染时才记。
+          // 0-B: the sub-agent path pushes the rendering for every result (failures included); the
+          // plan path embeds it only for successful steps and substitutes `ERROR: …` for failures.
+          // `model_text` is therefore recorded only where the model actually saw that rendering.
+          //
+          // Rendering is evidence, not a gate: a formatter failure must not fail the tool call —
+          // otherwise `capture` never runs and retention's "never fails the call" promise is broken
+          // from the caller side.
+          // 渲染是证据、不是闸：格式化失败不得让工具调用失败 —— 否则 `capture` 根本不会执行，
+          // 留存「绝不让工具调用失败」的承诺就在调用方一侧被打破。
+          let rendered: ReturnType<ToolPresentationService['renderToolResult']> | undefined;
+          if (modelSeesRendered && (result.success || renderFailures)) {
+            try {
+              rendered = this.presentation.renderToolResult(result);
+            } catch (err) {
+              this.logger.warn(
+                `[AiService] tool-result rendering failed for retention: ${(err as Error)?.message ?? String(err)}`,
+              );
+            }
+          }
           await this.toolResultRetention?.capture({
             auditRowId: auditRow.id,
             conversationId,
             userId,
             toolName,
             result,
-            rendered: modelSeesRendered ? this.presentation.renderToolResult(result) : undefined,
+            rendered,
           });
         }
         return result;
@@ -808,8 +836,11 @@ export class AiService {
         userId,
         request.model ?? this.config.defaultModel,
         // NC-3 只读门控：plan 步骤经同一治理层执行，防 LLM 计划的写/禁用工具被直调。
-        // 汇总模型会读到渲染后的步骤结果（第 7 参），故留存也记同一份 model_text。
-        this._agentStepExecutor(conversationId, providerName, agentRunId, true),
+        // 汇总模型会读到渲染后的**成功**步骤结果（第 7 参）；失败步骤是 `ERROR: …`，故不按渲染记录。
+        // NC-3 read-only gate: plan steps run through the same governance layer. The summary model
+        // reads the rendering for **successful** steps (7th argument); failures are `ERROR: …` and
+        // are not recorded as a rendering.
+        this._agentStepExecutor(conversationId, providerName, agentRunId, true, false),
         // 与对话路径同一份渲染：步骤结果进汇总提示词前先脱敏 + 截断（F1 同类的计划路径缺口）
         (result) => this.presentation.renderToolResult(result).text,
       );
