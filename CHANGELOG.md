@@ -6,7 +6,7 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 ## [1.4.2] - 2026-11-17
 
-**v1.4.2 — Every path that hands a tool result to a model masks it first, and webhook delivery works again / 每条把工具结果交给模型的路径都先脱敏，Webhook 投递恢复**
+**v1.4.2 — Every model-facing tool result is masked first, and webhooks deliver again / 每条喂给模型的工具结果都先脱敏，Webhook 重新投递**
 
 ### Security
 
@@ -35,6 +35,12 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
   `ai_tool_side_effects` row carried no hash while `/verify` reported `valid: true` with `checked: 0`.
   The service now injects the exported class under an explicit token, and a Nest-module test proves the
   hash is written.
+
+- **A key written with single quotes is masked as a key in the non-JSON fallback.** Dropping `'` as a
+  literal opener kept prose apostrophes from withholding the whole document, but it also stopped
+  recognising `{'password': 'secret'}`, whose value then passed through in clear. A `'…'` pair now
+  counts as a key whenever it closes and is followed by `:` or `=`, while a lone apostrophe still
+  advances one character.
 
 ### Fixed
 
@@ -91,6 +97,10 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 - **副作用哈希链真正写入。** `AiToolEffectsService` 原先用 `import type` 注入 `AuditChainService` 且无令牌，
   Nest 注入的是 `undefined`：`ai_tool_side_effects` 每一行都没有哈希，而 `/verify` 却报 `valid: true`、
   `checked: 0`。现在改为在显式令牌下注入导出的具体类，并有一条 Nest 模块测试证明哈希真的被写出。
+
+- **非 JSON 兜底里，单引号写的键按「键」处理。** 为保住散文里的撇号而不再把 `'` 当作字面量定界符，连带
+  认不出 `{'password': 'secret'}`，其中的值于是原样漏出。现在 `'…'` 成对闭合且后接 `:` 或 `=` 时按键
+  处理，孤立撇号仍只前进一个字符。
 
 ### 修复
 
