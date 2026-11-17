@@ -6,7 +6,7 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 ## [1.4.2] - 2026-11-17
 
-**v1.4.2 — Every path that hands a tool result to a model masks it first, and webhook delivery works again / 每条把工具结果交给模型的路径都先脱敏，Webhook 投递恢复**
+**v1.4.2 — Every model-facing tool result is masked first, and webhooks deliver again / 每条喂给模型的工具结果都先脱敏，Webhook 重新投递**
 
 ### Security
 
