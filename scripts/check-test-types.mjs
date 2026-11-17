@@ -68,8 +68,19 @@ const BE = resolve(__dirname, '../Server-NestJS');
  * 自闸门第一版起一直被算作「生产文件」）。放宽后暴露的两条已修——testbed 的 `mockAuditService`
  * 缺 `reserveDailyUsage`/`releaseDailyUsage`；`confirmation.store.spec.ts` 新增的断言读了一个
  * 未声明 `decidedAt` 的夹具字段——故放宽后读数仍是 188。
+ *
+ * **188 → 178 (2026-11-17)**: the baseline was stale, not broken. A re-run of this gate on the
+ * 1.4.2 tree read 178; the same check at `77b510ca` (the last pushed main) also reads 178, with an
+ * identical census — same errors, same counts per code and per file. So the ten fewer are drift
+ * since 2026-10-20 rather than one change's doing, and the Taro client's removal is not the cause:
+ * this gate counts `Server-NestJS/{src,test}` only, and `Front-Taro/` was never part of that tree.
+ * Lowered to lock the current reading.
+ * **188 → 178（2026-11-17）**：基线是陈旧，不是坏了。在 1.4.2 的树上复跑本闸读作 178；同一检查在
+ * `77b510ca`（最后推送的 main）上也是 178，且普查逐项相同——同样的错误、按错误码与按文件的计数都
+ * 一致。可见少的这十条是 2026-10-20 以来的漂移，不是某一次改动所致；Taro 客户端的移除也不是原因：
+ * 本闸只统计 `Server-NestJS/{src,test}`，`Front-Taro/` 从不在这棵树里。基线降到 178，锁住当前读数。
  */
-const BASELINE = 188;
+const BASELINE = 178;
 
 /**
  * 一行 tsc 输出是否属于「测试文件」：`路径(行,列): error TSxxxx: ...`
