@@ -199,17 +199,19 @@ export const UNREDACTABLE = '[REDACTED: unparseable payload]';
  * Text-level fallback for unparseable input. Returns the redacted text, or `null` when completeness
  * cannot be vouched for.
  *
- * Every position is examined: a quote opens a string literal, an identifier run is a bare word. If
- * the token is followed by `:` or `=`, it is a key under this contract; when the shared predicate
- * calls it sensitive, its value is masked — quoted scalars keep their quotes, bare scalars are
- * replaced outright. A sensitive key whose value cannot be delimited (a nested `{`/`[`, or a string
- * that never closes) returns `null`, which the caller turns into `UNREDACTABLE`.
+ * Every position is examined: a `"` opens a string literal, a closed `'…'` pair followed by `:` or
+ * `=` is a single-quoted key, and an identifier run is a bare word. If the token is followed by `:`
+ * or `=`, it is a key under this contract; when the shared predicate calls it sensitive, its value
+ * is masked — a double-quoted scalar keeps its quotes, bare scalars (single-quoted ones included)
+ * are replaced outright. A sensitive key whose value cannot be delimited (a nested `{`/`[`, or a
+ * string that never closes) returns `null`, which the caller turns into `UNREDACTABLE`.
  *
  * 不可解析输入的文本级兜底。返回打码后的文本；无法担保完整时返回 `null`。
  *
- * 每个位置都会被检查：引号开启一个字符串字面量，标识符连跑是一个裸词。若该 token 后面跟着 `:` 或
- * `=`，按本约定它就是键；共用判据判为敏感时打码它的值 —— 带引号的标量保留引号，裸标量整体替换。
- * 敏感键的值无法定界（嵌套 `{`/`[`，或永不闭合的字符串）则返回 `null`，由调用方转为 `UNREDACTABLE`。
+ * 每个位置都会被检查：`"` 开启字符串字面量，成对闭合且后接 `:` 或 `=` 的 `'…'` 是单引号键，标识符
+ * 连跑是一个裸词。若该 token 后面跟着 `:` 或 `=`，按本约定它就是键；共用判据判为敏感时打码它的值 ——
+ * 双引号标量保留引号，裸标量（含单引号标量）整体替换。敏感键的值无法定界（嵌套 `{`/`[`，或永不
+ * 闭合的字符串）则返回 `null`，由调用方转为 `UNREDACTABLE`。
  */
 function redactUnparseable(input: string, extra: ReadonlySet<string>): string | null {
   const n = input.length;
@@ -218,14 +220,34 @@ function redactUnparseable(input: string, extra: ReadonlySet<string>): string | 
   let i = 0;
   while (i < n) {
     const ch = input[i];
-    // Only `"` opens a string literal. Arbitrary text is not JSON, and an apostrophe in prose
-    // (`It's fine`, `don't retry`) is far more common than a single-quoted value; treating it as a
-    // delimiter makes the scanner run to the next apostrophe or withhold the whole document. A
-    // single-quoted value is still masked as a bare value — to the end of its line — which is the
-    // fail-closed direction.
-    // 只有 `"` 开启字符串字面量。任意文本不是 JSON，散文里的撇号（`It's fine`、`don't retry`）远比
-    // 单引号值常见；把它当定界符会让扫描跑到下一个撇号或整篇隐去。单引号值仍按裸值掩到行尾 ——
-    // 这是 fail-closed 的方向。
+    // `"` opens a string literal unconditionally. Arbitrary text is not JSON, so a lone apostrophe
+    // in prose (`It's fine`, `don't retry`) must not: treating it as a delimiter makes the scanner
+    // run to the next apostrophe or withhold the whole document.
+    //
+    // A `'` is a delimiter only as a **closed pair followed by `:` or `=`** — the shape of a
+    // single-quoted key (`{'password': 'x'}`, Python reprs, single-quoted object dumps). Anything
+    // else advances one character, so the text after an apostrophe is still walked. A single-quoted
+    // *value* needs no delimiter of its own: it is masked as a bare value either way.
+    //
+    // `"` 无条件开启字符串字面量。任意文本不是 JSON，故散文里的孤立撇号（`It's fine`、`don't retry`）
+    // 不能当定界符 —— 否则扫描会跑到下一个撇号或整篇隐去。
+    //
+    // `'` 只有在**成对闭合且其后紧跟 `:` 或 `=`** 时才是定界符 —— 即单引号键的形状（`{'password': 'x'}`、
+    // Python repr、单引号对象转储）。其余情况只前进一个字符，撇号后面的文本照常被扫描。单引号的**值**
+    // 不需要自己的定界符：它无论如何都按裸值掩掉。
+    if (ch === "'") {
+      const end = stringEnd(input, i);
+      if (end > 0 && isKeyPosition(input, end + 1) && isSensitiveKey(input.slice(i + 1, end), extra)) {
+        const value = readScalar(input, valueStart(input, end + 1));
+        if (!value) return null;
+        out += input.slice(copied, value.start) + value.text;
+        copied = value.end;
+        i = value.end;
+        continue;
+      }
+      i++;
+      continue;
+    }
     if (ch === '"') {
       const end = stringEnd(input, i);
       if (end < 0) return null;
@@ -357,9 +379,9 @@ function startsKeyValue(input: string, from: number): boolean {
   const at = skipSpace(input, from);
   if (at >= input.length) return false;
   const ch = input[at];
-  if (ch === '"') {
+  if (ch === '"' || ch === "'") {
     const end = stringEnd(input, at);
-    return end >= 0 && isKeyPosition(input, end + 1);
+    return end > at && isKeyPosition(input, end + 1);
   }
   if (isIdentStart(ch)) {
     let end = at + 1;

@@ -108,6 +108,20 @@ describe('mask utils', () => {
       expect(redactSensitive("{password:'secret'}")).toBe('{password:[REDACTED]}');
     });
 
+    // A single-quoted *key* is still a key: Python reprs and single-quoted object dumps carry
+    // secrets in exactly that shape, so the fallback must not leave them in clear.
+    // 单引号的**键**仍是键：Python repr 与单引号对象转储正是这个形状，兜底不得把它留成明文。
+    it('单引号键照样打码，双撇号散文不误判', () => {
+      expect(redactSensitive("{'password': 'secret'}")).toBe("{'password': [REDACTED]}");
+      expect(redactSensitive("{'apiKey': 'sk-live-abc'}")).toBe("{'apiKey': [REDACTED]}");
+      expect(redactSensitive("{'title': 'ok', 'password': 'p@ss'}")).toBe(
+        "{'title': 'ok', 'password': [REDACTED]}",
+      );
+      expect(redactSensitive("It's fine, don't retry; password=hunter2")).toBe(
+        "It's fine, don't retry; password=[REDACTED]",
+      );
+    });
+
     // Escaped quotes inside a quoted value exercise stringEnd's escape branch; a separator that is
     // not followed by a key (`&!x`) must not end the bare value.
     // 引号值里的转义引号会走到 stringEnd 的转义分支；分隔符后面不是键（`&!x`）时不得终止裸值。
