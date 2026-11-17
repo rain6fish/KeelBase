@@ -10,7 +10,7 @@
 
 **KeelBase DNA** —— *AI Generates. Architecture Constrains. Runtime Governs. Tests Verify. Humans Decide.*（AI 生成，架构约束，运行时治理，测试验证，人来决断。）业务边界由**运行时**强制，而非提示词；Agent 的**能力 ≠ 它的权限**；信任靠**可运行的验证**证明、不靠声称；重要动作**可恢复**。完整工程哲学见 [docs/keelbase-dna.md](docs/keelbase-dna.md)。
 
-**系列长文** —— 这些决定背后的长文，分「AI 执行治理」「AI 审计证据」两条线：[知乎文集](https://www.zhihu.com/people/56-10-10-68)。
+**系列长文** —— 这些决定背后的长文，分「AI 执行治理」「AI 审计证据」两条线：[知乎文集](https://www.zhihu.com/people/56-10-10-68/posts)。
 
 ---
 
@@ -240,7 +240,7 @@ node scripts/keelbase-init.mjs --spec specs/invoices.json
 
 ---
 
-<!-- BEGIN keelbase-family:zh sha256:bd6604380e5cd42646536719d4376e038e112097da873316ad9f9c8514d15426 -->
+<!-- BEGIN keelbase-family:zh sha256:2fca82b630125b02af1bb0f762f35c35effc94635209f5f5453231790c5f1259 -->
 ## 🧬 KeelBase 家族
 
 <p align="center">
@@ -279,7 +279,7 @@ Docker）· 想让存量 Java 系统具备 AI 能力：
 [`keelbase-contract`](https://github.com/rain6fish/keelbase-contract)。
 
 **系列长文** —— 这些决定背后的长文，分「AI 执行治理」「AI 审计证据」两条线：
-[知乎文集](https://www.zhihu.com/people/56-10-10-68)。
+[知乎文集](https://www.zhihu.com/people/56-10-10-68/posts)。
 
 每个 runtime 对着哪一版契约应答，**只在主仓维护一处**——见
 [兼容矩阵](https://github.com/rain6fish/KeelBase/blob/main/README.zh-CN.md#-兼容矩阵)。此处不重复。
