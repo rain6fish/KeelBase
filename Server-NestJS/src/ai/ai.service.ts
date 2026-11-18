@@ -835,11 +835,11 @@ export class AiService {
         this.toolRegistry,
         userId,
         request.model ?? this.config.defaultModel,
-        // NC-3 只读门控：plan 步骤经同一治理层执行，防 LLM 计划的写/禁用工具被直调。
-        // 汇总模型会读到渲染后的**成功**步骤结果（第 7 参）；失败步骤是 `ERROR: …`，故不按渲染记录。
         // NC-3 read-only gate: plan steps run through the same governance layer. The summary model
         // reads the rendering for **successful** steps (7th argument); failures are `ERROR: …` and
         // are not recorded as a rendering.
+        // NC-3 只读门控：plan 步骤经同一治理层执行，防 LLM 计划的写/禁用工具被直调。
+        // 汇总模型会读到渲染后的**成功**步骤结果（第 7 参）；失败步骤是 `ERROR: …`，故不按渲染记录。
         this._agentStepExecutor(
           conversationId,
           providerName,
