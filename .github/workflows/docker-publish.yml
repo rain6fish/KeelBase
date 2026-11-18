@@ -15,8 +15,10 @@
 # 构建策略：flutter-action 在 runner 宿主机构建 Flutter web（build/web），
 # Dockerfile.single 的 flutter-build stage 是 scratch COPY 该产物 —— 与本机一致、Linux 稳定。
 #
-# 发布顺序：build（不推送）→ Trivy 扫描 → push。扫描判红时，推送这一步根本不会执行。
-# Publish order: build (no push) → Trivy scan → push. A red scan means the push step never runs.
+# 发布顺序：build（不推送）→ Trivy 扫描 → push → 镜像冒烟 → 附 SBOM 建/补 Release。
+# 扫描或冒烟判红时，后续步骤不会执行；SBOM 的 Release 作业依赖冒烟成功。
+# Publish order: build (no push) → Trivy scan → push → image smoke → SBOM/Release. A red scan or
+# smoke stops the later steps; the SBOM release job needs the smoke job to succeed.
 
 name: Docker Publish
 
@@ -231,8 +233,25 @@ jobs:
   #
   # 该 tag 一份 Release 都没有时，仍会建一份**草稿**Release 并把资产附在它上面；在人填好那些说明并发布
   # **这一份**之前不公开。
-  sbom-release:
+  # Smoke-test the artifact that was just published, so a broken image stops the release before any
+  # Release is created. The script starts the image with generated secrets, asserts /api/v1/health and
+  # that the runtime keys equal the injected values, then asserts that a run without secrets exits
+  # non-zero with the validation refusal.
+  #
+  # 冒烟测试刚发布的制品：镜像坏了就在建 Release 之前停下。脚本用随机密钥起容器，断言
+  # /api/v1/health 与运行时密钥等于注入值，再断言不带密钥启动会非零退出并打印校验拒绝。
+  smoke:
     needs: publish
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Smoke-test the published image
+        shell: bash
+        run: bash scripts/image-smoke.sh --image "${IMAGE_NAME}:${GITHUB_REF_NAME}"
+
+  sbom-release:
+    needs: [publish, smoke]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
