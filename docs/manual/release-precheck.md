@@ -8,7 +8,7 @@
 
 **四层独立审核 → 整合结果 → 落地改进**：
 
-1. **阿里 code review（OpenCodeReview / `ocr` CLI，v1.13.1）**：**默认只审本次发布区间的 diff**——
+1. **阿里 code review（OpenCodeReview / `ocr` CLI，v1.13.10）**：**默认只审本次发布区间的 diff**——
    - **默认（省 token 档）**：`npm run review:ocr -- --from <prev-release> --to <release-branch>`
      - 固定 `--effort low`（1 轮；OCR 默认 `medium` 是 2 轮）、`--max-tokens 120000`、`--max-tokens-budget 120000000`；
      - 默认排除 JSON / lock / SCSS / i18n / specs / provenance 等低价值文件；
