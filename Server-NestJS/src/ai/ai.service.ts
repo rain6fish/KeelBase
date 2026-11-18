@@ -274,11 +274,11 @@ export class AiService {
               parentActionId: agentRunId,
             }),
           );
-          // 0-B：子代理路径对每条结果（含失败）都推渲染文本；plan 路径只在成功步骤上嵌入渲染，
-          // 失败步骤换成 `ERROR: …`。故 `model_text` 只在模型真正收到那份渲染时才记。
           // 0-B: the sub-agent path pushes the rendering for every result (failures included); the
           // plan path embeds it only for successful steps and substitutes `ERROR: …` for failures.
           // `model_text` is therefore recorded only where the model actually saw that rendering.
+          // 0-B：子代理路径对每条结果（含失败）都推渲染文本；plan 路径只在成功步骤上嵌入渲染，
+          // 失败步骤换成 `ERROR: …`。故 `model_text` 只在模型真正收到那份渲染时才记。
           //
           // Rendering is evidence, not a gate: a formatter failure must not fail the tool call —
           // otherwise `capture` never runs and retention's "never fails the call" promise is broken
@@ -835,11 +835,11 @@ export class AiService {
         this.toolRegistry,
         userId,
         request.model ?? this.config.defaultModel,
-        // NC-3 只读门控：plan 步骤经同一治理层执行，防 LLM 计划的写/禁用工具被直调。
-        // 汇总模型会读到渲染后的**成功**步骤结果（第 7 参）；失败步骤是 `ERROR: …`，故不按渲染记录。
         // NC-3 read-only gate: plan steps run through the same governance layer. The summary model
         // reads the rendering for **successful** steps (7th argument); failures are `ERROR: …` and
         // are not recorded as a rendering.
+        // NC-3 只读门控：plan 步骤经同一治理层执行，防 LLM 计划的写/禁用工具被直调。
+        // 汇总模型会读到渲染后的**成功**步骤结果（第 7 参）；失败步骤是 `ERROR: …`，故不按渲染记录。
         this._agentStepExecutor(conversationId, providerName, agentRunId, true, false),
         // 与对话路径同一份渲染：步骤结果进汇总提示词前先脱敏 + 截断（F1 同类的计划路径缺口）
         (result) => this.presentation.renderToolResult(result).text,
