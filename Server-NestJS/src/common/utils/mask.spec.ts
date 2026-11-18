@@ -146,6 +146,15 @@ describe('mask utils', () => {
       expect(out).not.toContain('hunter2');
     });
 
+    // `UNREDACTABLE` is the cross-module contract for "no part of this payload is shown": a caller
+    // that recognises it must see the same literal the store and the console see. Pin the value, so
+    // a reworded placeholder cannot silently stop matching — the same reason `REDACTED` is pinned.
+    // `UNREDACTABLE` 是「这份载荷没有任何部分可见」的跨模块约定：按它识别的调用方必须看到与落库、与
+    // 控制台相同的字面量。钉住它，改写措辞才不会静默失配 —— 与 `REDACTED` 被钉住是同一个理由。
+    it('整篇隐去的占位符钉住字面量', () => {
+      expect(UNREDACTABLE).toBe('[REDACTED: unparseable payload]');
+    });
+
     it('敏感名下的值是嵌套结构时整篇隐去，不输出明文', () => {
       const input = '{"phone":138****8000,"address":{"city":"Paris"}}';
       const out = redactSensitive(input);

@@ -16,6 +16,7 @@ import { ToolResult } from '../interfaces/tool.interface';
 import { ToolRegistry } from '../tools/tool-registry';
 import { LlmUsage } from '../llm-usage';
 import { sanitizeExternalContent } from '../security/injection-guard';
+import { TOOL_RESULT_MAX_CHARS } from '../tools/tool-presentation.service';
 
 /** 只读门控执行器：由 AiService 注入（_assertToolAllowed + 只读强制），缺省回落直调 registry.execute。 */
 export type ReadOnlyToolExecutor = (
@@ -122,7 +123,9 @@ export class PlanExecuteAgent {
         // 汇总模型会读到这些结果，故走与对话路径同一份渲染；没有渲染器时至少过字符串级脱敏。
         // `ERROR:` 前缀仍是下方判定依赖失败的信号。
         stepResults[i] = result.success
-          ? (render ? render(result) : sanitizeExternalContent(JSON.stringify(result.data ?? '')))
+          ? (render
+              ? render(result)
+              : boundToBudget(sanitizeExternalContent(JSON.stringify(result.data ?? ''))))
           : `ERROR: ${sanitizeExternalContent(String(result.error ?? ''))}`;
       } catch (err) {
         // A rejected value is not necessarily an `Error`: a proxied or external tool can throw a
@@ -150,4 +153,18 @@ export class PlanExecuteAgent {
       usage: planResult.usage,
     };
   }
+}
+
+/**
+ * Bound a no-renderer step result by the same budget the rendered path honours. The constant is
+ * shared with `ToolPresentationService`, never a second copy of the number; the marker keeps the
+ * cut honest, and what is kept stays masked because masking runs first.
+ *
+ * 没有渲染器时，步骤结果受渲染路径同一条预算约束。常量与 `ToolPresentationService` 共用，不另造
+ * 一个数字；截断标记如实说明被截过，保留部分仍是打码后的文本（打码先于截断）。
+ */
+function boundToBudget(text: string): string {
+  const marker = '…[截断]';
+  if (text.length <= TOOL_RESULT_MAX_CHARS) return text;
+  return text.slice(0, TOOL_RESULT_MAX_CHARS - marker.length) + marker;
 }

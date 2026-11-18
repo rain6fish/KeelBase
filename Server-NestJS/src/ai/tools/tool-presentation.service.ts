@@ -64,6 +64,16 @@ export interface ConfirmationRenderVerification {
   recomputed: ConfirmationRenderProof | null;
 }
 
+/**
+ * HS-5 tool-result character budget (keeps a large query result from blowing up the context window).
+ * Exported so every path that hands a tool result to a model bounds it by the same number — the
+ * no-renderer plan fallback included — instead of carrying a second copy of 4000.
+ *
+ * HS-5 工具结果字符上限（防大查询结果撑爆上下文窗口）。导出使每条把工具结果交给模型的路径 ——
+ * 包括没有渲染器的 plan 兜底 —— 用同一个数字设限，而不是各带一份 4000。
+ */
+export const TOOL_RESULT_MAX_CHARS = 4000;
+
 @Injectable()
 export class ToolPresentationService {
   constructor(
@@ -343,8 +353,6 @@ export class ToolPresentationService {
     }
   }
 
-  /** HS-5 工具结果字符上限（防大查询结果撑爆上下文窗口） */
-  private static readonly TOOL_RESULT_MAX_CHARS = 4000;
   private static readonly TOOL_RESULT_MAX_ARRAY = 20;
   private static readonly TOOL_RESULT_MAX_OBJECT_KEYS = 20;
   /** 逐级收紧的单字段字符上限：先宽后窄，取第一个能放进预算的投影。 */
@@ -388,7 +396,7 @@ export class ToolPresentationService {
     delete payload.usage;
 
     const full = JSON.stringify(payload);
-    if (full.length <= ToolPresentationService.TOOL_RESULT_MAX_CHARS) {
+    if (full.length <= TOOL_RESULT_MAX_CHARS) {
       return {
         text: sanitizeExternalContent(full),
         fullJson: full,
@@ -405,7 +413,7 @@ export class ToolPresentationService {
         _truncated: this._truncationNote(data),
       };
       const json = JSON.stringify(projected);
-      if (json.length <= ToolPresentationService.TOOL_RESULT_MAX_CHARS) {
+      if (json.length <= TOOL_RESULT_MAX_CHARS) {
         return {
           text: sanitizeExternalContent(json),
           fullJson: full,

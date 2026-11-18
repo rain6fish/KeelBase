@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { PlanExecuteAgent } from './plan-execute-agent.service';
+import { TOOL_RESULT_MAX_CHARS } from '../tools/tool-presentation.service';
 
 const mockProvider = {
   availableModels: ['deepseek-v4-flash'],
@@ -116,6 +117,33 @@ describe('PlanExecuteAgent', () => {
     );
     expect(withoutRender.stepResults[0]).not.toContain('alice@example.com');
     expect(withoutRender.stepResults[0]).toContain('a***@example.com');
+  });
+
+  // The no-renderer fallback used to mask without a budget, so a huge step result went into the
+  // summary prompt whole while the rendered path bounded itself at 4,000 characters. It now honours
+  // the same, shared budget — and masking still runs first, so the kept part is not in clear.
+  // 无渲染器的兜底原先只打码、不设预算，超大步骤结果整份进汇总提示词；渲染路径则受 4,000 字符约束。
+  // 现在兜底共用同一条预算，且打码先于截断 —— 留下来的部分不含明文。
+  it('无渲染器时超长步骤结果被截到预算，且打码仍然生效', async () => {
+    mockProvider.generate.mockResolvedValue({
+      content: JSON.stringify([{ description: '查联系人', tool: 'query_events', args: {} }]),
+    });
+    toolRegistry.execute.mockResolvedValue({
+      success: true,
+      data: { email: 'alice@example.com', note: 'x'.repeat(8000) },
+    });
+
+    const result = await agent.planAndExecute(
+      messages,
+      mockProvider as any,
+      toolRegistry as any,
+      userId,
+    );
+
+    expect(result.stepResults[0].length).toBeLessThanOrEqual(TOOL_RESULT_MAX_CHARS);
+    expect(result.stepResults[0]).toContain('…[截断]');
+    expect(result.stepResults[0]).not.toContain('alice@example.com');
+    expect(result.stepResults[0]).toContain('a***@example.com');
   });
 
   it('失败信息也过字符串级脱敏', async () => {
