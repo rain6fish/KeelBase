@@ -291,3 +291,4 @@ git push origin main    # Gitee
 | Queue jobs not running / 队列任务不执行 | Check Redis + `QUEUE_ENABLED=true` |
 | Traces missing in Jaeger / 无链路数据 | `OTEL_ENABLED=true`; tracing-init must be first import in main.ts |
 | Metrics empty / 指标为空 | Prometheus target reachable at `/api/v1/metrics` |
+| OCR fails with `spawn UNKNOWN` on Windows / Windows 上 OCR 报 `spawn UNKNOWN` | Smart App Control blocks the unsigned native binary — run OCR via Docker / 智能应用控制拦截未签名二进制——改用 Docker 运行，判据与命令见 [release-precheck.md](release-precheck.md) §① 代码审核 |
