@@ -141,6 +141,39 @@
 2. **pin 两时点复核。** 推 main 前 2 分钟与打 tag 前各跑一次 `node scripts/check-contract-release-gate.mjs`（带 `http.version=HTTP/1.1`）；两次都必须 PASS 且输出里的 pin 等于契约远端 `refs/heads/main`。任一次不 PASS 就停，不打 tag。两次读数（pin sha、远端 sha、C1–C5 结论）写进发布记录。
 3. **tag 的位置。** tag 必须打在**推送后远端 main 的同一个 sha** 上（显式 TIP）；本地 HEAD 一旦前进就停——`release-1-4-2-tag-1117` 的做法（显式 TIP、HEAD 前进即停、推 tag 前 lineage 预演）。
 
+### ⑦ 发布文本覆盖与同源（打 tag 之前）
+
+两条硬检查，`scripts/check-release-texts.mjs` 一个脚本两种模式，纯本地、不联网。退出码：`0` 通过 · `1` 有问题 · `2` 输入读不出（参数 / git / tag / JSON）。
+
+**1. 覆盖校验——上一 tag 以来的产品提交，条条有交代。**
+改动过产品路径（`Server-NestJS/src`、`Web-Admin-Vue/src`、`Front-Flutter/lib`、`Web-Admin-React/src`）的每个非合并提交，都必须在覆盖表里有一笔。仅改测试、文档、`.keelbase-provenance.json` 的提交与合并提交不计入——**由脚本判定，别手工排除**。
+
+覆盖表放 **`handoff/release-coverage-vX.Y.Z.json`**（仓外，随该版发布记录一起归档），每条：
+
+```json
+{ "sha": "0705a4a8", "kind": "user-visible", "text": "Highlights 5 / 亮点 5" }
+{ "sha": "1e673cee", "kind": "internal", "reason": "两处可选注入改显式令牌；树内无 provider 注册，回退值不变" }
+```
+
+`kind`：`user-visible`（必填 `text`，写它在 CHANGELOG/发布说明里的定位）· `internal`（必填 `reason`）· `docs`。sha 可用缩写。
+
+```bash
+node scripts/check-release-texts.mjs --prev-tag v1.4.1 --tip <打 tag 的提交> --coverage D:/Rain6fish/handoff/release-coverage-vX.Y.Z.json
+```
+
+区间内有提交没归类、覆盖表里有提交不在区间（陈旧）、条目不合规 → 逐条点名并 `exit 1`；有红就停，别打 tag。
+
+**2. 文本同源——tag 正文就是发布说明那份文件。**
+打 tag 用 `git tag -a vX.Y.Z -F D:/Rain6fish/handoff/release-notes-vX.Y.Z.md`，然后在推 tag 前核对：
+
+```bash
+node scripts/check-release-texts.mjs --tag vX.Y.Z --notes D:/Rain6fish/handoff/release-notes-vX.Y.Z.md
+```
+
+行尾与末尾换行从宽，其余不一致即 `exit 1` 并报首个差异行。这一条取代「另存一份 `vX-tag-message.txt` 做对照」——两份并存正是 v1.4.2 符号差异的来源。
+
+> **为什么有这一步**：v1.4.2 的 tag 树里带着一笔用户可见的安全修复（`0705a4a8`，非 JSON 兜底的单引号键打码），而当时冻结的 CHANGELOG、发布说明、tag 正文三处都没写——发布文本冻结之后落地的提交，没有任何机制与文本对账。该版复盘 §4 I2 即此条。
+
 ## 执行记录
 
 每次发布前执行后，在 CHANGELOG/发布记录记一笔：
@@ -152,6 +185,7 @@ Release Precheck（<日期>）：
 - 全量测试：后端单测/e2e/前端/Flutter/生成器 全过（覆盖率 backend xx% / flutter xx%）
 - 覆盖率：较上版 +x.x% / 达标
 - 文档同步：版本线文档（versioning.md / SECURITY.md）已同步（仅开新线 / 改线状态时）· 状态类文档已复核（仅其状态日期 ≥ 1 个季度时；未到期记「无需」）
+- 发布文本：覆盖表（`handoff/release-coverage-vX.Y.Z.json`）N 笔产品提交全部有交代（user-visible n / internal m）· tag 正文与 `release-notes-vX.Y.Z.md` 一致（`check-release-texts.mjs` exit 0）
 ```
 
 **Code Economy 观察记录**（v0.1 Observation，2026-08-31 起）：
