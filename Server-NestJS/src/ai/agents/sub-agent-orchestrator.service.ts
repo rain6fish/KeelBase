@@ -242,10 +242,10 @@ export class SubAgentOrchestrator {
 
       for (const tc of result.toolCalls) {
         const toolResult = await this.executeSafe(tc, agent, params);
-        // 与主对话路径同一份渲染：脱敏（sanitizeExternalContent）与 HS-5 截断都在 renderToolResult
-        // 里发生，子代理拿不到未处理的原文；`usage` 也在同一处被去掉，不进 LLM 上下文。
         // Same rendering as the main chat path: masking and HS-5 truncation both live inside
         // renderToolResult, so a sub-agent never receives the raw payload.
+        // 与主对话路径同一份渲染：脱敏（sanitizeExternalContent）与 HS-5 截断都在 renderToolResult
+        // 里发生，子代理拿不到未处理的原文；`usage` 也在同一处被去掉，不进 LLM 上下文。
         messages.push({
           role: 'tool',
           content: this.presentation.renderToolResult(toolResult).text,
