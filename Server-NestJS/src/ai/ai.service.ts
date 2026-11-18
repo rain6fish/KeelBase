@@ -274,11 +274,11 @@ export class AiService {
               parentActionId: agentRunId,
             }),
           );
-          // 0-B：子代理路径对每条结果（含失败）都推渲染文本；plan 路径只在成功步骤上嵌入渲染，
-          // 失败步骤换成 `ERROR: …`。故 `model_text` 只在模型真正收到那份渲染时才记。
           // 0-B: the sub-agent path pushes the rendering for every result (failures included); the
           // plan path embeds it only for successful steps and substitutes `ERROR: …` for failures.
           // `model_text` is therefore recorded only where the model actually saw that rendering.
+          // 0-B：子代理路径对每条结果（含失败）都推渲染文本；plan 路径只在成功步骤上嵌入渲染，
+          // 失败步骤换成 `ERROR: …`。故 `model_text` 只在模型真正收到那份渲染时才记。
           //
           // Rendering is evidence, not a gate: a formatter failure must not fail the tool call —
           // otherwise `capture` never runs and retention's "never fails the call" promise is broken
