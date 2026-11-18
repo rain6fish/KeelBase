@@ -58,6 +58,18 @@
 | 契约成员性发版闸 | `npm run check:contract-release-gate` | pin 远端可达 · README=pin 的 tag · 由上一发布 tag 切出 · 声称的能力都有实现方（缺一样即红） |
 | Release Gate | `./scripts/release-gate.sh` | 确定性 Gate 全 PASS |
 
+#### 契约闸红的判读（硬规则）
+
+契约成员性发版闸红时，**先读失败判据的原文，再决定怎么办**——两种红的处置相反：
+
+| 判据原文 | 含义 | 处置 |
+|---|---|---|
+| `pin <sha> 不在 … 的任何 ref 上` | **真漂移**：pin 指向的提交没有被契约远端任何分支/tag 命名 | 停。前移 pin 到契约远端 `main` 的最新尖端，提交、重推、等新 CI；不得对同一 tag 继续 |
+| `无法核验 / UNVERIFIED`（网络、代理、超时） | **环境**：判据本身没被读到 | 先 `git ls-remote <契约远端> refs/heads/main` 探活，修网络/代理后重试；**不得因此移动 pin**；仍 UNVERIFIED 就报「无法核验，不是绿」并停 |
+
+动手前先探活一次，并把这次探活读数写进发布记录。把 UNVERIFIED 当绿、或把网络问题当漂移去动 pin，都是把「没读到」伪造成「读到了」。
+（2026-11-17 v1.4.2 实测：早间 C1 红是真漂移——契约 `main` 在 CI 启动前 16 秒前进一笔；同一周另一次 C1/C2 红是 UNVERIFIED，复跑即绿。同一条命令、相反处置。）
+
 ### ③ 提高测试覆盖率
 
 - 全量跑 `test:cov` / `flutter test --coverage` / vitest 覆盖率后，对比上一版：
@@ -120,6 +132,14 @@
 |---|---|
 | `docs/enterprise-readiness.md` | 顶部「状态日期：…」 |
 | `docs/manual/codebase-health-audit.md` | 顶部「首次全库体检：…」+ §5「待办（未做项）」 |
+
+### ⑥ 发布窗口纪律（推送 main → tag 推完）
+
+发布窗口 = 推 main 前 30 分钟 → tag 推到远端完成。窗口内三条硬规则：
+
+1. **契约仓冻结推送。** 在 `D:/Rain6fish/release-window.lock` 放锁文件（首行写 `vX.Y.Z TIP=<sha>`）；`KeelBase-Private/scripts/push-all-repos.sh` 见到锁会跳过 `keelbase-contract` 的全部推送目标（推送、核对前快进、推后核对），日志记 `SKIP … 发布窗口锁`。tag 推完后删除锁。契约仓在窗口内前进一笔，就会让父仓 pin 落后、C1 红、CI 失败（2026-11-17 早间实测：CI 启动前 16 秒的前进）。
+2. **pin 两时点复核。** 推 main 前 2 分钟与打 tag 前各跑一次 `node scripts/check-contract-release-gate.mjs`（带 `http.version=HTTP/1.1`）；两次都必须 PASS 且输出里的 pin 等于契约远端 `refs/heads/main`。任一次不 PASS 就停，不打 tag。两次读数（pin sha、远端 sha、C1–C5 结论）写进发布记录。
+3. **tag 的位置。** tag 必须打在**推送后远端 main 的同一个 sha** 上（显式 TIP）；本地 HEAD 一旦前进就停——`release-1-4-2-tag-1117` 的做法（显式 TIP、HEAD 前进即停、推 tag 前 lineage 预演）。
 
 ## 执行记录
 
