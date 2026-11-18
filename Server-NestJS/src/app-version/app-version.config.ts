@@ -58,11 +58,6 @@ const RELEASE_NOTES: Record<string, readonly string[]> = {
     '无法解析的输入不再被原样放行：能打码就打码，无法定界时整篇隐去',
     'Webhook 投递恢复：事件、待办、反馈三类订阅重新投递',
   ],
-  // The 1.4.0 release recuts 1.3.2: that release commit (bca61ff0) bumped package.json and CHANGELOG
-  // but missed this version-keyed map, and the unit test turned red as soon as main was merged — which
-  // is exactly what that test exists to catch: release notes cannot go missing silently.
-  // 1.4.0 是 1.3.2 的改记发布：1.3.2 的发布提交（bca61ff0）bump 了 package.json 与 CHANGELOG，却漏了这张
-  // 按版本索引的表 —— 合并最新 main 后 `app-version.service.spec` 立刻转红，正是该测试存在的理由：发版要点不能静默缺失。
   // 1.4.1 is a patch release: every entry below is a fix to something v1.4.0 shipped, not a new capability.
   // 1.4.1 是补丁版：下面每一条都是对 v1.4.0 已发布内容的修复，不是新能力。
   '1.4.1': [
@@ -70,6 +65,11 @@ const RELEASE_NOTES: Record<string, readonly string[]> = {
     '超长工具结果不再拖住回答：邮箱脱敏改为线性扫描，256 KB 单行从约 56 秒降到毫秒级',
     '管理台留存正文面板补齐 capped 与未留存两种状态的说明，错误句跟随语言切换',
   ],
+  // The 1.4.0 release recuts 1.3.2: that release commit (bca61ff0) bumped package.json and CHANGELOG
+  // but missed this version-keyed map, and the unit test turned red as soon as main was merged — which
+  // is exactly what that test exists to catch: release notes cannot go missing silently.
+  // 1.4.0 是 1.3.2 的改记发布：1.3.2 的发布提交（bca61ff0）bump 了 package.json 与 CHANGELOG，却漏了这张
+  // 按版本索引的表 —— 合并最新 main 后 `app-version.service.spec` 立刻转红，正是该测试存在的理由：发版要点不能静默缺失。
   '1.4.0': [
     '被截断的工具结果正文在链外留存，可按审计行读回；过期只清正文，哈希与大小仍在',
     '单容器镜像不再内置密钥：缺密钥直接失败，而不是带着一个公开可读的默认值启动',

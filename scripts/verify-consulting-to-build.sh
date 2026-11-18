@@ -4,7 +4,7 @@
 #
 # S4 全链路验收（Consulting → Build 桥，docs/business-spec.md）：
 #   访谈产物（Business Spec JSON）→ business-spec.mjs 确定性映射 → 模块协议 → keelbase init --spec
-#   → 生成模块（后端 + 三前端 + AI 工具）→ 编译 → 生成模块单测 → 迁移一致性
+#   → 生成模块（后端 + 两前端 + AI 工具）→ 编译 → 生成模块单测 → 迁移一致性
 #
 # 验收（对齐 roadmap S4）：生成模块单测绿 + migration:generate 无漂移 + 验收可追溯。
 #

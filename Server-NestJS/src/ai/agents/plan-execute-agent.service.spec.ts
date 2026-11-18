@@ -146,6 +146,70 @@ describe('PlanExecuteAgent', () => {
     expect(result.stepResults[0]).toContain('a***@example.com');
   });
 
+  // Rendering is evidence, not a gate: a formatter throw used to land in the step's catch and turn
+  // a successful tool call into `ERROR: …`, skipping its dependents. The step stays a success now
+  // and falls back to the sanitized JSON text.
+  // 渲染是证据、不是闸：格式化抛错原先落进步骤 catch，把成功调用变成 `ERROR: …` 并跳过下游。
+  // 现在该步骤仍判成功，退回脱敏后的 JSON 文本。
+  it('渲染器抛错不改变步骤成败：退回脱敏 JSON，依赖步骤照常执行', async () => {
+    mockProvider.generate.mockResolvedValue({
+      content: JSON.stringify([
+        { description: '查联系人', tool: 'query_events', args: {} },
+        { description: '统计', tool: 'count_events_by_status', args: {}, dependsOn: [0] },
+      ]),
+    });
+    toolRegistry.execute.mockResolvedValue({ success: true, data: { email: 'alice@example.com' } });
+    const render = jest.fn(() => {
+      throw new Error('formatter crash');
+    });
+
+    const result = await agent.planAndExecute(
+      messages,
+      mockProvider as any,
+      toolRegistry as any,
+      userId,
+      undefined,
+      undefined,
+      render,
+    );
+
+    expect(render).toHaveBeenCalledTimes(2);
+    expect(result.stepResults[0]).not.toMatch(/^ERROR/);
+    expect(result.stepResults[0]).not.toContain('alice@example.com');
+    expect(result.stepResults[0]).toContain('a***@example.com');
+    expect(result.stepResults[1]).not.toBe('ERROR');
+    expect(toolRegistry.execute).toHaveBeenCalledTimes(2);
+  });
+
+  // Cyclic / BigInt payloads make both the renderer and `JSON.stringify` throw; the step still
+  // succeeded, so it must stay a success with an explicit degradation marker.
+  // 循环引用 / BigInt 载荷会让渲染器与 `JSON.stringify` 都抛错；步骤本身是成功的，故应保持成功并
+  // 给出明确的降级标记。
+  it('渲染与兜底序列化都失败时给出降级标记，步骤仍判成功', async () => {
+    mockProvider.generate.mockResolvedValue({
+      content: JSON.stringify([{ description: '查联系人', tool: 'query_events', args: {} }]),
+    });
+    const cyclic: Record<string, unknown> = {};
+    cyclic.self = cyclic;
+    toolRegistry.execute.mockResolvedValue({ success: true, data: cyclic });
+    const render = jest.fn(() => {
+      throw new Error('cyclic');
+    });
+
+    const result = await agent.planAndExecute(
+      messages,
+      mockProvider as any,
+      toolRegistry as any,
+      userId,
+      undefined,
+      undefined,
+      render,
+    );
+
+    expect(result.stepResults[0]).not.toMatch(/^ERROR/);
+    expect(result.stepResults[0]).toBe('…[结果无法渲染]');
+  });
+
   it('失败信息也过字符串级脱敏', async () => {
     mockProvider.generate.mockResolvedValue({
       content: JSON.stringify([{ description: '查联系人', tool: 'query_events', args: {} }]),

@@ -840,7 +840,13 @@ export class AiService {
         // NC-3 read-only gate: plan steps run through the same governance layer. The summary model
         // reads the rendering for **successful** steps (7th argument); failures are `ERROR: …` and
         // are not recorded as a rendering.
-        this._agentStepExecutor(conversationId, providerName, agentRunId, true, false),
+        this._agentStepExecutor(
+          conversationId,
+          providerName,
+          agentRunId,
+          /* modelSeesRendered */ true,
+          /* renderFailures */ false,
+        ),
         // 与对话路径同一份渲染：步骤结果进汇总提示词前先脱敏 + 截断（F1 同类的计划路径缺口）
         (result) => this.presentation.renderToolResult(result).text,
       );
