@@ -123,9 +123,7 @@ export class PlanExecuteAgent {
         // 汇总模型会读到这些结果，故走与对话路径同一份渲染；没有渲染器时至少过字符串级脱敏。
         // `ERROR:` 前缀仍是下方判定依赖失败的信号。
         stepResults[i] = result.success
-          ? (render
-              ? render(result)
-              : boundToBudget(sanitizeExternalContent(JSON.stringify(result.data ?? ''))))
+          ? renderForModel(result, render)
           : `ERROR: ${sanitizeExternalContent(String(result.error ?? ''))}`;
       } catch (err) {
         // A rejected value is not necessarily an `Error`: a proxied or external tool can throw a
@@ -152,6 +150,41 @@ export class PlanExecuteAgent {
       stepResults,
       usage: planResult.usage,
     };
+  }
+}
+
+const UNRENDERABLE_RESULT = '…[结果无法渲染]';
+
+/**
+ * The rendering a model receives for one **successful** step — produced without letting the
+ * formatter decide the step's outcome. Rendering is evidence, not a gate (the rule
+ * `AiService._agentStepExecutor` follows): a formatter throw used to land in the step's catch and
+ * turn a successful call into an `ERROR: …` step, so dependents were skipped and the summary model
+ * was told the call failed. A throw now falls back to the sanitized JSON text; if the payload
+ * cannot be serialized at all (cyclic / BigInt), the marker keeps the step a success with an
+ * honest "result not renderable" note.
+ *
+ * 成功步骤交给模型的渲染 —— 生成它不再决定步骤成败。渲染是证据、不是闸（与
+ * `AiService._agentStepExecutor` 同一条规则）：格式化抛错原先落进步骤的 catch，把一次成功调用
+ * 变成 `ERROR: …` 步骤 —— 下游被跳过、汇总模型被告知调用失败。现在抛错退回脱敏后的 JSON 文本；
+ * 若载荷根本无法序列化（循环引用 / BigInt），用标记让该步骤仍是成功，并如实注明「结果无法渲染」。
+ */
+function renderForModel(
+  result: ToolResult,
+  render?: (result: ToolResult) => string,
+): string {
+  if (render) {
+    try {
+      return render(result);
+    } catch {
+      // A formatter throw falls through to the no-renderer text below; the step stays a success.
+      // 渲染抛错 ⇒ 落到下面的无渲染器文本；步骤成败不受影响。
+    }
+  }
+  try {
+    return boundToBudget(sanitizeExternalContent(JSON.stringify(result.data ?? '')));
+  } catch {
+    return UNRENDERABLE_RESULT;
   }
 }
 

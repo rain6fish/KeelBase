@@ -840,7 +840,13 @@ export class AiService {
         // are not recorded as a rendering.
         // NC-3 只读门控：plan 步骤经同一治理层执行，防 LLM 计划的写/禁用工具被直调。
         // 汇总模型会读到渲染后的**成功**步骤结果（第 7 参）；失败步骤是 `ERROR: …`，故不按渲染记录。
-        this._agentStepExecutor(conversationId, providerName, agentRunId, true, false),
+        this._agentStepExecutor(
+          conversationId,
+          providerName,
+          agentRunId,
+          /* modelSeesRendered */ true,
+          /* renderFailures */ false,
+        ),
         // 与对话路径同一份渲染：步骤结果进汇总提示词前先脱敏 + 截断（F1 同类的计划路径缺口）
         (result) => this.presentation.renderToolResult(result).text,
       );
