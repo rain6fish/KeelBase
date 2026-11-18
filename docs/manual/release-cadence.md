@@ -26,7 +26,7 @@ snapshot, verified on 2026-11-08.
 
 | Repository | Line | Version space | Tag | Current value (2026-11-08) |
 |---|---|---|---|---|
-| `KeelBase` (this repository) | `1.3.x`, current and actively maintained (`docs/versioning.md`:44-49) | `MAJOR.MINOR.PATCH`; the product version is the root `package.json` and the single source of truth (`release-precheck.md`:61-77) | annotated `vX.Y.Z` (`v1.3.1` is a tag object) | `1.3.1` (`package.json`:3); tag `v1.3.1` is on both remotes; GitHub Release published 2026-11-07 20:45 +08 |
+| `KeelBase` (this repository) | `1.3.x`, current and actively maintained (`docs/versioning.md`:44-49) | `MAJOR.MINOR.PATCH`; the product version is the root `package.json` and the single source of truth (`release-precheck.md`:67-92) | annotated `vX.Y.Z` (`v1.3.1` is a tag object) | `1.3.1` (`package.json`:3); tag `v1.3.1` is on both remotes; GitHub Release published 2026-11-07 20:45 +08 |
 | `keelbase-contract` | `v1.x.y` | MAJOR = removal, rename, or a change to promised meaning; MINOR = additive files; PATCH = non-normative correction only; documents and tools are outside the version line (`contract/README.md`:133-155) | annotated `vX.Y.Z` (`contract/CONTRIBUTING.md`:50) | latest tag `v1.22.0` (commit `1eb05d3`) is on the GitHub remote; the Gitee remote still ends at `v1.21.0` (both observed 2026-11-08) |
 | `KeelBase4J` | `0.1.x` | `0.1.x` | annotated `v0.1.x` (`v0.1.17` is a tag object) | `0.1.17` (`pom.xml`:16); tag `v0.1.17` is on both remotes; all four artifacts resolve on Maven Central (`handoff`:13-17) |
 
@@ -46,18 +46,23 @@ recorded for `v1.21.0` (`contract/CHANGELOG.md`:39-40) and for `v1.18.0` (`contr
 
 `docs/manual/release-precheck.md` is the standing pre-release procedure, executed in order:
 
-1. **Four-layer code review**, fixed at four layers and not extended (`release-precheck.md`:7, :26):
+1. **Four-layer code review**, fixed at four layers and not extended (`release-precheck.md`:7, :34):
    OpenCodeReview on the release diff; Claude's own multi-axis review; the code-review skill's Standards
-   and Spec axes; AI Code Economy Review. Blocking findings are fixed before release (`release-precheck.md`:24).
-2. **Full test table** (`release-precheck.md`:39-51): backend unit tests with coverage thresholds, backend
+   and Spec axes; AI Code Economy Review. Blocking findings are fixed before release (`release-precheck.md`:32).
+2. **Full test table** (`release-precheck.md`:47-59): backend unit tests with coverage thresholds, backend
    e2e, Web-Admin-Vue vitest, Flutter tests, generator/CLI tests, the golden-application script,
    endpoint-document consistency, the contract release gate, and `./scripts/release-gate.sh`.
 3. **Coverage** must meet the thresholds and must not fall below the previous release
-   (`release-precheck.md`:53-57).
+   (`release-precheck.md`:61-65).
 4. **Version bump and parity** — the product version is the root `package.json`; the gate is
-   `node scripts/check-version-parity.mjs` (`release-precheck.md`:59-84), also run by CI in the
+   `node scripts/check-version-parity.mjs` (`release-precheck.md`:67-92), also run by CI in the
    `version-parity` job (`.github/workflows/ci.yml`:299-308).
-5. **Documentation sync** (`release-precheck.md`:86-109).
+5. **Documentation sync** (`release-precheck.md`:94-122).
+6. **Release texts** (`release-precheck.md`:124-155): every commit since the previous tag that changes a
+   product file must carry a coverage entry in `handoff/release-coverage-vX.Y.Z.json`, and the annotated
+   tag body must equal `release-notes-vX.Y.Z.md`. `scripts/check-release-texts.mjs` is the executable form;
+   either red stops the tag. It exists because v1.4.2 shipped a user-visible security fix that was in the
+   tagged tree and in none of its release texts.
 
 The executable gate is `scripts/release-gate.sh`. It checks, in order:
 
@@ -203,7 +208,7 @@ Paths without a repository prefix are relative to this repository (`KeelBase`).
 
 | 仓 | 版本线 | 版本空间 | tag | 当前值（2026-11-08） |
 |---|---|---|---|---|
-| `KeelBase`（本仓） | `1.3.x`，当前维护线（`docs/versioning.md`:44-49） | `MAJOR.MINOR.PATCH`；产品版本 = 根 `package.json`，唯一真源（`release-precheck.md`:61-77） | 附注 tag `vX.Y.Z`（`v1.3.1` 是 tag 对象） | `1.3.1`（`package.json`:3）；tag `v1.3.1` 两个远端都有；GitHub Release 发布于 2026-11-07 20:45 +08 |
+| `KeelBase`（本仓） | `1.3.x`，当前维护线（`docs/versioning.md`:44-49） | `MAJOR.MINOR.PATCH`；产品版本 = 根 `package.json`，唯一真源（`release-precheck.md`:67-92） | 附注 tag `vX.Y.Z`（`v1.3.1` 是 tag 对象） | `1.3.1`（`package.json`:3）；tag `v1.3.1` 两个远端都有；GitHub Release 发布于 2026-11-07 20:45 +08 |
 | `keelbase-contract` | `v1.x.y` | MAJOR = 删除、改名或改变已承诺的语义；MINOR = 加性新增文件；PATCH = 只更正非规范性内容；文档与工具不在版本线上（`contract/README.md`:133-155） | 附注 tag `vX.Y.Z`（`contract/CONTRIBUTING.md`:50） | 最新 tag `v1.22.0`（提交 `1eb05d3`）在 GitHub 远端；Gitee 远端仍止于 `v1.21.0`（两者均于 2026-11-08 观测） |
 | `KeelBase4J` | `0.1.x` | `0.1.x` | 附注 tag `v0.1.x`（`v0.1.17` 是 tag 对象） | `0.1.17`（`pom.xml`:16）；tag `v0.1.17` 两个远端都有；四个 artifact 在 Maven Central 均可解析（`handoff`:13-17） |
 
@@ -222,17 +227,21 @@ Paths without a repository prefix are relative to this repository (`KeelBase`).
 
 `docs/manual/release-precheck.md` 是固定的发布前程序，按顺序执行：
 
-1. **四层代码审核**，固定为四层、不再增加（`release-precheck.md`:7、:26）：OpenCodeReview 审发布区间
+1. **四层代码审核**，固定为四层、不再增加（`release-precheck.md`:7、:34）：OpenCodeReview 审发布区间
    diff；Claude 自带的多维审查；code-review skill 的 Standards 与 Spec 双轴；AI Code Economy Review。
-   阻塞项必须在发布前修掉（`release-precheck.md`:24）。
-2. **全量测试表**（`release-precheck.md`:39-51）：后端单测 + 覆盖率门槛、后端 e2e、Web-Admin-Vue
+   阻塞项必须在发布前修掉（`release-precheck.md`:32）。
+2. **全量测试表**（`release-precheck.md`:47-59）：后端单测 + 覆盖率门槛、后端 e2e、Web-Admin-Vue
    vitest、Flutter 测试、生成器/CLI 测试、Golden Application 脚本、端点-文档一致性、契约成员性发版闸，
    以及 `./scripts/release-gate.sh`。
-3. **覆盖率**必须达标，且不低于上一版（`release-precheck.md`:53-57）。
+3. **覆盖率**必须达标，且不低于上一版（`release-precheck.md`:61-65）。
 4. **版本 bump 与对账**——产品版本是根 `package.json`；门禁是
-   `node scripts/check-version-parity.mjs`（`release-precheck.md`:59-84），CI 的 `version-parity` job 也跑
+   `node scripts/check-version-parity.mjs`（`release-precheck.md`:67-92），CI 的 `version-parity` job 也跑
    它（`.github/workflows/ci.yml`:299-308）。
-5. **文档同步**（`release-precheck.md`:86-109）。
+5. **文档同步**（`release-precheck.md`:94-122）。
+6. **发布文本**（`release-precheck.md`:124-155）：上一 tag 以来改动过产品文件的每一笔提交，都必须在
+   `handoff/release-coverage-vX.Y.Z.json` 里有条目；附注 tag 的正文必须等于 `release-notes-vX.Y.Z.md`。
+   可执行形式是 `scripts/check-release-texts.mjs`，任一红就停、不打 tag。这条存在的原因：v1.4.2 带出去
+   一笔用户可见的安全修复，它在被 tag 的树里、却不在任何一处发布文本里。
 
 可执行的闸是 `scripts/release-gate.sh`，依次检查：
 
