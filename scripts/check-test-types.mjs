@@ -44,11 +44,11 @@ const BE = resolve(__dirname, '../Server-NestJS');
  * ⇒ **规程：先列错误码确认没有新增，再动这个数。** 现在两个句柄各司其职（`stream` 供 `for await`、
  * `it` 供 `.next()`），基线 195 才是诚实的读数。
  *
+ * The admin user view was collapsed into one implementation, retiring two TS2339s; the
+ * code-by-code diff showed no additions, only those two removals.
  * **195 → 193（2026-10-02）**：管理端用户视图收敛到单一实现（`sanitizeUserForAdmin`）时，
  * `getUserDetail` 里那串 `Record<string, unknown>` 造型不再需要，消掉 2 条 TS2339。
  * **按上面的规程做过比对**：错误码分布除 TS2339 33→31 外完全相同，**新增集合为空**。
- * The admin user view was collapsed into one implementation, retiring two TS2339s; the
- * code-by-code diff showed no additions, only those two removals.
  *
  * **193 → 188 (2026-10-19)**: a recheck against commit `67519821` (the state that set 193)
  * found the same set of error codes and no additions. The net five fewer errors come from
