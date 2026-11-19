@@ -425,9 +425,16 @@ async function main() {
         // playwright ffmpeg 精简版（n7.0.1-playwright-build）：VP8 编码器名是 libvpx（非 libvpx_vp8）；
         // Windows 上 `-i -`（stdin 短横线）报 "Protocol not found" → 用显式 pipe:0。
         const input = Buffer.concat(frames.map((f) => readFileSync(join(frameDir, f))));
+        // Playwright keeps its bundled ffmpeg under the per-user browser cache; FFMPEG_PATH wins.
+        // Playwright 自带的 ffmpeg 在各用户的浏览器缓存目录下；FFMPEG_PATH 仍然优先。
         const ffmpegPath =
           process.env.FFMPEG_PATH ||
-          'C:/Users/pc/AppData/Local/ms-playwright/ffmpeg-1011/ffmpeg-win64.exe';
+          join(
+            process.env.PLAYWRIGHT_BROWSERS_PATH ||
+              join(process.env.LOCALAPPDATA || join(homedir(), 'AppData', 'Local'), 'ms-playwright'),
+            'ffmpeg-1011',
+            'ffmpeg-win64.exe',
+          );
         // 动态 fps：按截图实际时间戳（间隔 ~800ms），防视频加速/时长失真
         const fps =
           frameTimes.length > 1

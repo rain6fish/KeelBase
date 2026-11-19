@@ -207,11 +207,11 @@ On Windows the release asset is `osv-scanner_windows_amd64.exe`, with sha256
 `9964ed64ec9a387391eb4cc006ad5c531154821aef29b793e02c448de4686438`.
 
 The binary can live anywhere; the gate only needs its path. This checkout keeps it off `PATH` at
-`D:/Rain6fish/.tools/osv-scanner/osv-scanner.exe` — 2.7.0, the version CI pins, with the sha256 above —
+`../.tools/osv-scanner/osv-scanner.exe` — 2.7.0, the version CI pins, with the sha256 above —
 and points at it per run:
 
 ```bash
-OSV_SCANNER="D:/Rain6fish/.tools/osv-scanner/osv-scanner.exe" node scripts/check-dependency-scan.mjs
+OSV_SCANNER="../.tools/osv-scanner/osv-scanner.exe" node scripts/check-dependency-scan.mjs
 ```
 
 With neither `OSV_SCANNER` nor an `osv-scanner` on `PATH`, the gate exits **2** and prints
@@ -624,11 +624,11 @@ Windows 上的发布件是 `osv-scanner_windows_amd64.exe`，sha256 为
 `9964ed64ec9a387391eb4cc006ad5c531154821aef29b793e02c448de4686438`。
 
 二进制放哪都行，门禁只要它的路径。本检出把它放在 `PATH` 之外 ——
-`D:/Rain6fish/.tools/osv-scanner/osv-scanner.exe`（2.7.0，即 CI 钉住的版本，sha256 见上）—— 每次运行
+`../.tools/osv-scanner/osv-scanner.exe`（2.7.0，即 CI 钉住的版本，sha256 见上）—— 每次运行
 指过去：
 
 ```bash
-OSV_SCANNER="D:/Rain6fish/.tools/osv-scanner/osv-scanner.exe" node scripts/check-dependency-scan.mjs
+OSV_SCANNER="../.tools/osv-scanner/osv-scanner.exe" node scripts/check-dependency-scan.mjs
 ```
 
 既没有 `OSV_SCANNER`、`PATH` 上也没有 `osv-scanner` 时，门禁以 **2** 退出并打印

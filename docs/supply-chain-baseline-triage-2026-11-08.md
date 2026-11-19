@@ -329,7 +329,7 @@ grep -i windows_amd64 SHA256SUMS | sha256sum -c -
 
 # note: the scanner skips paths under a directory starting with `.`, so run it from the main
 # checkout, not from `.claude/worktrees/<name>`
-cd D:/Rain6fish/KeelBase
+cd KeelBase
 OSV_SCANNER=/tmp/osv-gate-probe/osv-scanner_windows_amd64.exe \
   node scripts/check-dependency-scan.mjs --verbose
 ```
