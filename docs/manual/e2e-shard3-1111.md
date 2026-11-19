@@ -1,6 +1,6 @@
 # e2e 3/4 片真实读数（2026-11-11）
 
-- **被测树**：`D:/Rain6fish/KeelBase`，`main` = **`186a3c17`**（13:25 时还是 `e305d22d`，13:28 由另一会话并入纯文档提交 `740685cf`；`e305d22d` 是其祖先）。工作树干净，跑完仍干净。
+- **被测树**：`KeelBase`（本仓），`main` = **`186a3c17`**（13:25 时还是 `e305d22d`，13:28 由另一会话并入纯文档提交 `740685cf`；`e305d22d` 是其祖先）。工作树干净，跑完仍干净。
 - **环境**：Windows 11 / node `v24.15.0` / npm `11.14.1`。开工空闲内存约 **2.0 GB / 32 GB**（比 11-11 上午的 5.3 GB 更低）；同机另有他会话的 Java 宿主（PID 123212，约 2.0 GB）与 `rsv1109-pg` / `rsv1109-redis` 容器在跑，**全程未动**；开工时 12 个 `node.exe`。
 - **命令**：`cd Server-NestJS && npm run test:e2e` → `scripts/run-e2e-shards.mjs`（jest `--shard=N/4`，每片最多 3 次尝试，只对「无 `Test Suites:` 汇总行」的崩溃重试）。
 - **时间**：13:38 起跑，两轮全量 + 一次 3/4 片单跑，约 14 分钟。
@@ -64,7 +64,7 @@ NODE_ENV=test node ./node_modules/jest/bin/jest.js \
 
 ## 证据
 
-`D:/Rain6fish/handoff/.e2e-shard3-1111/`
+`../handoff/.e2e-shard3-1111/`
 
 | 文件 | 内容 |
 |---|---|

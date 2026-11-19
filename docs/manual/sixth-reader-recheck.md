@@ -64,7 +64,7 @@ Everything in this table must be true **on the day of the session**. Anything th
 **(a) Release and tag.**
 
 ```bash
-cd D:/Rain6fish/KeelBase4J
+cd ../KeelBase4J
 git show -s --format='%H %ad' v0.1.17
 curl -sS -o /dev/null -w '%{http_code}\n' \
   https://repo1.maven.org/maven2/cn/com/keelbase/keelbase4j-core/0.1.17/keelbase4j-core-0.1.17.pom
@@ -75,13 +75,13 @@ Expected: a commit hash and date, then `200`.
 **(b) Pin.**
 
 ```bash
-grep -n '0.1.17' D:/Rain6fish/KeelBase-Vue-Pro/yudao-server/pom.xml
+grep -n '0.1.17' ../KeelBase-Vue-Pro/yudao-server/pom.xml
 ```
 
 **(c) The runtime identity — the one check that decides whether this is the released artifact at all.**
 
 ```bash
-cd D:/Rain6fish/KeelBase-Vue-Pro
+cd ../KeelBase-Vue-Pro
 for a in core protocol springai; do
   unzip -p yudao-server/target/yudao-server.jar "BOOT-INF/lib/keelbase4j-$a-0.1.17.jar" > /tmp/rt-$a.jar
   echo -n "$a local    "; sha1sum /tmp/rt-$a.jar | cut -d' ' -f1
@@ -111,7 +111,7 @@ stack was `78 ok / 0 failed`; re-read it, do not quote it.
 **(e) Contract.**
 
 ```bash
-cd D:/Rain6fish/keelbase-contract
+cd ../keelbase-contract
 git log --oneline -1
 git merge-base --is-ancestor v1.20.0 main && echo "v1.20.0 on main"
 ```
@@ -481,7 +481,7 @@ fixes go through their own claim.
 **（a）发布与 tag。**
 
 ```bash
-cd D:/Rain6fish/KeelBase4J
+cd ../KeelBase4J
 git show -s --format='%H %ad' v0.1.17
 curl -sS -o /dev/null -w '%{http_code}\n' \
   https://repo1.maven.org/maven2/cn/com/keelbase/keelbase4j-core/0.1.17/keelbase4j-core-0.1.17.pom
@@ -492,13 +492,13 @@ curl -sS -o /dev/null -w '%{http_code}\n' \
 **（b）pin。**
 
 ```bash
-grep -n '0.1.17' D:/Rain6fish/KeelBase-Vue-Pro/yudao-server/pom.xml
+grep -n '0.1.17' ../KeelBase-Vue-Pro/yudao-server/pom.xml
 ```
 
 **（c）运行时身份——决定「这到底是不是已发布产物」的那一条。**
 
 ```bash
-cd D:/Rain6fish/KeelBase-Vue-Pro
+cd ../KeelBase-Vue-Pro
 for a in core protocol springai; do
   unzip -p yudao-server/target/yudao-server.jar "BOOT-INF/lib/keelbase4j-$a-0.1.17.jar" > /tmp/rt-$a.jar
   echo -n "$a local    "; sha1sum /tmp/rt-$a.jar | cut -d' ' -f1
@@ -527,7 +527,7 @@ HOST_URL=http://127.0.0.1:<PORT> PG_CONTAINER=<pg> PG_DB=<db> \
 **（e）契约。**
 
 ```bash
-cd D:/Rain6fish/keelbase-contract
+cd ../keelbase-contract
 git log --oneline -1
 git merge-base --is-ancestor v1.20.0 main && echo "v1.20.0 on main"
 ```

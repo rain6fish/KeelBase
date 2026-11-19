@@ -177,18 +177,18 @@ resolvable consumer-facing artifact or a publication record.
 
 ### Sources
 
-Paths without a repository prefix are relative to this repository (`KeelBase`).
+Paths without a repository prefix are relative to this repository (`KeelBase`); a leading `../` points at a sibling directory in the same workspace.
 
 - `release-precheck.md` — `docs/manual/release-precheck.md`
 - `release-gate.md` — `docs/manual/release-gate.md`
 - `scripts/release-gate.sh` — `scripts/release-gate.sh`
 - `scripts/check-contract-release-gate.mjs` — `scripts/check-contract-release-gate.mjs`
 - `package.json` — `package.json`
-- `plan` — `D:/Rain6fish/KeelBase-Private/KeelBase4TS/KeelBase-下阶段规划与开发计划_2026-10-17.md`, §2026-11-07 revision
-- `weekly` — `D:/Rain6fish/KeelBase-Private/notes/CTO每周例会/2026-11-07-下周开发计划.md`
-- `handoff` — `D:/Rain6fish/handoff/4j-017-publish-20261107.md`
-- `contract/…` — `D:/Rain6fish/keelbase-contract/…`
-- `4J/…` — `D:/Rain6fish/KeelBase4J/…`
+- `plan` — `../KeelBase-Private/KeelBase4TS/KeelBase-下阶段规划与开发计划_2026-10-17.md`, §2026-11-07 revision
+- `weekly` — `../KeelBase-Private/notes/CTO每周例会/2026-11-07-下周开发计划.md`
+- `handoff` — `../handoff/4j-017-publish-20261107.md`
+- `contract/…` — `../keelbase-contract/…`
+- `4J/…` — `../KeelBase4J/…`
 
 ## 中文
 
@@ -344,15 +344,15 @@ External 已降级为 1.0 后的增长里程碑、不阻塞发布（`release-gat
 
 ### 出处
 
-不带仓前缀的路径都相对本仓（`KeelBase`）。
+不带仓前缀的路径都相对本仓（`KeelBase`）；以 `../` 开头的指向同一工作区里的兄弟目录。
 
 - `release-precheck.md` —— `docs/manual/release-precheck.md`
 - `release-gate.md` —— `docs/manual/release-gate.md`
 - `scripts/release-gate.sh` —— `scripts/release-gate.sh`
 - `scripts/check-contract-release-gate.mjs` —— `scripts/check-contract-release-gate.mjs`
 - `package.json` —— `package.json`
-- `plan` —— `D:/Rain6fish/KeelBase-Private/KeelBase4TS/KeelBase-下阶段规划与开发计划_2026-10-17.md`，§2026-11-07 周会修订
-- `weekly` —— `D:/Rain6fish/KeelBase-Private/notes/CTO每周例会/2026-11-07-下周开发计划.md`
-- `handoff` —— `D:/Rain6fish/handoff/4j-017-publish-20261107.md`
-- `contract/…` —— `D:/Rain6fish/keelbase-contract/…`
-- `4J/…` —— `D:/Rain6fish/KeelBase4J/…`
+- `plan` —— `../KeelBase-Private/KeelBase4TS/KeelBase-下阶段规划与开发计划_2026-10-17.md`，§2026-11-07 周会修订
+- `weekly` —— `../KeelBase-Private/notes/CTO每周例会/2026-11-07-下周开发计划.md`
+- `handoff` —— `../handoff/4j-017-publish-20261107.md`
+- `contract/…` —— `../keelbase-contract/…`
+- `4J/…` —— `../KeelBase4J/…`
