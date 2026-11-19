@@ -138,7 +138,7 @@
 
 发布窗口 = 推 main 前 30 分钟 → tag 推到远端完成。窗口内三条硬规则：
 
-1. **契约仓冻结推送。** 在 `D:/Rain6fish/release-window.lock` 放锁文件（首行写 `vX.Y.Z TIP=<sha>`）；`KeelBase-Private/scripts/push-all-repos.sh` 见到锁会跳过 `keelbase-contract` 的全部推送目标（推送、核对前快进、推后核对），日志记 `SKIP … 发布窗口锁`。tag 推完后删除锁。契约仓在窗口内前进一笔，就会让父仓 pin 落后、C1 红、CI 失败（2026-11-17 早间实测：CI 启动前 16 秒的前进）。
+1. **契约仓冻结推送。** 在 `../release-window.lock` 放锁文件（首行写 `vX.Y.Z TIP=<sha>`）；`KeelBase-Private/scripts/push-all-repos.sh` 见到锁会跳过 `keelbase-contract` 的全部推送目标（推送、核对前快进、推后核对），日志记 `SKIP … 发布窗口锁`。tag 推完后删除锁。契约仓在窗口内前进一笔，就会让父仓 pin 落后、C1 红、CI 失败（2026-11-17 早间实测：CI 启动前 16 秒的前进）。
 2. **pin 两时点复核。** 推 main 前 2 分钟与打 tag 前各跑一次 `node scripts/check-contract-release-gate.mjs`（带 `http.version=HTTP/1.1`）；两次都必须 PASS 且输出里的 pin 等于契约远端 `refs/heads/main`。任一次不 PASS 就停，不打 tag。两次读数（pin sha、远端 sha、C1–C5 结论）写进发布记录。
 3. **tag 的位置。** tag 必须打在**推送后远端 main 的同一个 sha** 上（显式 TIP）；本地 HEAD 一旦前进就停——`release-1-4-2-tag-1117` 的做法（显式 TIP、HEAD 前进即停、推 tag 前 lineage 预演）。
 
@@ -159,16 +159,16 @@
 `kind`：`user-visible`（必填 `text`，写它在 CHANGELOG/发布说明里的定位）· `internal`（必填 `reason`）· `docs`。sha 可用缩写。
 
 ```bash
-node scripts/check-release-texts.mjs --prev-tag v1.4.1 --tip <打 tag 的提交> --coverage D:/Rain6fish/handoff/release-coverage-vX.Y.Z.json
+node scripts/check-release-texts.mjs --prev-tag v1.4.1 --tip <打 tag 的提交> --coverage ../handoff/release-coverage-vX.Y.Z.json
 ```
 
 区间内有提交没归类、覆盖表里有提交不在区间（陈旧）、条目不合规 → 逐条点名并 `exit 1`；有红就停，别打 tag。
 
 **2. 文本同源——tag 正文就是发布说明那份文件。**
-打 tag 用 `git tag -a vX.Y.Z -F D:/Rain6fish/handoff/release-notes-vX.Y.Z.md`，然后在推 tag 前核对：
+打 tag 用 `git tag -a vX.Y.Z -F ../handoff/release-notes-vX.Y.Z.md`，然后在推 tag 前核对：
 
 ```bash
-node scripts/check-release-texts.mjs --tag vX.Y.Z --notes D:/Rain6fish/handoff/release-notes-vX.Y.Z.md
+node scripts/check-release-texts.mjs --tag vX.Y.Z --notes ../handoff/release-notes-vX.Y.Z.md
 ```
 
 行尾与末尾换行从宽，其余不一致即 `exit 1` 并报首个差异行。这一条取代「另存一份 `vX-tag-message.txt` 做对照」——两份并存正是 v1.4.2 符号差异的来源。
