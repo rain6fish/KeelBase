@@ -57,7 +57,7 @@
 | 文档-端点一致性 | `node scripts/verify-endpoint-docs.mjs` | 声明端点（CLAUDE.md §9）全在代码中，0 条缺失 |
 | 契约成员性发版闸 | `npm run check:contract-release-gate` | pin 远端可达 · README=pin 的 tag · 由上一发布 tag 切出 · 声称的能力都有实现方（缺一样即红） |
 | Release Gate | `./scripts/release-gate.sh` | 确定性 Gate 全 PASS |
-| 发布镜像冒烟 | `bash scripts/image-smoke.test.sh`（自检）· CI `image-smoke` 跑 `scripts/image-smoke.sh` | 空密钥与轮询超时两条负向控制各自 fail-loud；真实镜像 exit 0 |
+| 发布镜像冒烟 | `bash scripts/image-smoke.test.sh`（自检）· CI job `smoke` 跑 `scripts/image-smoke.sh` | 空密钥与轮询超时两条负向控制各自 fail-loud；真实镜像 exit 0 |
 
 #### 契约闸红的判读（硬规则）
 
