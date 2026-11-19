@@ -10,6 +10,9 @@
 # Usage / 用法: scripts/image-smoke.sh --image <ref> [--port 18089] [--skip-negative]
 # SMOKE_WAIT_SECS bounds the health poll in seconds (default 120).
 # SMOKE_WAIT_SECS 控制健康轮询的上限（秒，默认 120）。
+# scripts/image-smoke.test.sh drives both failure paths as negative controls: an empty `openssl rand`
+# output and a health poll that reaches its cap.
+# scripts/image-smoke.test.sh 以负向控制驱动两条失败路径：`openssl rand` 返回空串、健康轮询撞上封顶。
 set -uo pipefail
 
 IMAGE=""
