@@ -18,7 +18,7 @@
 | 治理绑定向量 | `specs/protocol/governance-binding-v1-vector.json` | 工具→策略→放行决策 |
 | 失败语义向量 | `specs/protocol/failure-semantics-v2-vector.json`（`-v1-` 冻结留档） | 失败态 → wire 形状 |
 | 确认生命周期语料 | `specs/protocol/confirmation-lifecycle-v2-vector.json`（`-v1-` 冻结留档） | 状态机 + TTL |
-| wire 对象 Schema | `specs/protocol/schemas/v1|v2/` + `wire-schema-registry.json`（44 对象） | JSON Schema draft-07（形状冻结） |
+| wire 对象 Schema | `specs/protocol/schemas/v1…v7/` + `wire-schema-registry.json`（49 对象） | JSON Schema draft-07（形状冻结） |
 | 代表样例 | `specs/protocol/schemas/v*/samples/` | 每对象一份，过其 schema |
 
 **中立复现方式**（任一语言）：`读向量 JSON → 按 §2/§3/§4 规格实现算法 → 复算并比对`；`读 schema + 样例 → 用任一标准 JSON Schema 校验器校验`。参考实现（Node）的 runner 只是**其中一种**实现，不是判据本身。

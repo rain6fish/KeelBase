@@ -301,14 +301,14 @@ first release rather than assembled when someone asks.
 
 | Runtime | Runtime version | Contract version |
 |---|---|---|
-| `KeelBase` (TypeScript) | `v1.4.0` | **v1.22.0** — bound as a submodule |
+| `KeelBase` (TypeScript) | `v1.4.2` | **v1.22.0** — bound as a submodule |
 | `KeelBase` (TypeScript) | `v1.3.1` | **v1.21.0** — bound as a submodule |
 | `KeelBase` (TypeScript) | `v1.3.0` | **v1.16.0** — bound as a submodule |
 | `KeelBase` (TypeScript) | `v1.2.0` | **v1.12.0** — bound as a submodule |
 | `KeelBase` (TypeScript) | `v1.1.0` | **v1.6.0** — bound as a submodule |
 | `KeelBase` (TypeScript) | `main`, **unreleased** | **v1.22.0** — bound as a submodule |
 | `KeelBase` (TypeScript) | `v1.0.11`, superseded | **v1.0.1** — carried in-tree; that release predates the contract repository |
-| [`KeelBase4J`](https://github.com/rain6fish/KeelBase4J) (Java) | `v0.1.18` | **v1.22.0** — vendored snapshot, taken from the contract repository |
+| [`KeelBase4J`](https://github.com/rain6fish/KeelBase4J) (Java) | `v0.1.19` | **v1.22.0** — vendored snapshot, taken from the contract repository |
 | [`KeelBase4J`](https://github.com/rain6fish/KeelBase4J) (Java) | `main`, **unreleased** | **v1.22.0** — vendored snapshot, taken from the contract repository |
 | [`KeelBase4J`](https://github.com/rain6fish/KeelBase4J) (Java) | `v0.1.17`, superseded | **v1.20.0** — vendored snapshot, taken from the contract repository |
 | [`KeelBase4J`](https://github.com/rain6fish/KeelBase4J) (Java) | `v0.1.16`, superseded | **v1.17.0** — vendored snapshot, taken from the contract repository |

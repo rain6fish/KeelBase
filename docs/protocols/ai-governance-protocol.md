@@ -91,7 +91,7 @@ hash           = HMAC-SHA256( key, `${prevHash ?? 'genesis'}|${canonicalJSON(pay
 
 **定位**：审计哈希链（§2）的**应用层导出**——把链数据 + 合规摘要打包成可提交审计机构的证据，**离线机器可验证**（不依赖 KeelBase）。参考实现：`GET /audit/action-report/export` + `Server-NestJS/scripts/verify-evidence.mjs`。
 
-**格式版本 / Format**：`keelbase-audit-evidence/1`（基础：summary + hashChain + effectDiffs + chain + signature）；`keelbase-audit-evidence/2`（A-6 合规段 `compliance`，签名覆盖）；`keelbase-audit-evidence/3`（§internal.17 ① 证据根 AUDIT-ID——单动作跨链证据包：授权快照含 policy.revision + Decision Evidence + 同会话 AI 审计链行 + operation_audit 链行 + 副作用行 + root 跨链根锚 + v3 canonical 整包 HMAC，经 `GET /ai/governance/evidence-root/:resultType/:resultId` 导出）。`verify-evidence.mjs` 接受 v1/v2/v3（v3 为 `--key` 全量子链重算 + 副作用摘要 + 签名）向后兼容。
+**格式版本 / Format**：`keelbase-audit-evidence/1`（基础：summary + hashChain + effectDiffs + chain + signature）；`keelbase-audit-evidence/2`（A-6 合规段 `compliance`，签名覆盖）；`keelbase-audit-evidence/3`（§internal.17 ① 证据根 AUDIT-ID——单动作跨链证据包：授权快照含 policy.revision + Decision Evidence + 同会话 AI 审计链行 + operation_audit 链行 + 副作用行 + root 跨链根锚 + v3 canonical 整包 HMAC，经 `GET /ai/governance/evidence-root/:resultType/:resultId` 导出）；`keelbase-audit-evidence/4`（= /3 的键 + **必填** `coverage` 覆盖声明，且 coverage 进整包签名 canonical——覆盖声明不能事后改写而不破签；同一 evidence-root 端点现导出 /4）。`verify-evidence.mjs` 接受 v1/v2/v3/v4（v3/v4 为 `--key` 全量子链重算 + 副作用摘要 + 签名）向后兼容。
 
 **结构 / Schema**：
 
@@ -102,6 +102,7 @@ hash           = HMAC-SHA256( key, `${prevHash ?? 'genesis'}|${canonicalJSON(pay
 | `generator` | string | 生成工具标识（`keelbase-audit-export`） |
 | `report` | object | ActionReport（summary / hashChain / byAction / byDay / samples / effectDiffs） |
 | `compliance` | array(opt) | v2：samples 每条的业务摘要 + 责任链 + 授权依据（合规叙事） |
+| `coverage` | object | v4：覆盖声明（必填；进签名 canonical）——这份证据包覆盖了什么、已知缺口 |
 | `chain` | array | **全量链行**（见下）——离线重算的原始数据 |
 | `signature` | string\|null | 证据包签名（见下）；未配密钥时为 null |
 
@@ -123,6 +124,16 @@ hash           = HMAC-SHA256( key, `${prevHash ?? 'genesis'}|${canonicalJSON(pay
 - 审计机构持有密钥或部署方提供 verify 报告即可独立复核（合规场景：等保 / 密评配合材料）。
 
 **与 §2 的关系**：`chain` 行即审计链原始数据（id / prevHash / hash / payload），`payload` 复用 §2.3 canonicalJSON——证据包是链的**可导出、可离线复核的应用层**，不引入新算法。
+
+### 2.6 链尾锚 / Chain-tail Anchor
+
+**定位**：审计哈希链（§2）的**链尾承诺**。链只能证明**内部连续性**——被截断的链仍是合法前缀，`verify` 答不出「末尾本来还有没有」。契约仓 v1.22.0 为此新增 wire 对象 `audit-chain-anchor` v1；语义与边界见 [hs11-audit-chain.spec.md](../hs11-audit-chain.spec.md) §6.1。
+
+**记录**：在 `observedAt` 这一刻，对 `aiAudit` 与 `operationAudit` 两条链各记 `rows`（`hash IS NOT NULL` 的已入链行数）、`lastId`、`lastHash`；`rootDigest` 覆盖 `{period, date, observedAt, chains}`，由 SM2 签名。`observedAt` 在签名内（否则「哪一刻」可被挪动），`publishedAt` 在签名外（与证据包锚一致）。
+
+**边界**：只覆盖这两条链，副作用链不在范围内；只数已入链的行（`hash IS NULL` 的遗留行不可见）；`observedAt` 之后的写入要等下一次锚；产出方读的是同一个库，故证明的是「那一刻链看起来如此」，不是「那一刻链是对的」。发布到信任域之外是部署方义务——自持锚是空心承诺。
+
+**校验**：读者把当前链与签名过的链尾对照，结论分 `ok` / `grew`（锚后新增，不是删除）/ `tail-missing` / `tail-replaced` / `last-row-changed`。域外第三方可只用公钥离线验签（`Server-NestJS` 下 `npm run verify:chain-anchor -- <file> --public-key <hex>`）。
 
 ---
 
@@ -278,13 +289,13 @@ pending ──approve(owner)──▶ approved
 
 **协议合规认证套件（治理能力 2.1 / A1 / CE-1）**：三协议语义以 **`specs/protocol/*-vector.json` 机器语料**锁定——`canonical-json-v1-vector.json`（金样本，含 nested/unicode 边界，§2.3 语义以此为准）/ `audit-hash-v1-vector.json` / `delegation-token-v1-vector.json` / `risk-level-v1-vector.json`，由 `Server-NestJS/scripts/generate-protocol-vectors.mjs` 生成（算法取自契约仓单源，实证优先），`--check` 漂移门禁入 CI。`Server-NestJS/specs/protocol/runner/verify-protocol-conformance.mjs`（契约仓）从同目录 `lib/protocol-algorithms.mjs` 单源 import 独立实现、以语料驱动复现三大协议——canonicalJSON/hash/链校验（§2）、委托 token HS256 验签（§3）、风险分级派生（§4）；篡改 payload / 断链 / aud 不匹配 / 过期 / 签名篡改均必须拒绝，输出机器可读报告（`reports/protocol-conformance-<ts>.json`）。生产实现（`src/common/audit-chain`）由 `audit-chain.reproduce.spec.ts` 跑同一语料，锁「契约参考算法 = 金样本 = 生产实现」三方一致（单源规则机器强制）。
 
-**用法**：`node Server-NestJS/specs/protocol/runner/verify-protocol-conformance.mjs`（确定性、无服务依赖，可 CI）；语义变更先 `node scripts/generate-protocol-vectors.mjs` 升语料版本再改实现（CE-1 L3）。参考实现当前 **34/34 通过**（2026-09-14，语料驱动）。**合规分层（Core / Full / Extended）+ 语言中性 runner 判据 + wire 约定（含时间格式）= [conformance-profile.md](conformance-profile.md)**。
+**用法**：`node Server-NestJS/specs/protocol/runner/verify-protocol-conformance.mjs`（确定性、无服务依赖，可 CI）；语义变更先 `node scripts/generate-protocol-vectors.mjs` 升语料版本再改实现（CE-1 L3）。参考实现当前 **43/43 通过**（2026-11-20，语料驱动）。**合规分层（Core / Full / Extended）+ 语言中性 runner 判据 + wire 约定（含时间格式）= [conformance-profile.md](conformance-profile.md)**。
 
-**wire 对象 Schema v1 冻结（CE-1，`Server-NestJS/specs/protocol/schemas/v1/`）**：tool 定义 / SSE 事件 / confirmation request·decision / trace step / side-effect·revoke / audit payload（v1·v2）/ 证据包 /1·2·3 / 治理策略 / 委托 token claims 各一份 JSON Schema（固化当前形状，含枚举冻结；来源锚见各 schema description）。`wire-schema-registry.json` 登记对象→schema→已提交样例；`wire-schema.spec.ts`（jest，入 `test` job 与 release-gate `Trust(CE-1 …)`）强制「schema 可解析 + 每样例过 schema + 对象清单冻结」——wire 形状增删必须先升 v2（同 CE-1 L3 / C-1 纪律）再改代码。**语义变更评审清单**见 [docs/manual/semantic-change-checklist.md](../manual/semantic-change-checklist.md)；**对外术语单一真源闸** = `Server-NestJS/scripts/check-protocol-language.mjs`（词表 [docs/manual/product-language.md](../manual/product-language.md)，CI job `terminology-guard`）。
+**wire 对象 Schema v1 冻结（CE-1，`Server-NestJS/specs/protocol/schemas/v1/`）**：tool 定义 / SSE 事件 / confirmation request·decision / trace step / side-effect·revoke / audit payload（v1·v2·v3·v4）/ 证据包 /1·2·3·4 / 治理策略 / 委托 token claims 各一份 JSON Schema（固化当前形状，含枚举冻结；来源锚见各 schema description）。`wire-schema-registry.json` 登记对象→schema→已提交样例；`wire-schema.spec.ts`（jest，入 `test` job 与 release-gate `Trust(CE-1 …)`）强制「schema 可解析 + 每样例过 schema + 对象清单冻结」——wire 形状增删必须先升 v2（同 CE-1 L3 / C-1 纪律）再改代码。**语义变更评审清单**见 [docs/manual/semantic-change-checklist.md](../manual/semantic-change-checklist.md)；**对外术语单一真源闸** = `Server-NestJS/scripts/check-protocol-language.mjs`（词表 [docs/manual/product-language.md](../manual/product-language.md)，CI job `terminology-guard`）。
 
 **第三方自认证**：声明兼容本协议的实现（java-starter / sidecar / 新实现）可用同一套算法与语料复现——以自身实现复算 §2.2 hash、§3 委托 token 验签、§4 风险派生，与 `specs/protocol` 语料（canonical 金样本含嵌套边界）比对一致即视为通过；通过后在 §5 兼容清单登记并附 conformance 报告日期。
 
-**审计证据包离线验证（A2，治理能力 2.3）**：证据包格式见 **§2.5 审计证据包协议**（`keelbase-audit-evidence/1|2`）。`Server-NestJS/scripts/verify-evidence.mjs` 独立验证导出的证据包（`GET /audit/action-report/export`）——无密钥验链结构（删行/换序/断链），`--key <AUDIT_HMAC_KEY>` 全量重算每条 payload + 证据包验签（内容篡改检测）。审计机构不依赖 KeelBase 即可复核（见 [compliance-mapping](../manual/compliance-mapping.md)）。
+**审计证据包离线验证（A2，治理能力 2.3）**：证据包格式见 **§2.5 审计证据包协议**（`keelbase-audit-evidence/1|2|3|4`）。`Server-NestJS/scripts/verify-evidence.mjs` 独立验证导出的证据包（`GET /audit/action-report/export`）——无密钥验链结构（删行/换序/断链），`--key <AUDIT_HMAC_KEY>` 全量重算每条 payload + 证据包验签（内容篡改检测）。审计机构不依赖 KeelBase 即可复核（见 [compliance-mapping](../manual/compliance-mapping.md)）。
 
 **治理策略实时推送（B2，治理能力 2.2）**：sidecar 启动时向治理台注册回调（`SIDECAR_CALLBACK_URL`，`POST /external/governance/sidecars/register`）；策略变更（apply-preset / PUT policy）后治理台向已注册 sidecar 实时推送（`POST {cb}/v1/policy`，服务身份），秒级生效；60s 轮询保留作兜底（推送失败 / sidecar 重启 / 漏注册）。
 
