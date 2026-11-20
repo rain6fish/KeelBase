@@ -18,6 +18,7 @@ Related manuals / 相关手册：
 | OS | Ubuntu 22.04 / Debian 12 / CentOS 8+ (64-bit) |
 | Docker | 20.10+, with Docker Compose v2 |
 | Domain (optional) / 域名（可选） | For HTTPS; HTTP deploy works without one / 用于 HTTPS；无域名可先 HTTP 部署 |
+| Cloud security group / 云安全组 | Open inbound 80 and 443 (22 for SSH). Cloud consoles block them by default, so the site stays unreachable from outside even when `curl` on the server itself answers / 放行入站 80 与 443（22 供 SSH）。云控制台默认不放行，此时服务器本机 `curl` 通、外网仍打不开 |
 
 Install Docker (Ubuntu/Debian) / 安装 Docker（Ubuntu/Debian）：
 
@@ -45,8 +46,8 @@ ADMIN_PASSWORD='your-strong-password' ./deploy/deploy.sh
 What `deploy.sh` does / deploy.sh 做了什么：
 
 1. Verify Docker / Compose / 校验 Docker / Compose
-2. Generate `Server-NestJS/.env.production` (copies from the example when missing, then generates random `JWT_SECRET` / `JWT_REFRESH_SECRET` / `ENCRYPTION_KEY` / `DB_PASSWORD` with `openssl rand -hex 32`)
-   生成 `Server-NestJS/.env.production`（缺失时从示例复制，并用 `openssl rand -hex 32` 生成随机 `JWT_SECRET` / `JWT_REFRESH_SECRET` / `ENCRYPTION_KEY` / `DB_PASSWORD`）
+2. Generate `Server-NestJS/.env.production` (copies from the example when missing, then generates random `JWT_SECRET` / `JWT_REFRESH_SECRET` / `ENCRYPTION_KEY` / `AUDIT_HMAC_KEY` / `DB_PASSWORD` with `openssl rand -hex 32`; an existing file that still holds a published example value is refused, not silently reused)
+   生成 `Server-NestJS/.env.production`（缺失时从示例复制，并用 `openssl rand -hex 32` 生成随机 `JWT_SECRET` / `JWT_REFRESH_SECRET` / `ENCRYPTION_KEY` / `AUDIT_HMAC_KEY` / `DB_PASSWORD`；已存在但仍含公开示例值的文件会被拒绝，而不是静默沿用）
 3. With `HTTPS=1`, generate a self-signed cert and overlay `docker-compose.prod.yml` / `HTTPS=1` 时生成自签名证书并叠加 `docker-compose.prod.yml`
 4. `docker compose up --build -d` starts PostgreSQL + Redis + NestJS + Nginx / 启动 PostgreSQL + Redis + NestJS + Nginx
 5. Wait for backend health, then call `create:admin` to create the initial admin / 等待后端健康后调用 `create:admin` 创建初始管理员
@@ -57,6 +58,12 @@ What `deploy.sh` does / deploy.sh 做了什么：
 docker compose ps                 # all healthy / 全部 healthy
 curl http://localhost:3000/api/v1/health   # {"status":"ok",...}
 docker compose logs server | tail -20      # startup logs / migrations / 启动日志 / 迁移执行
+```
+
+Also check from **outside** the server — a cloud security group that blocks 443 is invisible to the checks above / 还要从**服务器外部**检查——挡了 443 的云安全组在上面这些检查里看不出来：
+
+```bash
+curl -I https://<domain>/   # 200, or a certificate / connection error naming the cause / 200，或明确原因的证书 / 连接错误
 ```
 
 Log in to the admin console (already bundled into the web container at `/admin`) / 登录管理台（已随一键部署打包进 web 容器 `/admin` 子路径）：

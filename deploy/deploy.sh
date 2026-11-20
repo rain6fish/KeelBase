@@ -44,6 +44,7 @@ if [ ! -f "$ENV_FILE" ]; then
     -e "s/^JWT_SECRET=.*/JWT_SECRET=$(gen)/" \
     -e "s/^JWT_REFRESH_SECRET=.*/JWT_REFRESH_SECRET=$(gen)/" \
     -e "s/^ENCRYPTION_KEY=.*/ENCRYPTION_KEY=$(gen)/" \
+    -e "s/^AUDIT_HMAC_KEY=.*/AUDIT_HMAC_KEY=$(gen)/" \
     -e "s/^DB_PASSWORD=.*/DB_PASSWORD=$DB_PASS/" \
     -e "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=$DB_PASS/" \
     -e "s/^DB_NAME=.*/DB_NAME=front_production/" \
@@ -63,6 +64,23 @@ if [ ! -f "$ENV_FILE" ]; then
   echo "✓ 已生成 $ENV_FILE（含随机密钥，请妥善保管）"
 else
   echo "✓ 使用已有 $ENV_FILE"
+  # A file copied from the example still carries values published with the image, and production
+  # refuses to start on them. Name them here instead of letting the failure surface at boot.
+  # 从示例复制来的文件仍带着随镜像公开的值，而生产会拒绝启动。这里点名它们，而不是让失败等到启动时才出现。
+  PUBLIC_KEYS=""
+  for KEY in JWT_SECRET JWT_REFRESH_SECRET ENCRYPTION_KEY AUDIT_HMAC_KEY DB_PASSWORD POSTGRES_PASSWORD; do
+    VALUE="$(sed -n "s/^${KEY}=//p" "$ENV_FILE" | head -n1)"
+    case "$VALUE" in
+      ""|change-me*|0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef)
+        PUBLIC_KEYS="$PUBLIC_KEYS $KEY" ;;
+    esac
+  done
+  if [ -n "$PUBLIC_KEYS" ]; then
+    echo "✗ $ENV_FILE 仍含公开示例密钥：$PUBLIC_KEYS" >&2
+    echo "  生产会拒绝启动。请逐个换成新值：openssl rand -hex 32" >&2
+    echo "  （DB_PASSWORD 与 POSTGRES_PASSWORD 必须相同；改变 ENCRYPTION_KEY 会让用它加密的旧数据不可读）" >&2
+    exit 1
+  fi
 fi
 
 # ── 3. 生产配置（默认生产模式 + HTTPS）──────────────────────

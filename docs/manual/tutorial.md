@@ -131,6 +131,7 @@ node scripts/keelbase-init.mjs --module books --label 图书 --fields title:stri
 **验证**：浏览器打开 `https://你的域名`（工作台）+ `https://你的域名/mobile`（移动预览）+ `https://你的域名/admin`（管理台），用部署脚本提示的管理员账号登录。
 
 > 生产 HTTPS 需要先准备证书：`mkdir certs && cp 你的证书 certs/server.crt && cp 你的私钥 certs/server.key`。详见 [一键部署](one-click-deploy.md)。
+> 还要在**云控制台的安全组**放行入站 80 与 443（22 供 SSH）；不放行时服务器本机 `curl` 通、外网仍打不开。
 > 快速试部署可不装 Docker 环境，用已发布镜像：`docker run -d -p 80:3000 ghcr.io/rain6fish/keelbase:latest`（生产建议 `-e` 覆盖 JWT/加密密钥）。
 > 内网 / 离线环境：`deploy-offline.sh`（预置镜像、默认降级外部依赖），详见 [离线部署](offline-deploy.md)。
 
