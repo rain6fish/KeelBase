@@ -163,7 +163,7 @@ export function readPomContractVersion(xml) {
   const block = /<properties>([\s\S]*?)<\/properties>/.exec(xml);
   if (!block) return null;
   for (const key of POM_KEYS) {
-    const escaped = key.replace(/\./g, '\\.');
+    const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const m = new RegExp(`<${escaped}>\\s*([^<]+?)\\s*</${escaped}>`).exec(block[1]);
     if (m) return { value: m[1].trim(), site: `embedded pom.xml (<${key}>)` };
   }
