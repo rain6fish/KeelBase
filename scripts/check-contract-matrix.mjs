@@ -17,6 +17,14 @@
  * maintained by hand and are not verified here — a wrong version in one of them is not something this
  * gate will catch.
  *
+ *   node scripts/check-contract-matrix.mjs                # warnings allowed (default)
+ *   node scripts/check-contract-matrix.mjs --fail-ahead   # a pin ahead of its tag fails too
+ *
+ * `--fail-ahead` is for the close-out points — a release preparation or the end of an execution stage —
+ * where "the pin carries contract commits no tag covers" is a fact to stop on rather than a note. The
+ * default stays a warning because between those points it is the normal state (CT-4), and a gate that is
+ * red in the normal state is a gate people learn to ignore.
+ *
  * 兼容矩阵给 `main` 写的契约版本，本闸核对它是否仍成立。
  *
  * README 说的是 submodule pin **实际持有的**东西，而 pin 在契约**每次**有新提交时都会前进 —— 不只在发版时。
@@ -28,6 +36,13 @@
  *
  * 射程：它**只读 TypeScript 的 `main` 行**。历史各行与 `KeelBase4J` 行由人工维护，不在这里核验 ——
  * 其中写错一个版本，本闸不会说话。
+ *
+ *   node scripts/check-contract-matrix.mjs                # 允许告警（默认）
+ *   node scripts/check-contract-matrix.mjs --fail-ahead   # pin 领先 tag 也判红
+ *
+ * `--fail-ahead` 用于收口点 —— 发版准备、或某个执行阶段的收口 —— 在那里「pin 带着没有 tag 覆盖的契约
+ * 提交」是要停下来处理的事实，不是一条注记。默认仍是告警，因为在这些时点之间它就是常态（CT-4），
+ * 而在常态里变红的闸，是人们学会去无视的闸。
  */
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -46,6 +61,22 @@ const READMES = ['README.md', 'README.zh-CN.md'];
 const gitIn = (cwd, args) => execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
 
 const sub = path.join(ROOT, SUB);
+
+/**
+ * Options this gate accepts. An unknown argument is a usage error (exit 2), not silently ignored: a
+ * misspelt `--fail-ahead` would otherwise leave the caller believing it turned the stricter mode on.
+ * 本闸接受的选项。未知参数按用法错误处理（退出 2），不静默忽略：拼错的 `--fail-ahead` 若被吞掉，
+ * 调用方会以为自己打开了更严的模式。
+ */
+let FAIL_AHEAD = false;
+for (const arg of process.argv.slice(2)) {
+  if (arg === '--fail-ahead') FAIL_AHEAD = true;
+  else {
+    console.error(`contract-matrix: unknown argument '${arg}'`);
+    console.error(`  用法 / usage: node scripts/check-contract-matrix.mjs [--fail-ahead]`);
+    process.exit(2);
+  }
+}
 
 // Without this, an uninitialised submodule (an empty directory) makes every `gitIn(sub, …)` below answer
 // about the ENCLOSING repository: `describe --tags` returns this repo's own tag, and the gate then reports a
@@ -168,6 +199,18 @@ if (ahead > 0) {
   console.warn(
     `  （写着的 ${tag} 仍是最新已发布的版本；若要如实说明「已承诺的对象」超出它，可另加一句。告警不阻塞。）`,
   );
+  if (FAIL_AHEAD) {
+    // Same facts, one grade stricter: at a close-out point the caller asked for this to stop the run.
+    // 同一组事实，严一档：收口点上调用方要求它挡住这次运行。
+    console.error(
+      `✗ [contract-matrix] --fail-ahead: the pin carries ${ahead} contract commit(s) past ${tag}; ` +
+        `cut a contract tag (or move the pin back) before closing out.`,
+    );
+    console.error(
+      `✗ [contract-matrix] --fail-ahead：pin 领先 ${tag} ${ahead} 个契约提交；收口前要么在契约仓打 tag，要么把 pin 退回。`,
+    );
+    process.exit(1);
+  }
 } else {
   console.log(`[contract-matrix] OK —— \`main\` 行 = pin 的 tag = ${tag}`);
 }

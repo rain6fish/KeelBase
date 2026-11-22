@@ -14,6 +14,11 @@
  * parent it can name an older tag (2026-11-13: a pin holding v1.22.0 was read as v1.18.0). The gate reads
  * the newest *ancestor* tag instead, and the last case below builds exactly that graph.
  *
+ * A third edge is the grade a pin ahead of its tag gets. The default is a warning — one release window
+ * ahead is the normal state between the moments CT-4 allows a pin to move. `--fail-ahead` raises it to a
+ * failure for close-out points; the cases below pin both grades, plus a misspelt option being a usage
+ * error rather than a silently ignored one.
+ *
  * Each case below builds a throwaway tree shaped like the repo (both READMEs, both gate scripts, and a
  * contract submodule that is a real git repository) and runs the real script against it. The submodule
  * deliberately has no `origin`, so the best-effort fetch fails deterministically: no network, no sleep.
@@ -30,6 +35,10 @@
  * 还有第二条更隐蔽的边：tag 读得出来，但**读错了那个**。`git describe` 按提交日期序遍历，用启发式给
  * tag 排名；当图上某个子提交的日期早于其父提交时，它会把更旧的 tag 说成最近的（2026-11-13：实际含着
  * v1.22.0 的 pin 被读成 v1.18.0）。本闸改读**祖先中版本最高**的 tag，下面最后一个用例就搭这张图。
+ *
+ * 第三条边是「pin 领先 tag」判几档。默认告警 —— 在 CT-4 允许 pin 移动的那些时刻之间，领先一个发版窗口
+ * 就是常态。`--fail-ahead` 把它升成失败，供收口点使用；下面两类用例把两档都钉住，另加一条「拼错的选项
+ * 算用法错误、不静默忽略」。
  *
  * 下列每个用例都搭一棵形如本仓的一次性树（两版 README、两个门禁脚本、以及一个**真 git 仓库**的契约
  * submodule），对它跑**真脚本**。submodule 刻意不配 `origin`，于是那次尽力 fetch 必定失败：不联网、不 sleep。
@@ -155,8 +164,8 @@ function makeDateInvertedTree() {
   return root;
 }
 
-const run = (root) =>
-  spawnSync(process.execPath, [join(root, 'scripts', 'check-contract-matrix.mjs')], {
+const run = (root, args = []) =>
+  spawnSync(process.execPath, [join(root, 'scripts', 'check-contract-matrix.mjs'), ...args], {
     cwd: root,
     encoding: 'utf8',
   });
@@ -194,4 +203,33 @@ test('no tag resolves and the fetch fails: exit 1 with the command that fixes it
   assert.match(r.stderr, new RegExp(`git -C ${SUB} fetch --tags`));
   assert.match(r.stderr, /npm run check:contract-matrix/);
   assert.doesNotMatch(r.stdout, /跳过/);
+});
+
+test('the pin is ahead of its tag and the default grade keeps it a warning: exit 0 — pin 领先 tag 时默认只告警：退出 0', () => {
+  const root = makeDateInvertedTree();
+  const r = run(root);
+  assert.equal(r.status, 0, `${r.stdout}\n${r.stderr}`);
+  assert.match(r.stderr, /pin 领先 tag v1\.15\.0 有 2 个未发布的提交/);
+  assert.doesNotMatch(r.stderr, /--fail-ahead/);
+});
+
+test('--fail-ahead turns a pin ahead of its tag into exit 1 — --fail-ahead 把「pin 领先」判成退出 1', () => {
+  const root = makeDateInvertedTree();
+  const r = run(root, ['--fail-ahead']);
+  assert.equal(r.status, 1, `${r.stdout}\n${r.stderr}`);
+  assert.match(r.stderr, /--fail-ahead：pin 领先 v1\.15\.0 2 个契约提交/);
+});
+
+test('--fail-ahead on a pin that sits on its tag: exit 0 — pin 正落在 tag 上时 --fail-ahead 仍退出 0', () => {
+  const root = makeTree({ tag: 'v1.14.0', version: 'v1.14.0' });
+  const r = run(root, ['--fail-ahead']);
+  assert.equal(r.status, 0, `${r.stdout}\n${r.stderr}`);
+  assert.match(r.stdout, /OK —— `main` 行 = pin 的 tag = v1\.14\.0/);
+});
+
+test('an unknown option is a usage error, not a silently ignored one: exit 2 — 未知选项算用法错误、不静默忽略：退出 2', () => {
+  const root = makeTree({ tag: 'v1.14.0', version: 'v1.14.0' });
+  const r = run(root, ['--fail-ahed']);
+  assert.equal(r.status, 2, `${r.stdout}\n${r.stderr}`);
+  assert.match(r.stderr, /unknown argument '--fail-ahed'/);
 });
