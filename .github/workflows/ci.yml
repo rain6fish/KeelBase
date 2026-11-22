@@ -686,6 +686,58 @@ jobs:
         # base：push 用 event.before；PR 用 base.sha（事件无 before → 回退会导致多提交 PR 误红）
         run: node Server-NestJS/scripts/check-semantic-single-source.mjs --base "${{ github.event.pull_request.base.sha || github.event.before }}"
 
+  # Commit messages are part of what this repository ships: a body that opens Chinese reads wrong in
+  # every later review, and a `Co-Authored-By` trailer is banned outright. The checker judges only the
+  # commits this event adds, never the history behind them — read against the full history it reports
+  # violations from before the rule settled, and a red nobody can clear is a red everyone ignores.
+  # A body with only one language stays a warning; `order`, `interleaved` and `co-authored-by` fail.
+  #
+  # `origin/main` is the base it judges against, and actions/checkout creates no such ref on either
+  # event — it fetches that event's own ref only. One step points `origin/main` at the base each event
+  # names (the pull request's base, or the tip before the push), so CI and `npm run check:commit-order`
+  # run the same command spelling. The checker is a vendored copy of `KeelBase-Vue-Pro`'s; the last step
+  # asserts its digest against `scripts/check-commit-order.vendor.json`, so a local edit that does not
+  # move the pin fails here rather than becoming a silent second version.
+  #
+  # 提交信息也是本仓交付物的一部分：正文以中文开头，在之后的每一次评审里都读着不对；`Co-Authored-By`
+  # trailer 一律不许有。检查器只判这次事件新增的提交，绝不判它背后的历史 —— 拿全史去跑会报出规则定稿前的
+  # 违规，而一道没人清得掉的红只会被所有人无视。单语正文仍是警告；判红的只有 `order`、`interleaved`
+  # 与 `co-authored-by`。
+  #
+  # `origin/main` 是它判的基线，而 actions/checkout 在这两种事件上都不会创建这个引用 —— 它只拉那一次
+  # 事件自己的引用。一个 step 把 `origin/main` 指到事件给出的基线（PR 的基线，或 push 之前的那个尖端），
+  # 于是 CI 与 `npm run check:commit-order` 跑的是同一个命令写法。检查器是 `KeelBase-Vue-Pro` 那一份的
+  # vendored 副本；最后一个 step 把它的摘要对到 `scripts/check-commit-order.vendor.json`，于是「改了本地
+  # 副本却没挪 pin」在这里就红，而不是悄悄多出的第二个版本。
+  commit-order:
+    name: Commit messages keep the bilingual order
+    # A brand-new main has no "commits this push added" — the rule is not retroactive.
+    # 刚创建的 main 没有「这次 push 新增的提交」—— 规矩不追溯。
+    if: >-
+      github.event_name == 'pull_request'
+      || (github.event_name == 'push'
+      && github.event.before != '0000000000000000000000000000000000000000')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # The gate resolves the base commit by name; a shallow clone would not hold it.
+          # 门禁按名字解析基线提交，浅克隆里没有它。
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Point origin/main at the pull request's base
+        if: github.event_name == 'pull_request'
+        run: git update-ref refs/remotes/origin/main ${{ github.event.pull_request.base.sha }}
+      - name: Point origin/main at the push's previous tip
+        if: github.event_name == 'push'
+        run: git update-ref refs/remotes/origin/main ${{ github.event.before }}
+      - name: Commit messages keep the bilingual order
+        run: node scripts/check-commit-order.mjs --base origin/main
+      - name: The vendored copy still matches its pin
+        run: node --test scripts/check-commit-order.test.mjs
+
   # 生成器/导入/映射 CLI 测试（零依赖 node:test，root 跑）——keelbase init 与 OpenAPI/Schema/Business Spec 导入防回归
   cli-test:
     runs-on: ubuntu-latest
