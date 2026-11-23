@@ -123,6 +123,25 @@ function mountView() {
   })
 }
 
+/** 与 mountView 相同，但挂到 document.body —— el-dialog 传送到 body，脱离文档时内容不落地。 */
+function mountViewAttached() {
+  const i18n = createI18n({ legacy: false, locale: 'zh', messages: { zh, en } })
+  return mount(AiToolsView, {
+    attachTo: document.body,
+    global: {
+      plugins: [i18n, ElementPlus],
+      stubs: {
+        PageHeader: true,
+        AppTable: AppTableStub,
+        AppPagination: true,
+        StatusChip: StatusChipStub,
+        ConfirmDialog: ConfirmDialogStub,
+        AppIcon: true,
+      },
+    },
+  })
+}
+
 const emptyClaims = { items: [], total: 0, limit: 100, thresholdMinutes: 60, scope: 'all' as const }
 
 beforeEach(() => {
@@ -278,6 +297,58 @@ describe('AiToolsView', () => {
   })
 
   /**
+   * F-85/F-86: the history is read as a **pair** — each reading carries its place in time and the gap
+   * to the one before it, and the dialog states when the write was claimed so the stretch before the
+   * first ask is visible instead of looking covered.
+   *
+   * F-85/F-86：历史按**一对**读 —— 每条带它在时间上的位置与到上一条的间隔；对话框写明写入时刻，
+   * 让第一次询问之前那段看得见，而不是看起来被覆盖了。
+   */
+  it('F-85：查询历史给出序位、相邻间隔与「写 → 首问」，列表顺序仍是最近在前', async () => {
+    toolsMock.mockResolvedValue([tool])
+    effectsMock.mockResolvedValue({ total: 0, page: 1, limit: 20, items: [] })
+    inFlightMock.mockResolvedValue({
+      ...emptyClaims,
+      items: [
+        { id: 7, userId: '7', toolName: 'proxy_send', argsHash: 'h', status: 'claimed', claimedAt: '2026-11-05T01:00:00Z', ageMinutes: 90, stale: true, attempts: 2, agentId: null, conversationId: null, runId: null, authorizationRef: null, reconcilable: true, lastLookup: null },
+      ],
+      total: 1,
+    })
+    lookupsMock.mockResolvedValue({
+      claimId: 7,
+      toolName: 'proxy_send',
+      claimStatus: 'claimed',
+      claimedAt: '2026-11-05T01:00:00Z',
+      firstLookupAfterWriteSeconds: 3600,
+      total: 2,
+      items: [
+        { id: 2, conclusion: 'executed', reason: null, at: '2026-11-05T02:10:00Z', queryMethod: 'GET', queryPath: '/status/k', lookedUpBy: 'admin', asUserId: '7', seq: 2, intervalSeconds: 600 },
+        { id: 1, conclusion: 'not_executed', reason: null, at: '2026-11-05T02:00:00Z', queryMethod: 'GET', queryPath: '/status/k', lookedUpBy: 'system:sweep', asUserId: '7', seq: 1, intervalSeconds: null },
+      ],
+    })
+
+    const wrapper = mountViewAttached()
+    await flushPromises()
+    const btn = wrapper.find('.in-flight-claims .row-stub .lookup-history-btn')
+    expect(btn.exists()).toBe(true)
+    await btn.trigger('click')
+    await flushPromises()
+    expect(lookupsMock).toHaveBeenCalledWith(7)
+
+    await wrapper.vm.$nextTick()
+    await wrapper.vm.$nextTick()
+    // el-dialog 传送到 body，故读 document.body 而不是 wrapper
+    const dialog = document.body.textContent ?? ''
+    expect(dialog).toContain('#2')
+    expect(dialog).toContain('#1')
+    // 相邻间隔 10 分钟；写 → 首问 1 小时
+    expect(dialog).toContain('10m')
+    expect(dialog).toContain('1h')
+    // 两次是自动清扫 + 人工，读者要能分辨
+    expect(dialog).toContain('system:sweep')
+  })
+
+  /**
    * AW-17: an inconclusive lookup is **not** success. `unknown` renders in the warning tone with its
    * cause, and the row never claims the write ran.
    *
@@ -289,7 +360,7 @@ describe('AiToolsView', () => {
     inFlightMock.mockResolvedValue({
       ...emptyClaims,
       items: [
-        { id: 6, userId: '7', toolName: 'proxy_send', argsHash: 'h', status: 'claimed', claimedAt: '2026-11-05T01:00:00Z', ageMinutes: 90, stale: true, attempts: 1, agentId: null, conversationId: null, runId: null, authorizationRef: null, reconcilable: true, lastLookup: { id: 1, conclusion: 'unknown', reason: 'timeout', at: '2026-11-05T02:00:00Z', queryMethod: 'GET', queryPath: '/status/k', lookedUpBy: '1', asUserId: '7' } },
+        { id: 6, userId: '7', toolName: 'proxy_send', argsHash: 'h', status: 'claimed', claimedAt: '2026-11-05T01:00:00Z', ageMinutes: 90, stale: true, attempts: 1, agentId: null, conversationId: null, runId: null, authorizationRef: null, reconcilable: true, lastLookup: { id: 1, conclusion: 'unknown', reason: 'timeout', at: '2026-11-05T02:00:00Z', queryMethod: 'GET', queryPath: '/status/k', lookedUpBy: '1', asUserId: '7', seq: 1, intervalSeconds: null } },
       ],
       total: 1,
     })

@@ -510,12 +510,20 @@ export interface TargetStatusLookup {
   lookedUpBy: string
   /** Whose identity the query carried (the original writer). / 查询携带的身份（原写入者）。 */
   asUserId: string
+  /** F-85：按时间排的序位，1 = 第一次问（列表本身仍是最近在前）。/ Chronological position; 1 = first ask. */
+  seq: number
+  /** F-85：距上一次询问的秒数；第一次为 null。不是「覆盖了多久」。/ Seconds since the previous ask; null for the first. */
+  intervalSeconds: number | null
 }
 
 export interface ClaimLookupsResponse {
   claimId: number
   toolName: string
   claimStatus: string
+  /** F-85/F-86：这次写什么时候占位的。/ When the write was claimed. */
+  claimedAt: string
+  /** F-85/F-86：从占位到首问的秒数；一次都没问过为 null。/ Seconds from claim to the first ask; null when never asked. */
+  firstLookupAfterWriteSeconds: number | null
   items: TargetStatusLookup[]
   total: number
 }

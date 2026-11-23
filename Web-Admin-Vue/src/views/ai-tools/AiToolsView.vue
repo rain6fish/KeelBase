@@ -176,7 +176,7 @@
           class="text-caption text-medium-emphasis"
           :title="t('targetStatusUnavailable')"
         >{{ t('targetStatusUnavailableShort') }}</span>
-        <el-button text size="small" :title="t('lookupHistory')" @click="openLookupHistory(item)">
+        <el-button text size="small" class="lookup-history-btn" :title="t('lookupHistory')" @click="openLookupHistory(item)">
           <AppIcon icon="mdi-history" />
         </el-button>
       </template>
@@ -346,7 +346,18 @@
       <div class="text-caption text-medium-emphasis mb-2">
         {{ t('lookupHistoryHint', { tool: lookupHistoryClaim?.toolName ?? '' }) }}
       </div>
+      <div v-if="lookupHistory.length" class="text-caption mb-2">
+        <span class="text-medium-emphasis">{{ t('lookupWriteGap') }}：</span>
+        <span>{{ formatGap(lookupFirstGap) }}</span>
+        <span class="text-medium-emphasis"> · {{ formatTime(lookupClaimedAt ?? '') }}</span>
+      </div>
+      <div v-if="lookupHistory.length" class="text-caption text-medium-emphasis mb-2">
+        {{ t('lookupPairHint') }}
+      </div>
       <el-table v-if="lookupHistory.length" :data="lookupHistory" size="small">
+        <el-table-column :label="t('lookupSeq')" width="70">
+          <template #default="{ row }">#{{ row.seq }}</template>
+        </el-table-column>
         <el-table-column :label="t('lookupAt')">
           <template #default="{ row }">{{ formatTime(row.at) }}</template>
         </el-table-column>
@@ -355,6 +366,9 @@
             <el-tag size="small" effect="light" :type="lookupTagType(row)">{{ lookupLabel(row) }}</el-tag>
             <div v-if="row.reason" class="text-caption text-warning">{{ lookupReasonLabel(row.reason) }}</div>
           </template>
+        </el-table-column>
+        <el-table-column :label="t('lookupInterval')" width="110">
+          <template #default="{ row }">{{ formatGap(row.intervalSeconds) }}</template>
         </el-table-column>
         <el-table-column prop="lookedUpBy" :label="t('lookupBy')" width="110" />
         <el-table-column prop="queryPath" :label="t('lookupPath')" />
@@ -462,6 +476,17 @@ function lookupTagType(l: TargetStatusLookup): 'primary' | 'info' | 'warning' {
   if (l.conclusion === 'executed') return 'primary'
   if (l.conclusion === 'not_executed') return 'info'
   return 'warning'
+}
+
+/** 秒 → 人读；`null` 表示「没有上一次」或「从没问过」，不写 0。 */
+function formatGap(seconds: number | null): string {
+  if (seconds == null) return '—'
+  if (seconds < 60) return `${seconds}s`
+  const m = Math.floor(seconds / 60)
+  if (m < 60) return `${m}m`
+  const h = Math.floor(m / 60)
+  const rest = m % 60
+  return rest ? `${h}h ${rest}m` : `${h}h`
 }
 
 function lookupLabel(l: TargetStatusLookup): string {
@@ -711,6 +736,9 @@ const reconcilingId = ref<number | null>(null)
 const showLookupHistory = ref(false)
 const lookupHistory = ref<TargetStatusLookup[]>([])
 const lookupHistoryClaim = ref<InFlightClaim | null>(null)
+/** F-85/F-86：写→首问这一段才是盲区上界，和每条之间的间隔分开显示。 */
+const lookupClaimedAt = ref<string | null>(null)
+const lookupFirstGap = ref<number | null>(null)
 
 const RECONCILE_REFUSAL_KEYS: Record<string, string> = {
   not_stale: 'reconcileNotStale',
@@ -767,8 +795,12 @@ async function loadLookupHistory(item: InFlightClaim) {
   try {
     const res = await aiToolsApi.claimLookups(item.id)
     lookupHistory.value = res.items
+    lookupClaimedAt.value = res.claimedAt
+    lookupFirstGap.value = res.firstLookupAfterWriteSeconds
   } catch (err) {
     lookupHistory.value = []
+    lookupClaimedAt.value = null
+    lookupFirstGap.value = null
     snackbar.error(err instanceof Error ? err.message : t('loadFailed'))
   }
 }
