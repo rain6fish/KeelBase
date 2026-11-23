@@ -215,12 +215,34 @@ export class WriteClaimQueryService {
       where: { idempotencyKey: claim.idempotencyKey },
       order: { at: 'DESC', id: 'DESC' },
     });
+    // F-85: what a reviewer reads is the **pair**, not a row. The list keeps its declared newest-first
+    // order, but each row carries its chronological position and the gap to the ask before it, and the
+    // claim carries when it was written — without the write time, the stretch before the first ask gets
+    // read as covered, and nothing covered it.
+    //
+    // F-85：审阅者读的是**一对**，不是一行。列表保持已声明的「新在前」顺序，但每条带上按时间排的序位、
+    // 到上一次询问的间隔，占位再带上写入时刻 —— 少了写入时刻，第一次询问之前那段就会被读成「覆盖过了」，
+    // 而它什么都没覆盖。
+    const chrono = [...rows].sort((a, b) => a.at.getTime() - b.at.getTime() || a.id - b.id);
+    const positionOf = new Map<number, { seq: number; intervalSeconds: number | null }>();
+    chrono.forEach((l, i) => {
+      const prev = i === 0 ? null : chrono[i - 1];
+      positionOf.set(l.id, {
+        seq: i + 1,
+        intervalSeconds: prev ? Math.round((l.at.getTime() - prev.at.getTime()) / 1000) : null,
+      });
+    });
+    const first = chrono[0] ?? null;
     return {
       claimId: claim.id,
       toolName: claim.toolName,
       claimStatus: claim.status,
+      claimedAt: claim.claimedAt.toISOString(),
+      firstLookupAfterWriteSeconds: first
+        ? Math.round((first.at.getTime() - claim.claimedAt.getTime()) / 1000)
+        : null,
       total: rows.length,
-      items: rows.map((l) => this.projectLookup(l)),
+      items: rows.map((l) => ({ ...this.projectLookup(l), ...positionOf.get(l.id)! })),
     };
   }
 
@@ -448,13 +470,44 @@ export interface TargetStatusLookupView {
   asUserId: string;
 }
 
+/**
+ * F-85: one reading as it sits in a **sequence**. The base view answers "what did the target say"; this
+ * adds "where in time it sat" and "how long we were blind before it" — the two things that turn a set of
+ * rows into a pair a reviewer can read.
+ *
+ * F-85：一条读数在**序列**里的位置。基础视图回答「目标说了什么」，这一层加上「它在时间上的位置」与
+ * 「在它之前我们盲了多久」—— 把一组行变成审阅者读得懂的一对，靠的正是这两样。
+ */
+export interface TargetStatusLookupPositionedView extends TargetStatusLookupView {
+  /** Position in chronological order — 1 is the first ask. / 按时间排的序位 —— 1 是第一次询问。 */
+  seq: number;
+  /**
+   * Seconds since the previous ask; `null` for the first one. Reads as "how long we were blind between
+   * the two", not as coverage — nothing between the samples was observed.
+   *
+   * 距上一次询问的秒数；第一次为 `null`。读法是「两次之间盲了多久」，不是「覆盖了多久」——
+   * 两次采样之间什么都没观察到。
+   */
+  intervalSeconds: number | null;
+}
+
 /** AW-17: one claim's lookup history, newest first. / 一条占位的查询历史，最近的在前。 */
 export interface ClaimLookupsResult {
   claimId: number;
   toolName: string;
   /** The claim's status at read time — so a converged row is not read as still in flight. / 读取时的占位状态。 */
   claimStatus: string;
-  items: TargetStatusLookupView[];
+  /**
+   * F-85 / F-86: when the write was claimed. Without it the gap between "the write" and "the first ask"
+   * is invisible, and a first ask an hour later looks like an hour of coverage.
+   *
+   * F-85 / F-86：这次写是什么时候占位的。没有它，「写」到「第一次问」之间那段就看不见 ——
+   * 而第一次问若在一小时后，看起来就像覆盖了一小时。
+   */
+  claimedAt: string;
+  /** F-85 / F-86: seconds from `claimedAt` to the first ask; `null` when nobody ever asked. / 从占位到首问的秒数；一次都没问过为 `null`。 */
+  firstLookupAfterWriteSeconds: number | null;
+  items: TargetStatusLookupPositionedView[];
   total: number;
 }
 

@@ -380,6 +380,42 @@ describe('AW-16 在途 claim 只读查询面', () => {
       expect(res?.total).toBe(2);
     });
 
+    it('F-85：两条读数能读成一对 —— 序位按时间、相邻给间隔、并给出「写 → 首问」', async () => {
+      const row = await claim({
+        idempotencyKey: 'pair',
+        toolName: 'proxy_send',
+        claimedAt: new Date('2026-11-01T00:00:00Z'),
+      });
+      const first = await lookup('pair', { conclusion: 'not_executed', reason: null, lookedUpBy: 'system:sweep' });
+      const second = await lookup('pair', { conclusion: 'executed', reason: null });
+      await lookups().update(first.id, { at: new Date('2026-11-01T01:00:00Z') });
+      await lookups().update(second.id, { at: new Date('2026-11-01T01:10:00Z') });
+
+      const res = await service.lookupsFor(row.id, { userId: 1, role: UserRole.ADMIN });
+
+      // 列表顺序没变（仍是新在前，声明过的那条契约），变的是每行能读出自己在时间上的位置。
+      expect(res?.items.map((l) => l.conclusion)).toEqual(['executed', 'not_executed']);
+      expect(res?.items[0]).toMatchObject({ seq: 2, intervalSeconds: 600, lookedUpBy: 'admin-1' });
+      expect(res?.items[1]).toMatchObject({ seq: 1, intervalSeconds: null, lookedUpBy: 'system:sweep' });
+      // 「写 → 首问」一小时：这一段是盲区上界，不是覆盖。
+      expect(res?.claimedAt).toBe('2026-11-01T00:00:00.000Z');
+      expect(res?.firstLookupAfterWriteSeconds).toBe(3600);
+    });
+
+    it('F-85：一次都没问过 ⇒ 首问间隔为 `null`，不造一个 0', async () => {
+      const row = await claim({
+        idempotencyKey: 'never-asked-2',
+        toolName: 'proxy_send',
+        claimedAt: new Date('2026-11-01T00:00:00Z'),
+      });
+
+      const res = await service.lookupsFor(row.id, { userId: 1, role: UserRole.ADMIN });
+
+      expect(res?.total).toBe(0);
+      expect(res?.claimedAt).toBe('2026-11-01T00:00:00.000Z');
+      expect(res?.firstLookupAfterWriteSeconds).toBeNull();
+    });
+
     it('**反向**：范围外的 claim ⇒ `null`（调用方 404，不泄露存在性）', async () => {
       const other = await claim({ idempotencyKey: 'other', userId: '9' });
       await lookup('other', { asUserId: '9' });
