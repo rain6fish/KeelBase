@@ -10,6 +10,7 @@ import {
   WRITE_CLAIM_STATUS,
 } from '../entities/ai-write-claim.entity';
 import { staleThresholdMinutes } from '../../governance-core/revoke-staleness';
+import { TargetStatusLookupRow } from '../entities/target-status-lookup.entity';
 import { AuditService } from './audit.service';
 
 /**
@@ -50,8 +51,28 @@ import { AuditService } from './audit.service';
  */
 @Injectable()
 export class WriteClaimDecisionService {
+  /**
+   * F-85b: how many of the most recent readings the release row carries. Three because the question a
+   * reviewer asks of a released hold is "did we ask, and what did it say" — the latest few answer it
+   * without turning one audit row into a copy of the whole history (`/lookups` still serves that).
+   *
+   * F-85b：释放行里带最近几次读数，取三。审阅者对一条已释放占位要问的是「问过没有、它怎么答的」——
+   * 最近几次足以回答，又不至于把一条审计行变成整份历史的副本（整份历史仍由 `/lookups` 提供）。
+   */
+  private static readonly RELEASE_DETAIL_LOOKUPS = 3;
+
   constructor(
     @InjectRepository(AiWriteClaim) private readonly claimsRepo: Repository<AiWriteClaim>,
+    /**
+     * AW-17 / F-85b: the lookup evidence trail. **Not optional**, for the same reason the read side
+     * made it required: an absent store would make every release row say "never queried", which is a
+     * claim about the record rather than about the wiring. A missing repository is a wiring bug.
+     *
+     * AW-17 / F-85b：查询证据历史。**不是可选的**，理由与读侧相同：仓储缺席会让每条释放行都说
+     * 「未查询」—— 那是关于记录的一句话，而不是关于接线的。缺仓储是接线缺陷。
+     */
+    @InjectRepository(TargetStatusLookupRow)
+    private readonly lookupsRepo: Repository<TargetStatusLookupRow>,
     private readonly auditService: AuditService,
     // Optional like every other threshold reader: a hand-built assembly falls back to the Joi default.
     // 与其他阈值读取处一样是可选的：手工装配的场合回落到 Joi 默认值。
@@ -155,6 +176,25 @@ export class WriteClaimDecisionService {
         : this.refusal('not_found', claim);
     }
 
+    // F-85b: what was asked of the target, and what it answered, belongs on the decision row itself.
+    // A reviewer closing the case needs the evidence in the same place as the decision — otherwise
+    // "asked and got nothing" and "never asked" read alike from the audit trail. This is a reading,
+    // not a gate: a hold is releasable after zero asks (a target without a status endpoint would
+    // otherwise never be releasable).
+    //
+    // F-85b：问过目标什么、它怎么答的，要落在决定行本身。收案的人需要证据与决定在同一处 —— 否则从
+    // 审计轨迹上看，「问过没答案」与「从没问过」长得一样。这是读数、不是门槛：一次没问也照样可释放
+    //（否则没有状态端点的目标将永远无法释放）。
+    const key = { idempotencyKey: claim.idempotencyKey };
+    const [lookupCount, recentLookups] = await Promise.all([
+      this.lookupsRepo.count({ where: key }),
+      this.lookupsRepo.find({
+        where: key,
+        order: { at: 'DESC', id: 'DESC' },
+        take: WriteClaimDecisionService.RELEASE_DETAIL_LOOKUPS,
+      }),
+    ]);
+
     // The act itself is the record. Awaited, and a failure is reported rather than swallowed: the
     // state change already happened, and pretending it was silent would be the worse lie.
     // 动作本身即记录。await 且不吞失败：状态已经改了，假装它没发生过是更糟的谎言。
@@ -167,7 +207,7 @@ export class WriteClaimDecisionService {
       tool: claim.toolName,
       // No `outcome`: this row is not a tool verdict, and the conclusion deliberately stays unknown.
       // 不传 `outcome`：这一行不是工具结局，而结论有意保持未知。
-      detail: this._detail(claim, input),
+      detail: this._detail(claim, input, lookupCount, recentLookups),
       source: 'claim_release',
     });
 
@@ -195,9 +235,34 @@ export class WriteClaimDecisionService {
     };
   }
 
-  private _detail(claim: AiWriteClaim, input: ReleaseClaimInput): string {
+  /**
+   * F-85b: the decision row carries the readings that justify it — how often the target was asked and
+   * what the latest asks said. "Never asked" is written out in words, so an absent history cannot be
+   * read as a silent default; every reading names its conclusion, its cause when `unknown`, and who
+   * asked, so the row answers "who found out, and how" without a join.
+   *
+   * F-85b：决定行带上支撑它的读数 —— 目标被问过几次、最近几次怎么答的。「从未问过」**明写**出来，
+   * 于是空历史不会被当默认值读过去；每条读数都点名结论、`unknown` 时的成因、以及谁问的，于是这一行
+   * 不必联接就能回答「谁查清楚、怎么查的」。
+   */
+  private _detail(
+    claim: AiWriteClaim,
+    input: ReleaseClaimInput,
+    lookupCount: number,
+    recentLookups: TargetStatusLookupRow[],
+  ): string {
     const evidence = input.evidenceRef ? `; evidence: ${input.evidenceRef}` : '';
-    return `release write claim #${claim.id} (${claim.toolName}, as user ${claim.userId}) → closed_unknown; note: ${input.note}${evidence}`;
+    const lookups =
+      lookupCount === 0
+        ? 'lookups: none (never queried)'
+        : `lookups: ${lookupCount} asked, newest first (${recentLookups.length} of ${lookupCount}): ` +
+          recentLookups
+            .map(
+              (l) =>
+                `${l.at.toISOString()} ${l.conclusion}${l.reason ? `/${l.reason}` : ''} by ${l.lookedUpBy}`,
+            )
+            .join(' | ');
+    return `release write claim #${claim.id} (${claim.toolName}, as user ${claim.userId}) → closed_unknown; note: ${input.note}${evidence}; ${lookups}`;
   }
 }
 

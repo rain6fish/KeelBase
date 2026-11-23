@@ -7,6 +7,7 @@ import {
   WRITE_CLAIM_STATUS,
 } from '../entities/ai-write-claim.entity';
 import { AiAuditLog } from '../entities/ai-audit-log.entity';
+import { TargetStatusLookupRow } from '../entities/target-status-lookup.entity';
 import { AuditChainService } from '../../common/audit-chain/audit-chain.service';
 import { AuditService } from './audit.service';
 import { buildKey } from './effect-shared';
@@ -44,6 +45,8 @@ describe('AW-16 F-63/F-64：释放程序与过期策略', () => {
 
   const repo = () => ds.getRepository(AiWriteClaim);
   const auditRepo = () => ds.getRepository(AiAuditLog);
+  /** F-85b: the lookup evidence rows the release row must summarise. / 释放行须概括的查询证据行。 */
+  const lookups = () => ds.getRepository(TargetStatusLookupRow);
   /** The read side over the same rows — so "disappeared from the list" is asserted on the real query. */
   // AW-17 合并后 `lookupsRepo` 是必选注入（缺它会把「问过」读成「没问过」）⇒ 这里给一个空历史。
   // After the AW-17 merge `lookupsRepo` is a required injection; an empty history is enough here.
@@ -73,11 +76,40 @@ describe('AW-16 F-63/F-64：释放程序与过期策略', () => {
   /** Read the row back from the database — the entity's in-memory default is not evidence. */
   const load = (id: number) => repo().findOneByOrFail({ id });
 
+  /**
+   * F-85b: one lookup evidence row. `at` is written explicitly (CreateDateColumn would otherwise stamp
+   * "now") so the order the release row reports is the order this test intended.
+   *
+   * F-85b：一条查询证据行。`at` 显式写入（否则 CreateDateColumn 会盖上「此刻」），于是释放行报出的
+   * 顺序就是本用例指定的顺序。
+   */
+  const seedLookup = async (
+    idempotencyKey: string,
+    at: Date,
+    over: Partial<TargetStatusLookupRow> = {},
+  ): Promise<TargetStatusLookupRow> => {
+    const saved = await lookups().save(
+      lookups().create({
+        idempotencyKey,
+        toolName: 'send_email',
+        lookedUpBy: 'admin-2',
+        asUserId: '7',
+        queryMethod: 'GET',
+        queryPath: `/actions/${idempotencyKey}`,
+        conclusion: 'not_executed',
+        reason: null,
+        ...over,
+      }),
+    );
+    await lookups().update(saved.id, { at });
+    return saved;
+  };
+
   beforeEach(async () => {
     ds = new DataSource({
       type: 'better-sqlite3',
       database: ':memory:',
-      entities: [AiWriteClaim, AiAuditLog],
+      entities: [AiWriteClaim, AiAuditLog, TargetStatusLookupRow],
       synchronize: true,
     });
     await ds.initialize();
@@ -85,6 +117,7 @@ describe('AW-16 F-63/F-64：释放程序与过期策略', () => {
     audit = new AuditService(auditRepo(), chain, ds);
     service = new WriteClaimDecisionService(
       repo(),
+      lookups(),
       audit,
       { get: (k: string) => (k === 'REVOKE_STALE_MINUTES' ? 60 : undefined) } as never,
     );
@@ -127,6 +160,42 @@ describe('AW-16 F-63/F-64：释放程序与过期策略', () => {
       const closed = await query().list({ decisionState: 'closed_unknown' });
       expect(closed.total).toBe(1);
       expect(closed.items[0].decisionState).toBe(WRITE_CLAIM_DECISION_STATE.CLOSED_UNKNOWN);
+    });
+
+    it('F-85b：问过两次（都说没执行）后释放 ⇒ 审计行读得出「两次都答 not_executed」，最近在前', async () => {
+      const claim = await seed();
+      await seedLookup(claim.idempotencyKey, new Date('2026-11-22T10:00:00Z'));
+      await seedLookup(claim.idempotencyKey, new Date('2026-11-22T12:00:00Z'));
+
+      const res = await service.release(
+        claim.id,
+        { userId: 'admin-1', username: 'ops-admin' },
+        { note: '两次目标查询都说没执行，键仍保留' },
+      );
+
+      expect(res.outcome).toBe('released_unknown');
+      const detail = (await auditRepo().findOneByOrFail({ action: 'claim_release' })).detail!;
+      expect(detail).toContain('lookups: 2 asked');
+      // 两次读数都写进同一行，且各说「没执行」—— 审阅者不必再去联接查询表。
+      expect(detail.match(/not_executed/g)).toHaveLength(2);
+      expect(detail).toContain('by admin-2');
+      expect(detail).not.toContain('never queried');
+      // 新在前：12:00 的那条先出现。
+      expect(detail.indexOf('2026-11-22T12:00:00.000Z')).toBeLessThan(
+        detail.indexOf('2026-11-22T10:00:00.000Z'),
+      );
+    });
+
+    it('F-85b：从未问过就释放 ⇒ 审计行**明写未查询**，不留空当默认', async () => {
+      const claim = await seed();
+
+      const res = await service.release(claim.id, { userId: 'admin-1' }, { note: '目标无状态端点，直接释放' });
+
+      expect(res.outcome).toBe('released_unknown');
+      const detail = (await auditRepo().findOneByOrFail({ action: 'claim_release' })).detail!;
+      expect(detail).toContain('lookups: none (never queried)');
+      // 没有查询读数，就不能出现任何结论词 —— 空历史不是答案。
+      expect(detail).not.toMatch(/executed/);
     });
 
     it('待裁队列里的行可以被释放（队列可处置）', async () => {
