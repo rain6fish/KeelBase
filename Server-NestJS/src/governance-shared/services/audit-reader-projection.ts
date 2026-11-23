@@ -70,6 +70,7 @@ export const AUDIT_READER_ROW_FIELDS = [
   'createdAt',
   'businessEvent',
   'evidence',
+  'releaseLookups',
 ] as const satisfies ReadonlyArray<keyof AiAuditLogWithUser>;
 
 /**
@@ -103,6 +104,7 @@ export const AUDIT_READER_ENTITY_FIELDS = [
   'authorization',
   'businessEvent',
   'evidence',
+  'releaseLookups',
   'createdAt',
   'prevHash',
   'hash',
