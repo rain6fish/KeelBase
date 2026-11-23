@@ -147,6 +147,34 @@ export class WriteClaimDecisionService {
       return this.refusal('not_stale', claim);
     }
 
+    // F-85b: what was asked of the target, and what it answered, belongs on the decision row itself.
+    // A reviewer closing the case needs the evidence in the same place as the decision — otherwise
+    // "asked and got nothing" and "never asked" read alike from the audit trail. This is a reading,
+    // not a gate: a hold is releasable after zero asks (a target without a status endpoint would
+    // otherwise never be releasable).
+    //
+    // Read **before** the conditional update: if this read fails, the path leaves nothing half-done —
+    // the claim keeps its state and no audit row is missing. Read after the update it would, and the
+    // ledger would claim a decision whose record does not exist.
+    //
+    // F-85b：问过目标什么、它怎么答的，要落在决定行本身。收案的人需要证据与决定在同一处 —— 否则从
+    // 审计轨迹上看，「问过没答案」与「从没问过」长得一样。这是读数、不是门槛：一次没问也照样可释放
+    //（否则没有状态端点的目标将永远无法释放）。
+    //
+    // 在条件更新**之前**读取：读失败时这条路径什么都没留下 —— 占位保持原状、也没有「缺了记录的
+    // 决定」。放到更新之后，就会留下一条有决定、无记录的账。
+    const key = { idempotencyKey: claim.idempotencyKey };
+    // Sequential, not `Promise.all`: a synchronous throw from the second call would leave the first
+    // promise unhandled. One extra round trip on a rare path is cheaper than that failure mode.
+    // 顺序读取，不用 `Promise.all`：第二个调用若同步抛出，第一个 promise 会变成未处理的拒绝。这条
+    // 稀有路径上多一次往返，比那种失败形态便宜。
+    const lookupCount = await this.lookupsRepo.count({ where: key });
+    const recentLookups = await this.lookupsRepo.find({
+      where: key,
+      order: { at: 'DESC', id: 'DESC' },
+      take: WriteClaimDecisionService.RELEASE_DETAIL_LOOKUPS,
+    });
+
     // Conditional on both the status and the handling state: a concurrent settle/reconcile wins this
     // write, and we report what actually happened rather than stamping over it.
     // 同时以状态与处置状态为条件：并发的落定 / 对账赢下这次写，我们如实报出实际发生的事，而不是盖掉它。
@@ -175,25 +203,6 @@ export class WriteClaimDecisionService {
           )
         : this.refusal('not_found', claim);
     }
-
-    // F-85b: what was asked of the target, and what it answered, belongs on the decision row itself.
-    // A reviewer closing the case needs the evidence in the same place as the decision — otherwise
-    // "asked and got nothing" and "never asked" read alike from the audit trail. This is a reading,
-    // not a gate: a hold is releasable after zero asks (a target without a status endpoint would
-    // otherwise never be releasable).
-    //
-    // F-85b：问过目标什么、它怎么答的，要落在决定行本身。收案的人需要证据与决定在同一处 —— 否则从
-    // 审计轨迹上看，「问过没答案」与「从没问过」长得一样。这是读数、不是门槛：一次没问也照样可释放
-    //（否则没有状态端点的目标将永远无法释放）。
-    const key = { idempotencyKey: claim.idempotencyKey };
-    const [lookupCount, recentLookups] = await Promise.all([
-      this.lookupsRepo.count({ where: key }),
-      this.lookupsRepo.find({
-        where: key,
-        order: { at: 'DESC', id: 'DESC' },
-        take: WriteClaimDecisionService.RELEASE_DETAIL_LOOKUPS,
-      }),
-    ]);
 
     // The act itself is the record. Awaited, and a failure is reported rather than swallowed: the
     // state change already happened, and pretending it was silent would be the worse lie.

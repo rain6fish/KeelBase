@@ -198,6 +198,30 @@ describe('AW-16 F-63/F-64：释放程序与过期策略', () => {
       expect(detail).not.toMatch(/executed/);
     });
 
+    it('F-85b：证据读取失败 ⇒ 状态未改、无审计行（读取在条件更新之前）', async () => {
+      const claim = await seed();
+      const failing = new WriteClaimDecisionService(
+        repo(),
+        {
+          count: async () => {
+            throw new Error('lookup store down');
+          },
+        } as never,
+        audit,
+        { get: (k: string) => (k === 'REVOKE_STALE_MINUTES' ? 60 : undefined) } as never,
+      );
+
+      await expect(
+        failing.release(claim.id, { userId: 'admin-1' }, { note: '读取应失败' }),
+      ).rejects.toThrow('lookup store down');
+
+      // 读在更新之前：失败时这条路径什么都没留下 —— 没有「有决定、无记录」的账。
+      const row = await load(claim.id);
+      expect(row.decisionState).toBe(WRITE_CLAIM_DECISION_STATE.OPEN);
+      expect(row.releaseReason ?? null).toBeNull();
+      expect(await auditRepo().count()).toBe(0);
+    });
+
     it('待裁队列里的行可以被释放（队列可处置）', async () => {
       const claim = await seed({ decisionState: WRITE_CLAIM_DECISION_STATE.AWAITING_DECISION });
 
