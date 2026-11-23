@@ -69,6 +69,8 @@ export interface AuditEntry {
    * 本行不重新序列化、也不截断。
    */
   toolArgs?: string;
+  /** F-85b：释放决定的查询证据（JSON，链外列）。/ F-85b: the release decision's query evidence (JSON, off-chain). */
+  releaseLookups?: string;
 }
 
 
@@ -193,6 +195,7 @@ export class AuditService {
       // P0-19: same stance as the two above — the row, never the payload.
       // P0-19：与上面两列同一立场 —— 去的是**行**，不进 payload。
       toolArgs: entry.toolArgs,
+      releaseLookups: entry.releaseLookups,
       payloadVersion: 2,
     };
 

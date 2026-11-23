@@ -216,7 +216,18 @@ export class WriteClaimDecisionService {
       tool: claim.toolName,
       // No `outcome`: this row is not a tool verdict, and the conclusion deliberately stays unknown.
       // 不传 `outcome`：这一行不是工具结局，而结论有意保持未知。
-      detail: this._detail(claim, input, lookupCount, recentLookups),
+      detail: this._detail(claim, input, lookupCount),
+      // F-85b: the readings as data, off-chain — the prose above says how many, this says which.
+      // F-85b：读数以数据形式落库、且在链外 —— 上面的散文说几次，这里说哪几次。
+      releaseLookups: JSON.stringify({
+        count: lookupCount,
+        items: recentLookups.map((l) => ({
+          at: l.at.toISOString(),
+          conclusion: l.conclusion,
+          reason: l.reason ?? null,
+          lookedUpBy: l.lookedUpBy,
+        })),
+      }),
       source: 'claim_release',
     });
 
@@ -258,19 +269,15 @@ export class WriteClaimDecisionService {
     claim: AiWriteClaim,
     input: ReleaseClaimInput,
     lookupCount: number,
-    recentLookups: TargetStatusLookupRow[],
   ): string {
     const evidence = input.evidenceRef ? `; evidence: ${input.evidenceRef}` : '';
+    // F-85b: the count stays in prose (a person reading the row needs it), the readings themselves go
+    // to the structured column — one place, not two spellings of the same list.
+    // F-85b：次数留在散文里（读行的人要先知道问过几次），读数本身进结构化列 —— 一份数据，不写两遍。
     const lookups =
       lookupCount === 0
         ? 'lookups: none (never queried)'
-        : `lookups: ${lookupCount} asked, newest first (${recentLookups.length} of ${lookupCount}): ` +
-          recentLookups
-            .map(
-              (l) =>
-                `${l.at.toISOString()} ${l.conclusion}${l.reason ? `/${l.reason}` : ''} by ${l.lookedUpBy}`,
-            )
-            .join(' | ');
+        : `lookups: ${lookupCount} asked (see releaseLookups)`;
     return `release write claim #${claim.id} (${claim.toolName}, as user ${claim.userId}) → closed_unknown; note: ${input.note}${evidence}; ${lookups}`;
   }
 }

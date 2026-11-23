@@ -174,16 +174,20 @@ describe('AW-16 F-63/F-64：释放程序与过期策略', () => {
       );
 
       expect(res.outcome).toBe('released_unknown');
-      const detail = (await auditRepo().findOneByOrFail({ action: 'claim_release' })).detail!;
-      expect(detail).toContain('lookups: 2 asked');
-      // 两次读数都写进同一行，且各说「没执行」—— 审阅者不必再去联接查询表。
-      expect(detail.match(/not_executed/g)).toHaveLength(2);
-      expect(detail).toContain('by admin-2');
-      expect(detail).not.toContain('never queried');
-      // 新在前：12:00 的那条先出现。
-      expect(detail.indexOf('2026-11-22T12:00:00.000Z')).toBeLessThan(
-        detail.indexOf('2026-11-22T10:00:00.000Z'),
-      );
+      const row = await auditRepo().findOneByOrFail({ action: 'claim_release' });
+      // 散文只留次数：读行的人先知道「问过两次」。
+      expect(row.detail).toContain('lookups: 2 asked (see releaseLookups)');
+      expect(row.detail).not.toContain('never queried');
+      // 读数本身进结构化列，最近在前 —— 不必解析 detail、也不必再联接查询表。
+      const structured = JSON.parse(row.releaseLookups!) as {
+        count: number;
+        items: Array<{ at: string; conclusion: string; lookedUpBy: string }>;
+      };
+      expect(structured.count).toBe(2);
+      expect(structured.items.map((i) => i.conclusion)).toEqual(['not_executed', 'not_executed']);
+      expect(structured.items[0].at).toBe('2026-11-22T12:00:00.000Z');
+      expect(structured.items[1].at).toBe('2026-11-22T10:00:00.000Z');
+      expect(structured.items[0].lookedUpBy).toBe('admin-2');
     });
 
     it('F-85b：从未问过就释放 ⇒ 审计行**明写未查询**，不留空当默认', async () => {
@@ -192,10 +196,12 @@ describe('AW-16 F-63/F-64：释放程序与过期策略', () => {
       const res = await service.release(claim.id, { userId: 'admin-1' }, { note: '目标无状态端点，直接释放' });
 
       expect(res.outcome).toBe('released_unknown');
-      const detail = (await auditRepo().findOneByOrFail({ action: 'claim_release' })).detail!;
-      expect(detail).toContain('lookups: none (never queried)');
+      const row = await auditRepo().findOneByOrFail({ action: 'claim_release' });
+      expect(row.detail).toContain('lookups: none (never queried)');
       // 没有查询读数，就不能出现任何结论词 —— 空历史不是答案。
-      expect(detail).not.toMatch(/executed/);
+      expect(row.detail).not.toMatch(/executed/);
+      // 结构化列仍写出来，但为空列表：读的人看到的是「问过 0 次」，不是「这一列没有」。
+      expect(JSON.parse(row.releaseLookups!)).toEqual({ count: 0, items: [] });
     });
 
     it('F-85b：证据读取失败 ⇒ 状态未改、无审计行（读取在条件更新之前）', async () => {
