@@ -1207,6 +1207,10 @@ const zh = {
   lookupInterval: '距上次',
   lookupWriteGap: '写 → 首问',
   lookupPairHint: '读的是「一对」：间隔只说明两次之间盲了多久，不说明期间发生了什么。',
+  lookupCoverageGap:
+    '覆盖：首问之前的 {gap} 完全没有观测 —— 计划在占位后 {plan} 才首次询问。两次读数之间同样没有观测，读数只是时间点采样。',
+  lookupCoverageNone:
+    '覆盖：还没有任何读数 —— 占位以来的 {gap} 全部未观测（计划在占位后 {plan} 才首次询问）。第一次读数只是一个采样点，不是在此之前发生过什么的记录。',
   lookupExecuted: '已执行',
   lookupNotExecuted: '未执行',
   lookupUnknown: '未知',

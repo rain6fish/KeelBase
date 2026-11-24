@@ -320,6 +320,12 @@ describe('AiToolsView', () => {
       claimStatus: 'claimed',
       claimedAt: '2026-11-05T01:00:00Z',
       firstLookupAfterWriteSeconds: 3600,
+      coverage: {
+        basis: 'until-first-lookup',
+        unobservedSeconds: 3600,
+        observedFrom: '2026-11-05T02:00:00Z',
+        expectedFirstAskAfterMinutes: 60,
+      },
       total: 2,
       items: [
         { id: 2, conclusion: 'executed', reason: null, at: '2026-11-05T02:10:00Z', queryMethod: 'GET', queryPath: '/status/k', lookedUpBy: 'admin', asUserId: '7', seq: 2, intervalSeconds: 600 },
@@ -346,6 +352,53 @@ describe('AiToolsView', () => {
     expect(dialog).toContain('1h')
     // 两次是自动清扫 + 人工，读者要能分辨
     expect(dialog).toContain('system:sweep')
+    // R-2：声明直说首问之前那一小时没有观测，预期等待读自服务端给出的计划。
+    expect(dialog).toContain('首问之前的 1h 完全没有观测')
+    expect(dialog).toContain('计划在占位后 1h 才首次询问')
+  })
+
+  /**
+   * R-2: with no reading at all the coverage line must still speak — "everything so far is
+   * unobserved" — instead of collapsing to the empty-state text alone.
+   *
+   * R-2：一条读数都没有时，覆盖声明仍要说话 —— 「占位以来全部未观测」，而不是只剩空状态文字。
+   */
+  it('R-2：无读数时声明「占位以来全部未观测」，不留空', async () => {
+    toolsMock.mockResolvedValue([tool])
+    effectsMock.mockResolvedValue({ total: 0, page: 1, limit: 20, items: [] })
+    inFlightMock.mockResolvedValue({
+      ...emptyClaims,
+      items: [
+        { id: 8, userId: '7', toolName: 'proxy_send', argsHash: 'h', status: 'claimed', claimedAt: '2026-11-05T01:00:00Z', ageMinutes: 90, stale: true, attempts: 0, agentId: null, conversationId: null, runId: null, authorizationRef: null, reconcilable: true, lastLookup: null },
+      ],
+      total: 1,
+    })
+    lookupsMock.mockResolvedValue({
+      claimId: 8,
+      toolName: 'proxy_send',
+      claimStatus: 'claimed',
+      claimedAt: '2026-11-05T01:00:00Z',
+      firstLookupAfterWriteSeconds: null,
+      coverage: {
+        basis: 'no-lookups-yet',
+        unobservedSeconds: 5400,
+        observedFrom: null,
+        expectedFirstAskAfterMinutes: 60,
+      },
+      total: 0,
+      items: [],
+    })
+
+    const wrapper = mountViewAttached()
+    await flushPromises()
+    const btn = wrapper.find('.in-flight-claims .row-stub .lookup-history-btn')
+    await btn.trigger('click')
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+
+    const dialog = document.body.textContent ?? ''
+    expect(dialog).toContain('还没有任何读数')
+    expect(dialog).toContain('占位以来的 1h 30m 全部未观测')
   })
 
   /**
