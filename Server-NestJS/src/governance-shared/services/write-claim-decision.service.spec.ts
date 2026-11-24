@@ -164,7 +164,7 @@ describe('AW-16 F-63/F-64：释放程序与过期策略', () => {
 
     it('F-85b：问过两次（都说没执行）后释放 ⇒ 审计行读得出「两次都答 not_executed」，最近在前', async () => {
       const claim = await seed();
-      await seedLookup(claim.idempotencyKey, new Date('2026-11-22T10:00:00Z'));
+      await seedLookup(claim.idempotencyKey, new Date('2026-11-22T10:00:00Z'), { basis: 'receipt' });
       await seedLookup(claim.idempotencyKey, new Date('2026-11-22T12:00:00Z'));
 
       const res = await service.release(
@@ -181,13 +181,15 @@ describe('AW-16 F-63/F-64：释放程序与过期策略', () => {
       // 读数本身进结构化列，最近在前 —— 不必解析 detail、也不必再联接查询表。
       const structured = JSON.parse(row.releaseLookups!) as {
         count: number;
-        items: Array<{ at: string; conclusion: string; lookedUpBy: string }>;
+        items: Array<{ at: string; conclusion: string; basis: string; lookedUpBy: string }>;
       };
       expect(structured.count).toBe(2);
       expect(structured.items.map((i) => i.conclusion)).toEqual(['not_executed', 'not_executed']);
       expect(structured.items[0].at).toBe('2026-11-22T12:00:00.000Z');
       expect(structured.items[1].at).toBe('2026-11-22T10:00:00.000Z');
       expect(structured.items[0].lookedUpBy).toBe('admin-2');
+      // R-1：两条结论相同的读数仍按种类分得开；未记录的那条是 `unknown`，不是被猜成 `receipt`。
+      expect(structured.items.map((i) => i.basis)).toEqual(['unknown', 'receipt']);
     });
 
     it('F-85b：从未问过就释放 ⇒ 审计行**明写未查询**，不留空当默认', async () => {

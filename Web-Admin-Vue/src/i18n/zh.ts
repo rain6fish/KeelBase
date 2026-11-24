@@ -1214,6 +1214,12 @@ const zh = {
   lookupExecuted: '已执行',
   lookupNotExecuted: '未执行',
   lookupUnknown: '未知',
+  lookupBasisCol: '读数种类',
+  lookupBasisCurrentState: '当前状态读数',
+  lookupBasisReceipt: '收据读数',
+  lookupBasisUnknown: '种类未记录',
+  lookupBasisHint:
+    '种类说的是这个答案基于什么：当前状态读数只能说明「现在没有」，不能说明「从未被接受」；收据读数也不等于权威 —— 目标自己的记录同样可能滞后。',
   lookupReasonUnavailable: '目标没有状态查询',
   lookupReasonMisconfigured: '状态查询配置不可用',
   lookupReasonTimeout: '超时',

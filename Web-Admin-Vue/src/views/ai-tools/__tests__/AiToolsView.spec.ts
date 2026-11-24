@@ -328,8 +328,8 @@ describe('AiToolsView', () => {
       },
       total: 2,
       items: [
-        { id: 2, conclusion: 'executed', reason: null, at: '2026-11-05T02:10:00Z', queryMethod: 'GET', queryPath: '/status/k', lookedUpBy: 'admin', asUserId: '7', seq: 2, intervalSeconds: 600 },
-        { id: 1, conclusion: 'not_executed', reason: null, at: '2026-11-05T02:00:00Z', queryMethod: 'GET', queryPath: '/status/k', lookedUpBy: 'system:sweep', asUserId: '7', seq: 1, intervalSeconds: null },
+        { id: 2, conclusion: 'executed', reason: null, basis: 'current_state', at: '2026-11-05T02:10:00Z', queryMethod: 'GET', queryPath: '/status/k', lookedUpBy: 'admin', asUserId: '7', seq: 2, intervalSeconds: 600 },
+        { id: 1, conclusion: 'not_executed', reason: null, basis: 'receipt', at: '2026-11-05T02:00:00Z', queryMethod: 'GET', queryPath: '/status/k', lookedUpBy: 'system:sweep', asUserId: '7', seq: 1, intervalSeconds: null },
       ],
     })
 
@@ -355,6 +355,10 @@ describe('AiToolsView', () => {
     // R-2：声明直说首问之前那一小时没有观测，预期等待读自服务端给出的计划。
     expect(dialog).toContain('首问之前的 1h 完全没有观测')
     expect(dialog).toContain('计划在占位后 1h 才首次询问')
+    // R-1：两条读数都答「未执行/已执行」之外还要说种类 —— 两种种类必须并排可读。
+    expect(dialog).toContain('收据读数')
+    expect(dialog).toContain('当前状态读数')
+    expect(dialog).toContain('当前状态读数只能说明「现在没有」')
   })
 
   /**
@@ -413,7 +417,7 @@ describe('AiToolsView', () => {
     inFlightMock.mockResolvedValue({
       ...emptyClaims,
       items: [
-        { id: 6, userId: '7', toolName: 'proxy_send', argsHash: 'h', status: 'claimed', claimedAt: '2026-11-05T01:00:00Z', ageMinutes: 90, stale: true, attempts: 1, agentId: null, conversationId: null, runId: null, authorizationRef: null, reconcilable: true, lastLookup: { id: 1, conclusion: 'unknown', reason: 'timeout', at: '2026-11-05T02:00:00Z', queryMethod: 'GET', queryPath: '/status/k', lookedUpBy: '1', asUserId: '7', seq: 1, intervalSeconds: null } },
+        { id: 6, userId: '7', toolName: 'proxy_send', argsHash: 'h', status: 'claimed', claimedAt: '2026-11-05T01:00:00Z', ageMinutes: 90, stale: true, attempts: 1, agentId: null, conversationId: null, runId: null, authorizationRef: null, reconcilable: true, lastLookup: { id: 1, conclusion: 'unknown', reason: 'timeout', basis: 'unknown', at: '2026-11-05T02:00:00Z', queryMethod: 'GET', queryPath: '/status/k', lookedUpBy: '1', asUserId: '7', seq: 1, intervalSeconds: null } },
       ],
       total: 1,
     })
@@ -425,6 +429,9 @@ describe('AiToolsView', () => {
     expect(cell.text()).toContain('未知')
     expect(cell.text()).toContain('超时')
     expect(cell.text()).not.toContain('已执行')
+    // R-1：种类未记录就明说未记录，不得默认渲染成「当前状态读数」。
+    expect(cell.text()).toContain('种类未记录')
+    expect(cell.text()).not.toContain('当前状态读数')
     const tag = cell.find('.el-tag')
     expect(tag.classes()).toContain('el-tag--warning')
     expect(tag.classes()).not.toContain('el-tag--success')

@@ -580,10 +580,11 @@ optional external reference. The claim moves to `closed_unknown`; `status` delib
 "confirmed not stored". The key stays occupied, so the same call is refused by `claimWrite` and is
 never silently retried. The act itself is one chained AI-audit row (`action=claim_release`), carrying
 the note and reference and **no** outcome word. That row also states **what the asking said**: the
-count and the newest three readings (`at`, `conclusion`, `reason`, `lookedUpBy`), newest first,
-written `lookups: N asked, newest first (k of N)` when there are more than three; a release with no
-asks behind it says `lookups: none (never queried)` outright rather than leaving a blank that would
-read as a default.
+count and the newest three readings (`at`, `conclusion`, `reason`, `basis`, `lookedUpBy`), newest
+first, written `lookups: N asked, newest first (k of N)` when there are more than three; a release
+with no asks behind it says `lookups: none (never queried)` outright rather than leaving a blank that
+would read as a default. `basis` (R-1) is `current_state` | `receipt` | `unknown` and says what the
+answer was based on — a current-state reading cannot establish "never accepted".
 
 An hourly sweep moves overdue `open` holds to `awaiting_decision`. It changes no status and writes no
 conclusion, so a slow external call can still settle; a sweep that released rows would take that
@@ -632,8 +633,9 @@ two passes — a scale-out concern left open rather than papered over.
 东西证明这次写是否落库，写成 `released` 等于断言「确认未落库」。键仍被占住，故同一次调用会被 `claimWrite`
 拒绝，绝不会被静默重试。动作本身是一条带链 AI 审计行（`action=claim_release`），带说明与引用，**不**带
 任何结局词。该行同时陈述**询问说了什么**：次数与最近三次读数（`at`、`conclusion`、`reason`、
-`lookedUpBy`），最近的在前，超过三条时写作 `lookups: N asked, newest first (k of N)`；一次都没问过的
-释放明写 `lookups: none (never queried)`，而不是留空让人当默认值。
+`basis`、`lookedUpBy`），最近的在前，超过三条时写作 `lookups: N asked, newest first (k of N)`；
+一次都没问过的释放明写 `lookups: none (never queried)`，而不是留空让人当默认值。`basis`（R-1）取
+`current_state` | `receipt` | `unknown`，说的是答案**基于什么** —— 当前状态读数确立不了「从未被接受」。
 
 每小时清扫把到期的 `open` 占位移入 `awaiting_decision`：不改状态、不写结论，故慢的外部调用仍能落定 ——
 若清扫把行改成 `released`，那份能力就没了。读永远不改状态：`stale` 仍是年龄读数，不是决定。

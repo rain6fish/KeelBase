@@ -132,6 +132,39 @@ describe('AW-17 目标状态查询（只读，一次）', () => {
     expect(f.calls[0].method).toBe('GET');
   });
 
+  /**
+   * R-1: the basis is what the **target** declared, and silence is recorded as silence. Guessing
+   * `current_state` from the method or path would claim something the target never said — and both
+   * kinds use the same single GET, so there is nothing to guess from.
+   *
+   * R-1：种类是**目标**声明的，沉默就记沉默。按方法或路径猜成 `current_state` 等于替目标声明它没说过
+   * 的事 —— 而两种种类用的是同一条单次 GET，本来也没有可猜的信号。
+   */
+  it('R-1：目标的 basis 原样记录；缺省或认不出 ⇒ null（不猜种类）', async () => {
+    const probe = probeFor(writeTool({ statusPath: '/contracts/status/{key}' }));
+
+    const cases: Array<{ body: unknown; basis: string | null }> = [
+      { body: { status: 'not_executed', basis: 'receipt' }, basis: 'receipt' },
+      { body: { status: 'not_executed', basis: 'current_state' }, basis: 'current_state' },
+      { body: { status: 'executed', basis: 'receipt' }, basis: 'receipt' },
+      { body: { status: 'not_executed' }, basis: null },
+      { body: { status: 'not_executed', basis: 'event_log' }, basis: null },
+      { body: { status: 'not_executed', basis: '' }, basis: null },
+      // 没有真答案就没有种类 —— 即便响应里带了 basis。
+      { body: { status: 'maybe', basis: 'receipt' }, basis: null },
+    ];
+
+    for (const c of cases) {
+      const f = stubFetch(async () => answer(c.body));
+      try {
+        const r = await probe.lookup('proxy_create_contract', 'key-1', 'u1');
+        expect({ body: c.body, basis: r.basis }).toEqual({ body: c.body, basis: c.basis });
+      } finally {
+        f.restore();
+      }
+    }
+  });
+
   it('**反向对照**：状态路径配成 POST ⇒ **一个字节都不发**（状态查询不能有写的可能）', async () => {
     const probe = probeFor(writeTool({ statusPath: 'POST /contracts/status/{key}' }));
 

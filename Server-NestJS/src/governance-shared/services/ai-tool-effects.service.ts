@@ -468,6 +468,8 @@ export class AiToolEffectsService {
           queryPath: '',
           conclusion: TARGET_STATUS.UNKNOWN,
           reason: 'target-status-unavailable' as const,
+          // R-1: no answer, so no basis. / R-1：没有答案，也就没有种类。
+          basis: null,
         };
     await this._recordLookup(claim, byUserId, evidence);
 
@@ -739,6 +741,9 @@ export class AiToolEffectsService {
           queryPath: evidence.queryPath,
           conclusion: evidence.conclusion,
           reason: evidence.reason,
+          // R-1: `null` unless the target declared a basis alongside a real answer.
+          // R-1：只有目标随真答案声明了种类才有值，否则为 `null`。
+          basis: evidence.basis,
         }),
       );
     } catch (err) {

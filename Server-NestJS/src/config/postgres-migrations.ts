@@ -140,6 +140,11 @@ export const POSTGRES_MIGRATION_GLOBS: string[] = [
   // 0-B retention: the tool-result body table (the entity exists, so postgres needs it too).
   '*AddAiToolResultBodies*',
   '*AddAiAuditReleaseLookups*',
+  // R-1：查询证据的读数种类列（实体在，pg 侧也要有，否则实体↔迁移漂移）。
+  // 精确子串，不与上面的 `*AddTargetStatusLookups*` 重叠 —— 否则 sqlite 分支会漏进 pg 或反之。
+  // R-1: the lookup evidence's basis column (the entity exists, so postgres needs it too).
+  // Exact substring, disjoint from `*AddTargetStatusLookups*` above, so neither glob leaks the other.
+  '*AddTargetStatusLookupBasis*',
 ];
 
 /** 有意排除于 postgres 的迁移（仅 sqlite；postgres 由 PostgresInitialSchema / PostgresIncrementalSchema 基线覆盖） */
