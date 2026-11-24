@@ -599,6 +599,16 @@ no channel at all — concludes `unknown` and leaves the ledger `claimed`. Each 
 evidence. A hold a person already released is **not** reconcilable: the release recorded that the
 truth is unknown, and a later query must not overwrite that decision.
 
+**A release the target's answer caused leaves a decision, not just a moved ledger.** When the answer
+is `not_executed` the ledger moves to `released`, and the same act is written as one chained
+`claim_release` row — the same action and the same row shape a manual release uses. Its `detail` names
+who initiated it (`system:sweep` for the automatic pass, the administrator's id for a manual
+reconcile), what the target answered and when, that the hold is released and re-claimable, and that
+the effect stays unknown — it is not a record that nothing was attempted. The row is needed because a
+later re-claim reuses the hold row and clears its release columns (`status`, `releaseReason`,
+`claimedAt`), so the chained row is the only place the decision survives; the readings travel in
+`releaseLookups` exactly as they do for a manual release.
+
 **Automatic re-asking is bounded, and then it stops.** The hourly sweep also asks the target for every
 queued hold that is due, at most `CLAIM_RECONCILE_MAX_ATTEMPTS` times (default 4) on a decaying
 schedule — `CLAIM_RECONCILE_BACKOFF_MINUTES`, default `60,360,1440,4320` (+1h, +6h, +24h, +72h after
@@ -634,6 +644,13 @@ two passes — a scale-out concern left open rather than papered over.
 `{"status":"executed"|"not_executed"}` 才让账收敛（`executed` → `settled`，`not_executed` → `released`）；
 其余一切 —— 超时、不可达、非 2xx、认不出的响应体、乃至根本没有通道 —— 都判 `unknown`，账保持 `claimed`。
 每次尝试都留下证据。**人已释放的占位不再可对账**：那次释放记录的正是「真相未知」，后来的查询不得覆盖那份决定。
+
+**目标回答引起的释放留下的是一份决定，不只是一个被移过的账。** 答案为 `not_executed` 时账转为 `released`，
+而同一次动作也写成一条带链的 `claim_release` 行 —— 与人工释放同一动作、同一行形状。其 `detail` 点名谁发起
+（自动清扫记 `system:sweep`，人工对账记管理员 id）、目标答了什么、何时答的、占位已释放且可重占位、效果仍
+未知 —— 它不是「什么都没试过」的记录。之所以需要这一行：之后的任一次重占位都会复用占位行并清掉它的释放列
+（`status`、`releaseReason`、`claimedAt`），故带链的那一行是这份决定唯一留得住的地方；读数与人工释放一样
+进 `releaseLookups`。
 
 **自动重问是有界的，用尽即停。** 每小时清扫还会对队列里到期的占位再向目标问一次，按衰减计划至多
 `CLAIM_RECONCILE_MAX_ATTEMPTS` 次（默认 4）—— 间隔由 `CLAIM_RECONCILE_BACKOFF_MINUTES` 给出，默认

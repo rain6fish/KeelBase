@@ -30,6 +30,12 @@ import { SideEffectSnapshotCaptor } from './side-effect-snapshot-captor';
 import { buildKey, memberKey } from './effect-shared';
 import { EffectChainWriter } from './effect-chain';
 import { WriteClaimStore } from './write-claim.store';
+// R-3: the release row's one builder lives in the decision service (the manual release's write
+// point). Value import, not `import type`: the parameter is DI-injected and its metadata is what Nest
+// resolves — a type-only import would erase it and inject `undefined` silently.
+// R-3：释放行的唯一构造器在决定服务里（人工释放的写入点）。用值导入而非 `import type`：该参数由 DI
+// 注入、Nest 靠元数据解析 —— 类型导入会把它抹掉并静默注入 `undefined`。
+import { WriteClaimDecisionService } from './write-claim-decision.service';
 import { EffectComparabilityStore } from './effect-comparability.store';
 import { EffectDisputeStore } from './effect-dispute.store';
 import { EffectRegistration } from './effect-registration';
@@ -181,6 +187,24 @@ export class AiToolEffectsService {
     @Optional()
     @InjectRepository(TargetStatusLookupRow)
     private readonly lookupsRepo?: Repository<TargetStatusLookupRow>,
+    /**
+     * R-3: who writes the `claim_release` row when a target's `not_executed` answer releases the hold.
+     * The row's shape (detail prose + the off-chain evidence column) stays in that service's single
+     * write point, so this path does not grow a second spelling of it.
+     *
+     * @Optional for the same reason the probe is: the governance process binds neither a probe nor a
+     * lookup store, so it can never land a release and has nothing to record. In the app process both
+     * arrive from `AiModule`. A hand-built assembly may leave it out; the release still converges, it
+     * just leaves no chained row — and that is a wiring fact, not something this class can invent.
+     *
+     * R-3：目标答 `not_executed` 释放占位时，`claim_release` 行由它写。行的形状（散文 + 链外证据列）
+     * 留在那个服务的唯一写入点，故这条路径不再长出第二份写法。
+     *
+     * `@Optional` 的理由与探针相同：治理进程既不绑探针、也不绑查询存储，永远落不了一次释放，也就没有
+     * 要记的东西。应用进程里两者都由 `AiModule` 提供。手工装配可以不带它；此时释放照样收敛，只是不留
+     * 带链的行 —— 那是接线事实，本类无从虚构。
+     */
+    @Optional() private readonly writeClaimDecision?: WriteClaimDecisionService,
   ) {
     // 拆分第三批（2026-10-11）：链写入器在**构造器体内**建立 —— 构造器签名一字未动（有二十多处位置式
     // `new AiToolEffectsService(...)` 与两个 Nest 模块依赖它）。**只此一份**：登记与撤销共用同一个它，
@@ -372,6 +396,12 @@ export class AiToolEffectsService {
    * The query carries the **original writer's** identity (the claim's `userId`), not the administrator's;
    * `lookedUpBy` records who asked.
    *
+   * **A `not_executed` answer leaves a decision row, not only a moved ledger (R-3).** The hold row is
+   * overwritten by any later re-claim, so the release is also written as one chained `claim_release`
+   * row — the same action and builder a manual release uses — whose `detail` names who initiated
+   * (`system:sweep` or a person), what the target answered, that the hold is released and re-claimable,
+   * and that the effect stays unknown.
+   *
    * AW-17：对一条卡住的写占位做一次对账 —— 向目标**只问一次**、只读，问它到底跑了没有。
    *
    * 账上已经说了这笔写的结局未知（`claimed`）。此前缺的正是「能问」这一条路。它不重发写、不重试，
@@ -385,6 +415,10 @@ export class AiToolEffectsService {
    *   要作为缺口声明的那件事。
    *
    * 查询携带**原写入者**的身份（占位行的 `userId`），不是管理员的；`lookedUpBy` 记下是谁发起的。
+   *
+   * **`not_executed` 的答案留下的是一份决定，不只是一个被移过的账（R-3）。** 占位行会被之后任何一次
+   * 重占位覆盖，故这次释放同时写成一条带链的 `claim_release` 行 —— 与人工释放同一动作、同一构造器 ——
+   * `detail` 写明谁发起（`system:sweep` 还是人）、目标答了什么、占位已释放且可重占位、效果仍未知。
    */
   async reconcileClaim(claimId: number, byUserId: string): Promise<ReconcileClaimResult> {
     const claim = this.claimsRepo ? await this.claimsRepo.findOne({ where: { id: claimId } }) : null;
@@ -460,6 +494,32 @@ export class AiToolEffectsService {
         evidence,
       };
     }
+    // R-3: a release the target's answer caused is a **decision**, and the hold row does not keep it:
+    // a re-claim reuses that row and clears `status` / `releaseReason` / `claimedAt`. So the decision
+    // goes onto the chain through the same `claim_release` builder a manual release uses — same action,
+    // same shape, `detail` naming who initiated, what the target answered, and that the hold is
+    // released and re-claimable while the effect stays unknown.
+    //
+    // Written only here, after the conditional update reported that it moved: a row written before the
+    // update could record a release that lost a race to a concurrent settle or a human release.
+    //
+    // R-3：目标回答引起的释放是一次**决定**，而占位行留不住它：重占位会复用那一行并清掉
+    // `status` / `releaseReason` / `claimedAt`。故这份决定经与人工释放**同一个** `claim_release`
+    // 构造器上链 —— 同一动作、同一形状，`detail` 写明谁发起、目标答了什么、占位已释放且可重占位、
+    // 效果仍未知。
+    //
+    // 只在这里写，且在条件更新报「已动」之后：先写的话，可能记下一次输给并发落定或人工释放的释放。
+    if (evidence.conclusion === TARGET_STATUS.NOT_EXECUTED) {
+      await this.writeClaimDecision?.recordTargetRelease(claim, {
+        byUserId,
+        automatic: byUserId === SYSTEM_SWEEP_LOOKUP_ACTOR,
+        conclusion: evidence.conclusion,
+        queryMethod: evidence.queryMethod,
+        queryPath: evidence.queryPath,
+        queriedAt: evidence.queriedAt,
+      });
+    }
+
     return {
       outcome: 'reconciled',
       conclusion: evidence.conclusion,

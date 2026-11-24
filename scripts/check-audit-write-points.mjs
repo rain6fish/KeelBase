@@ -158,7 +158,7 @@ const EXEMPT = [
   {
     file: 'Server-NestJS/src/governance-shared/services/write-claim-decision.service.ts',
     action: 'claim_release',
-    reason: 'a human release of a write hold is a decision, not a tool outcome: the conclusion deliberately stays unknown, so no outcome word could be truthful. `tool` is passed (AW-16 F-63).',
+    reason: 'a release of a write hold — human or target-answer-driven, both through this one write point (R-3) — is a decision, not a tool outcome: the conclusion deliberately stays unknown, so no outcome word could be truthful. `tool` is passed (AW-16 F-63).',
   },
 ];
 
