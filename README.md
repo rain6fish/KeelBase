@@ -309,7 +309,7 @@ first release rather than assembled when someone asks.
 | `KeelBase` (TypeScript) | `main`, **unreleased** | **v1.23.0** — bound as a submodule |
 | `KeelBase` (TypeScript) | `v1.0.11`, superseded | **v1.0.1** — carried in-tree; that release predates the contract repository |
 | [`KeelBase4J`](https://github.com/rain6fish/KeelBase4J) (Java) | `v0.1.19` | **v1.22.0** — vendored snapshot, taken from the contract repository |
-| [`KeelBase4J`](https://github.com/rain6fish/KeelBase4J) (Java) | `main`, **unreleased** | **v1.23.0** — vendored snapshot, taken from the contract repository |
+| [`KeelBase4J`](https://github.com/rain6fish/KeelBase4J) (Java) | `main`, **unreleased** | **v1.22.0** — vendored snapshot, taken from the contract repository |
 | [`KeelBase4J`](https://github.com/rain6fish/KeelBase4J) (Java) | `v0.1.17`, superseded | **v1.20.0** — vendored snapshot, taken from the contract repository |
 | [`KeelBase4J`](https://github.com/rain6fish/KeelBase4J) (Java) | `v0.1.16`, superseded | **v1.17.0** — vendored snapshot, taken from the contract repository |
 
