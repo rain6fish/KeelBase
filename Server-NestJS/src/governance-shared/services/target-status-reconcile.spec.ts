@@ -7,8 +7,14 @@ import {
   WRITE_CLAIM_DECISION_STATE,
   WRITE_CLAIM_STATUS,
 } from '../entities/ai-write-claim.entity';
+import { AiAuditLog } from '../entities/ai-audit-log.entity';
 import { TargetStatusLookupRow } from '../entities/target-status-lookup.entity';
+import { AuditChainService } from '../../common/audit-chain/audit-chain.service';
 import { AiToolEffectsService, SYSTEM_SWEEP_LOOKUP_ACTOR } from './ai-tool-effects.service';
+import { buildKey } from './effect-shared';
+import { AuditService } from './audit.service';
+import { WriteClaimStore } from './write-claim.store';
+import { WriteClaimDecisionService } from './write-claim-decision.service';
 import type { TargetStatusLookup } from '../../governance-core/target-status';
 
 /**
@@ -67,9 +73,24 @@ describe('AW-17 目标状态对账（只读查询收敛 unknown）', () => {
 
   const claims = () => ds.getRepository(AiWriteClaim);
   const lookups = () => ds.getRepository(TargetStatusLookupRow);
+  const auditRepo = () => ds.getRepository(AiAuditLog);
 
   const build = (probeOrUndefined: boolean = true): void => {
     probe = { available: jest.fn(() => true), canAsk: jest.fn(() => true), lookup: jest.fn() };
+    // R-3: the release row's one builder is the decision service's — the reconcile path calls it, and
+    // these cases read the row back from a real table, not from a double.
+    // R-3：释放行的唯一构造器在决定服务里 —— 对账路径调它，下面的用例从真表读回那一行，而不是替身。
+    const audit = new AuditService(
+      auditRepo(),
+      new AuditChainService({ get: () => undefined } as never),
+      ds,
+    );
+    const decision = new WriteClaimDecisionService(
+      claims(),
+      lookups(),
+      audit,
+      { get: (k: string) => (k === 'REVOKE_STALE_MINUTES' ? 60 : undefined) } as never,
+    );
     effects = new AiToolEffectsService(
       ds.getRepository(AiToolSideEffect),
       undefined, // revoker
@@ -85,6 +106,7 @@ describe('AW-17 目标状态对账（只读查询收敛 unknown）', () => {
       undefined, // comparabilityRepo
       (probeOrUndefined ? probe : undefined) as any, // statusProbe
       lookups(), // lookupsRepo
+      decision, // writeClaimDecision (R-3)
     );
   };
 
@@ -94,7 +116,7 @@ describe('AW-17 目标状态对账（只读查询收敛 unknown）', () => {
     ds = new DataSource({
       type: 'better-sqlite3',
       database: ':memory:',
-      entities: [AiToolSideEffect, AiWriteClaim, TargetStatusLookupRow],
+      entities: [AiToolSideEffect, AiWriteClaim, TargetStatusLookupRow, AiAuditLog],
       synchronize: true,
     });
     await ds.initialize();
@@ -247,6 +269,114 @@ describe('AW-17 目标状态对账（只读查询收敛 unknown）', () => {
     expect(r.outcome).toBe('not_found');
     expect(r.evidence).toBeNull();
     expect(await lookups().count()).toBe(0);
+  });
+
+  /**
+   * R-3: a release the target's answer caused is a **decision**, and the hold row does not keep it (a
+   * re-claim reuses that row and clears its release columns). So the decision is also one chained
+   * `claim_release` row — the same action and the same builder the manual release uses. These cases
+   * read that row back: what a reader can tell from it, that a re-claim does not erase it, and that
+   * the `executed` path leaves no such row.
+   *
+   * R-3：目标回答引起的释放是一次**决定**，而占位行留不住它（重占位会复用那一行并清掉释放列）。故
+   * 这份决定同时是一条带链的 `claim_release` 行 —— 与人工释放同一动作、同一构造器。下面把那一行读回：
+   * 读者能从它读出什么、重占位抹不掉它、`executed` 路径不留这种行。
+   */
+  describe('R-3 目标驱动的释放留一条决定行', () => {
+    const releaseRows = () => auditRepo().find({ where: { action: 'claim_release' } });
+
+    it('目标答 not_executed ⇒ 链上一行：读得出谁发起、目标答了什么、已释放可重占位、效果未知', async () => {
+      const row = await seed();
+      probe.lookup.mockResolvedValue(
+        lookup({ conclusion: 'not_executed', reason: null, queriedAt: '2026-11-24T02:00:00.000Z' }),
+      );
+
+      const r = await effects.reconcileClaim(row.id, SYSTEM_SWEEP_LOOKUP_ACTOR);
+      expect(r.outcome).toBe('reconciled');
+
+      const rows = await releaseRows();
+      expect(rows).toHaveLength(1);
+      const [decision] = rows;
+      expect(decision.userId).toBe(SYSTEM_SWEEP_LOOKUP_ACTOR);
+      expect(decision.tool).toBe(TOOL);
+      expect(decision.source).toBe('claim_release');
+      // No outcome word: the hold's conclusion deliberately stays unknown — same stance as a manual
+      // release, where any word would pronounce on a fact nobody established.
+      // 不写结局词：占位的结论有意保持未知 —— 与人工释放同一立场，任何词都会替一个没人确立的事实下判决。
+      expect(decision.outcome ?? null).toBeNull();
+
+      const detail = decision.detail ?? '';
+      expect(detail).toContain(`release write claim #${row.id}`);
+      expect(detail).toContain('→ released');
+      expect(detail).toContain('origin: target answered not_executed');
+      // 目标被问的时刻在行里（读数的时间也另存于 releaseLookups 的 at）
+      expect(detail).toContain('2026-11-24T02:00:00.000Z');
+      expect(detail).toContain('initiated by: system:sweep (automatic sweep)');
+      expect(detail).toContain('lookups: 1 asked (see releaseLookups)');
+      expect(detail).toContain('released for re-claim, effect unknown');
+      // 不得读成「从未发生」：这一行记的是一次释放，不是「什么都没试过」。
+      expect(detail).toContain('the write was attempted');
+
+      // 读数以数据落库：次数 + 每次的时间与结论（不必解析散文，也不必联接查询表）
+      const evidence = JSON.parse(decision.releaseLookups!) as {
+        count: number;
+        items: Array<{ at: string; conclusion: string; lookedUpBy: string }>;
+      };
+      expect(evidence.count).toBe(1);
+      expect(evidence.items[0].conclusion).toBe('not_executed');
+      expect(evidence.items[0].lookedUpBy).toBe(SYSTEM_SWEEP_LOOKUP_ACTOR);
+      expect(Number.isNaN(Date.parse(evidence.items[0].at))).toBe(false);
+    });
+
+    it('重占位覆盖占位行之后，链上的决定行仍在（决定留得住）', async () => {
+      // The re-claim is only possible because the target said nothing ran; it then reuses the hold row,
+      // which is exactly why the decision cannot live there.
+      // 目标说没跑，重占位才被允许；而它复用的正是那一行 —— 决定正因此不能只存在那里。
+      const ctx = { userId: 'u-alice', conversationId: 'conv-1', toolName: TOOL, args: { to: 'a@b.c' } };
+      const row = await claims().save(claims().create(staleClaim({ idempotencyKey: buildKey(ctx) })));
+      probe.lookup.mockResolvedValue(lookup({ conclusion: 'not_executed', reason: null }));
+
+      await effects.reconcileClaim(row.id, 'admin-1');
+      expect((await claims().findOneByOrFail({ id: row.id })).status).toBe(
+        WRITE_CLAIM_STATUS.RELEASED,
+      );
+
+      const store = new WriteClaimStore({} as never, claims());
+      const again = await store.claimWrite(ctx);
+      expect(again.won).toBe(true);
+
+      const reClaimed = await claims().findOneByOrFail({ id: row.id });
+      expect(reClaimed.status).toBe(WRITE_CLAIM_STATUS.CLAIMED);
+      expect(reClaimed.releaseReason ?? null).toBeNull();
+      expect(reClaimed.attempts).toBe(2);
+
+      // 占位行不再说它是怎么被释放的；链上那一行仍然说得出。
+      const rows = await releaseRows();
+      expect(rows).toHaveLength(1);
+      expect(rows[0].detail).toContain('origin: target answered not_executed');
+    });
+
+    it('目标答 executed ⇒ 走 settle，不写释放行（决定行只属于释放）', async () => {
+      const row = await seed();
+      probe.lookup.mockResolvedValue(lookup({ conclusion: 'executed', reason: null }));
+
+      const r = await effects.reconcileClaim(row.id, 'admin-1');
+
+      expect(r.claimStatus).toBe(WRITE_CLAIM_STATUS.SETTLED);
+      expect(await releaseRows()).toHaveLength(0);
+    });
+
+    it('人工发起的对账 ⇒ detail 区分「人的动作」，不是自动清扫', async () => {
+      const row = await seed();
+      probe.lookup.mockResolvedValue(lookup({ conclusion: 'not_executed', reason: null }));
+
+      await effects.reconcileClaim(row.id, 'admin-7');
+
+      const [decision] = await releaseRows();
+      expect(decision.userId).toBe('admin-7');
+      expect(decision.detail).toContain('initiated by: user admin-7 (manual reconcile)');
+      expect(decision.detail).not.toContain('automatic sweep');
+    });
   });
 
   /**

@@ -39,6 +39,7 @@ import { AuditService } from './governance-shared/services/audit.service';
 import { GOVERNANCE_REPORTER } from './governance-shared/services/governance-reporter.service';
 import { LocalEntityRevoker, SIDE_EFFECT_REVOKER } from './governance-shared/services/side-effect-revoker';
 import { AuditEvidenceService } from './governance-shared/services/audit-evidence.service';
+import { WriteClaimDecisionService } from './governance-shared/services/write-claim-decision.service';
 
 /**
  * Reporter wiring, read off the instance it was attached to. The constructor parameter is an
@@ -86,8 +87,17 @@ describe('装配冒烟（模块能被实例化）', () => {
     // 代理写就没有补偿路径，而既有测试不会察觉。
     const effects = moduleRef.get(AiToolEffectsService) as unknown as {
       revocations?: { externalRevoker?: unknown };
+      writeClaimDecision?: unknown;
     };
     expect(effects.revocations?.externalRevoker).toBeDefined();
+    // R-3: the recorder that puts a target-driven release on the chain is `@Optional()`, so a missing
+    // injection would silently keep every such release off the audit trail — the exact failure this
+    // item exists to remove. Reverse proof: dropping the parameter, or providing the service only
+    // outside this module, turns this red.
+    // R-3：把目标驱动的释放写进链的那个记录器是 `@Optional()` 的，注入缺席会让每一次这样的释放都悄悄
+    // 留在审计轨迹之外 —— 正是本项要消除的那种失败。反向可证：去掉该参数、或只在别的模块提供该服务，
+    // 本条即红。
+    expect(effects.writeClaimDecision).toBe(moduleRef.get(WriteClaimDecisionService));
     // S4-H4 C D5: the shared services get both business-side capabilities through tokens bound by this
     // module; the governance process binds neither, exactly as before the move.
     // S4-H4 C D5：共享服务经本模块绑定的 token 取得两个业务侧能力；治理进程两个都不绑，与搬迁前一致。
@@ -113,6 +123,15 @@ describe('装配冒烟（模块能被实例化）', () => {
     // dependencies are absent here, exactly as before the move).
     // S4-H4 C 第六步：治理台仍自行实例化读侧（业务侧的可选依赖在此缺席，搬迁前也是如此）。
     expect(moduleRef.get(AuditEvidenceService)).toBeInstanceOf(AuditEvidenceService);
+    // R-3: this process has no probe and no lookup store, so it can never land a target-driven release
+    // — the recorder is absent here by design, and asserting it keeps that absence a stated fact
+    // rather than an accident of provider lists.
+    // R-3：本进程既没有探针、也没有查询存储，永远落不了一次目标驱动的释放 —— 记录器在此按设计缺席；
+    // 把这条断言下来，缺席就是一句写下来的事实，而不是 provider 清单的意外。
+    expect(
+      (moduleRef.get(AiToolEffectsService) as unknown as { writeClaimDecision?: unknown })
+        .writeClaimDecision,
+    ).toBeUndefined();
     await moduleRef.close();
   }, 120_000);
 
