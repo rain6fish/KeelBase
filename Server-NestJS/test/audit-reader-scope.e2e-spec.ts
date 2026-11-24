@@ -567,9 +567,20 @@ describe('AW-2 audit reader: field whitelist + org/period scope', () => {
           queryMethod: 'GET',
         });
         expect(body.items[1]).toMatchObject({ conclusion: 'unknown', reason: 'non_2xx' });
-        // 不回显参数：这张面只有结论、成因与查询身份。
+        // 不回显参数：这张面只有结论、成因与查询身份（外加 F-85 的成对读数 seq / intervalSeconds）。
         expect(Object.keys(body.items[0]).sort()).toEqual(
-          ['asUserId', 'at', 'conclusion', 'id', 'lookedUpBy', 'queryMethod', 'queryPath', 'reason'].sort(),
+          [
+            'asUserId',
+            'at',
+            'conclusion',
+            'id',
+            'intervalSeconds',
+            'lookedUpBy',
+            'queryMethod',
+            'queryPath',
+            'reason',
+            'seq',
+          ].sort(),
         );
 
         // 范围外的 claim：不存在于读者的范围里 —— 404，而不是 403（不泄露行的存在）。
