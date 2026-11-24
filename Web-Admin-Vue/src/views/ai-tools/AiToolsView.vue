@@ -346,6 +346,10 @@
       <div class="text-caption text-medium-emphasis mb-2">
         {{ t('lookupHistoryHint', { tool: lookupHistoryClaim?.toolName ?? '' }) }}
       </div>
+      <!-- R-2：覆盖声明（服务端读时现算）——首问之前那段没有观测，空历史则全部未观测 -->
+      <div v-if="lookupCoverage" class="text-caption mb-2">
+        {{ lookupCoverageText(lookupCoverage) }}
+      </div>
       <div v-if="lookupHistory.length" class="text-caption mb-2">
         <span class="text-medium-emphasis">{{ t('lookupWriteGap') }}：</span>
         <span>{{ formatGap(lookupFirstGap) }}</span>
@@ -393,7 +397,13 @@ import { aiToolsApi } from '@/api/aiTools'
 import { settingsApi } from '@/api/settings'
 import { formatTime } from '@/utils/format'
 import { revokeClassTag } from '@/utils/revokeClass'
-import type { AdminAiTool, InFlightClaim, TargetStatusLookup, ToolEffect } from '@/types/admin'
+import type {
+  AdminAiTool,
+  ClaimLookupCoverage,
+  InFlightClaim,
+  TargetStatusLookup,
+  ToolEffect,
+} from '@/types/admin'
 
 const { t } = useI18n()
 const snackbar = useSnackbarStore()
@@ -739,6 +749,23 @@ const lookupHistoryClaim = ref<InFlightClaim | null>(null)
 /** F-85/F-86：写→首问这一段才是盲区上界，和每条之间的间隔分开显示。 */
 const lookupClaimedAt = ref<string | null>(null)
 const lookupFirstGap = ref<number | null>(null)
+/** R-2：服务端读时现算的覆盖声明；空历史也有话可说（全部未观测），故与 items 分开存。 */
+const lookupCoverage = ref<ClaimLookupCoverage | null>(null)
+
+/**
+ * R-2: render the server's coverage statement in the active language. The durations come from the
+ * response; only the wording is local. "No reading yet" is a duration, not a blank.
+ *
+ * R-2：把服务端的覆盖声明按当前语言呈现。时长来自响应，这里只负责措辞。「还没有读数」是一段时长，
+ * 不是空白。
+ */
+function lookupCoverageText(c: ClaimLookupCoverage): string {
+  const gap = formatGap(c.unobservedSeconds)
+  const plan = formatGap(c.expectedFirstAskAfterMinutes * 60)
+  return c.basis === 'no-lookups-yet'
+    ? t('lookupCoverageNone', { gap, plan })
+    : t('lookupCoverageGap', { gap, plan })
+}
 
 const RECONCILE_REFUSAL_KEYS: Record<string, string> = {
   not_stale: 'reconcileNotStale',
@@ -797,10 +824,12 @@ async function loadLookupHistory(item: InFlightClaim) {
     lookupHistory.value = res.items
     lookupClaimedAt.value = res.claimedAt
     lookupFirstGap.value = res.firstLookupAfterWriteSeconds
+    lookupCoverage.value = res.coverage
   } catch (err) {
     lookupHistory.value = []
     lookupClaimedAt.value = null
     lookupFirstGap.value = null
+    lookupCoverage.value = null
     snackbar.error(err instanceof Error ? err.message : t('loadFailed'))
   }
 }

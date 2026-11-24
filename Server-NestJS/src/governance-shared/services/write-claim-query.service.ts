@@ -233,14 +233,34 @@ export class WriteClaimQueryService {
       });
     });
     const first = chrono[0] ?? null;
+    const firstLookupAfterWriteSeconds = first
+      ? Math.round((first.at.getTime() - claim.claimedAt.getTime()) / 1000)
+      : null;
+    // R-2 / F-86 / F-88: state in fields what the numbers above only imply — the stretch before the
+    // first reading was **not observed**, and with no readings the whole life so far was not. The
+    // expected first-ask wait comes from the same plan the sweep reads, never a literal here: a
+    // deployment that changes the cadence changes this statement with it.
+    //
+    // R-2 / F-86 / F-88：用可判读的字段把上面那些数字只暗示的事说出来 —— 第一次读数之前那段**没有观测**；
+    // 一条读数都没有时，占位以来全部都**没有观测**。预期的首问等待读自清扫用的同一份计划，不在这里写成
+    // 字面量：改了首问节奏的部署，这句话随之改。
+    const coverage: ClaimLookupCoverage = {
+      basis: first ? 'until-first-lookup' : 'no-lookups-yet',
+      unobservedSeconds: Math.max(
+        0,
+        firstLookupAfterWriteSeconds ??
+          Math.round((Date.now() - claim.claimedAt.getTime()) / 1000),
+      ),
+      observedFrom: first ? first.at.toISOString() : null,
+      expectedFirstAskAfterMinutes: this.reconcilePlan().backoffMinutes[0],
+    };
     return {
       claimId: claim.id,
       toolName: claim.toolName,
       claimStatus: claim.status,
       claimedAt: claim.claimedAt.toISOString(),
-      firstLookupAfterWriteSeconds: first
-        ? Math.round((first.at.getTime() - claim.claimedAt.getTime()) / 1000)
-        : null,
+      firstLookupAfterWriteSeconds,
+      coverage,
       total: rows.length,
       items: rows.map((l) => ({ ...this.projectLookup(l), ...positionOf.get(l.id)! })),
     };
@@ -491,6 +511,47 @@ export interface TargetStatusLookupPositionedView extends TargetStatusLookupView
   intervalSeconds: number | null;
 }
 
+/**
+ * R-2 / F-86 / F-88: **what this evidence covers, and what it does not** — computed at read time.
+ *
+ * Lookups are point samples. Nothing is observed between them, and nothing at all is observed before
+ * the first one; without this statement the gap before the first ask reads as coverage. The window is
+ * read off the recorded rows (not a schedule literal); only the *expectation* comes from the plan the
+ * sweep uses.
+ *
+ * R-2 / F-86 / F-88：**这份证据覆盖了什么、没覆盖什么** —— 读取时现算。
+ *
+ * 查询是时间点采样。两次之间什么都没观察到，第一次之前更是什么都没有；少了这句话，首问之前的那段
+ * 会被读成覆盖。窗口读自记录在案的行（不是计划里的字面量）；只有**预期**来自清扫所用的那份计划。
+ */
+export interface ClaimLookupCoverage {
+  /**
+   * Which stretch the statement is about. `until-first-lookup`: from `claimedAt` to the first reading.
+   * `no-lookups-yet`: nothing has been observed; from `claimedAt` to this response.
+   *
+   * 这句话说的是哪一段。`until-first-lookup`：占位到第一条读数；`no-lookups-yet`：尚无观测，
+   * 从占位到本次响应。
+   */
+  basis: 'until-first-lookup' | 'no-lookups-yet';
+  /**
+   * Seconds in that stretch with no observation at all. Never `null`: an empty history is still a
+   * duration, not a blank.
+   *
+   * 该段内完全没有观测的秒数。永不为 `null`：空历史也是一段时长，不是空白。
+   */
+  unobservedSeconds: number;
+  /** Start of the observed record; `null` when nothing was observed. / 观测记录的起点；尚无观测时为 `null`。 */
+  observedFrom: string | null;
+  /**
+   * The plan's first wait, in minutes (`CLAIM_RECONCILE_BACKOFF_MINUTES[0]`, default 60) — what the
+   * schedule expects between the write and the first automatic ask, not a figure written here.
+   *
+   * 计划里的第一档等待（分钟，`CLAIM_RECONCILE_BACKOFF_MINUTES[0]`，默认 60）—— 计划预期写入到首次
+   * 自动询问之间的间隔，不是写在这里的数字。
+   */
+  expectedFirstAskAfterMinutes: number;
+}
+
 /** AW-17: one claim's lookup history, newest first. / 一条占位的查询历史，最近的在前。 */
 export interface ClaimLookupsResult {
   claimId: number;
@@ -507,6 +568,8 @@ export interface ClaimLookupsResult {
   claimedAt: string;
   /** F-85 / F-86: seconds from `claimedAt` to the first ask; `null` when nobody ever asked. / 从占位到首问的秒数；一次都没问过为 `null`。 */
   firstLookupAfterWriteSeconds: number | null;
+  /** R-2: what the readings do and do not cover, computed when this response is built. / R-2：这些读数覆盖与未覆盖的范围，构造响应时现算。 */
+  coverage: ClaimLookupCoverage;
   items: TargetStatusLookupPositionedView[];
   total: number;
 }
