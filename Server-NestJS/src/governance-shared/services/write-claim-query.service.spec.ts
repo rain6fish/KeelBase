@@ -52,11 +52,14 @@ describe('AW-16 在途 claim 只读查询面', () => {
       }),
     );
 
-  const build = (thresholdMinutes?: number): WriteClaimQueryService =>
+  const build = (
+    thresholdMinutes?: number,
+    config: Record<string, unknown> = {},
+  ): WriteClaimQueryService =>
     new WriteClaimQueryService(
       repo(),
       lookups(),
-      { get: (k: string) => (k === 'REVOKE_STALE_MINUTES' ? thresholdMinutes : undefined) } as never,
+      { get: (k: string) => (k === 'REVOKE_STALE_MINUTES' ? thresholdMinutes : config[k]) } as never,
       orgService as never,
       probe as never,
     );
@@ -413,6 +416,62 @@ describe('AW-16 在途 claim 只读查询面', () => {
 
       expect(res?.total).toBe(0);
       expect(res?.claimedAt).toBe('2026-11-01T00:00:00.000Z');
+      expect(res?.firstLookupAfterWriteSeconds).toBeNull();
+    });
+
+    it('R-2：首问距占位一小时 ⇒ 声明读得出「首问之前那一小时未观测」', async () => {
+      const row = await claim({
+        idempotencyKey: 'coverage-hour',
+        toolName: 'proxy_send',
+        claimedAt: new Date('2026-11-01T00:00:00Z'),
+      });
+      const first = await lookup('coverage-hour', { conclusion: 'unknown', reason: 'timeout' });
+      await lookups().update(first.id, { at: new Date('2026-11-01T01:00:00Z') });
+
+      const res = await service.lookupsFor(row.id, { userId: 1, role: UserRole.ADMIN });
+
+      expect(res?.coverage).toEqual({
+        basis: 'until-first-lookup',
+        unobservedSeconds: 3600,
+        observedFrom: '2026-11-01T01:00:00.000Z',
+        expectedFirstAskAfterMinutes: 60,
+      });
+    });
+
+    it('R-2 **反向**：计划改成十分钟后首问 ⇒ 未观测时长随之缩短，且预期等待读自配置而非字面量', async () => {
+      service = build(undefined, { CLAIM_RECONCILE_BACKOFF_MINUTES: '10,60,600,3600' });
+      const row = await claim({
+        idempotencyKey: 'coverage-ten',
+        toolName: 'proxy_send',
+        claimedAt: new Date('2026-11-01T00:00:00Z'),
+      });
+      const first = await lookup('coverage-ten', { conclusion: 'unknown', reason: 'timeout' });
+      await lookups().update(first.id, { at: new Date('2026-11-01T00:10:00Z') });
+
+      const res = await service.lookupsFor(row.id, { userId: 1, role: UserRole.ADMIN });
+
+      expect(res?.coverage.unobservedSeconds).toBe(600);
+      expect(res?.coverage.expectedFirstAskAfterMinutes).toBe(10);
+    });
+
+    it('R-2：一条读数都没有 ⇒ 占位以来全部未观测，给时长而不是留空', async () => {
+      const claimedAt = new Date(Date.now() - 300_000);
+      const row = await claim({
+        idempotencyKey: 'coverage-none',
+        toolName: 'proxy_send',
+        claimedAt,
+      });
+
+      const res = await service.lookupsFor(row.id, { userId: 1, role: UserRole.ADMIN });
+
+      expect(res?.total).toBe(0);
+      expect(res?.coverage.basis).toBe('no-lookups-yet');
+      expect(res?.coverage.observedFrom).toBeNull();
+      expect(res?.coverage.expectedFirstAskAfterMinutes).toBe(60);
+      // 读取时刻参与计算，故只钉一个窄区间：约 300 秒（SQLite 往返之外不留余量给猜测）。
+      expect(res?.coverage.unobservedSeconds).toBeGreaterThanOrEqual(300);
+      expect(res?.coverage.unobservedSeconds).toBeLessThan(310);
+      // 原有字段的口径不变：没问过仍是 `null`，不造一个 0。
       expect(res?.firstLookupAfterWriteSeconds).toBeNull();
     });
 

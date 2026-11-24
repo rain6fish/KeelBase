@@ -516,6 +516,24 @@ export interface TargetStatusLookup {
   intervalSeconds: number | null
 }
 
+/**
+ * R-2: what the readings cover, and what they do not — computed by the server when the response is
+ * built. Lookups are point samples; the stretch before the first one was not observed at all.
+ *
+ * R-2：读数覆盖了什么、没覆盖什么 —— 由服务端在构造响应时现算。查询是时间点采样；第一条之前那段
+ * 完全没有观测。
+ */
+export interface ClaimLookupCoverage {
+  /** 这句话说的是哪一段：首问之前，或尚无观测的整段占位。/ Which stretch this statement is about. */
+  basis: 'until-first-lookup' | 'no-lookups-yet'
+  /** 该段内完全没有观测的秒数；空历史也有时长，不是 null。/ Seconds with no observation at all; never null. */
+  unobservedSeconds: number
+  /** 观测记录的起点；尚无观测为 null。/ Start of the observed record; null when nothing was observed. */
+  observedFrom: string | null
+  /** 计划里的第一档等待（分钟），读自清扫用的同一份计划。/ The plan's first wait in minutes. */
+  expectedFirstAskAfterMinutes: number
+}
+
 export interface ClaimLookupsResponse {
   claimId: number
   toolName: string
@@ -524,6 +542,8 @@ export interface ClaimLookupsResponse {
   claimedAt: string
   /** F-85/F-86：从占位到首问的秒数；一次都没问过为 null。/ Seconds from claim to the first ask; null when never asked. */
   firstLookupAfterWriteSeconds: number | null
+  /** R-2：覆盖声明（读时现算）。/ Read-time coverage statement. */
+  coverage: ClaimLookupCoverage
   items: TargetStatusLookup[]
   total: number
 }
