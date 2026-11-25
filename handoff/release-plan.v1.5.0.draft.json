@@ -44,7 +44,7 @@
     },
     {
       "step": 5,
-      "what": "先处理四层审核的阻断项（见 handoff/r1-v150-prep-1124.md §4）：PG 上 system:sweep 写入审计 userId、smoke 作业未拉镜像；处理方式由用户裁定",
+      "what": "先裁定 B-1（PG 上 system:sweep 写入审计 userId）与 B-3（对账循环一错全废）；B-2（smoke 未拉镜像）已于本会话修好",
       "check": "相应用例/工作流复跑",
       "owner": "需用户裁定",
       "done": false

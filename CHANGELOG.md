@@ -82,6 +82,11 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 ### Fixed
 
+- **The image smoke job fetches the image it tests.** `publish` pushes from another runner's daemon,
+  and `scripts/image-smoke.sh` starts with `docker image inspect`, which never pulls, so every tag's
+  smoke job would have failed and the SBOM/Release job that needs it would never have run. The job now
+  logs in to ghcr and pulls the tag before invoking the script.
+
 - **The no-renderer plan fallback honours the tool-result budget.** It masked its step result but put no
   ceiling on it, while the rendered path bounds every payload at 4,000 characters, so a large result went
   into the summary prompt whole. The budget is now one exported constant shared by both paths, and the
@@ -171,6 +176,10 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
   改为可移植。若干双语注释块改为英文在前、中文在后。
 
 ### 修复
+
+- **镜像冒烟作业先取回它要测的镜像。** `publish` 在另一个 runner 的守护进程里推送，而
+  `scripts/image-smoke.sh` 开头就是 `docker image inspect`、自己从不拉取；于是每个 tag 的冒烟作业
+  都会失败，依赖它的 SBOM/Release 作业永远不跑。现在该作业先登录 ghcr、拉取该 tag，再调用脚本。
 
 - **无渲染器的 plan 兜底也受工具结果预算约束。** 它给步骤结果打了码却不设上限，而渲染路径把每份载荷
   限制在 4,000 字符，大结果因此整份进汇总提示词。现在预算是两条路径共用的一个导出常量，兜底在打码
