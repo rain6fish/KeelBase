@@ -146,3 +146,23 @@
 - 复核报告 §9.2 记的「R-2 未把 `coverage` 写进 `docs/ai-agent.spec.md`」——本批已顺手补齐（英/中两段），
   属该条的收口。
 - 私库认领行与 roadmap 状态由父会话收口（本会话无权写私库）。
+
+---
+
+## 9. 并入 v1.5.0（2026-11-25，本地 main）
+
+- **主修复已进 main**：合并提交 **`d9ba35ec`**（父 `b5ee8461` + `9fd60158`），两处冲突
+  （`CLAUDE.md` 端点行、`docs/ai-agent.spec.md` 读历史段）按「两侧意图都保留」解：main 的 R-1
+  `basis` 交代 + 本批的 `readingsBeforeClaim` 与覆盖窗口口径。1.5.0 文本覆盖由父会话的 `19aa0dd4`
+  完成（`Also 8` 一条）。
+- **两项跟进在本分支顶端、尚未进 main**（main 期间又被 R-3 拷贝工作推进到 `e8640dbe`）：
+  - `13c1f175` —— R-1 两处注释块改为英文在前（§4 末的遗留，R-1 已落地故本批收口）；
+  - `ead548a5` —— 类型判据夹具补 `basis: 'unknown'`（R-1 把它变成必填字段，合并后的 `vue-tsc` 才暴露）；
+  - 覆盖表已登记 `13c1f175` 为 internal。
+  **落地方式**：主检出 `main` 干净时 `git merge --ff-only claude/gallant-roentgen-bf66d8` 即可（分支即
+  `main` + 这两笔）。
+- **读数（分支顶端）**：`check:all` **36/36**；`check-release-texts` **OK**（无未覆盖条目）；
+  后端定向 **39/39**；`audit-reader-scope` e2e **19/19**；控制台 **25/25**；后端 `tsc` 0 error；
+  控制台 `vue-tsc` 干净。
+- **仍未做（留给出发布者）**：把跟进两笔并入 `main`、推 `main` 到两远端、推附注 tag `v1.5.0`
+  （正文 = `docs/releases/v1.5.0.md`）、建 GitHub/Gitee Release。工作时段推送由钩子拦截，本会话未推。

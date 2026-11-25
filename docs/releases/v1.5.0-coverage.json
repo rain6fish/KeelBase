@@ -99,6 +99,11 @@
       "sha": "748d9520",
       "kind": "internal",
       "reason": "In-app upgrade-prompt text for 1.5.0: the same items already appear in Highlights/Also; no product behaviour change"
+    },
+    {
+      "sha": "13c1f175",
+      "kind": "internal",
+      "reason": "Comment-only reorder of two R-1 bilingual blocks to English-first; no behaviour change"
     }
   ]
 }
