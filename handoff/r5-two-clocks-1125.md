@@ -64,10 +64,10 @@ not schema.
 - `Web-Admin-Vue`: `npm run typecheck` → **0 errors**; `npx vitest run src/views/ai-tools`
   → **21/21**; ESLint on touched console files → **0 errors** (14 pre-existing stub warnings).
 - ESLint on touched backend files → **0 findings**.
-- `npm run check:all` → **34/36** in this worktree. The two reds are `check:coverage-gaps` and
-  `check:java-vectors`, both because they look for a sibling `KeelBase4J` at
-  `<worktree>/../KeelBase4J`. Re-run with `KEELBASE_JAVA_REPO=D:/Rain6fish/KeelBase4J`:
-  both green (gaps aligned **14**; vectors **13/13**, schemas **225/225**) ⇒ effectively **36/36**.
+- `npm run check:all` → **34/36** in this worktree as-is. The two reds are `check:coverage-gaps`
+  and `check:java-vectors`, both because they look for a sibling `KeelBase4J` at
+  `<worktree>/../KeelBase4J`. Re-run with `KEELBASE_JAVA_REPO=D:/Rain6fish/KeelBase4J` →
+  **36/36 全过 (45.3 s), exit 0** (gaps aligned **14**; vectors **13/13**, schemas **225/225**).
   `check:contract-release-gate` was green (no contract pin moved).
 - The contract submodule was uninitialised in this worktree; before initialising it, 9 tests in
   6 suites failed on `ENOENT … specs/protocol/…`. Initialised with
