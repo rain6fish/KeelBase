@@ -26,7 +26,7 @@ export interface AiAuditLogWithUser {
   conversationId?: string | null;
   action: string;
   detail?: string | null;
-  /** F-85b：释放决定的查询证据（JSON 文本，链外列；非释放行为 null）。/ F-85b: query evidence behind a release (JSON text, off-chain; null on other rows). */
+  /** F-85b: query evidence behind a release (JSON text, off-chain; null on other rows). / F-85b：释放决定的查询证据（JSON 文本，链外列；非释放行为 null）。 */
   releaseLookups?: string | null;
   /** D2 人类语言审计标签：语义 key（前端 i18n）+ 兜底人类可读描述（含工具名） */
   actionKey?: string | null;
@@ -253,8 +253,8 @@ export class AuditQueryService {
       // §internal.16 A-1 业务行为取证：业务事件名 + Decision Evidence（链外透出）
       businessEvent: r.log_business_event ?? null,
       evidence: r.log_evidence ?? null,
-      // F-85b：释放行背后的读数（链外列）。非释放行没有这一列的值 —— 发 null，不是空串。
       // F-85b: the readings behind a release (off-chain column). Other rows carry null, not an empty string.
+      // F-85b：释放行背后的读数（链外列）。非释放行没有这一列的值 —— 发 null，不是空串。
       releaseLookups: r.log_release_lookups ?? null,
     };
     });

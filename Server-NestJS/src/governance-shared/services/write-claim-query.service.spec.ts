@@ -440,6 +440,7 @@ describe('AW-16 在途 claim 只读查询面', () => {
         basis: 'until-first-lookup',
         unobservedSeconds: 3600,
         observedFrom: '2026-11-01T01:00:00.000Z',
+        readingsBeforeClaim: 0,
         expectedFirstAskAfterMinutes: 60,
       });
     });
@@ -479,6 +480,62 @@ describe('AW-16 在途 claim 只读查询面', () => {
       expect(res?.coverage.unobservedSeconds).toBeLessThan(310);
       // 原有字段的口径不变：没问过仍是 `null`，不造一个 0。
       expect(res?.firstLookupAfterWriteSeconds).toBeNull();
+    });
+
+    /**
+     * R-2 residual / re-claim: a retry of the same key reuses the row and resets `claimedAt`, so the
+     * evidence trail can start **before** this attempt. A reading from then says nothing about this
+     * attempt; counting it as the first sample made `unobservedSeconds` clamp to 0 and the statement
+     * called an unobserved stretch "observed" — the exact false coverage R-2 is meant to remove.
+     *
+     * R-2 遗留 / 重占位：同一键重试复用同一行并重置 `claimedAt`，故证据链可能早于本次尝试开始。那时
+     * 的读数不说明本次的任何情况；把它读作首个采样会让 `unobservedSeconds` 被夹到 0，声明于是把没观测的
+     * 一段说成「已观测」—— 正是 R-2 要消掉的那种假覆盖。
+     */
+    it('R-2 **反向（重占位）**：早于本次占位的旧读数不得把「未观测」说成「已观测」', async () => {
+      const row = await claim({
+        idempotencyKey: 'reclaim',
+        toolName: 'proxy_send',
+        claimedAt: new Date('2026-11-01T00:00:00Z'),
+      });
+      // 上一次尝试留下的读数：一天前问过。重占位把 claimedAt 推到它之后。
+      const old = await lookup('reclaim', { conclusion: 'not_executed', reason: null });
+      await lookups().update(old.id, { at: new Date('2026-11-01T01:00:00Z') });
+      await repo().update(row.id, { claimedAt: new Date('2026-11-02T00:00:00Z') });
+      // 本次尝试：半小时后问了一次。
+      const fresh = await lookup('reclaim', { conclusion: 'unknown', reason: 'timeout' });
+      await lookups().update(fresh.id, { at: new Date('2026-11-02T00:30:00Z') });
+
+      const res = await service.lookupsFor(row.id, { userId: 1, role: UserRole.ADMIN });
+
+      // 首问 = 本次尝试的第一条（新的一天的 00:30），不是上一次那条。旧实现给的是负值再被夹到 0。
+      expect(res?.firstLookupAfterWriteSeconds).toBe(1800);
+      expect(res?.coverage).toEqual({
+        basis: 'until-first-lookup',
+        unobservedSeconds: 1800,
+        observedFrom: '2026-11-02T00:30:00.000Z',
+        readingsBeforeClaim: 1,
+        expectedFirstAskAfterMinutes: 60,
+      });
+      // 旧读数没有被丢掉：它仍是证据，并由计数说明它早于本次占位。
+      expect(res?.items.map((l) => l.conclusion)).toEqual(['unknown', 'not_executed']);
+    });
+
+    it('R-2 **反向（重占位）**：读数全部早于本次占位 ⇒ 本次至今未观测，不是 0', async () => {
+      const claimedAt = new Date(Date.now() - 300_000);
+      const row = await claim({ idempotencyKey: 'reclaim-none', toolName: 'proxy_send', claimedAt });
+      const old = await lookup('reclaim-none', { conclusion: 'unknown', reason: 'timeout' });
+      await lookups().update(old.id, { at: new Date(claimedAt.getTime() - 3_600_000) });
+
+      const res = await service.lookupsFor(row.id, { userId: 1, role: UserRole.ADMIN });
+
+      // 「上一次尝试问过」不是「本次问过」：首问仍是 `null`，整段占位都未观测。
+      expect(res?.firstLookupAfterWriteSeconds).toBeNull();
+      expect(res?.coverage.basis).toBe('no-lookups-yet');
+      expect(res?.coverage.observedFrom).toBeNull();
+      expect(res?.coverage.readingsBeforeClaim).toBe(1);
+      expect(res?.coverage.unobservedSeconds).toBeGreaterThanOrEqual(300);
+      expect(res?.coverage.unobservedSeconds).toBeLessThan(310);
     });
 
     it('**反向**：范围外的 claim ⇒ `null`（调用方 404，不泄露存在性）', async () => {
