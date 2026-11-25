@@ -4,17 +4,17 @@ import { DataSource, QueryRunner } from 'typeorm';
 import { AddTargetStatusLookupBasis1861000000000 } from '../1861000000000-AddTargetStatusLookupBasis';
 
 /**
- * **本文件必须留在 `src/migrations/__tests__/`**：迁移 glob 是非递归的，放进子目录才能既与迁移同处、
- * 又不被 TypeORM 当迁移加载。
- *
- * 用真实 QueryRunner 驱动迁移类本身，不手抄 SQL。重点两条：加的是**可空**列、**不回填** ——
- * 「目标没说」与「该行早于本列」都读作 `unknown`，不能拿 `current_state` 冒充任何一种。
- *
  * **This file must stay in `src/migrations/__tests__/`**: the migration glob is non-recursive, so only
  * this subdirectory keeps it next to the migration without TypeORM loading it as one. The migration
  * class is driven through a real QueryRunner. Two points matter: the column is **nullable**, and there
  * is **no backfill** — "the target did not say" and "the row predates the column" both read as
  * `unknown`, so `current_state` must not be stamped onto history.
+ *
+ * **本文件必须留在 `src/migrations/__tests__/`**：迁移 glob 是非递归的，放进子目录才能既与迁移同处、
+ * 又不被 TypeORM 当迁移加载。
+ *
+ * 用真实 QueryRunner 驱动迁移类本身，不手抄 SQL。重点两条：加的是**可空**列、**不回填** ——
+ * 「目标没说」与「该行早于本列」都读作 `unknown`，不能拿 `current_state` 冒充任何一种。
  */
 const PRE_STATE_TABLE = `CREATE TABLE "ai_target_status_lookups" (
   "id" integer PRIMARY KEY AUTOINCREMENT NOT NULL,
