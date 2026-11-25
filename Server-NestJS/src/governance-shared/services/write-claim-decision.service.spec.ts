@@ -105,6 +105,25 @@ describe('AW-16 F-63/F-64：释放程序与过期策略', () => {
     return saved;
   };
 
+  /**
+   * R-6: the same assembly plus a probe stub, so askability is a known fact rather than `null`.
+   *
+   * R-6：与上面同一套装配，外加一个探针桩，于是可问性是已知事实而不是 `null`。
+   */
+  const serviceWithProbe = (askable: boolean) =>
+    new WriteClaimDecisionService(
+      repo(),
+      lookups(),
+      audit,
+      { get: (k: string) => (k === 'REVOKE_STALE_MINUTES' ? 60 : undefined) } as never,
+      {
+        canAsk: () => askable,
+        lookup: async () => {
+          throw new Error('this test only asks whether the tool can be asked');
+        },
+      } as never,
+    );
+
   beforeEach(async () => {
     ds = new DataSource({
       type: 'better-sqlite3',
@@ -205,7 +224,7 @@ describe('AW-16 F-63/F-64：释放程序与过期策略', () => {
     it('F-85b：从未问过就释放 ⇒ 审计行**明写未查询**，不留空当默认', async () => {
       const claim = await seed();
 
-      const res = await service.release(claim.id, { userId: 'admin-1' }, { note: '目标无状态端点，直接释放', view: viewOf(claim) });
+      const res = await service.release(claim.id, { userId: 'admin-1' }, { note: '没有查询记录，直接释放', view: viewOf(claim) });
 
       expect(res.outcome).toBe('released_unknown');
       const row = await auditRepo().findOneByOrFail({ action: 'claim_release' });
@@ -213,7 +232,8 @@ describe('AW-16 F-63/F-64：释放程序与过期策略', () => {
       // 没有查询读数，就不能出现任何结论词 —— 空历史不是答案。
       expect(row.detail).not.toMatch(/executed/);
       // 结构化列仍写出来，但为空列表：读的人看到的是「问过 0 次」，不是「这一列没有」。
-      expect(JSON.parse(row.releaseLookups!)).toEqual({ count: 0, items: [] });
+      // R-6：本装配没有探针 ⇒ 可问性未知，记 null 而不是 false —— 不臆断工具问不了。
+      expect(JSON.parse(row.releaseLookups!)).toEqual({ count: 0, askable: null, items: [] });
     });
 
     it('F-85b：证据读取失败 ⇒ 状态未改、无审计行（读取在条件更新之前）', async () => {
@@ -515,6 +535,73 @@ describe('AW-16 F-63/F-64：释放程序与过期策略', () => {
       const again = await store.claimWrite(ctx);
       expect(again.won).toBe(false);
       expect(again.status).toBe(WRITE_CLAIM_STATUS.CLAIMED);
+    });
+  });
+
+  describe('R-6 第三个桶：问不了 ≠ 没人问', () => {
+    it('无状态端点的工具上释放 ⇒ 行内写「问不了」，链外列 askable=false，而不是「从未问过」', async () => {
+      const claim = await seed({ toolName: 'proxy_send_payout' });
+
+      const res = await serviceWithProbe(false).release(
+        claim.id,
+        { userId: 'admin-1' },
+        { note: '该工具没有状态端点', view: viewOf(claim) },
+      );
+
+      expect(res.outcome).toBe('released_unknown');
+      const row = await auditRepo().findOneByOrFail({ action: 'claim_release' });
+      // 三态里的第三态：工具连问都问不了 —— 不能与「可以问、但没人去问」同形。
+      expect(row.detail).toContain('lookups: none (not askable');
+      expect(row.detail).toContain('no usable status query');
+      expect(row.detail).not.toContain('never queried');
+      // 同一事实以字段落进链外列，三态因此可计数。
+      expect(JSON.parse(row.releaseLookups!)).toEqual({ count: 0, askable: false, items: [] });
+    });
+
+    it('可问但没问 ⇒ 仍是「从未问过」，链外列 askable=true（三态第二态）', async () => {
+      const claim = await seed({ toolName: 'proxy_send_payout' });
+
+      const res = await serviceWithProbe(true).release(
+        claim.id,
+        { userId: 'admin-1' },
+        { note: '没人来得及查', view: viewOf(claim) },
+      );
+
+      expect(res.outcome).toBe('released_unknown');
+      const row = await auditRepo().findOneByOrFail({ action: 'claim_release' });
+      expect(row.detail).toContain('lookups: none (never queried)');
+      expect(row.detail).not.toContain('not askable');
+      expect(JSON.parse(row.releaseLookups!)).toEqual({ count: 0, askable: true, items: [] });
+    });
+
+    it('探针缺席 ⇒ 不臆断可问性：askable=null，措辞退回只陈述次数', async () => {
+      const claim = await seed();
+
+      await service.release(claim.id, { userId: 'admin-1' }, { note: '装配里没有探针', view: viewOf(claim) });
+
+      const row = await auditRepo().findOneByOrFail({ action: 'claim_release' });
+      expect(row.detail).toContain('lookups: none (never queried)');
+      expect(row.detail).not.toContain('not askable');
+      expect(JSON.parse(row.releaseLookups!).askable).toBeNull();
+    });
+
+    it('问过 N 次 ⇒ 计数优先；即便工具当前已不可问，读数仍是「问过 N 次」', async () => {
+      const claim = await seed({ toolName: 'proxy_send_payout' });
+      const reading = await seedLookup(claim.idempotencyKey, new Date('2026-11-24T10:00:00Z'));
+
+      const res = await serviceWithProbe(false).release(
+        claim.id,
+        { userId: 'admin-1' },
+        { note: '配置已改，但确实问过', view: viewOf(claim, reading.id) },
+      );
+
+      expect(res.outcome).toBe('released_unknown');
+      const row = await auditRepo().findOneByOrFail({ action: 'claim_release' });
+      expect(row.detail).toContain('lookups: 1 asked (see releaseLookups)');
+      const evidence = JSON.parse(row.releaseLookups!) as { count: number; askable: boolean | null };
+      expect(evidence.count).toBe(1);
+      // 可问性是**写入时刻**的工具性质；次数记的是**发生过什么** —— 两者都如实保留。
+      expect(evidence.askable).toBe(false);
     });
   });
 });

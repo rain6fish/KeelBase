@@ -581,9 +581,13 @@ optional external reference. The claim moves to `closed_unknown`; `status` delib
 never silently retried. The act itself is one chained AI-audit row (`action=claim_release`), carrying
 the note and reference and **no** outcome word. That row also states **what the asking said**: the
 count and the newest three readings (`at`, `conclusion`, `reason`, `lookedUpBy`), newest first,
-written `lookups: N asked, newest first (k of N)` when there are more than three; a release with no
-asks behind it says `lookups: none (never queried)` outright rather than leaving a blank that would
-read as a default.
+written `lookups: N asked, newest first (k of N)` when there are more than three. A release with no
+asks behind it says so outright rather than leaving a blank that would read as a default — and it
+says **which kind of none**: `lookups: none (never queried)` when the tool has a usable status query
+that nobody used, `lookups: none (not askable — this tool has no usable status query)` when there is
+no channel to ask through at all. The off-chain column carries the same distinction as `askable`
+(`true` / `false` / `null` when the writing process cannot tell), so "asked N times", "askable but
+never asked" and "not askable" are three countable cases rather than two.
 
 An hourly sweep moves overdue `open` holds to `awaiting_decision`. It changes no status and writes no
 conclusion, so a slow external call can still settle; a sweep that released rows would take that
@@ -659,8 +663,11 @@ reading and never moves the row — while freshness only filters and badges.
 东西证明这次写是否落库，写成 `released` 等于断言「确认未落库」。键仍被占住，故同一次调用会被 `claimWrite`
 拒绝，绝不会被静默重试。动作本身是一条带链 AI 审计行（`action=claim_release`），带说明与引用，**不**带
 任何结局词。该行同时陈述**询问说了什么**：次数与最近三次读数（`at`、`conclusion`、`reason`、
-`lookedUpBy`），最近的在前，超过三条时写作 `lookups: N asked, newest first (k of N)`；一次都没问过的
-释放明写 `lookups: none (never queried)`，而不是留空让人当默认值。
+`lookedUpBy`），最近的在前，超过三条时写作 `lookups: N asked, newest first (k of N)`。一次都没问过的
+释放会明写出来，而不是留空让人当默认值 —— 并且写明是**哪一种「没有」**：工具有可用的状态查询却没人
+用过，写作 `lookups: none (never queried)`；根本没有可问的通道，写作 `lookups: none (not askable —
+this tool has no usable status query)`。链外列以 `askable` 承载同一区分（`true` / `false` / 写入进程
+判断不了时的 `null`），于是「问过 N 次」「可问但没问」「问不了」是三态、可计数，而不是两态。
 
 每小时清扫把到期的 `open` 占位移入 `awaiting_decision`：不改状态、不写结论，故慢的外部调用仍能落定 ——
 若清扫把行改成 `released`，那份能力就没了。读永远不改状态：`stale` 仍是年龄读数，不是决定。
