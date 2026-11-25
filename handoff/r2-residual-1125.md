@@ -82,12 +82,14 @@
 | 项 | 结果 |
 |---|---|
 | `jest src/governance-shared/services/write-claim-query.service.spec.ts` | **33/33**（原 31 + 新 2） |
+| `jest src/governance-shared`（整目录，防回归） | **37 suites / 532 passed** |
 | `vitest run src/views/ai-tools/__tests__/AiToolsView.spec.ts` | **25/25**（新 4：重占位声明、竞态、类型判据 + 既有用例补断言） |
 | `npx tsc -p tsconfig.build.json --noEmit`（后端） | **0 error** |
 | `npm run typecheck`（`vue-tsc --noEmit`，控制台） | **干净** |
+| `npm run build`（控制台，Vite 产物） | **built in 9.63s** |
 | `NODE_ENV=test jest --config test/jest-e2e.json test/audit-reader-scope.e2e-spec.ts` | **19/19** |
 | `npx eslint`（4 个改动的后端文件，严格形态） | **0** |
-| `npm run check:all`（`KEELBASE_JAVA_REPO=D:/Rain6fish/KeelBase4J`） | **35/36**；唯一红 `check:semantic-single-source`，原因是改动**未提交**在工作树 ⇒ 无提交可承载 trailer（不是代码问题）。**提交后复跑见 §7** |
+| `npm run check:all`（`KEELBASE_JAVA_REPO=D:/Rain6fish/KeelBase4J`） | 提交后 **36/36 全过**（44.3s）。过程读数：提交前 35/36，唯一红 `check:semantic-single-source`（改动未提交 ⇒ 无提交可承载 trailer，不是代码问题）；首次提交后它转绿，但 `check:commit-order` 因 trailer 单独成行判红 —— 把 trailer 并入英文段末尾后 **36/36**（见 §7 的提醒） |
 
 环境说明：本 worktree 的契约子模块原本未初始化；用 `git -c protocol.file.allow=always submodule update --init`
 从主检出的子模块本地取到既有 pin `015f474`（无网络、无 push、无指针改动）。`prettier --check` 对本仓 Vue 文件
@@ -127,12 +129,14 @@
 
 - 提交信息须带 **`[no-semantic-change]`** trailer —— 本批触及 `audit.service.ts`（仅注释重排），
   语义单源门禁在无契约变更时按此豁免（见 `Server-NestJS/scripts/check-semantic-single-source.mjs`）。
+  ⚠ 该 trailer 要放在**英文段末尾**、中文段之前：`check:commit-order` 会把单独成行的 trailer 当作
+  「中文段之后又来了一段英文」并判红（本会话实测踩到过一次）。
 - **不要**把 R-1 分支的两处注释顺序修复算进本批（它们的文件不在 main 上）；R-1 若同时进 v1.5.0，
   请在同一批次里改掉（§4 末）。
-- 若并入顺序是「R-2 遗留 → 再合 R-1」，两处改动**不冲突**：R-1 改的是 `projectLookup` 的 `basis` 映射与
-  `ClaimLookupCoverage` 的邻接位置，本批改的是 `lookupsFor` 的窗口计算与 `readingsBeforeClaim` 字段；
-  合并时注意 `ClaimLookupCoverage` 接口两处新增字段都要保留（R-1 的 `basis` 在 `TargetStatusLookupView`，
-  与本批字段不在同一接口，风险低）。
+- 若并入顺序是「R-2 遗留 → 再合 R-1」，两处改动**不冲突**（已对 `save/r1-basis-1124` 的 diff 核过）：
+  R-1 改的是 `projectLookup` 与 `TargetStatusLookupView`（加 `basis`），本批改的是 `lookupsFor` 的窗口计算与
+  `ClaimLookupCoverage.readingsBeforeClaim`；两批加的字段在不同接口、不同 hunk，合并时两边都保留即可。
+  R-1 的 `basis` 与本批的 coverage `basis` 是两套词表（R-1 注释里已写明不可互换），别合并。
 
 ---
 
