@@ -24,6 +24,13 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
   contract `ai-audit-log-row` v8 adds the optional property. Releasing still requires no minimum number
   of asks, so a target without a status endpoint stays releasable.
 
+- **A release's copied readings resolve back to their source rows.** Each `releaseLookups` item now carries
+  the id of the `ai_target_status_lookups` row it was copied from, so a release decision can be read back
+  against the readings it cites; the count and the newest three come from one statement (`COUNT(*) OVER ()`
+  with `LIMIT 3`), so the total and the tail are one snapshot instead of two reads that could disagree. The
+  copy is a boundary, not a history: it holds only observed fields, and its consistency relies on the lookup
+  table being append-only.
+
 - **The lookup history states what it could not have seen.** `GET /ai/tool-effects/claims/:id/lookups`
   carries a read-time `coverage` block: whether the blind window is the stretch before the first reading
   or the whole life of the claim, how many seconds it spans, when observation began, and the schedule's
@@ -173,6 +180,11 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
   `lookups: none (never queried)`，而不是留空。`/audit/logs` 的行以 `releaseLookups` 透出该列
   （其余行发 null），契约 `ai-audit-log-row` 升到 v8 增加这个可选属性。释放仍不设最少询问次数，
   没有状态端点的目标必须依然可释放。
+
+- **释放拷贝的读数能解析回它们的源行。** `releaseLookups` 的每一项现在带上它拷贝自的那一行
+  `ai_target_status_lookups.id`，释放决定因此能回读它引用的读数；计数与最近三条出自同一条语句
+  （`COUNT(*) OVER ()` 配 `LIMIT 3`），总数与尾部是同一份快照，而不是两次可能互相打架的读。拷贝是
+  **边界而非历史**：只装观测字段，其一致性依赖读数表**仅追加**。
 
 - **查询历史写明它看不到什么。** `GET /ai/tool-effects/claims/:id/lookups` 带一份读时现算的
   `coverage`：说清盲区是首问之前那段，还是尚无读数时的整段占位；给出该段的秒数、观测起点，以及计划里

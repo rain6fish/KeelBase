@@ -99,6 +99,16 @@
       "sha": "748d9520",
       "kind": "internal",
       "reason": "In-app upgrade-prompt text for 1.5.0: the same items already appear in Highlights/Also; no product behaviour change"
+    },
+    {
+      "sha": "325fb7f72282",
+      "kind": "user-visible",
+      "text": "Also 9 — A release's copied readings resolve back to their source rows, one snapshot per release"
+    },
+    {
+      "sha": "861429ba3355",
+      "kind": "user-visible",
+      "text": "Also 9 — The kind of each copied reading is selected in that same one query"
     }
   ]
 }
