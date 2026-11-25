@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
-import type { TargetStatusConclusion } from '../../governance-core/target-status';
+import type { TargetStatusBasis, TargetStatusConclusion } from '../../governance-core/target-status';
 
 /**
  * AW-17: **one row per target-status lookup** — the evidence that a person asked the target whether a
@@ -75,6 +75,24 @@ export class TargetStatusLookupRow {
   /** Why it is `unknown`; `null` for a real answer. / 为 `unknown` 的成因；真答案为 `null`。 */
   @Column({ type: 'varchar', length: 32, nullable: true })
   reason?: string | null;
+
+  /**
+   * R-1: `current_state` | `receipt` — what a real answer is based on, as the target declared it.
+   * `null` means the target did not say, **or** the row was written before this column existed; the
+   * read face reports both as `unknown`. Deliberately nullable with no default: a default would stamp
+   * a value onto every historical row and destroy the "predates the column" reading. No backfill.
+   *
+   * Explicit `type: 'varchar'` for the same reason as `reason` and `conclusion`: a TS union reflects
+   * as `Object`, which sqlite refuses.
+   *
+   * R-1：`current_state` | `receipt` —— 真答案基于什么，按目标的声明记录。`null` 表示目标没说，
+   * **或**该行早于本列；读面对两者都报 `unknown`。有意可空、无默认：默认值会把值盖到每一行历史数据上，
+   * 抹掉「早于本列」这个读数。不回填。
+   *
+   * 显式 `type: 'varchar'` 的理由同 `reason` 与 `conclusion`：TS 联合类型会被反射成 `Object`，sqlite 拒绝。
+   */
+  @Column({ type: 'varchar', length: 16, nullable: true })
+  basis?: TargetStatusBasis | null;
 
   @CreateDateColumn({ name: 'at' })
   at!: Date;

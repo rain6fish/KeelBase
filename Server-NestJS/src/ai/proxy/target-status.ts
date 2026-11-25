@@ -42,7 +42,12 @@ import { ProxyTool } from './proxy-tool';
 import { ProxyTimeoutError, proxyFetch } from './proxy-http';
 import { NEVER_SENT_CODES, transportCode } from './transport-errors';
 import { resolveCapabilities } from '../interfaces/tool.interface';
-import { TARGET_STATUS, type TargetStatusLookup } from '../../governance-core/target-status';
+import {
+  TARGET_STATUS,
+  TARGET_STATUS_BASIS,
+  type TargetStatusBasis,
+  type TargetStatusLookup,
+} from '../../governance-core/target-status';
 import type { TargetStatusProbe } from '../../governance-shared/services/tool-effects.types';
 
 /**
@@ -62,6 +67,20 @@ function splitStatusPath(raw: string): { method: string; path: string } {
   };
 }
 
+/**
+ * R-1: the basis a target declared, or `null` when it did not say (or said something this vocabulary
+ * does not know). Silent means `null` — inferring `current_state` from the method or path would claim
+ * something the target never told us, and both kinds are asked with the same single GET.
+ *
+ * R-1：目标声明的种类；它没说（或说了本词表不认识的话）时为 `null`。沉默就是 `null` —— 按方法或
+ * 路径推成 `current_state` 等于替目标声明它没说过的事，而两种种类用的是同一条单次 GET。
+ */
+function declaredBasis(raw: unknown): TargetStatusBasis | null {
+  return raw === TARGET_STATUS_BASIS.CURRENT_STATE || raw === TARGET_STATUS_BASIS.RECEIPT
+    ? raw
+    : null;
+}
+
 /** The evidence for "we could not even ask": no query channel, or a configuration we refuse to send. */
 function unanswered(
   reason: TargetStatusLookup['reason'],
@@ -74,6 +93,7 @@ function unanswered(
     queryPath,
     conclusion: TARGET_STATUS.UNKNOWN,
     reason,
+    basis: null,
   };
 }
 
@@ -133,12 +153,21 @@ export class ProxyTargetStatusProbe implements TargetStatusProbe {
         tool.timeoutMs,
       );
       if (!res.ok) {
-        return { queriedAt, queryMethod: method, queryPath: path, conclusion: TARGET_STATUS.UNKNOWN, reason: 'non_2xx' };
+        return { queriedAt, queryMethod: method, queryPath: path, conclusion: TARGET_STATUS.UNKNOWN, reason: 'non_2xx', basis: null };
       }
-      const body = (await res.json().catch(() => null)) as { status?: unknown } | null;
+      const body = (await res.json().catch(() => null)) as { status?: unknown; basis?: unknown } | null;
       const status = body?.status;
       if (status === TARGET_STATUS.EXECUTED || status === TARGET_STATUS.NOT_EXECUTED) {
-        return { queriedAt, queryMethod: method, queryPath: path, conclusion: status, reason: null };
+        // The basis is recorded only alongside a real answer; an unrecognised value stays `null`.
+        // 种类只随真答案记录；认不出的取值保持 `null`。
+        return {
+          queriedAt,
+          queryMethod: method,
+          queryPath: path,
+          conclusion: status,
+          reason: null,
+          basis: declaredBasis(body?.basis),
+        };
       }
       // A target that answers in a shape we do not know is **silent**, not a "no".
       return {
@@ -147,6 +176,7 @@ export class ProxyTargetStatusProbe implements TargetStatusProbe {
         queryPath: path,
         conclusion: TARGET_STATUS.UNKNOWN,
         reason: 'unrecognized_answer',
+        basis: null,
       };
     } catch (err) {
       const reason = err instanceof ProxyTimeoutError
@@ -154,7 +184,7 @@ export class ProxyTargetStatusProbe implements TargetStatusProbe {
         : NEVER_SENT_CODES.has(transportCode(err))
           ? 'unreachable'
           : 'call_failed';
-      return { queriedAt, queryMethod: method, queryPath: path, conclusion: TARGET_STATUS.UNKNOWN, reason };
+      return { queriedAt, queryMethod: method, queryPath: path, conclusion: TARGET_STATUS.UNKNOWN, reason, basis: null };
     }
   }
 

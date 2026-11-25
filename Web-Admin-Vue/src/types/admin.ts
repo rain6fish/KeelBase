@@ -530,16 +530,27 @@ export interface ReleaseClaimView {
 
 /**
  * AW-17: one recorded attempt to ask the target whether a write happened. `unknown` is a real answer
- * too — it means the target did not say, and it must never be rendered as "executed".
+ * too — it means the target did not say, and it must never be rendered as "executed". This is the
+ * shape both read faces return; the history adds the F-85 position readings below, which the
+ * in-flight row's `lastLookup` does not carry.
  *
  * AW-17：一次「问目标这次写到底发生了没有」的读数。`unknown` 也是一种答案 —— 它表示目标没说，
- * 绝不能渲染成「已执行」。
+ * 绝不能渲染成「已执行」。两个读面都返回这个形状；历史项再加下面的 F-85 位置读数，而在途行的
+ * `lastLookup` 不带它们。
  */
 export interface TargetStatusLookup {
   id: number
   conclusion: 'executed' | 'not_executed' | 'unknown'
   /** Why it is `unknown`; `null` for a real answer. / 为 `unknown` 的成因；真答案为 `null`。 */
   reason: string | null
+  /**
+   * R-1: what the answer is based on — a current-state snapshot or the target's own acceptance
+   * record. `unknown` means the target did not say, or the row predates the column. Never `null`.
+   *
+   * R-1：答案基于什么 —— 当前状态快照，或目标自己的受理记录。`unknown` 表示目标没说，或该行早于
+   * 本列。读面从不为 `null`。
+   */
+  basis: 'current_state' | 'receipt' | 'unknown'
   at: string
   queryMethod: string
   queryPath: string
@@ -547,6 +558,18 @@ export interface TargetStatusLookup {
   lookedUpBy: string
   /** Whose identity the query carried (the original writer). / 查询携带的身份（原写入者）。 */
   asUserId: string
+}
+
+/**
+ * F-85: a history item — the reading plus its place in the sequence. The server projects `seq` /
+ * `intervalSeconds` only on `/claims/:id/lookups`; the in-flight row's `lastLookup` is a single
+ * reading with no sequence, so it uses `TargetStatusLookup` and must not claim these two.
+ *
+ * F-85：历史项 —— 读数加上它在序列里的位置。服务端只在 `/claims/:id/lookups` 上投影 `seq` /
+ * `intervalSeconds`；在途行的 `lastLookup` 是一条读数、没有序列，故用 `TargetStatusLookup`，
+ * 不应声明这两个字段。
+ */
+export interface TargetStatusLookupPositioned extends TargetStatusLookup {
   /** F-85：按时间排的序位，1 = 第一次问（列表本身仍是最近在前）。/ Chronological position; 1 = first ask. */
   seq: number
   /** F-85：距上一次询问的秒数；第一次为 null。不是「覆盖了多久」。/ Seconds since the previous ask; null for the first. */
@@ -567,6 +590,15 @@ export interface ClaimLookupCoverage {
   unobservedSeconds: number
   /** 观测记录的起点；尚无观测为 null。/ Start of the observed record; null when nothing was observed. */
   observedFrom: string | null
+  /**
+   * How many readings predate this claim (a retry re-claims the row and resets the clock). They
+   * answer about the previous attempt; they stay in `items` as evidence, but they are not this
+   * claim's first sample — which is why the statement is scoped to this claim.
+   *
+   * 证据链上有多少条读数早于本次占位（同一键重试会重占位并重置时钟）。它们回答的是上一次尝试，作为
+   * 证据仍留在 `items`，但不是本次的首个采样 —— 声明因此限定在本次占位上。
+   */
+  readingsBeforeClaim: number
   /** 计划里的第一档等待（分钟），读自清扫用的同一份计划。/ The plan's first wait in minutes. */
   expectedFirstAskAfterMinutes: number
 }
@@ -577,11 +609,11 @@ export interface ClaimLookupsResponse {
   claimStatus: string
   /** F-85/F-86：这次写什么时候占位的。/ When the write was claimed. */
   claimedAt: string
-  /** F-85/F-86：从占位到首问的秒数；一次都没问过为 null。/ Seconds from claim to the first ask; null when never asked. */
+  /** F-85/F-86：从本次占位到本次尝试首问的秒数；本次没问过为 null。/ Seconds from this claim to the first ask of this attempt; null when this attempt was never asked about. */
   firstLookupAfterWriteSeconds: number | null
   /** R-2：覆盖声明（读时现算）。/ Read-time coverage statement. */
   coverage: ClaimLookupCoverage
-  items: TargetStatusLookup[]
+  items: TargetStatusLookupPositioned[]
   total: number
 }
 

@@ -1225,8 +1225,10 @@ const en: ZhDict = {
   lookupPath: 'Query path',
   lookupSeq: 'Order',
   lookupInterval: 'Since previous',
-  lookupWriteGap: 'Write → first ask',
+  lookupWriteGap: 'Write → first ask: ',
   lookupPairHint: 'Two readings are a pair: the interval says how long we were blind between them, not what happened in between.',
+  lookupCoverageEarlier:
+    '{count} earlier reading(s) predate this claim (a previous attempt); they say nothing about this execution.',
   lookupCoverageGap:
     'Coverage: the {gap} before the first ask had no observation at all — the schedule first asks {plan} after the claim. Readings are point samples; nothing between them was observed.',
   lookupCoverageNone:
@@ -1234,6 +1236,12 @@ const en: ZhDict = {
   lookupExecuted: 'Executed',
   lookupNotExecuted: 'Not executed',
   lookupUnknown: 'Unknown',
+  lookupBasisCol: 'Basis',
+  lookupBasisCurrentState: 'Current-state reading',
+  lookupBasisReceipt: 'Receipt reading',
+  lookupBasisUnknown: 'Basis not recorded',
+  lookupBasisHint:
+    'The basis says what the answer is based on: a current-state reading can only say "not there now", not "never accepted"; and a receipt reading is not authority either — the target\'s own record can lag.',
   lookupReasonUnavailable: 'No status query on target',
   lookupReasonMisconfigured: 'Status query misconfigured',
   lookupReasonTimeout: 'Timed out',

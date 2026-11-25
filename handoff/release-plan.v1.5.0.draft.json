@@ -1,0 +1,61 @@
+{
+  "version": "v1.5.0",
+  "plannedFireAt": null,
+  "plannedFireAtNote": "待用户定 2026-11-25 的具体时刻后再填；与 release-plan.json 的 plannedFireAt 同义。",
+  "tagTaskId": null,
+  "done": false,
+  "status": "draft — preparation only; nothing pushed, no tag, no scheduled task",
+  "preparedAt": "2026-11-24/25",
+  "preparedBy": "r1-v150-prep-1124",
+  "branch": "claude/jovial-curran-ca2653",
+  "base": "4fbcbc2e (R-1 712e91e4 + delivery report) on top of main cf315eb8",
+  "releaseNotesFile": "docs/releases/v1.5.0.md",
+  "coverageFile": "docs/releases/v1.5.0-coverage.json",
+  "changelogSection": "CHANGELOG.md [1.5.0] - 2026-11-25",
+  "prerequisites": [
+    {
+      "step": 1,
+      "what": "今晚契约 v1.23.0 的推送/发布完成：契约远端出现 refs/tags/v1.23.0，本分支 pin 015f474 可达",
+      "check": "git -C Server-NestJS/specs/protocol ls-remote --tags https://github.com/rain6fish/keelbase-contract 'refs/tags/v1.23.0*'",
+      "owner": "今晚的发布会话",
+      "done": true,
+      "observedAt": "2026-11-25 pre-dawn: refs/tags/v1.23.0 = 015f474 on github.com/rain6fish/keelbase-contract"
+    },
+    {
+      "step": 2,
+      "what": "把 R-1 分支并入 main（带 CHANGELOG、docs/releases/、handoff 报告）；需用户批准",
+      "check": "git log --oneline main -8",
+      "owner": "明天的发布会话",
+      "done": false
+    },
+    {
+      "step": 3,
+      "what": "版本 bump 1.4.2 → 1.5.0：根 package.json、Server-NestJS/package.json、两份 lockfile 根版本字段、Front-Flutter app_constants.dart 的 appVersion",
+      "check": "node scripts/check-version-parity.mjs",
+      "owner": "明天的发布会话",
+      "done": false
+    },
+    {
+      "step": 4,
+      "what": "合并后复核：check:all（契约 tag 推远端后 contract-release-gate 应变绿）、check-release-texts 覆盖 + 文本同源（tag 正文 = docs/releases/v1.5.0.md）",
+      "check": "npm run check:all && node scripts/check-release-texts.mjs --prev-tag v1.4.2 --tip <main tip> --coverage docs/releases/v1.5.0-coverage.json && node scripts/check-release-texts.mjs --tag v1.5.0 --notes docs/releases/v1.5.0.md",
+      "owner": "明天的发布会话",
+      "done": false
+    },
+    {
+      "step": 5,
+      "what": "三项发布阻断（B-1 审计 userId 整数 CAST、B-2 smoke 未拉镜像、B-3 对账循环一错全废）均已于本会话修好",
+      "check": "定向用例 + audit-reader-scope e2e 19/19 + 反向实证；check:all",
+      "owner": "r1-v150-prep-1124",
+      "done": true
+    },
+    {
+      "step": 6,
+      "what": "排持久化 fireAt 定时任务：先推 main、等 CI 绿，再推附注 tag（正文 = docs/releases/v1.5.0.md）并建 Release",
+      "check": "tag lineage 工作流绿；GitHub/Gitee Release 正文与文件一致",
+      "owner": "需用户批准",
+      "done": false
+    }
+  ],
+  "doNotTouch": "release-plan.json —— 今晚 v1.23.0 的发布可能仍在读它；本草案不覆盖它。"
+}

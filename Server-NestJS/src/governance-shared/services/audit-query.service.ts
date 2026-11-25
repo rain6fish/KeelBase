@@ -26,7 +26,7 @@ export interface AiAuditLogWithUser {
   conversationId?: string | null;
   action: string;
   detail?: string | null;
-  /** F-85b：释放决定的查询证据（JSON 文本，链外列；非释放行为 null）。/ F-85b: query evidence behind a release (JSON text, off-chain; null on other rows). */
+  /** F-85b: query evidence behind a release (JSON text, off-chain; null on other rows). / F-85b：释放决定的查询证据（JSON 文本，链外列；非释放行为 null）。 */
   releaseLookups?: string | null;
   /** D2 人类语言审计标签：语义 key（前端 i18n）+ 兜底人类可读描述（含工具名） */
   actionKey?: string | null;
@@ -151,7 +151,18 @@ export class AuditQueryService {
     return { updated: true };
   }
 
-  /** 查询审计日志并左联用户表带出 username（原则 3：审计显示用户名）。userId 存的是数字字符串，需 CAST。ORG-5 支持按组织维度过滤。 */
+  /**
+   * Read audit rows and carry the username snapshot (principle 3: audit shows a user name). ORG-5
+   * adds an organisation filter.
+   *
+   * `userId` is compared as text, never cast to INTEGER: the column is a varchar and a system actor
+   * (`system:sweep`) can sit in it, which Postgres refuses to cast.
+   *
+   * 读取审计行并带出用户名快照（原则 3：审计显示用户名）。ORG-5 增加组织维度过滤。
+   *
+   * `userId` 一律按文本比较、从不 CAST 成 INTEGER：该列是 varchar，可能装着系统账号
+   *（`system:sweep`），Postgres 不允许把它转成整数。
+   */
   private async _queryLogs(
     options: AuditRowQueryOptions = {},
     reader?: AuditReaderContext,
@@ -200,7 +211,7 @@ export class AuditQueryService {
     }
     if (options.orgId != null) {
       qb.andWhere(
-        'CAST(log.userId AS INTEGER) IN (SELECT user_id FROM org_members WHERE org_id = :orgId)',
+        'log.userId IN (SELECT CAST(user_id AS TEXT) FROM org_members WHERE org_id = :orgId)',
         { orgId: options.orgId },
       );
     }
@@ -253,8 +264,8 @@ export class AuditQueryService {
       // §internal.16 A-1 业务行为取证：业务事件名 + Decision Evidence（链外透出）
       businessEvent: r.log_business_event ?? null,
       evidence: r.log_evidence ?? null,
-      // F-85b：释放行背后的读数（链外列）。非释放行没有这一列的值 —— 发 null，不是空串。
       // F-85b: the readings behind a release (off-chain column). Other rows carry null, not an empty string.
+      // F-85b：释放行背后的读数（链外列）。非释放行没有这一列的值 —— 发 null，不是空串。
       releaseLookups: r.log_release_lookups ?? null,
     };
     });

@@ -170,6 +170,8 @@
             {{ lookupLabel(item.lastLookup) }}
           </el-tag>
           <div class="text-caption text-medium-emphasis">{{ formatTime(item.lastLookup.at) }}</div>
+          <!-- R-1：种类随行显示；`unknown` 是「未记录」，不是第四种答案 -->
+          <div class="text-caption text-medium-emphasis">{{ lookupBasisLabel(item.lastLookup.basis) }}</div>
           <div v-if="item.lastLookup.reason" class="text-caption text-warning">
             {{ lookupReasonLabel(item.lastLookup.reason) }}
           </div>
@@ -394,12 +396,16 @@
         {{ lookupCoverageText(lookupCoverage) }}
       </div>
       <div v-if="lookupHistory.length" class="text-caption mb-2">
-        <span class="text-medium-emphasis">{{ t('lookupWriteGap') }}：</span>
+        <span class="text-medium-emphasis">{{ t('lookupWriteGap') }}</span>
         <span>{{ formatGap(lookupFirstGap) }}</span>
         <span class="text-medium-emphasis"> · {{ formatTime(lookupClaimedAt ?? '') }}</span>
       </div>
       <div v-if="lookupHistory.length" class="text-caption text-medium-emphasis mb-2">
         {{ t('lookupPairHint') }}
+      </div>
+      <!-- R-1：种类是「答案基于什么」，不是可信度等级；当前状态读数说不了「从未被接受」 -->
+      <div v-if="lookupHistory.length" class="text-caption text-medium-emphasis mb-2">
+        {{ t('lookupBasisHint') }}
       </div>
       <el-table v-if="lookupHistory.length" :data="lookupHistory" size="small">
         <el-table-column :label="t('lookupSeq')" width="70">
@@ -412,6 +418,11 @@
           <template #default="{ row }">
             <el-tag size="small" effect="light" :type="lookupTagType(row)">{{ lookupLabel(row) }}</el-tag>
             <div v-if="row.reason" class="text-caption text-warning">{{ lookupReasonLabel(row.reason) }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column :label="t('lookupBasisCol')" width="150">
+          <template #default="{ row }">
+            <span class="text-caption">{{ lookupBasisLabel(row.basis) }}</span>
           </template>
         </el-table-column>
         <el-table-column :label="t('lookupInterval')" width="110">
@@ -445,6 +456,7 @@ import type {
   ClaimLookupCoverage,
   InFlightClaim,
   TargetStatusLookup,
+  TargetStatusLookupPositioned,
   ToolEffect,
 } from '@/types/admin'
 
@@ -558,6 +570,19 @@ function lookupLabel(l: TargetStatusLookup): string {
   if (l.conclusion === 'executed') return t('lookupExecuted')
   if (l.conclusion === 'not_executed') return t('lookupNotExecuted')
   return t('lookupUnknown')
+}
+
+/**
+ * R-1: the basis is a separate reading from the conclusion, and `unknown` is not a kind — it says the
+ * kind was not recorded. Rendering it as "current state" would be the guess the field exists to stop.
+ *
+ * R-1：种类与结论是两个读数，且 `unknown` 不是一种种类 —— 它说的是「种类未记录」。把它渲染成
+ * 「当前状态」正是这个字段要拦住的那次猜测。
+ */
+function lookupBasisLabel(basis: TargetStatusLookup['basis']): string {
+  if (basis === 'current_state') return t('lookupBasisCurrentState')
+  if (basis === 'receipt') return t('lookupBasisReceipt')
+  return t('lookupBasisUnknown')
 }
 
 /** Every cause means "the target did not tell us" — none of them is "it did not run". */
@@ -829,7 +854,7 @@ async function onRelease() {
 // AW-17：查询历史（只读证据）与「查询目标状态」的一次性动作
 const reconcilingId = ref<number | null>(null)
 const showLookupHistory = ref(false)
-const lookupHistory = ref<TargetStatusLookup[]>([])
+const lookupHistory = ref<TargetStatusLookupPositioned[]>([])
 const lookupHistoryClaim = ref<InFlightClaim | null>(null)
 /** F-85/F-86：写→首问这一段才是盲区上界，和每条之间的间隔分开显示。 */
 const lookupClaimedAt = ref<string | null>(null)
@@ -839,17 +864,25 @@ const lookupCoverage = ref<ClaimLookupCoverage | null>(null)
 
 /**
  * R-2: render the server's coverage statement in the active language. The durations come from the
- * response; only the wording is local. "No reading yet" is a duration, not a blank.
+ * response; only the wording is local. "No reading yet" is a duration, not a blank. When readings
+ * from a previous attempt are on the trail, the server scopes the statement to this claim and
+ * counts them separately — say so, or the table below (which keeps every reading) would look like
+ * it contradicts the line above it.
  *
  * R-2：把服务端的覆盖声明按当前语言呈现。时长来自响应，这里只负责措辞。「还没有读数」是一段时长，
- * 不是空白。
+ * 不是空白。证据链上有上一次尝试留下的读数时，服务端把声明限定在本次占位上并单独计数 —— 这里要把这点
+ * 说出来，否则下面那张（保留全部读数的）表看起来会与上一行自相矛盾。
  */
 function lookupCoverageText(c: ClaimLookupCoverage): string {
   const gap = formatGap(c.unobservedSeconds)
   const plan = formatGap(c.expectedFirstAskAfterMinutes * 60)
-  return c.basis === 'no-lookups-yet'
-    ? t('lookupCoverageNone', { gap, plan })
-    : t('lookupCoverageGap', { gap, plan })
+  const base =
+    c.basis === 'no-lookups-yet'
+      ? t('lookupCoverageNone', { gap, plan })
+      : t('lookupCoverageGap', { gap, plan })
+  return c.readingsBeforeClaim > 0
+    ? `${base} ${t('lookupCoverageEarlier', { count: c.readingsBeforeClaim })}`
+    : base
 }
 
 const RECONCILE_REFUSAL_KEYS: Record<string, string> = {
@@ -902,15 +935,28 @@ function openLookupHistory(item: InFlightClaim) {
   loadLookupHistory(item)
 }
 
-/** 读一次历史。失败只提示 —— 它不改任何状态，静默吞掉会让「没有记录」与「读不到」混在一起。 */
+/**
+ * Read one history. Only the newest request may write the dialog state: opening another claim while
+ * this one is still in flight used to let a slow answer land under the other claim's title — the
+ * table would show one write's evidence while the header named another. A monotonic token also
+ * covers "closed and reopened for the same claim", which comparing ids would not.
+ *
+ * 读一次历史。只有**最新**那次请求可以写入对话框状态：在途时打开另一条占位，慢响应过去会落到另一个
+ * 占位标题下 —— 表里是一次的证据，标题却写着另一次。用单调递增的令牌，也顺带覆盖「关掉后又打开同一条」
+ * 的情形，那是比对 id 拦不住的。
+ */
+let lookupRequestToken = 0
 async function loadLookupHistory(item: InFlightClaim) {
+  const token = ++lookupRequestToken
   try {
     const res = await aiToolsApi.claimLookups(item.id)
+    if (token !== lookupRequestToken) return
     lookupHistory.value = res.items
     lookupClaimedAt.value = res.claimedAt
     lookupFirstGap.value = res.firstLookupAfterWriteSeconds
     lookupCoverage.value = res.coverage
   } catch (err) {
+    if (token !== lookupRequestToken) return
     lookupHistory.value = []
     lookupClaimedAt.value = null
     lookupFirstGap.value = null
