@@ -75,7 +75,12 @@ describe('AW-17 目标状态对账（只读查询收敛 unknown）', () => {
   const lookups = () => ds.getRepository(TargetStatusLookupRow);
   const auditRepo = () => ds.getRepository(AiAuditLog);
 
-  const build = (probeOrUndefined: boolean = true): void => {
+  const build = (
+    probeOrUndefined: boolean = true,
+    // R-6b: an override lets a case simulate a lookup insert that failed while the reads see nothing.
+    // R-6b：允许覆写，以便模拟「插入失败、读出为空」的证据表。
+    lookupStore: ReturnType<typeof lookups> = lookups(),
+  ): void => {
     probe = { available: jest.fn(() => true), canAsk: jest.fn(() => true), lookup: jest.fn() };
     // R-3: the release row's one builder is the decision service's — the reconcile path calls it, and
     // these cases read the row back from a real table, not from a double.
@@ -87,7 +92,7 @@ describe('AW-17 目标状态对账（只读查询收敛 unknown）', () => {
     );
     const decision = new WriteClaimDecisionService(
       claims(),
-      lookups(),
+      lookupStore,
       audit,
       { get: (k: string) => (k === 'REVOKE_STALE_MINUTES' ? 60 : undefined) } as never,
     );
@@ -105,7 +110,7 @@ describe('AW-17 目标状态对账（只读查询收敛 unknown）', () => {
       claims(), // claimsRepo
       undefined, // comparabilityRepo
       (probeOrUndefined ? probe : undefined) as any, // statusProbe
-      lookups(), // lookupsRepo
+      lookupStore, // lookupsRepo
       decision, // writeClaimDecision (R-3)
     );
   };
@@ -376,6 +381,47 @@ describe('AW-17 目标状态对账（只读查询收敛 unknown）', () => {
       expect(decision.userId).toBe('admin-7');
       expect(decision.detail).toContain('initiated by: user admin-7 (manual reconcile)');
       expect(decision.detail).not.toContain('automatic sweep');
+    });
+
+    /**
+     * R-6b: the evidence row can be missing while the target's answer is certain — `_recordLookup`
+     * swallows a failed insert, so the decision still lands. The same row then must not say "never
+     * queried": it says the record is missing, and the off-chain column carries `recorded: false`.
+     *
+     * R-6b：目标答案确定，证据行却可能缺失 —— `_recordLookup` 会吞掉插入失败，故决定照样落库。那
+     * 一行便不得再说「从未问过」：它说记录缺失，链外列带 `recorded: false`。
+     */
+    it('读数行写失败（被吞）⇒ 决定行说「记录缺失」，不写「从未问过」', async () => {
+      // The insert throws; the reads see an empty table — exactly the post-swallow state.
+      // 插入抛错、读出为空 —— 正是被吞之后的模样。
+      const failingStore = {
+        create: (x: unknown) => x,
+        save: async () => {
+          throw new Error('lookup table down');
+        },
+        count: async () => 0,
+        find: async () => [],
+      } as never;
+      build(true, failingStore);
+      const row = await seed();
+      probe.lookup.mockResolvedValue(
+        lookup({ conclusion: 'not_executed', reason: null, queriedAt: '2026-11-25T01:00:00.000Z' }),
+      );
+
+      const r = await effects.reconcileClaim(row.id, SYSTEM_SWEEP_LOOKUP_ACTOR);
+      expect(r.outcome).toBe('reconciled');
+
+      const [decision] = await releaseRows();
+      expect(decision.detail).toContain('origin: target answered not_executed');
+      expect(decision.detail).toContain('lookup record missing');
+      expect(decision.detail).toContain('the target was asked, the lookup row was not recorded');
+      expect(decision.detail).not.toContain('never queried');
+      expect(JSON.parse(decision.releaseLookups!)).toEqual({
+        count: 0,
+        askable: null,
+        recorded: false,
+        items: [],
+      });
     });
   });
 
