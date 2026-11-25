@@ -69,7 +69,7 @@ export interface AuditEntry {
    * 本行不重新序列化、也不截断。
    */
   toolArgs?: string;
-  /** F-85b：释放决定的查询证据（JSON，链外列）。/ F-85b: the release decision's query evidence (JSON, off-chain). */
+  /** F-85b: the release decision's query evidence (JSON, off-chain). / F-85b：释放决定的查询证据（JSON，链外列）。 */
   releaseLookups?: string;
 }
 

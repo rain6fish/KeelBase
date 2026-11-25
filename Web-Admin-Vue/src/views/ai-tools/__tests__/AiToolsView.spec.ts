@@ -51,6 +51,7 @@ vi.mock('@/stores/auth', () => ({ useAuthStore: () => authState }))
 
 import ElementPlus from 'element-plus'
 import AiToolsView from '../AiToolsView.vue'
+import type { InFlightClaim } from '@/types/admin'
 
 const AppTableStub = defineComponent({
   name: 'AppTable',
@@ -385,6 +386,7 @@ describe('AiToolsView', () => {
         basis: 'until-first-lookup',
         unobservedSeconds: 3600,
         observedFrom: '2026-11-05T02:00:00Z',
+        readingsBeforeClaim: 0,
         expectedFirstAskAfterMinutes: 60,
       },
       total: 2,
@@ -411,6 +413,8 @@ describe('AiToolsView', () => {
     // 相邻间隔 10 分钟；写 → 首问 1 小时
     expect(dialog).toContain('10m')
     expect(dialog).toContain('1h')
+    // 分隔符随标签一起走 i18n（模板里不再硬编码全角冒号）
+    expect(dialog).toContain('写 → 首问：')
     // 两次是自动清扫 + 人工，读者要能分辨
     expect(dialog).toContain('system:sweep')
     // R-2：声明直说首问之前那一小时没有观测，预期等待读自服务端给出的计划。
@@ -448,6 +452,7 @@ describe('AiToolsView', () => {
         basis: 'no-lookups-yet',
         unobservedSeconds: 5400,
         observedFrom: null,
+        readingsBeforeClaim: 0,
         expectedFirstAskAfterMinutes: 60,
       },
       total: 0,
@@ -464,6 +469,144 @@ describe('AiToolsView', () => {
     const dialog = document.body.textContent ?? ''
     expect(dialog).toContain('还没有任何读数')
     expect(dialog).toContain('占位以来的 1h 30m 全部未观测')
+  })
+
+  /**
+   * R-2 residual: when the evidence trail carries readings from a previous attempt (a re-claim
+   * reset the clock), the statement is scoped to this claim — and the dialog must say why the table
+   * below still lists those readings, or the two lines look like they contradict each other.
+   *
+   * R-2 遗留：证据链上有上一次尝试的读数时（重占位重置了时钟），声明限定在本次占位上 —— 对话框必须
+   * 说明为什么下面的表仍列着那些读数，否则两行看起来自相矛盾。
+   */
+  it('R-2 **反向（重占位）**：声明限定在本次占位，并说明有旧读数不说明本次', async () => {
+    toolsMock.mockResolvedValue([tool])
+    effectsMock.mockResolvedValue({ total: 0, page: 1, limit: 20, items: [] })
+    inFlightMock.mockResolvedValue({
+      ...emptyClaims,
+      items: [
+        { id: 10, userId: '7', toolName: 'proxy_send', argsHash: 'h', status: 'claimed', claimedAt: '2026-11-05T01:00:00Z', ageMinutes: 90, stale: true, attempts: 2, agentId: null, conversationId: null, runId: null, authorizationRef: null, reconcilable: true, lastLookup: null },
+      ],
+      total: 1,
+    })
+    lookupsMock.mockResolvedValue({
+      claimId: 10,
+      toolName: 'proxy_send',
+      claimStatus: 'claimed',
+      claimedAt: '2026-11-05T01:00:00Z',
+      firstLookupAfterWriteSeconds: 1800,
+      coverage: {
+        basis: 'until-first-lookup',
+        unobservedSeconds: 1800,
+        observedFrom: '2026-11-05T01:30:00Z',
+        readingsBeforeClaim: 1,
+        expectedFirstAskAfterMinutes: 60,
+      },
+      total: 2,
+      items: [
+        { id: 12, conclusion: 'unknown', reason: 'timeout', at: '2026-11-05T01:30:00Z', queryMethod: 'GET', queryPath: '/status/k', lookedUpBy: 'admin', asUserId: '7', seq: 2, intervalSeconds: 86400 },
+        { id: 11, conclusion: 'not_executed', reason: null, at: '2026-11-04T01:30:00Z', queryMethod: 'GET', queryPath: '/status/k', lookedUpBy: 'system:sweep', asUserId: '7', seq: 1, intervalSeconds: null },
+      ],
+    })
+
+    const wrapper = mountViewAttached()
+    await flushPromises()
+    await wrapper.find('.in-flight-claims .row-stub .lookup-history-btn').trigger('click')
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+
+    const dialog = document.body.textContent ?? ''
+    expect(dialog).toContain('首问之前的 30m 完全没有观测')
+    expect(dialog).toContain('另有 1 条读数早于本次占位')
+  })
+
+  /**
+   * AW-17: only the newest history request may fill the dialog. Opening one claim and then another
+   * used to let the slow first answer land under the second claim's title — one write's evidence
+   * shown as another's. Request ownership is a monotonic token, so reopening the same claim is
+   * covered too.
+   *
+   * AW-17：只有最新的历史请求可以填充对话框。先打开一条占位、再打开另一条时，慢的第一份响应过去会落到
+   * 第二条的标题下 —— 一次写的证据被当成另一次的。归属校验用单调递增令牌，故重开同一条也被覆盖。
+   */
+  it('AW-17 **反向（竞态）**：慢响应的历史不得落到另一条占位的对话框里', async () => {
+    toolsMock.mockResolvedValue([tool])
+    effectsMock.mockResolvedValue({ total: 0, page: 1, limit: 20, items: [] })
+    const claimRow = (id: number, toolName: string) => ({ id, userId: '7', toolName, argsHash: 'h', status: 'claimed', claimedAt: '2026-11-05T01:00:00Z', ageMinutes: 90, stale: true, attempts: 1, agentId: null, conversationId: null, runId: null, authorizationRef: null, reconcilable: true, lastLookup: null })
+    inFlightMock.mockResolvedValue({
+      ...emptyClaims,
+      items: [claimRow(7, 'proxy_send'), claimRow(9, 'create_todo')],
+      total: 2,
+    })
+    const history = (claimId: number, toolName: string, lookupId: number, path: string) => ({
+      claimId,
+      toolName,
+      claimStatus: 'claimed',
+      claimedAt: '2026-11-05T01:00:00Z',
+      firstLookupAfterWriteSeconds: 60,
+      coverage: {
+        basis: 'until-first-lookup',
+        unobservedSeconds: 60,
+        observedFrom: '2026-11-05T01:01:00Z',
+        readingsBeforeClaim: 0,
+        expectedFirstAskAfterMinutes: 60,
+      },
+      total: 1,
+      items: [
+        { id: lookupId, conclusion: 'executed', reason: null, at: '2026-11-05T01:01:00Z', queryMethod: 'GET', queryPath: path, lookedUpBy: 'admin', asUserId: '7', seq: 1, intervalSeconds: null },
+      ],
+    })
+    let releaseSlow: ((value: unknown) => void) | null = null
+    lookupsMock.mockImplementation((id: number) =>
+      id === 7
+        ? new Promise((resolve) => {
+            releaseSlow = resolve as (value: unknown) => void
+          })
+        : Promise.resolve(history(9, 'create_todo', 90, '/status/nine')),
+    )
+
+    const wrapper = mountViewAttached()
+    await flushPromises()
+    const rows = wrapper.findAll('.in-flight-claims .row-stub')
+    expect(rows).toHaveLength(2)
+    // 先打开第一条（慢），再打开第二条（快）。
+    await rows[0].find('.lookup-history-btn').trigger('click')
+    await flushPromises()
+    await rows[1].find('.lookup-history-btn').trigger('click')
+    await flushPromises()
+    // 慢响应此刻才回来 —— 它不属于当前对话框。
+    releaseSlow!(history(7, 'proxy_send', 70, '/status/seven'))
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+
+    const dialog = document.body.textContent ?? ''
+    expect(dialog).toContain('create_todo')
+    expect(dialog).toContain('/status/nine')
+    expect(dialog).not.toContain('/status/seven')
+  })
+
+  /**
+   * Type fidelity: the in-flight row's `lastLookup` is the server's single-reading shape, which does
+   * **not** carry the F-85 position readings. This assignment is the compile-time criterion — if the
+   * two shapes were merged back (`seq` / `intervalSeconds` required), `vue-tsc --noEmit` fails here,
+   * because the declaration would claim fields the server never projects.
+   *
+   * 类型忠实：在途行的 `lastLookup` 是服务端的单条读数形状，**不带** F-85 的位置读数。这个赋值就是
+   * 编译期判据 —— 若两个形状又被合并回一处（`seq` / `intervalSeconds` 变必填），`vue-tsc --noEmit`
+   * 会在这里失败，因为那等于声明了服务端从不投影的字段。
+   */
+  it('类型：在途 lastLookup 不声明历史项的位置读数（编译期判据）', () => {
+    const reading: InFlightClaim['lastLookup'] = {
+      id: 1,
+      conclusion: 'unknown',
+      reason: 'timeout',
+      at: '2026-11-05T02:00:00Z',
+      queryMethod: 'GET',
+      queryPath: '/status/k',
+      lookedUpBy: 'system:sweep',
+      asUserId: '7',
+    }
+    expect(Object.keys(reading)).not.toContain('seq')
   })
 
   /**

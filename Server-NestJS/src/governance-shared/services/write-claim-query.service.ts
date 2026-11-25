@@ -261,26 +261,40 @@ export class WriteClaimQueryService {
         intervalSeconds: prev ? Math.round((l.at.getTime() - prev.at.getTime()) / 1000) : null,
       });
     });
-    const first = chrono[0] ?? null;
+    // A retry of the same key re-claims the row and resets `claimedAt`, so the evidence trail can
+    // begin **before** this attempt. A reading taken then answered about the previous attempt; it
+    // observed nothing about this one. The coverage window therefore starts at `claimedAt`, and the
+    // readings before it are counted separately instead of being read as this attempt's first
+    // sample — otherwise a first reading older than the claim clamped `unobservedSeconds` to 0 and
+    // the statement called a stretch nobody watched "observed", the very false coverage R-2 exists
+    // to prevent.
+    //
+    // 同一键重试会重占位并重置 `claimedAt`，故证据链可能早于本次尝试开始。那时取得的读数回答的是
+    // **上一次**尝试，对本次什么都没观测。故覆盖窗口从 `claimedAt` 起算，早于它的读数单独计数，而不是
+    // 被读作本次的首个采样 —— 否则早于占位的首条读数会让 `unobservedSeconds` 被夹到 0，声明于是把
+    // 没人看过的一段说成「已观测」，正是 R-2 要防的那种假覆盖。
+    const inThisAttempt = chrono.filter((l) => l.at.getTime() >= claim.claimedAt.getTime());
+    const readingsBeforeClaim = chrono.length - inThisAttempt.length;
+    const first = inThisAttempt[0] ?? null;
     const firstLookupAfterWriteSeconds = first
       ? Math.round((first.at.getTime() - claim.claimedAt.getTime()) / 1000)
       : null;
-    // R-2 / F-86 / F-88: state in fields what the numbers above only imply — the stretch before the
-    // first reading was **not observed**, and with no readings the whole life so far was not. The
-    // expected first-ask wait comes from the same plan the sweep reads, never a literal here: a
-    // deployment that changes the cadence changes this statement with it.
+    // R-2 / F-86 / F-88: state in fields what the numbers above only imply — the stretch from
+    // `claimedAt` to the first reading of **this attempt** was not observed, and with no such
+    // reading the whole life of the attempt so far was not. The expected first-ask wait comes from
+    // the same plan the sweep reads, never a literal here: a deployment that changes the cadence
+    // changes this statement with it.
     //
-    // R-2 / F-86 / F-88：用可判读的字段把上面那些数字只暗示的事说出来 —— 第一次读数之前那段**没有观测**；
-    // 一条读数都没有时，占位以来全部都**没有观测**。预期的首问等待读自清扫用的同一份计划，不在这里写成
-    // 字面量：改了首问节奏的部署，这句话随之改。
+    // R-2 / F-86 / F-88：用可判读的字段把上面那些数字只暗示的事说出来 —— 从 `claimedAt` 到**本次尝试**
+    // 第一条读数之间那段没有观测；本次一条读数都没有时，尝试以来全部没有观测。预期的首问等待读自清扫
+    // 用的同一份计划，不在这里写成字面量：改了首问节奏的部署，这句话随之改。
     const coverage: ClaimLookupCoverage = {
       basis: first ? 'until-first-lookup' : 'no-lookups-yet',
-      unobservedSeconds: Math.max(
-        0,
+      unobservedSeconds:
         firstLookupAfterWriteSeconds ??
-          Math.round((Date.now() - claim.claimedAt.getTime()) / 1000),
-      ),
+        Math.max(0, Math.round((Date.now() - claim.claimedAt.getTime()) / 1000)),
       observedFrom: first ? first.at.toISOString() : null,
+      readingsBeforeClaim,
       expectedFirstAskAfterMinutes: this.reconcilePlan().backoffMinutes[0],
     };
     return {
@@ -658,6 +672,17 @@ export interface ClaimLookupCoverage {
   /** Start of the observed record; `null` when nothing was observed. / 观测记录的起点；尚无观测时为 `null`。 */
   observedFrom: string | null;
   /**
+   * How many readings on the evidence trail predate this claim's `claimedAt`. A retry of the same
+   * key re-claims the row and resets the clock, so those readings answer about the **previous**
+   * attempt: they stay in `items` as evidence, but they are not this attempt's first sample and say
+   * nothing about it. `0` means the trail begins with this attempt.
+   *
+   * 证据链上有多少条读数早于本次占位的 `claimedAt`。同一键重试会重占位并重置时钟，故这些读数回答的是
+   * **上一次**尝试：它们作为证据留在 `items` 里，但不是本次的首个采样，也不说明本次的任何情况。
+   * `0` 表示证据链从本次尝试开始。
+   */
+  readingsBeforeClaim: number;
+  /**
    * The plan's first wait, in minutes (`CLAIM_RECONCILE_BACKOFF_MINUTES[0]`, default 60) — what the
    * schedule expects between the write and the first automatic ask, not a figure written here.
    *
@@ -681,7 +706,7 @@ export interface ClaimLookupsResult {
    * 而第一次问若在一小时后，看起来就像覆盖了一小时。
    */
   claimedAt: string;
-  /** F-85 / F-86: seconds from `claimedAt` to the first ask; `null` when nobody ever asked. / 从占位到首问的秒数；一次都没问过为 `null`。 */
+  /** F-85 / F-86: seconds from `claimedAt` to the first ask **of this attempt**; `null` when this attempt was never asked about. / 从占位到**本次尝试**首问的秒数；本次一次都没问过为 `null`。 */
   firstLookupAfterWriteSeconds: number | null;
   /** R-2: what the readings do and do not cover, computed when this response is built. / R-2：这些读数覆盖与未覆盖的范围，构造响应时现算。 */
   coverage: ClaimLookupCoverage;

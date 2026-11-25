@@ -1225,8 +1225,10 @@ const en: ZhDict = {
   lookupPath: 'Query path',
   lookupSeq: 'Order',
   lookupInterval: 'Since previous',
-  lookupWriteGap: 'Write → first ask',
+  lookupWriteGap: 'Write → first ask: ',
   lookupPairHint: 'Two readings are a pair: the interval says how long we were blind between them, not what happened in between.',
+  lookupCoverageEarlier:
+    '{count} earlier reading(s) predate this claim (a previous attempt); they say nothing about this execution.',
   lookupCoverageGap:
     'Coverage: the {gap} before the first ask had no observation at all — the schedule first asks {plan} after the claim. Readings are point samples; nothing between them was observed.',
   lookupCoverageNone:

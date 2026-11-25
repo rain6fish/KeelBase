@@ -1222,8 +1222,9 @@ const zh = {
   lookupPath: '查询路径',
   lookupSeq: '次序',
   lookupInterval: '距上次',
-  lookupWriteGap: '写 → 首问',
+  lookupWriteGap: '写 → 首问：',
   lookupPairHint: '读的是「一对」：间隔只说明两次之间盲了多久，不说明期间发生了什么。',
+  lookupCoverageEarlier: '另有 {count} 条读数早于本次占位（上一次尝试），它们不说明本次执行的任何情况。',
   lookupCoverageGap:
     '覆盖：首问之前的 {gap} 完全没有观测 —— 计划在占位后 {plan} 才首次询问。两次读数之间同样没有观测，读数只是时间点采样。',
   lookupCoverageNone:
