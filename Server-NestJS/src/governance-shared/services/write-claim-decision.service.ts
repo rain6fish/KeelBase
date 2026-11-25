@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Injectable, Optional } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { In, Repository } from 'typeorm';
@@ -12,6 +12,8 @@ import {
 import { staleThresholdMinutes } from '../../governance-core/revoke-staleness';
 import { TargetStatusLookupRow } from '../entities/target-status-lookup.entity';
 import { AuditService } from './audit.service';
+import { TARGET_STATUS_PROBE } from './tool-effects.types';
+import type { TargetStatusProbe } from './tool-effects.types';
 
 /**
  * AW-16 F-63/F-64: the write side of the governance workflow around a stuck hold.
@@ -87,6 +89,19 @@ export class WriteClaimDecisionService {
     // Optional like every other threshold reader: a hand-built assembly falls back to the Joi default.
     // 与其他阈值读取处一样是可选的：手工装配的场合回落到 Joi 默认值。
     @Optional() private readonly configService?: ConfigService,
+    /**
+     * R-6: "can this tool be asked at all?" — the same question the in-flight read surface answers as
+     * `reconcilable`. Optional for the same reason it is there: the governance process has no outbound
+     * targets, so "cannot ask" is its true reading. A hand-built assembly that leaves it out records
+     * the count and leaves askability `null`; it never invents either answer.
+     *
+     * R-6：「这个工具到底能不能问」—— 与在途读面 `reconcilable` 回答的是同一个问题。可选的理由同读面：
+     * 治理进程没有出站目标，那里「问不了」就是真实读数。手工装配若不带它，则照记次数、把可问性留作
+     * `null`，绝不臆断任一答案。
+     */
+    @Optional()
+    @Inject(TARGET_STATUS_PROBE)
+    private readonly statusProbe?: TargetStatusProbe,
   ) {}
 
   /**
@@ -201,7 +216,7 @@ export class WriteClaimDecisionService {
     const auditRowId = await this._writeReleaseRow(
       claim,
       actor,
-      this._detail(claim, input, evidence.lookupCount),
+      this._detail(claim, input, evidence),
       evidence,
     );
 
@@ -246,7 +261,7 @@ export class WriteClaimDecisionService {
     trigger: TargetReleaseTrigger,
   ): Promise<number> {
     const evidence = await this._releaseEvidence(claim);
-    return this._writeReleaseRow(claim, { userId: trigger.byUserId }, this._targetDetail(claim, trigger, evidence.lookupCount), evidence);
+    return this._writeReleaseRow(claim, { userId: trigger.byUserId }, this._targetDetail(claim, trigger, evidence), evidence);
   }
 
   /**
@@ -256,13 +271,22 @@ export class WriteClaimDecisionService {
    * "never asked" read alike from the audit trail. This is a reading, not a gate: a hold is releasable
    * after zero asks (a target without a status endpoint would otherwise never be releasable).
    *
+   * R-6: zero asks is **two** facts, not one — "we could have asked and did not" versus "there is no
+   * usable status query to ask with". The column carries `askable` beside `count`, so the three cases
+   * (asked N / askable but never asked / not askable) are readable and countable without parsing the
+   * prose. It is `null` when no probe is wired here: unknown askability is not "not askable".
+   *
    * F-85b：释放行携带的证据 —— 问过几次、最近三次读数是什么，以数据形式进链外列。散文说次数，这一列说
    * 是哪几次。收案的人需要证据与决定在同一处 —— 否则从审计轨迹上看，「问过没答案」与「从没问过」长得一样。
    * 这是读数、不是门槛：一次没问也照样可释放（否则没有状态端点的目标将永远无法释放）。
+   *
+   * R-6：次数为零是**两件**事，不是一件 ——「本来能问、没去问」与「根本没有可用的状态查询可问」。这一列
+   * 在 `count` 旁带 `askable`，于是三态（问过 N 次 / 可问但没问 / 问不了）无需解析散文即可读出与计数。
+   * 本进程没接探针时记 `null`：可问性未知不等于「问不了」。
    */
   private async _releaseEvidence(
-    claim: Pick<AiWriteClaim, 'idempotencyKey'>,
-  ): Promise<{ lookupCount: number; releaseLookups: string }> {
+    claim: Pick<AiWriteClaim, 'idempotencyKey' | 'toolName'>,
+  ): Promise<ReleaseEvidence> {
     const key = { idempotencyKey: claim.idempotencyKey };
     // Sequential, not `Promise.all`: a synchronous throw from the second call would leave the first
     // promise unhandled. One extra round trip on a rare path is cheaper than that failure mode.
@@ -274,10 +298,13 @@ export class WriteClaimDecisionService {
       order: { at: 'DESC', id: 'DESC' },
       take: WriteClaimDecisionService.RELEASE_DETAIL_LOOKUPS,
     });
+    const askable = this._askable(claim.toolName);
     return {
       lookupCount,
+      askable,
       releaseLookups: JSON.stringify({
         count: lookupCount,
+        askable,
         items: recentLookups.map((l) => ({
           at: l.at.toISOString(),
           conclusion: l.conclusion,
@@ -286,6 +313,18 @@ export class WriteClaimDecisionService {
         })),
       }),
     };
+  }
+
+  /**
+   * R-6: whether the tool has a usable status query — a property of its declaration, answered without
+   * contacting anything. `null`, not `false`, when this process has no probe: the reading is about the
+   * assembly, and a tool is not made unaskable by our wiring.
+   *
+   * R-6：工具是否有可用的状态查询 —— 这是它声明的性质，回答时不接触任何外部系统。本进程没有探针时记
+   * `null` 而不是 `false`：那是关于装配的读数，工具不会因为我们的接线而变得问不了。
+   */
+  private _askable(toolName: string): boolean | null {
+    return this.statusProbe ? this.statusProbe.canAsk(toolName) : null;
   }
 
   /**
@@ -339,17 +378,23 @@ export class WriteClaimDecisionService {
    * read as a silent default; every reading names its conclusion, its cause when `unknown`, and who
    * asked, so the row answers "who found out, and how" without a join.
    *
+   * R-6: when nothing was asked, the row says **why** nothing was asked — a tool with no usable
+   * status query reads "not askable", not "never queried".
+   *
    * F-85b：决定行带上支撑它的读数 —— 目标被问过几次、最近几次怎么答的。「从未问过」**明写**出来，
    * 于是空历史不会被当默认值读过去；每条读数都点名结论、`unknown` 时的成因、以及谁问的，于是这一行
    * 不必联接就能回答「谁查清楚、怎么查的」。
+   *
+   * R-6：一次也没问时，这一行说明**为什么**没问 —— 没有可用状态查询的工具读作「问不了」，而不是
+   * 「从未问过」。
    */
   private _detail(
     claim: ReleaseClaimRef,
     input: ReleaseClaimInput,
-    lookupCount: number,
+    evidence: ReleaseEvidence,
   ): string {
-    const evidence = input.evidenceRef ? `; evidence: ${input.evidenceRef}` : '';
-    return `release write claim #${claim.id} (${claim.toolName}, as user ${claim.userId}) → closed_unknown; note: ${input.note}${evidence}; ${this._lookupPhrase(lookupCount)}`;
+    const ref = input.evidenceRef ? `; evidence: ${input.evidenceRef}` : '';
+    return `release write claim #${claim.id} (${claim.toolName}, as user ${claim.userId}) → closed_unknown; note: ${input.note}${ref}; ${this._lookupPhrase(evidence)}`;
   }
 
   /**
@@ -366,7 +411,7 @@ export class WriteClaimDecisionService {
   private _targetDetail(
     claim: ReleaseClaimRef,
     trigger: TargetReleaseTrigger,
-    lookupCount: number,
+    evidence: ReleaseEvidence,
   ): string {
     // Who initiated and whose identity the write carried are two facts; the detail keeps them apart.
     // 谁发起与这次写携带的是谁的身份是两件事；detail 把它们分开写。
@@ -376,7 +421,7 @@ export class WriteClaimDecisionService {
     return (
       `release write claim #${claim.id} (${claim.toolName}, as user ${claim.userId}) → released; ` +
       `origin: target answered ${trigger.conclusion} (${trigger.queryMethod} ${trigger.queryPath} at ${trigger.queriedAt}); ` +
-      `initiated by: ${initiator}; ${this._lookupPhrase(lookupCount)}; ` +
+      `initiated by: ${initiator}; ${this._lookupPhrase(evidence)}; ` +
       `released for re-claim, effect unknown — the write was attempted; this is a release of the hold, not a finding that nothing happened`
     );
   }
@@ -385,17 +430,41 @@ export class WriteClaimDecisionService {
    * F-85b: the count stays in prose (a person reading the row needs it), the readings themselves go
    * to the structured column — one place, not two spellings of the same list.
    *
+   * R-6: "none" is spelled three ways, not two. Asked-N stays a count; zero asks splits on whether the
+   * tool even has a query channel to ask with. `askable === null` (no probe here) falls back to the
+   * count-only wording — it does not claim the tool is unaskable.
+   *
    * F-85b：次数留在散文里（读行的人要先知道问过几次），读数本身进结构化列 —— 一份数据，不写两遍。
+   *
+   * R-6：「没有」有三种说法，不是两种。问过 N 次仍是计数；次数为零按「工具到底有没有查询通道」一分为
+   * 二。`askable === null`（本进程没接探针）回落到只陈述次数的措辞 —— 它不宣称工具问不了。
    */
-  private _lookupPhrase(lookupCount: number): string {
-    return lookupCount === 0
-      ? 'lookups: none (never queried)'
-      : `lookups: ${lookupCount} asked (see releaseLookups)`;
+  private _lookupPhrase(evidence: ReleaseEvidence): string {
+    if (evidence.lookupCount > 0) {
+      return `lookups: ${evidence.lookupCount} asked (see releaseLookups)`;
+    }
+    return evidence.askable === false
+      ? 'lookups: none (not askable — this tool has no usable status query)'
+      : 'lookups: none (never queried)';
   }
 }
 
 /** The hold fields a release row names. Every release path already holds a full `AiWriteClaim`. */
 type ReleaseClaimRef = Pick<AiWriteClaim, 'id' | 'idempotencyKey' | 'toolName' | 'userId'>;
+
+/**
+ * R-6: what both release paths state about the asking — the count, whether the tool even has a usable
+ * status query (`null` when this process cannot tell), and the off-chain column built from the same
+ * two facts. One shape for the prose and the data, so the three cases cannot drift apart.
+ *
+ * R-6：两条释放路径都陈述的询问读数 —— 次数、工具究竟有没有可用的状态查询（本进程判断不了时为
+ * `null`），以及由同两个事实生成的链外列。散文与数据共用一个形状，三态便不会彼此漂移。
+ */
+interface ReleaseEvidence {
+  lookupCount: number;
+  askable: boolean | null;
+  releaseLookups: string;
+}
 
 /**
  * R-3: the facts a target-driven release row is built from — who initiated, and what the one-shot
