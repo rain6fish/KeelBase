@@ -155,14 +155,14 @@
   （`CLAUDE.md` 端点行、`docs/ai-agent.spec.md` 读历史段）按「两侧意图都保留」解：main 的 R-1
   `basis` 交代 + 本批的 `readingsBeforeClaim` 与覆盖窗口口径。1.5.0 文本覆盖由父会话的 `19aa0dd4`
   完成（`Also 8` 一条）。
-- **两项跟进在本分支顶端、尚未进 main**（main 期间又被 R-3 拷贝工作推进到 `e8640dbe`）：
+- **两项跟进也已进 main**（快进至 **`90869495`**；main 期间先被父会话的 R-3 拷贝收尾推进到 `4d68633d`）：
   - `13c1f175` —— R-1 两处注释块改为英文在前（§4 末的遗留，R-1 已落地故本批收口）；
   - `ead548a5` —— 类型判据夹具补 `basis: 'unknown'`（R-1 把它变成必填字段，合并后的 `vue-tsc` 才暴露）；
-  - 覆盖表已登记 `13c1f175` 为 internal。
-  **落地方式**：主检出 `main` 干净时 `git merge --ff-only claude/gallant-roentgen-bf66d8` 即可（分支即
-  `main` + 这两笔）。
-- **读数（分支顶端）**：`check:all` **36/36**；`check-release-texts` **OK**（无未覆盖条目）；
-  后端定向 **39/39**；`audit-reader-scope` e2e **19/19**；控制台 **25/25**；后端 `tsc` 0 error；
-  控制台 `vue-tsc` 干净。
-- **仍未做（留给出发布者）**：把跟进两笔并入 `main`、推 `main` 到两远端、推附注 tag `v1.5.0`
-  （正文 = `docs/releases/v1.5.0.md`）、建 GitHub/Gitee Release。工作时段推送由钩子拦截，本会话未推。
+  - `18777ea1` —— 覆盖表把 `13c1f175` 记为 internal，本报告补「并入」一节。
+  - 与父会话 `4d68633d` 的唯一冲突在覆盖表表尾：两侧各追加条目，**两条都保留**；门禁读
+    **23 笔产品提交全部有交代、0 uncovered**。
+- **读数（本地 main `90869495`，主检出实跑）**：`check:all` **36/36**；`check-release-texts` **OK**；
+  后端 `tsc` 0 error；控制台 `vue-tsc` 干净；后端定向 **39/39**（本批 spec + R-1 迁移 spec）；
+  `audit-reader-scope` e2e **19/19**；控制台 **25/25**。
+- **仍未做（留给发布者）**：推 `main` 到两远端、推附注 tag `v1.5.0`（正文 = `docs/releases/v1.5.0.md`）、
+  建 GitHub/Gitee Release。工作时段推送由钩子拦截，本会话未推。
