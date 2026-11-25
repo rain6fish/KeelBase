@@ -1032,9 +1032,13 @@ export class AiController {
    * same call is not silently retried. Only a target answer (AW-17 reconcile) or a late completion
    * (settle) can move the ledger from there.
    *
-   * The endpoint is `@SkipAudit()` because the service writes its own chained AI-audit row
-   * (`action: 'claim_release'`) carrying the note and reference; the generic operation-audit row
-   * would be a second, poorer copy of the same act.
+   * R-4: the body also carries the **view** the review screen showed (disposition + newest reading
+   * id). If the ledger moved since, the call is refused with `stale_view` and the refusal is written
+   * as one `claim_release` row. The view is required — see `ReleaseClaimViewDto`.
+   *
+   * The endpoint is `@SkipAudit()` because the service writes its own chained AI-audit rows
+   * (`action: 'claim_release'`, release or `stale_view` refusal) carrying the note and reference; the
+   * generic operation-audit row would be a second, poorer copy of the same act.
    *
    * AW-16 F-63：带证据释放一份卡住的写占位，并把这次动作记录一次。
    *
@@ -1042,15 +1046,18 @@ export class AiController {
    * `closed_unknown`，键仍被占住 —— 故同一次调用不会被静默重试。此后只有目标的回答（AW-17 对账）
    * 或迟到的完成（落定）能移动这本账。
    *
-   * 端点标 `@SkipAudit()`：服务自己写一条带链的 AI 审计行（`action: 'claim_release'`），带着说明与
-   * 引用；通用操作审计行只会是同一个动作的第二份、更差的副本。
+   * R-4：请求体还带着**复核屏幕当时显示的视图**（处置 + 最近一次读数 id）。账本此后若已变动，调用以
+   * `stale_view` 拒绝，拒绝本身写成一条 `claim_release` 行。视图必填 —— 见 `ReleaseClaimViewDto`。
+   *
+   * 端点标 `@SkipAudit()`：服务自己写带链的 AI 审计行（`action: 'claim_release'`，释放或 `stale_view`
+   * 拒绝），带着说明与引用；通用操作审计行只会是同一个动作的第二份、更差的副本。
    */
   @Post('tool-effects/claims/:id/release')
   @CheckPolicies((ability) => ability.can('manage', 'all'))
   @SkipAudit()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'AW-16 F-63：释放滞留的写占位（管理员；须附说明，结论保持未知，不自动重试）',
+    summary: 'AW-16 F-63：释放滞留的写占位（管理员；须附说明与视图，结论保持未知，不自动重试）',
   })
   async releaseToolEffectClaim(
     @Param('id', ParseIntPipe) id: number,
@@ -1060,7 +1067,7 @@ export class AiController {
     return this.writeClaimDecision.release(
       id,
       { userId: String(user.sub), username: user.username },
-      { note: dto.note, evidenceRef: dto.evidenceRef },
+      { note: dto.note, evidenceRef: dto.evidenceRef, view: dto.view },
     );
   }
 }

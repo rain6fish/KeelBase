@@ -357,6 +357,15 @@
       <div class="text-caption text-medium-emphasis mb-3">
         {{ t('inFlightReleaseHint', { tool: releaseTarget?.toolName || '-', id: releaseTarget?.id ?? '-' }) }}
       </div>
+      <!-- R-4：写明这次释放绑定的是打开时所见的读数 —— 账本若此后变动，服务端会拒绝并留下记录 -->
+      <div class="text-caption text-medium-emphasis mb-3">
+        {{
+          t('inFlightReleaseViewHint', {
+            disposition: releaseViewDisposition,
+            lookup: releaseViewLookup,
+          })
+        }}
+      </div>
       <el-input v-model="releaseNote" type="textarea" :rows="3" :placeholder="t('inFlightReleaseNotePlaceholder')" />
       <div v-if="releaseNote.trim().length < 8" class="text-caption text-error mt-1">
         {{ t('inFlightReleaseNoteTooShort') }}
@@ -764,17 +773,46 @@ function openRelease(item: InFlightClaim) {
   showRelease.value = true
 }
 
+/**
+ * R-4: the reading this dialog is bound to — the row as it was rendered when the dialog opened. The
+ * dialog is opened from the in-flight list item, so that item **is** what the operator saw; the frozen
+ * view is read from it (never re-read at submit time, which would defeat the binding).
+ *
+ * R-4：本对话框绑定的读数 —— 对话框打开时这一行被渲染成什么样。对话框由在途清单里那一项打开，故那一项
+ * **就是**操作者看到的东西；冻结的视图从它取（绝不在提交时重读，那会让绑定失效）。
+ */
+const releaseViewDisposition = computed(() => {
+  const state = releaseTarget.value?.decisionState
+  if (state === 'awaiting_decision') return t('inFlightDecisionAwaiting')
+  if (state === 'closed_unknown') return t('inFlightDecisionClosed')
+  return t('inFlightDecisionOpen')
+})
+const releaseViewLookup = computed(() => {
+  const lookup = releaseTarget.value?.lastLookup
+  return lookup ? `#${lookup.id} · ${formatTime(lookup.at)}` : t('inFlightReleaseViewNoLookup')
+})
+
 async function onRelease() {
   if (!releaseTarget.value || releaseNote.value.trim().length < 8) return
   releasing.value = true
   try {
-    const res = await aiToolsApi.releaseClaim(releaseTarget.value.id, {
+    const target = releaseTarget.value
+    const res = await aiToolsApi.releaseClaim(target.id, {
       note: releaseNote.value.trim(),
       ...(releaseEvidence.value.trim() ? { evidenceRef: releaseEvidence.value.trim() } : {}),
+      view: {
+        decisionState: target.decisionState,
+        lastLookupId: target.lastLookup?.id ?? null,
+      },
     })
     // 服务端按种类报结果：不是每一种都算成功 —— 如实提示，别把「已关闭」说成「释放成功」。
     if (res.outcome === 'released_unknown') {
       snackbar.success(t('inFlightReleaseDone'))
+      showRelease.value = false
+      loadInFlight()
+    } else if (res.outcome === 'stale_view') {
+      // R-4：视图过期既不是「失败」也不是「已释放」—— 说清它没成立、已经在审计链上留了记录。
+      snackbar.warning(t('inFlightReleaseStaleView'))
       showRelease.value = false
       loadInFlight()
     } else {

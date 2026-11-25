@@ -430,11 +430,14 @@ describe('AW-2 audit reader: field whitelist + org/period scope', () => {
         attempts: 1,
       })) as unknown as { id: number };
 
+      // R-4: a release is bound to the view the reviewer saw. This row is `open` and was never asked
+      // about, which is exactly what its screen would have frozen.
+      // R-4：释放绑定在审阅者当时看到的视图上。这一行是 `open`、从没人问过，正是它屏幕会冻结的值。
       const releaseAs = (token: string, note: string) =>
         request(app.getHttpServer())
           .post(`/api/v1/ai/tool-effects/claims/${stale.id}/release`)
           .set(authHeader(token))
-          .send({ note });
+          .send({ note, view: { decisionState: 'open', lastLookupId: null } });
 
       try {
         await releaseAs(userA.token, 'e2e-release-user').expect(403);

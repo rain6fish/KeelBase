@@ -1204,6 +1204,13 @@ const en: ZhDict = {
   inFlightReleaseDone: 'Released: the conclusion stays unknown and the key remains occupied',
   inFlightReleaseRefused: 'Release refused: {outcome}',
   inFlightReleaseFailed: 'Release failed',
+  // R-4: the release is bound to the reading the screen showed — a ledger move after that is refused
+  // and recorded on the audit chain.
+  inFlightReleaseViewHint:
+    'This release is bound to the reading you saw when the screen opened: disposition "{disposition}", latest target query {lookup}. If the ledger moves after this, the server refuses with stale_view and records the refusal on the audit chain.',
+  inFlightReleaseViewNoLookup: '(none yet)',
+  inFlightReleaseStaleView:
+    'Stale view: the hold moved after you opened this screen, so nothing was released (the refusal is on the audit chain). Refresh and look again before deciding.',
   // AW-17: target-status readings — "not looked up" and "unknown" are both honest, never "executed"
   targetStatusCol: 'Target status',
   statusNotLookedUp: 'Not looked up',

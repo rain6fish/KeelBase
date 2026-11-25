@@ -766,4 +766,72 @@ describe('AiToolsView', () => {
     expect(awaitingTarget).toContain('已到达，外部系统尚无终态')
     expect(unacknowledged).not.toBe(awaitingTarget)
   })
+
+  /**
+   * R-4: the release dialog is bound to the reading the screen showed. The dialog states that reading,
+   * the request carries it (`decisionState` + newest lookup id), and a `stale_view` answer is reported
+   * as its own ending — neither "failed" nor "released".
+   *
+   * R-4：释放对话框绑定在屏幕当时显示的读数上。对话框把它写出来，请求把它带上（`decisionState` +
+   * 最近一次读数 id），而 `stale_view` 的回答按其自身含义提示 —— 既不是「失败」，也不是「已释放」。
+   */
+  it('R-4：释放对话框冻结并提交打开时所见的视图；stale_view 如实提示', async () => {
+    toolsMock.mockResolvedValue([tool])
+    effectsMock.mockResolvedValue({ total: 0, page: 1, limit: 20, items: [] })
+    inFlightMock.mockResolvedValue({
+      ...emptyClaims,
+      items: [
+        {
+          id: 11, userId: '7', toolName: 'proxy_send', argsHash: 'h', status: 'claimed',
+          claimedAt: '2026-11-05T01:00:00Z', ageMinutes: 90, stale: true, attempts: 1,
+          agentId: null, conversationId: null, runId: null, authorizationRef: null,
+          decidedRole: 'admin', policyRevision: 'rev-9', decisionState: 'awaiting_decision',
+          reconcilable: true,
+          lastLookup: { id: 42, conclusion: 'unknown', reason: 'timeout', at: '2026-11-05T02:00:00Z', queryMethod: 'GET', queryPath: '/status/k', lookedUpBy: 'system:sweep', asUserId: '7', seq: 1, intervalSeconds: null },
+        },
+      ],
+      total: 1,
+    })
+    releaseMock.mockResolvedValue({ outcome: 'stale_view', claimId: 11, toolName: 'proxy_send', status: 'claimed', decisionState: 'open', auditRowId: 99 })
+
+    const wrapper = mountViewAttached()
+    await flushPromises()
+    await wrapper.find('.in-flight-claims .row-stub .release-btn').trigger('click')
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+
+    // 对话框写明冻结的读数：处置 + 最近一次目标查询（含 id）。
+    const opened = document.body.textContent ?? ''
+    expect(opened).toContain('本次释放绑定你打开时所见的读数')
+    expect(opened).toContain('待裁')
+    expect(opened).toContain('#42')
+
+    // 只在**这个**释放对话框里找输入框与按钮：body 里还留着前面用例传送出来的对话框。
+    const dialog = Array.from(document.querySelectorAll('.el-dialog')).find((d) =>
+      (d.textContent ?? '').includes('本次释放绑定你打开时所见的读数'),
+    ) as HTMLElement | undefined
+    expect(dialog).toBeTruthy()
+
+    // 填说明并提交。
+    const textarea = dialog!.querySelector('textarea') as HTMLTextAreaElement
+    textarea.value = '按屏幕上看到的行释放'
+    textarea.dispatchEvent(new Event('input'))
+    await flushPromises()
+    const submit = Array.from(dialog!.querySelectorAll('button')).find(
+      (b) => (b.textContent ?? '').trim() === '释放',
+    ) as HTMLButtonElement
+    expect(submit).toBeTruthy()
+    expect(submit.disabled).toBe(false)
+    submit.click()
+    await flushPromises()
+
+    // 提交的是打开对话框时那一行的读数，不是提交时重读的值。
+    expect(releaseMock).toHaveBeenCalledWith(11, {
+      note: '按屏幕上看到的行释放',
+      view: { decisionState: 'awaiting_decision', lastLookupId: 42 },
+    })
+    // stale_view 有自己的提示：没成立、拒绝已在审计链上 —— 不说「失败」，更不说「已释放」。
+    expect(warningMock).toHaveBeenCalledWith(expect.stringContaining('视图已过期'))
+    expect(successMock).not.toHaveBeenCalled()
+  })
 })

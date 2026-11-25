@@ -609,6 +609,21 @@ later re-claim reuses the hold row and clears its release columns (`status`, `re
 `claimedAt`), so the chained row is the only place the decision survives; the readings travel in
 `releaseLookups` exactly as they do for a manual release.
 
+**A release is bound to the view the reviewer saw.** The release body carries the review screen's
+frozen reading — the governance disposition and the newest target-status reading's id (`null` when the
+screen said nobody had asked) — and the write is conditional on the disposition still matching, so a
+hold the sweep moved from `open` to `awaiting_decision` underneath the screen can no longer be released
+against the state the reviewer believed. When the ledger has moved since (that sweep, a new reading,
+another operator's release), the call is refused with `stale_view` and **the refusal itself is a
+`claim_release` row**: same chain, same action, `outcome` absent, `detail` opening with
+`release refused (stale_view)` and stating what the screen said versus what the ledger says now (the
+note is copied verbatim, and the row carries no `releaseLookups` column — that column is the evidence
+behind a release decision, and no release decision was made). Same chain and same action because the
+two rows are the two endings of one act; another chain would split one act across two ledgers, and a
+new action would extend the contract's closed enum. The row makes the refusal legible; filtering by
+ending from the audit row alone is **not** offered — the same deferred structured change the release
+kinds wait on. A missing view is a `400`, never a silent "do not check".
+
 **Automatic re-asking is bounded, and then it stops.** The hourly sweep also asks the target for every
 queued hold that is due, at most `CLAIM_RECONCILE_MAX_ATTEMPTS` times (default 4) on a decaying
 schedule — `CLAIM_RECONCILE_BACKOFF_MINUTES`, default `60,360,1440,4320` (+1h, +6h, +24h, +72h after
@@ -663,6 +678,16 @@ reading and never moves the row — while freshness only filters and badges.
 未知 —— 它不是「什么都没试过」的记录。之所以需要这一行：之后的任一次重占位都会复用占位行并清掉它的释放列
 （`status`、`releaseReason`、`claimedAt`），故带链的那一行是这份决定唯一留得住的地方；读数与人工释放一样
 进 `releaseLookups`。
+
+**释放绑定在审阅者当时看到的视图上。** 释放请求体带上复核屏幕冻结的读数 —— 治理处置与最近一次目标状态读数的
+id（屏幕说当时没人问过时为 `null`）—— 且写入以处置仍一致为条件，于是清扫在屏幕下面把行从 `open` 移到
+`awaiting_decision` 之后，再也不能按审阅者以为的那个状态释放。账本此后已变动时（那次清扫、一条新读数、
+另一位操作者的释放），调用以 `stale_view` 拒绝，**且拒绝本身就是一条 `claim_release` 行**：同一条链、同一个
+动作、`outcome` 不写，`detail` 开头即 `release refused (stale_view)`，并写明屏幕说的是什么、账本现在说的是
+什么（说明原样抄录；这一行**不带** `releaseLookups` 列 —— 那一列是释放决定背后的证据，而这里没有做出释放
+决定）。同链同动作，因为两行是同一次动作的两个结局；换一条链会把一次动作分到两本账上，新增动作则会扩展契约
+的闭合枚举。这一行让拒绝可读；**不**提供「只读审计行就按结局筛选」—— 那是与释放种类同样在等的结构化改动。
+视图缺席一律 `400`，绝不静默地等于「不检查」。
 
 **自动重问是有界的，用尽即停。** 每小时清扫还会对队列里到期的占位再向目标问一次，按衰减计划至多
 `CLAIM_RECONCILE_MAX_ATTEMPTS` 次（默认 4）—— 间隔由 `CLAIM_RECONCILE_BACKOFF_MINUTES` 给出，默认
