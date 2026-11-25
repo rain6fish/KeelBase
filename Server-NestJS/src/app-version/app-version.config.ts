@@ -51,6 +51,18 @@ const PRODUCT_VERSION = readPackageVersion();
  * 只保留**当前仍在服务**的版本；更早的要点由 `CHANGELOG.md` 承载（权威历史），此处不留不可达的旧数据。
  */
 const RELEASE_NOTES: Record<string, readonly string[]> = {
+  // 1.5.0 records what a lookup's answer was based on, states what a claim could not have seen, and
+  // gives a release its own decision.
+  // 1.5.0 记下查询答案基于什么、写明占位看不到什么，并让释放留下自己的决定。
+  '1.5.0': [
+    '每条目标状态查询记下「种类」：按当前对象存储作答记 current_state，按自身受理记录作答记 receipt，缺值一律读作 unknown',
+    '查询历史写明它看不到什么：盲区是首问之前那段还是尚无读数时的整段占位，持续多少秒，以及计划里的预期首问等待',
+    '目标驱动的释放留下自己的决定行；释放行在链外保留最近三次读数，并随审计行透出',
+    '释放绑定审阅者当时看到的视图；账本此后变动则以 stale_view 拒绝，拒绝本身也写成一条审计行',
+    '待裁队列拆成读数新鲜度与决策年龄两只时钟，两只都只升级、从不释放占位',
+    '覆盖声明以本次占位为起点：重占位前的旧读数作为证据保留，计入 readingsBeforeClaim，不再读作本次的首个采样',
+    'Postgres 上审计范围改按文本比较用户 id；一行对账失败不再废掉整趟；镜像冒烟作业先拉取再测试',
+  ],
   // 1.4.2 closes the model-facing paths and restores webhook delivery.
   // 1.4.2 补齐喂给模型的路径，并恢复 Webhook 投递。
   '1.4.2': [
