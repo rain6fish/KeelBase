@@ -379,6 +379,11 @@ export class WriteClaimDecisionService {
       .addSelect('lookup.at')
       .addSelect('lookup.conclusion')
       .addSelect('lookup.reason')
+      // R-1 (merged here): the reading's kind must be selected too — hydration fills only the selected
+      // columns, so an unselected `basis` would read as absent and every copy would say `unknown`.
+      // R-1（并入）：读数的种类也必须选出来 —— 实体只填被选中的列，漏选 `basis` 会读成「未记录」，
+      // 于是每条拷贝都写成 `unknown`。
+      .addSelect('lookup.basis')
       .addSelect('lookup.lookedUpBy')
       .addSelect('COUNT(*) OVER ()', 'total')
       .where('lookup.idempotencyKey = :key', { key: claim.idempotencyKey })

@@ -653,12 +653,18 @@ describe('AW-16 F-63/F-64：释放程序与过期策略', () => {
       at: string;
       conclusion: string;
       reason: string | null;
+      basis: string;
       lookedUpBy: string;
     };
 
     it('F-123/F-124：每条拷贝带读数行 id，按 id 回查即那条源行；F-125：键集被白名单钉住', async () => {
       const claim = await seed();
-      const first = await seedLookup(claim.idempotencyKey, new Date('2026-11-22T10:00:00Z'));
+      // 一条记了种类、一条没记：源行真实的 `basis` 必须原样出现在它的拷贝里，不能一律写成 `unknown`。
+      // One recorded kind and one not: the source's real `basis` must reach its copy, not be flattened
+      // to `unknown` by the merged select.
+      const first = await seedLookup(claim.idempotencyKey, new Date('2026-11-22T10:00:00Z'), {
+        basis: 'receipt',
+      });
       const second = await seedLookup(claim.idempotencyKey, new Date('2026-11-22T12:00:00Z'), {
         conclusion: 'unknown',
         reason: 'non_2xx',
@@ -690,13 +696,23 @@ describe('AW-16 F-63/F-64：释放程序与过期策略', () => {
           at: source.at.toISOString(),
           conclusion: source.conclusion,
           reason: source.reason ?? null,
+          // R-1 (merged here): the reading's kind travels with the copy, `unknown` when not recorded.
+          // R-1（并入）：读数的种类随拷贝一起走，未记录时记 `unknown`。
+          basis: source.basis ?? 'unknown',
           lookedUpBy: source.lookedUpBy,
         });
       }
 
       // ② 拷贝不得含派生 / 计算字段：键集白名单，多一个就红（判断只在源行与等级里有一处家）。
       for (const item of structured.items) {
-        expect(Object.keys(item).sort()).toEqual(['at', 'conclusion', 'id', 'lookedUpBy', 'reason']);
+        expect(Object.keys(item).sort()).toEqual([
+          'at',
+          'basis',
+          'conclusion',
+          'id',
+          'lookedUpBy',
+          'reason',
+        ]);
       }
       expect(Object.keys(structured).sort()).toEqual(['askable', 'count', 'items']);
     });
