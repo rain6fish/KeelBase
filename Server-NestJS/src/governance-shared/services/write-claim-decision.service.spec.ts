@@ -43,6 +43,26 @@ describe('AW-16 F-63/F-64：释放程序与过期策略', () => {
   let audit: AuditService;
   let seq = 0;
 
+  /**
+   * R-3 follow-up (F-127): every SQL statement the test database runs. "The count and the newest three
+   * come from one snapshot" is asserted on the statements themselves — a read made twice cannot be
+   * told apart from a read made once by looking only at the result.
+   *
+   * R-3 后续（F-127）：测试库执行的每一条 SQL。断言「次数与最近三条出自同一快照」落在语句本身 ——
+   * 只读结果的话，读两次与读一次分不出来。
+   */
+  const sqlStatements: string[] = [];
+  const recordingLogger = {
+    logQuery: (q: string) => {
+      sqlStatements.push(q);
+    },
+    log: () => undefined,
+    logQueryError: () => undefined,
+    logQuerySlow: () => undefined,
+    logSchemaBuild: () => undefined,
+    logMigration: () => undefined,
+  };
+
   const repo = () => ds.getRepository(AiWriteClaim);
   const auditRepo = () => ds.getRepository(AiAuditLog);
   /** F-85b: the lookup evidence rows the release row must summarise. / 释放行须概括的查询证据行。 */
@@ -130,6 +150,8 @@ describe('AW-16 F-63/F-64：释放程序与过期策略', () => {
       database: ':memory:',
       entities: [AiWriteClaim, AiAuditLog, TargetStatusLookupRow],
       synchronize: true,
+      logging: true,
+      logger: recordingLogger as never,
     });
     await ds.initialize();
     const chain = new AuditChainService({ get: () => undefined } as never);
@@ -243,7 +265,9 @@ describe('AW-16 F-63/F-64：释放程序与过期策略', () => {
       const failing = new WriteClaimDecisionService(
         repo(),
         {
-          count: async () => {
+          // F-127: the evidence read is one statement now, so the failure is injected where it starts.
+          // F-127：证据读取现在是一条语句，故在它起步处注入失败。
+          createQueryBuilder: () => {
             throw new Error('lookup store down');
           },
         } as never,
@@ -604,6 +628,161 @@ describe('AW-16 F-63/F-64：释放程序与过期策略', () => {
       expect(evidence.count).toBe(1);
       // 可问性是**写入时刻**的工具性质；次数记的是**发生过什么** —— 两者都如实保留。
       expect(evidence.askable).toBe(false);
+    });
+  });
+
+  /**
+   * R-3 follow-up (F-123–F-127): the copied readings must be **resolvable**, **honest**, and **one
+   * snapshot**.
+   *
+   * The copy is the boundary of the history, not the history: the count plus the newest three, and the
+   * newest id is the watermark. It stays honest by construction only if three things hold, and each is
+   * pinned below: every copied entry equals the row it names (by id, read back from the table), no
+   * derived field grows in the copy (a whitelist on the key set), and the count and items come from a
+   * single statement rather than two reads that a concurrent ask could split.
+   *
+   * R-3 后续（F-123–F-127）：所拷贝的读数必须**可解析**、**诚实**、**出自同一快照**。
+   *
+   * 拷贝是历史的边界而非历史本身：总数加最近三条，最新一条的 id 即水位。它只在三件事成立时靠构造
+   * 保持诚实，每一件都在下面钉住：每条拷贝等于它点名的那一行（按 id 回表读回）、拷贝里不长出派生字段
+   * （键集白名单）、次数与条目出自一条语句而不是两次读（后者会被并发的询问劈开）。
+   */
+  describe('R-3 后续（F-123–F-127）：拷贝可解析、单快照、水位', () => {
+    type CopiedEntry = {
+      id: number;
+      at: string;
+      conclusion: string;
+      reason: string | null;
+      basis: string;
+      lookedUpBy: string;
+    };
+
+    it('F-123/F-124：每条拷贝带读数行 id，按 id 回查即那条源行；F-125：键集被白名单钉住', async () => {
+      const claim = await seed();
+      // 一条记了种类、一条没记：源行真实的 `basis` 必须原样出现在它的拷贝里，不能一律写成 `unknown`。
+      // One recorded kind and one not: the source's real `basis` must reach its copy, not be flattened
+      // to `unknown` by the merged select.
+      const first = await seedLookup(claim.idempotencyKey, new Date('2026-11-22T10:00:00Z'), {
+        basis: 'receipt',
+      });
+      const second = await seedLookup(claim.idempotencyKey, new Date('2026-11-22T12:00:00Z'), {
+        conclusion: 'unknown',
+        reason: 'non_2xx',
+        lookedUpBy: 'system:sweep',
+      });
+
+      const res = await service.release(
+        claim.id,
+        { userId: 'admin-1' },
+        { note: '问过两次', view: viewOf(claim, second.id) },
+      );
+      expect(res.outcome).toBe('released_unknown');
+
+      const row = await auditRepo().findOneByOrFail({ action: 'claim_release' });
+      const structured = JSON.parse(row.releaseLookups!) as {
+        count: number;
+        askable: boolean | null;
+        items: CopiedEntry[];
+      };
+
+      // 最近在前；id 就是拷贝的锚。
+      expect(structured.items.map((i) => i.id)).toEqual([second.id, first.id]);
+
+      // ① 每条拷贝等于它点名的那条读数行 —— 不信拷贝自身，回表按 id 读回。
+      for (const item of structured.items) {
+        const source = await lookups().findOneByOrFail({ id: item.id });
+        expect(item).toEqual({
+          id: source.id,
+          at: source.at.toISOString(),
+          conclusion: source.conclusion,
+          reason: source.reason ?? null,
+          // R-1 (merged here): the reading's kind travels with the copy, `unknown` when not recorded.
+          // R-1（并入）：读数的种类随拷贝一起走，未记录时记 `unknown`。
+          basis: source.basis ?? 'unknown',
+          lookedUpBy: source.lookedUpBy,
+        });
+      }
+
+      // ② 拷贝不得含派生 / 计算字段：键集白名单，多一个就红（判断只在源行与等级里有一处家）。
+      for (const item of structured.items) {
+        expect(Object.keys(item).sort()).toEqual([
+          'at',
+          'basis',
+          'conclusion',
+          'id',
+          'lookedUpBy',
+          'reason',
+        ]);
+      }
+      expect(Object.keys(structured).sort()).toEqual(['askable', 'count', 'items']);
+    });
+
+    it('F-127：count 与最近三条出自**一条 SQL**（同一快照），不是两次读再凑', async () => {
+      const claim = await seed();
+      const seeded: TargetStatusLookupRow[] = [];
+      for (let i = 0; i < 5; i += 1) {
+        seeded.push(
+          await seedLookup(claim.idempotencyKey, new Date(Date.UTC(2026, 10, 22, 10 + i))),
+        );
+      }
+      const newest = seeded[seeded.length - 1];
+
+      sqlStatements.length = 0;
+      const res = await service.release(
+        claim.id,
+        { userId: 'admin-1' },
+        { note: '问过五次', view: viewOf(claim, newest.id) },
+      );
+      expect(res.outcome).toBe('released_unknown');
+
+      // 只读一次读表：两次读（count 后再 find）会让并发的自动询问落进缝里，行与自己差一。
+      const reads = sqlStatements.filter(
+        (q) => /^\s*select/i.test(q) && /ai_target_status_lookups/i.test(q),
+      );
+      expect(reads).toHaveLength(1);
+      // 窗口计数在 LIMIT 之前求值 ⇒ 同一条语句既给全集数、又给它的最新尾部。
+      expect(reads[0]).toContain('COUNT(*) OVER ()');
+
+      const row = await auditRepo().findOneByOrFail({ action: 'claim_release' });
+      const structured = JSON.parse(row.releaseLookups!) as {
+        count: number;
+        items: CopiedEntry[];
+      };
+      // 计数覆盖全集，条目是同一集合的最新三条 —— 两者自洽。
+      expect(structured.count).toBe(5);
+      expect(structured.items.map((i) => i.id)).toEqual(
+        seeded
+          .slice(-3)
+          .reverse()
+          .map((l) => l.id),
+      );
+    });
+
+    it('F-127 水位：最新一条拷贝的 id 即水位 —— 其后写入的读数 id 更大，决定行一字不改', async () => {
+      const claim = await seed();
+      const reading = await seedLookup(claim.idempotencyKey, new Date('2026-11-22T12:00:00Z'));
+      await service.release(
+        claim.id,
+        { userId: 'admin-1' },
+        { note: '问过一次', view: viewOf(claim, reading.id) },
+      );
+
+      const row = await auditRepo().findOneByOrFail({ action: 'claim_release' });
+      const decision = JSON.parse(row.releaseLookups!) as { count: number; items: CopiedEntry[] };
+      const watermark = decision.items[0].id;
+      expect(watermark).toBe(reading.id);
+
+      // 决定之后写入的读数：id 更大 ⇒ 它不在这次决定看见的边界里。
+      const later = await seedLookup(claim.idempotencyKey, new Date('2026-11-23T12:00:00Z'), {
+        conclusion: 'unknown',
+        reason: 'timeout',
+      });
+      expect(later.id).toBeGreaterThan(watermark);
+
+      // 决定行记的是决定当时看见什么；事后写入的读数不改写它（源表仅追加，故 id 不会重号）。
+      const after = await auditRepo().findOneByOrFail({ id: row.id });
+      expect(after.releaseLookups).toBe(row.releaseLookups);
+      expect(JSON.parse(after.releaseLookups!).count).toBe(1);
     });
   });
 });

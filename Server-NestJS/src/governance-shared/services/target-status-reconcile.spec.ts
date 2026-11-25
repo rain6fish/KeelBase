@@ -345,12 +345,15 @@ describe('AW-17 目标状态对账（只读查询收敛 unknown）', () => {
       // 读数以数据落库：次数 + 每次的时间与结论（不必解析散文，也不必联接查询表）
       const evidence = JSON.parse(decision.releaseLookups!) as {
         count: number;
-        items: Array<{ at: string; conclusion: string; lookedUpBy: string }>;
+        items: Array<{ id: number; at: string; conclusion: string; lookedUpBy: string }>;
       };
       expect(evidence.count).toBe(1);
       expect(evidence.items[0].conclusion).toBe('not_executed');
       expect(evidence.items[0].lookedUpBy).toBe(SYSTEM_SWEEP_LOOKUP_ACTOR);
       expect(Number.isNaN(Date.parse(evidence.items[0].at))).toBe(false);
+      // F-123/F-124：目标驱动的释放同样点名它的读数行 —— 拷贝与源之间有一条可走回去的路。
+      const [source] = await lookups().find({ where: { idempotencyKey: KEY } });
+      expect(evidence.items[0].id).toBe(source.id);
     });
 
     it('重占位覆盖占位行之后，链上的决定行仍在（决定留得住）', async () => {

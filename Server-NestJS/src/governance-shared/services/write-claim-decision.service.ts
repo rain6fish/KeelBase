@@ -329,6 +329,21 @@ export class WriteClaimDecisionService {
    * (asked N / askable but never asked / not askable) are readable and countable without parsing the
    * prose. It is `null` when no probe is wired here: unknown askability is not "not askable".
    *
+   * R-3 follow-up (F-123–F-127): the copy is the **boundary** of the history, not the history. Every
+   * copied entry carries the reading row's own `id`, so a decision row resolves back to the rows it
+   * names; without it the copy restates their values with no way home, and a review-time query would
+   * answer what the readings say *now*, not what the decider saw (F-121). Each entry holds only
+   * observed fields — no derived value, no grade — so a copy can never compete with its source for
+   * authority (F-125). The newest entry's id is the **watermark**: any larger id was written after the
+   * decision (F-127). The count and the newest three are read in **one statement** (`COUNT(*) OVER ()`
+   * with a `LIMIT`, a single SQL snapshot), because two reads let a concurrent automatic ask land
+   * between them and leave the row disagreeing with itself by one.
+   *
+   * This copy stays honest only while the lookup table is **append-only** — one insert path, no
+   * update, delete or retention path (F-126). If pruning is ever added, the rows an audit row names
+   * must be retained, or the copied id dangles: a decision row would then point at a reading no one
+   * can produce.
+   *
    * F-85b：释放行携带的证据 —— 问过几次、最近三次读数是什么，以数据形式进链外列。散文说次数，这一列说
    * 是哪几次。收案的人需要证据与决定在同一处 —— 否则从审计轨迹上看，「问过没答案」与「从没问过」长得一样。
    * 这是读数、不是门槛：一次没问也照样可释放（否则没有状态端点的目标将永远无法释放）。
@@ -336,21 +351,49 @@ export class WriteClaimDecisionService {
    * R-6：次数为零是**两件**事，不是一件 ——「本来能问、没去问」与「根本没有可用的状态查询可问」。这一列
    * 在 `count` 旁带 `askable`，于是三态（问过 N 次 / 可问但没问 / 问不了）无需解析散文即可读出与计数。
    * 本进程没接探针时记 `null`：可问性未知不等于「问不了」。
+   *
+   * R-3 后续（F-123–F-127）：拷贝记的是历史的**边界**，不是历史本身。每条拷贝带上读数行自己的 `id`，
+   * 于是决定行能解析回它点名的那些行；没有它，拷贝复述了值却回不去，而审阅时现查答的是读数**现在**说
+   * 什么，不是裁决者当时看到的（F-121）。每条拷贝只装观测到的字段 —— 不带派生值、不带等级 —— 于是拷贝
+   * 永远无法与它的源争权威（F-125）。最新一条的 id 是**水位**：更大的 id 即决定之后写入（F-127）。次数与
+   * 最近三条用**一条语句**读（`COUNT(*) OVER ()` 配 `LIMIT`，单次 SQL 快照）—— 分两次读，并发的自动询问
+   * 会落在两者之间，让行与自己差一。
+   *
+   * 这份拷贝只有在读数表**仅追加**时才保持诚实 —— 一条插入路径、没有 update / delete / 保留期（F-126）。
+   * 若日后加了保留期，审计行点名的行必须保留，否则拷贝的 id 悬空：决定行会指向一条没人能拿出来的读数。
    */
   private async _releaseEvidence(
     claim: Pick<AiWriteClaim, 'idempotencyKey' | 'toolName'>,
   ): Promise<ReleaseEvidence> {
-    const key = { idempotencyKey: claim.idempotencyKey };
-    // Sequential, not `Promise.all`: a synchronous throw from the second call would leave the first
-    // promise unhandled. One extra round trip on a rare path is cheaper than that failure mode.
-    // 顺序读取，不用 `Promise.all`：第二个调用若同步抛出，第一个 promise 会变成未处理的拒绝。这条
-    // 稀有路径上多一次往返，比那种失败形态便宜。
-    const lookupCount = await this.lookupsRepo.count({ where: key });
-    const recentLookups = await this.lookupsRepo.find({
-      where: key,
-      order: { at: 'DESC', id: 'DESC' },
-      take: WriteClaimDecisionService.RELEASE_DETAIL_LOOKUPS,
-    });
+    // F-127: one statement, not two. `count(...)` followed by `find({ take })` reads the table twice;
+    // a concurrent automatic ask in between makes the row say "asked N" while listing N+1 readings.
+    // A window count with a LIMIT reads both from one result set — the window is evaluated before the
+    // LIMIT, so `total` covers the whole set and the rows are its newest tail. No retry loop.
+    //
+    // F-127：一条语句，不是两条。`count(...)` 后再 `find({ take })` 是两次读表；中间落进一次并发的
+    // 自动询问，行就会写着「问过 N 次」却列出 N+1 条读数。窗口计数配 LIMIT 让两者读自同一结果集 ——
+    // 窗口在 LIMIT 之前求值，故 `total` 覆盖全集、取回的行是它的最新尾部。不靠重试。
+    const { entities: recentLookups, raw } = await this.lookupsRepo
+      .createQueryBuilder('lookup')
+      .select('lookup.id')
+      .addSelect('lookup.at')
+      .addSelect('lookup.conclusion')
+      .addSelect('lookup.reason')
+      // R-1 (merged here): the reading's kind must be selected too — hydration fills only the selected
+      // columns, so an unselected `basis` would read as absent and every copy would say `unknown`.
+      // R-1（并入）：读数的种类也必须选出来 —— 实体只填被选中的列，漏选 `basis` 会读成「未记录」，
+      // 于是每条拷贝都写成 `unknown`。
+      .addSelect('lookup.basis')
+      .addSelect('lookup.lookedUpBy')
+      .addSelect('COUNT(*) OVER ()', 'total')
+      .where('lookup.idempotencyKey = :key', { key: claim.idempotencyKey })
+      .orderBy('lookup.at', 'DESC')
+      .addOrderBy('lookup.id', 'DESC')
+      .limit(WriteClaimDecisionService.RELEASE_DETAIL_LOOKUPS)
+      .getRawAndEntities();
+    // One reading, two drivers: SQLite returns the count as a number, Postgres as a bigint string.
+    // 同一读数、两种驱动：SQLite 给数字，Postgres 给 bigint 的字符串。
+    const lookupCount = recentLookups.length ? Number(raw[0].total) : 0;
     const askable = this._askable(claim.toolName);
     return {
       lookupCount,
@@ -359,6 +402,9 @@ export class WriteClaimDecisionService {
         count: lookupCount,
         askable,
         items: recentLookups.map((l) => ({
+          // F-123/F-124: the reading row's own id — the copied values' way back to their source.
+          // F-123/F-124：读数行自己的 id —— 所复制的值回到其源头的路。
+          id: l.id,
           at: l.at.toISOString(),
           conclusion: l.conclusion,
           reason: l.reason ?? null,
@@ -370,8 +416,10 @@ export class WriteClaimDecisionService {
       }),
       // R-4: the newest reading, by the same order the read surface uses for `lastLookup` — the id the
       // reviewer's frozen view names. `null` = nobody has asked, which the view must also say.
+      // R-3 follow-up: it is also the watermark the copied items record — a larger id came after.
       // R-4：最近一次读数，排序与读面取 `lastLookup` 相同 —— 也就是审阅者冻结视图点名的那个 id。
       // `null` = 没人问过，视图也必须这么说。
+      // R-3 后续：它也是拷贝条目记下的水位 —— 更大的 id 出现在其后。
       latestLookupId: recentLookups[0]?.id ?? null,
     };
   }
@@ -589,11 +637,12 @@ interface ReleaseEvidence {
   releaseLookups: string;
   /**
    * R-4: the newest reading's id — the key the reviewer's frozen view compares against. Not part of
-   * the prose or the off-chain column; it exists so the release can tell whether the screen still
-   * describes the row.
+   * the prose; it exists so the release can tell whether the screen still describes the row. It is
+   * also the watermark the copied items carry (R-3 follow-up): the same id heads `items`, and any
+   * larger id was written after the decision.
    *
-   * R-4：最近一次读数的 id —— 审阅者冻结视图比对的键。它不进散文、也不进链外列；它存在只是为了让释放
-   * 判断屏幕是否仍在描述这一行。
+   * R-4：最近一次读数的 id —— 审阅者冻结视图比对的键。它不进散文；它存在只是为了让释放判断屏幕是否仍在
+   * 描述这一行。它也是拷贝条目承载的水位（R-3 后续）：同一个 id 领起 `items`，更大的 id 都写在此决定之后。
    */
   latestLookupId: number | null;
 }
