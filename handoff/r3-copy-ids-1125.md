@@ -72,3 +72,15 @@ R-2…R-6 already in). Not pushed / 未推送。
   若日后重建表/导入历史行需保持这一点。
 - 与并行会话的重叠：同改 `write-claim-decision.service.ts`（对方改「目标驱动 count=0 的措辞」），
   合并时注意该文件与其 spec。
+
+## 并入 main / Merged into main（2026-11-25）
+
+- 合并提交 **`e8640dbe`**（`Merge R-3 copy ids`），基于 main `77fb432c`；分支上另有 `75907b39`
+  （把 main 合入本分支的合并）与 `861429ba`（basis select 修复）。**未推送**。
+- 与 R-1 的冲突全按并集解：`items` 现为 `{id, at, conclusion, reason, basis, lookedUpBy}`；
+  `_releaseEvidence` 的窗口查询同时 `addSelect('lookup.basis')`。合并暴露出一处漏选列的缺陷 ——
+  选择性 QueryBuilder 只填被选中的列，漏 `basis` 会把每条拷贝静默写成 `unknown` —— 已修，并用一条
+  `basis: 'receipt'` 的种子读数把它钉住。
+- 合并后 **main 上**复跑：`write-claim-decision` + `target-status-reconcile` **49/49**；
+  `tsc -p tsconfig.build.json --noEmit` 0 错；
+  `KEELBASE_JAVA_REPO=D:/Rain6fish/KeelBase4J npm run check:all` ⇒ **36/36 全过（47.4s）**。
