@@ -3,7 +3,7 @@
 import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
-import { In, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import {
   AiWriteClaim,
   WRITE_CLAIM_DECISION_STATE,
@@ -40,6 +40,17 @@ import { AuditService } from './audit.service';
  * this decision: a later re-claim reuses that row and clears its release columns, so the chained row is
  * the only place the decision survives.
  *
+ * R-4: a release is bound to the **view** the reviewer acted on — the governance disposition and the
+ * newest reading the screen showed. If the ledger has moved since, the release is refused with
+ * `stale_view` **and the refusal is itself a row**, so the screen and the ledger cannot disagree
+ * silently. Where that row lives, and why: the **same chain and the same `claim_release` action** as
+ * the release it refused — one act, the opposite ending. Another chain would put one act's two endings
+ * on two ledgers; a new action would change the contract's closed enum. `outcome` stays absent (the
+ * frozen vocabulary defines no word for this action), so the ending is stated in `detail`, which opens
+ * with `release refused (stale_view)`. Filtering by ending from the audit row alone is therefore not
+ * offered — a deferred structured change under the same rule the release kinds follow (structure only
+ * once a consumer must act on the audit row alone).
+ *
  * AW-16 F-63/F-64：滞留占位治理流程的**写侧**。
  *
  * 读侧（`WriteClaimQueryService`）只陈述表里写着什么、从不改它。本服务是唯一移动 `decision_state`
@@ -58,6 +69,13 @@ import { AuditService } from './audit.service';
  * 与那两次状态搬迁并列的还有一个记录器：`recordTargetRelease` 为**目标回答**引起的释放写 `claim_release`
  * 行（账已由 `WriteClaimStore.reconcileClaim` 移过）。它不改任何状态。它存在的理由是占位行留不住这份决定：
  * 后续重占位会复用那一行并清掉它的释放列，故带链的这一行是决定唯一留得住的地方。
+ *
+ * R-4：释放绑定在审阅者当时看到的**视图**上 —— 治理处置与屏幕显示的最近一次读数。若账本此后已变动，
+ * 释放以 `stale_view` 拒绝，**且拒绝本身就是一行**，于是屏幕与账本不会静默地各说各话。这一行落在哪里、
+ * 为什么：与它拒绝的那次释放**同一条链、同一个 `claim_release` 动作** —— 一次动作、相反的结局。换一条链
+ * 会把一次动作的两个结局分到两本账上；新增动作则要改契约的闭合枚举。`outcome` 保持不写（冻结词表没有为
+ * 这个动作定义任何词），故结局写在 `detail` 里，开头就是 `release refused (stale_view)`。因此「只读审计行
+ * 就按结局筛选」这件事没有提供 —— 那是推迟到有消费者时的结构化改动，与释放种类遵循同一条规则。
  */
 @Injectable()
 export class WriteClaimDecisionService {
@@ -124,13 +142,16 @@ export class WriteClaimDecisionService {
    * Refusals are reported by kind rather than as one `false`, because they mean different things to
    * the person working the queue: `not_found` (no such row), `not_claimable` (already settled or
    * released by the execution path), `not_stale` (still inside its window — nothing to release yet),
-   * `already_closed` (a previous release already closed it; no second audit row is written).
+   * `already_closed` (a previous release already closed it; no second release row is written), and
+   * `stale_view` (R-4: the ledger moved after the reviewer's screen was read — the **refusal itself**
+   * is recorded as a row).
    *
    * F-63：释放滞留占位，附证据，并把这次动作记录一次。
    *
    * 拒绝按种类报出，而不是一个 `false` —— 对处理队列的人而言它们含义不同：`not_found`（没有这一行）、
    * `not_claimable`（执行路径已落定或已释放）、`not_stale`（仍在窗口内，还谈不上释放）、
-   * `already_closed`（此前已释放；不再写第二条审计行）。
+   * `already_closed`（此前已释放；不再写第二条释放行），以及 `stale_view`（R-4：审阅者的屏幕读完之后
+   * 账本变动了 —— **拒绝本身**也会记成一行）。
    */
   async release(
     claimId: number,
@@ -140,6 +161,32 @@ export class WriteClaimDecisionService {
     const claim = await this.claimsRepo.findOne({ where: { id: claimId } });
     if (!claim) {
       return { outcome: 'not_found', claimId, toolName: null, status: null, decisionState: null, auditRowId: null };
+    }
+
+    // F-85b: what was asked of the target, and what it answered, belongs on the decision row itself.
+    // Read **before** anything is written: if this read fails, the path leaves nothing half-done —
+    // the claim keeps its state and no audit row is missing. Read after the write it would, and the
+    // ledger would claim a decision whose record does not exist. R-4 also takes the newest reading's
+    // id from here: the view the reviewer froze names that reading, so it is the comparison key.
+    //
+    // F-85b：问过目标什么、它怎么答的，要落在决定行本身。在任何写入**之前**读取：读失败时这条路径
+    // 什么都没留下 —— 占位保持原状、也没有「缺了记录的决定」。放到写入之后，就会留下一条有决定、无记录的账。
+    // R-4 也从这里取最近一次读数的 id：审阅者冻结的视图点名了那条读数，故它就是比对键。
+    const evidence = await this._releaseEvidence(claim);
+
+    // R-4: the release must still match the view the reviewer acted on. Checked first — once the view
+    // no longer describes the row, every later answer would be about a row nobody looked at.
+    // R-4：释放必须仍与审阅者当时看到的视图一致。先查这一条 —— 视图一旦不再描述这一行，后面任何答案
+    // 说的都是没人看过的那一行。
+    const moved = this._movedSinceView(input.view, claim, evidence.latestLookupId);
+    if (moved) {
+      const auditRowId = await this._writeReleaseRow(
+        claim,
+        actor,
+        this._refusalDetail(claim, input, evidence, moved),
+        null,
+      );
+      return this.refusal('stale_view', claim, auditRowId);
     }
 
     const thresholdMinutes = staleThresholdMinutes(
@@ -157,26 +204,18 @@ export class WriteClaimDecisionService {
       return this.refusal('not_stale', claim);
     }
 
-    // F-85b: what was asked of the target, and what it answered, belongs on the decision row itself.
-    // Read **before** the conditional update: if this read fails, the path leaves nothing half-done —
-    // the claim keeps its state and no audit row is missing. Read after the update it would, and the
-    // ledger would claim a decision whose record does not exist.
-    //
-    // F-85b：问过目标什么、它怎么答的，要落在决定行本身。在条件更新**之前**读取：读失败时这条路径
-    // 什么都没留下 —— 占位保持原状、也没有「缺了记录的决定」。放到更新之后，就会留下一条有决定、无记录的账。
-    const evidence = await this._releaseEvidence(claim);
-
-    // Conditional on both the status and the handling state: a concurrent settle/reconcile wins this
-    // write, and we report what actually happened rather than stamping over it.
-    // 同时以状态与处置状态为条件：并发的落定 / 对账赢下这次写，我们如实报出实际发生的事，而不是盖掉它。
+    // Conditional on the status **and on the disposition the reviewer saw**: a concurrent settle,
+    // reconcile or sweep wins this write, and we report what actually happened rather than stamping
+    // over it. R-4 narrowed this condition — accepting both `open` and `awaiting_decision` is what let
+    // a sweep move the row underneath the screen without the release noticing.
+    // 同时以状态与**审阅者看到的处置**为条件：并发的落定 / 对账 / 清扫赢下这次写，我们如实报出实际发生
+    // 的事，而不是盖掉它。R-4 收窄了这个条件 —— 原来同时接受 `open` 与 `awaiting_decision`，正是清扫把行
+    // 在屏幕下面移走、释放却毫无察觉的原因。
     const res = await this.claimsRepo.update(
       {
         id: claim.id,
         status: WRITE_CLAIM_STATUS.CLAIMED,
-        decisionState: In([
-          WRITE_CLAIM_DECISION_STATE.OPEN,
-          WRITE_CLAIM_DECISION_STATE.AWAITING_DECISION,
-        ]),
+        decisionState: input.view.decisionState,
       },
       {
         decisionState: WRITE_CLAIM_DECISION_STATE.CLOSED_UNKNOWN,
@@ -185,14 +224,28 @@ export class WriteClaimDecisionService {
     );
     if ((res.affected ?? 0) === 0) {
       const after = await this.claimsRepo.findOne({ where: { id: claim.id } });
-      return after
-        ? this.refusal(
-            after.decisionState === WRITE_CLAIM_DECISION_STATE.CLOSED_UNKNOWN
-              ? 'already_closed'
-              : 'not_claimable',
-            after,
-          )
-        : this.refusal('not_found', claim);
+      if (!after) return this.refusal('not_found', claim);
+      if (after.decisionState !== input.view.decisionState) {
+        // The row moved between the check above and this write. Same meaning as a stale view, so it
+        // gets the same answer and the same row — with the readings read **again**, because the
+        // earlier read predates the move and the row must state what the ledger holds now.
+        // 行在上面的检查与这次写之间动了。含义与陈旧视图相同，故同一个答案、同一行记录 —— 读数**重新**
+        // 读一次，因为先前那次读早于这次移动，行里必须写账本现在的事实。
+        const now = await this._releaseEvidence(after);
+        const auditRowId = await this._writeReleaseRow(
+          after,
+          actor,
+          this._refusalDetail(after, input, now, 'decisionState'),
+          null,
+        );
+        return this.refusal('stale_view', after, auditRowId);
+      }
+      return this.refusal(
+        after.decisionState === WRITE_CLAIM_DECISION_STATE.CLOSED_UNKNOWN
+          ? 'already_closed'
+          : 'not_claimable',
+        after,
+      );
     }
 
     // The act itself is the record. Awaited, and a failure is reported rather than swallowed: the
@@ -262,7 +315,7 @@ export class WriteClaimDecisionService {
    */
   private async _releaseEvidence(
     claim: Pick<AiWriteClaim, 'idempotencyKey'>,
-  ): Promise<{ lookupCount: number; releaseLookups: string }> {
+  ): Promise<{ lookupCount: number; releaseLookups: string; latestLookupId: number | null }> {
     const key = { idempotencyKey: claim.idempotencyKey };
     // Sequential, not `Promise.all`: a synchronous throw from the second call would leave the first
     // promise unhandled. One extra round trip on a rare path is cheaper than that failure mode.
@@ -285,21 +338,34 @@ export class WriteClaimDecisionService {
           lookedUpBy: l.lookedUpBy,
         })),
       }),
+      // R-4: the newest reading, by the same order the read surface uses for `lastLookup` — the id the
+      // reviewer's frozen view names. `null` = nobody has asked, which the view must also say.
+      // R-4：最近一次读数，排序与读面取 `lastLookup` 相同 —— 也就是审阅者冻结视图点名的那个 id。
+      // `null` = 没人问过，视图也必须这么说。
+      latestLookupId: recentLookups[0]?.id ?? null,
     };
   }
 
   /**
-   * The one write point for a `claim_release` row, manual or target-driven. The shape lives here once
-   * (R-3): two release paths must not grow two spellings of the same record.
+   * The one write point for a `claim_release` row: manual, target-driven, or a refused attempt (R-4).
+   * The shape lives here once (R-3): paths of the same act must not grow several spellings of the same
+   * record.
    *
-   * `claim_release` 行的唯一写入点，人工与目标驱动共用。形状只在这里写一遍（R-3）：两条释放路径不得
-   * 长出同一份记录的两种写法。
+   * `evidence` is `null` for a refusal: the contract's `releaseLookups` column is the evidence behind a
+   * release decision, and it is absent on rows that are not releases. A refusal's `detail` carries the
+   * facts instead (what the screen said versus what the ledger says).
+   *
+   * `claim_release` 行的唯一写入点：人工、目标驱动、以及被拒的尝试（R-4）。形状只在这里写一遍（R-3）：
+   * 同一动作的各条路径不得长出同一份记录的多种写法。
+   *
+   * 拒绝时 `evidence` 为 `null`：契约里的 `releaseLookups` 是释放决定背后的证据，非释放行为空。拒绝行的
+   * 事实写在 `detail` 里（屏幕说的与账本说的各是什么）。
    */
   private async _writeReleaseRow(
     claim: ReleaseClaimRef,
     actor: { userId: string; username?: string },
     detail: string,
-    evidence: { releaseLookups: string },
+    evidence: { releaseLookups: string } | null,
   ): Promise<number> {
     const audit = await this.auditService.log({
       userId: actor.userId,
@@ -309,11 +375,14 @@ export class WriteClaimDecisionService {
       // 这份占位所属的工具 —— 于是按工具筛选不必解析 `detail`。
       tool: claim.toolName,
       // No `outcome`: this row is not a tool verdict, and the conclusion deliberately stays unknown.
-      // 不传 `outcome`：这一行不是工具结局，而结论有意保持未知。
+      // R-4: that includes a refusal — the frozen vocabulary defines no word for this action, so the
+      // ending lives in `detail`, never in a made-up outcome.
+      // 不传 `outcome`：这一行不是工具结局，而结论有意保持未知。R-4：拒绝时同样如此 —— 冻结词表没有为
+      // 这个动作定义任何词，故结局写在 `detail` 里，绝不编一个 outcome。
       detail,
       // F-85b: the readings as data, off-chain — the prose says how many, this says which.
       // F-85b：读数以数据形式落库、且在链外 —— 散文说几次，这里说哪几次。
-      releaseLookups: evidence.releaseLookups,
+      ...(evidence ? { releaseLookups: evidence.releaseLookups } : {}),
       source: 'claim_release',
     });
     return audit.id;
@@ -322,6 +391,7 @@ export class WriteClaimDecisionService {
   private refusal(
     outcome: Exclude<ReleaseClaimOutcome, 'released_unknown'>,
     claim: AiWriteClaim,
+    auditRowId: number | null = null,
   ): ReleaseClaimResult {
     return {
       outcome,
@@ -329,8 +399,58 @@ export class WriteClaimDecisionService {
       toolName: claim.toolName,
       status: claim.status,
       decisionState: claim.decisionState ?? null,
-      auditRowId: null,
+      auditRowId,
     };
+  }
+
+  /**
+   * R-4: which facts the reviewer's frozen view no longer agrees with — `null` when it still does.
+   *
+   * Only the two facts the screen actually shows are compared: the governance disposition and the
+   * newest reading's id. `status` is deliberately absent — a settle or a reconcile that changes it is
+   * answered more precisely by `not_claimable` / `already_closed` once the view itself still matches.
+   *
+   * R-4：审阅者冻结的视图已与哪些事实不符 —— 仍相符时为 `null`。
+   *
+   * 只比屏幕真正显示的两件事：治理处置、最近一次读数的 id。`status` **有意**不在其中 —— 落定或对账改了它
+   * 时，只要视图本身还对得上，`not_claimable` / `already_closed` 的回答更准确。
+   */
+  private _movedSinceView(
+    view: ReleaseClaimView,
+    claim: Pick<AiWriteClaim, 'decisionState'>,
+    latestLookupId: number | null,
+  ): string | null {
+    const moved: string[] = [];
+    if (view.decisionState !== claim.decisionState) moved.push('decisionState');
+    if ((view.lastLookupId ?? null) !== (latestLookupId ?? null)) moved.push('lastLookup');
+    return moved.length ? moved.join('+') : null;
+  }
+
+  /**
+   * R-4: the refusal row's prose. It must answer, without a join: **what was refused and why**, what
+   * the screen said, what the ledger says now, and how many readings are on record — so a reader can
+   * tell "the reviewer acted on a screen that had gone stale" from "the reviewer acted and something
+   * else happened". The note is copied verbatim, as on a release row.
+   *
+   * R-4：拒绝行的散文。它必须无需联接就回答：**拒绝了什么、为什么**，屏幕说的是什么、账本现在说的是
+   * 什么、记录在案的读数有几条 —— 于是读者能分清「审阅者据一个已经陈旧的屏幕行事」与「审阅者行了事、
+   * 之后发生了别的」。说明原样抄录，与释放行一致。
+   */
+  private _refusalDetail(
+    claim: ReleaseClaimRef & Pick<AiWriteClaim, 'status' | 'decisionState'>,
+    input: ReleaseClaimInput,
+    evidence: { lookupCount: number; latestLookupId: number | null },
+    moved: string,
+  ): string {
+    const reference = input.evidenceRef ? `; evidence: ${input.evidenceRef}` : '';
+    const id = (v: number | null) => (v == null ? 'none' : `#${v}`);
+    return (
+      `release refused (stale_view): write claim #${claim.id} (${claim.toolName}, as user ${claim.userId}) was not released — ` +
+      `the hold moved after this review view was taken; changed: ${moved}; ` +
+      `view: decisionState=${input.view.decisionState}, lastLookup=${id(input.view.lastLookupId)}; ` +
+      `ledger now: decisionState=${claim.decisionState}, status=${claim.status}, lastLookup=${id(evidence.latestLookupId)}; ` +
+      `lookups on record: ${evidence.lookupCount}; note: ${input.note}${reference}`
+    );
   }
 
   /**
@@ -419,11 +539,28 @@ export interface TargetReleaseTrigger {
   queriedAt: string;
 }
 
+/**
+ * R-4: the review screen's frozen reading — the two facts a release is bound to. Both are the read
+ * surface's own values (`GET /ai/tool-effects/claims`: `decisionState`, `lastLookup.id`), so the
+ * comparison is like for like. `lastLookupId: null` is the screen saying "nobody had asked yet".
+ *
+ * R-4：复核屏幕冻结的读数 —— 释放所绑定的两件事。两者都是读面自己的值（`GET /ai/tool-effects/claims`
+ * 的 `decisionState`、`lastLookup.id`），故比对是同口径的。`lastLookupId: null` 是屏幕在说「当时还没人问过」。
+ */
+export interface ReleaseClaimView {
+  /** The governance disposition the screen showed. / 屏幕当时显示的治理处置。 */
+  decisionState: string;
+  /** The newest reading's id at the screen's read; `null` = there was none. / 屏幕读取时最近一次读数的 id；`null` = 当时没有。 */
+  lastLookupId: number | null;
+}
+
 export interface ReleaseClaimInput {
   /** Why the hold is being released — required, recorded verbatim on the audit row. / 为何释放，必填，原样记入审计行。 */
   note: string;
   /** Optional external reference (ticket, lookup id, log URL). / 可选外部引用（工单、对账 id、日志地址）。 */
   evidenceRef?: string;
+  /** R-4: what the review screen showed — required; a release that names no view cannot be bound to one. / R-4：复核屏幕当时显示的读数 —— 必填；说不出视图的释放无法绑定到任何视图。 */
+  view: ReleaseClaimView;
 }
 
 export type ReleaseClaimOutcome =
@@ -431,7 +568,9 @@ export type ReleaseClaimOutcome =
   | 'not_found'
   | 'not_claimable'
   | 'not_stale'
-  | 'already_closed';
+  | 'already_closed'
+  /** R-4: the ledger moved after the view was taken. Refused, and the refusal is a row. / R-4：视图取定后账本变动了。拒绝，且拒绝本身是一行。 */
+  | 'stale_view';
 
 export interface ReleaseClaimResult {
   outcome: ReleaseClaimOutcome;
@@ -440,6 +579,12 @@ export interface ReleaseClaimResult {
   /** The claim's execution status **after** the call — `claimed` for a release (the truth is unknown). */
   status: string | null;
   decisionState: string | null;
-  /** The AI-audit row that records the act; `null` when the call was refused. / 记录本次动作的 AI 审计行；被拒时为 null。 */
+  /**
+   * The AI-audit row that records the act; `null` when the call was refused **without leaving a
+   * record**. R-4: a `stale_view` refusal is itself a row, so it answers an id here.
+   *
+   * 记录本次动作的 AI 审计行；被拒且**没有留下记录**时为 `null`。R-4：`stale_view` 的拒绝本身就是一行，
+   * 故这里会给出 id。
+   */
   auditRowId: number | null;
 }

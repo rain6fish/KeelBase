@@ -483,12 +483,37 @@ export interface InFlightClaim {
 
 /** AW-16 F-63：释放滞留占位的裁决结果（按种类报，不压成一句「失败」） */
 export interface ReleaseClaimResult {
-  outcome: 'released_unknown' | 'not_found' | 'not_claimable' | 'not_stale' | 'already_closed'
+  /**
+   * R-4 adds `stale_view`: the ledger moved after the review screen was read, so the release was
+   * refused — and that refusal is itself an audit row (`auditRowId` is set for it).
+   *
+   * R-4 新增 `stale_view`：复核屏幕读完之后账本变动了，故释放被拒 —— 拒绝本身是一条审计行
+   *（此时 `auditRowId` 有值）。
+   */
+  outcome:
+    | 'released_unknown'
+    | 'not_found'
+    | 'not_claimable'
+    | 'not_stale'
+    | 'already_closed'
+    | 'stale_view'
   claimId: number
   toolName: string | null
   status: string | null
   decisionState: string | null
   auditRowId: number | null
+}
+
+/**
+ * R-4: the review screen's frozen reading, sent with a release. It is the row as the screen rendered
+ * it — `decisionState` and the newest lookup's id (`null` = the screen said nobody had asked).
+ *
+ * R-4：复核屏幕冻结的读数，随释放一起提交。它取自屏幕渲染出来的那一行 —— `decisionState` 与最近一次
+ * 读数的 id（`null` = 屏幕说当时没人问过）。
+ */
+export interface ReleaseClaimView {
+  decisionState: InFlightClaim['decisionState']
+  lastLookupId: number | null
 }
 
 /**

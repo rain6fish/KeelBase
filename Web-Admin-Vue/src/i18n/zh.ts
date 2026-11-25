@@ -1192,6 +1192,12 @@ const zh = {
   inFlightReleaseDone: '已释放：结论保持未知，占位键仍被占住',
   inFlightReleaseRefused: '释放未成立：{outcome}',
   inFlightReleaseFailed: '释放失败',
+  // R-4：释放绑定在打开时所见的读数上 —— 账本此后变动即拒绝，并把拒绝记入审计链
+  inFlightReleaseViewHint:
+    '本次释放绑定你打开时所见的读数：处置「{disposition}」，最近一次目标查询 {lookup}。账本若在此之后变动，服务端会以 stale_view 拒绝并留下审计记录。',
+  inFlightReleaseViewNoLookup: '（尚无）',
+  inFlightReleaseStaleView:
+    '视图已过期：该占位在你查看之后发生了变动，本次释放未成立（拒绝已记入审计链）。请刷新后重新查看再决定。',
   // AW-17：目标状态读数 —— 「未查询」与「未知」都是如实读数，不得读成「已执行」
   targetStatusCol: '目标状态',
   statusNotLookedUp: '未查询',
