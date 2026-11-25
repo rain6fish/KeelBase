@@ -37,6 +37,48 @@ export const TARGET_STATUS = {
 export type TargetStatusConclusion = (typeof TARGET_STATUS)[keyof typeof TARGET_STATUS];
 
 /**
+ * R-1: **what a real answer is based on** — a current-state snapshot, or the target's own acceptance
+ * record.
+ *
+ * `not_executed` covers two different questions: "this key is not there now" and "this key was never
+ * accepted". A retry decision that treats them as one can duplicate an external write whose record was
+ * later reversed or deleted. The target is the only party that can tell which question it answered;
+ * when it does not say, the reading is `absent` — never guessed from the method or the path, because
+ * both kinds are asked with the same single `GET`.
+ *
+ * **A receipt is not an authority claim.** An eventually consistent receipt can still miss a very
+ * recent acceptance. This vocabulary says *what the answer is based on*, not how true it is.
+ *
+ * R-1：**真答案基于什么** —— 当前状态快照，还是目标自己的受理记录。
+ *
+ * `not_executed` 覆盖两个不同的问题：「这个 key 现在不在」与「这个 key 从未被接受」。把两者当成一个，
+ * 重试决定就可能重复一次外部写 —— 它的记录后来被撤销或删除了。只有目标能说清它回答的是哪一个；
+ * 它不说时，读数就是「未声明」—— **绝不从方法或路径反推**，因为两种种类用的是同一条单次 `GET`。
+ *
+ * **收据不是权威声明**。最终一致的收据同样可能漏掉刚发生的受理。本词表说的是**答案基于什么**，
+ * 不是它有多真。
+ */
+export const TARGET_STATUS_BASIS = {
+  /** The target answered from its live object store. / 目标按当前对象存储作答。 */
+  CURRENT_STATE: 'current_state',
+  /** The target answered from its own acceptance/event record. / 目标按自己的受理 / 事件记录作答。 */
+  RECEIPT: 'receipt',
+} as const;
+
+export type TargetStatusBasis = (typeof TARGET_STATUS_BASIS)[keyof typeof TARGET_STATUS_BASIS];
+
+/**
+ * The basis as a **read face** reports it: the two declared kinds plus `unknown` for "the target did
+ * not say, or the row predates the column". Storage keeps `null` for the latter (see the entity), so
+ * "asked before we could record a basis" stays distinguishable from "asked after and the target did
+ * not say".
+ *
+ * 读面报出的种类：两种已声明的种类，再加 `unknown` 表示「目标没说，或该行早于本列」。存储侧对后者
+ * 保持 `null`（见实体），于是「问的时候我们还记不了种类」与「问了、目标没说」仍可区分。
+ */
+export type TargetStatusLookupBasisView = TargetStatusBasis | 'unknown';
+
+/**
  * Why a conclusion is `unknown`. Every one of these means "the target did not tell us", and none of
  * them means "it did not run".
  *
@@ -86,4 +128,12 @@ export interface TargetStatusLookup {
   conclusion: TargetStatusConclusion;
   /** `null` when the conclusion is a real answer. / 结论是真答案时为 `null`。 */
   reason: TargetStatusLookupReason | null;
+  /**
+   * R-1: what a real answer is based on; `null` when the target did not say (or there is no answer).
+   * Never inferred from the query — see {@link TARGET_STATUS_BASIS}.
+   *
+   * R-1：真答案基于什么；目标没说（或根本没有答案）时为 `null`。绝不从查询反推 —— 见
+   * {@link TARGET_STATUS_BASIS}。
+   */
+  basis: TargetStatusBasis | null;
 }

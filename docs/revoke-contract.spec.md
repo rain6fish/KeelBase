@@ -580,14 +580,16 @@ optional external reference. The claim moves to `closed_unknown`; `status` delib
 "confirmed not stored". The key stays occupied, so the same call is refused by `claimWrite` and is
 never silently retried. The act itself is one chained AI-audit row (`action=claim_release`), carrying
 the note and reference and **no** outcome word. That row also states **what the asking said**: the
-count and the newest three readings (`at`, `conclusion`, `reason`, `lookedUpBy`), newest first,
-written `lookups: N asked, newest first (k of N)` when there are more than three. A release with no
-asks behind it says so outright rather than leaving a blank that would read as a default — and it
-says **which kind of none**: `lookups: none (never queried)` when the tool has a usable status query
-that nobody used, `lookups: none (not askable — this tool has no usable status query)` when there is
-no channel to ask through at all. The off-chain column carries the same distinction as `askable`
-(`true` / `false` / `null` when the writing process cannot tell), so "asked N times", "askable but
-never asked" and "not askable" are three countable cases rather than two.
+count and the newest three readings (`at`, `conclusion`, `reason`, `basis`, `lookedUpBy`), newest
+first, written `lookups: N asked, newest first (k of N)` when there are more than three. `basis`
+(R-1) is `current_state` | `receipt` | `unknown` and says what the answer was based on — a
+current-state reading cannot establish "never accepted". A release with no asks behind it says so
+outright rather than leaving a blank that would read as a default — and it says **which kind of
+none**: `lookups: none (never queried)` when the tool has a usable status query that nobody used,
+`lookups: none (not askable — this tool has no usable status query)` when there is no channel to ask
+through at all. The off-chain column carries the same distinction as `askable` (`true` / `false` /
+`null` when the writing process cannot tell), so "asked N times", "askable but never asked" and "not
+askable" are three countable cases rather than two.
 
 An hourly sweep moves overdue `open` holds to `awaiting_decision`. It changes no status and writes no
 conclusion, so a slow external call can still settle; a sweep that released rows would take that
@@ -642,9 +644,12 @@ than a log line. A manual reconcile still works, and counts against the same bud
 how often the target is asked, not which code path did the asking. One pass also sends at most
 `CLAIM_RECONCILE_MAX_PER_PASS` queries (default 25), oldest hold first: a per-row cap bounds one row's
 traffic, not the burst, and a backlog of a hundred due rows must not become a hundred GETs in one
-hour. Rows a pass does not reach stay due and are served next hour. One pass runs at a time inside a
-process; there is **no cross-process lease**, so a horizontally scaled deployment may still overlap
-two passes — a scale-out concern left open rather than papered over.
+hour. Rows a pass does not reach stay due and are served next hour. One row that throws while being
+reconciled — typically the decision row's audit write failing after the ledger already moved — is
+counted and logged with its claim id; it does not stop the pass, so the rest of the queue is still
+asked. One pass runs at a time inside a process; there is **no cross-process lease**, so a
+horizontally scaled deployment may still overlap two passes — a scale-out concern left open rather
+than papered over.
 
 **The queue runs on two clocks, and neither one releases a hold (R-5).** The pending-decision queue
 used to be driven by claim age alone, so "the latest reading is old, ask the target again" and "the
@@ -663,11 +668,13 @@ reading and never moves the row — while freshness only filters and badges.
 东西证明这次写是否落库，写成 `released` 等于断言「确认未落库」。键仍被占住，故同一次调用会被 `claimWrite`
 拒绝，绝不会被静默重试。动作本身是一条带链 AI 审计行（`action=claim_release`），带说明与引用，**不**带
 任何结局词。该行同时陈述**询问说了什么**：次数与最近三次读数（`at`、`conclusion`、`reason`、
-`lookedUpBy`），最近的在前，超过三条时写作 `lookups: N asked, newest first (k of N)`。一次都没问过的
-释放会明写出来，而不是留空让人当默认值 —— 并且写明是**哪一种「没有」**：工具有可用的状态查询却没人
-用过，写作 `lookups: none (never queried)`；根本没有可问的通道，写作 `lookups: none (not askable —
-this tool has no usable status query)`。链外列以 `askable` 承载同一区分（`true` / `false` / 写入进程
-判断不了时的 `null`），于是「问过 N 次」「可问但没问」「问不了」是三态、可计数，而不是两态。
+`basis`、`lookedUpBy`），最近的在前，超过三条时写作 `lookups: N asked, newest first (k of N)`。
+`basis`（R-1）取 `current_state` | `receipt` | `unknown`，说的是答案**基于什么** —— 当前状态读数
+确立不了「从未被接受」。一次都没问过的释放会明写出来，而不是留空让人当默认值 —— 并且写明是
+**哪一种「没有」**：工具有可用的状态查询却没人用过，写作 `lookups: none (never queried)`；根本没有
+可问的通道，写作 `lookups: none (not askable — this tool has no usable status query)`。链外列以
+`askable` 承载同一区分（`true` / `false` / 写入进程判断不了时的 `null`），于是「问过 N 次」「可问但
+没问」「问不了」是三态、可计数，而不是两态。
 
 每小时清扫把到期的 `open` 占位移入 `awaiting_decision`：不改状态、不写结论，故慢的外部调用仍能落定 ——
 若清扫把行改成 `released`，那份能力就没了。读永远不改状态：`stale` 仍是年龄读数，不是决定。
@@ -705,8 +712,10 @@ id（屏幕说当时没人问过时为 `null`）—— 且写入以处置仍一�
 `autoReconcileStopped`、`autoReconcileDueAt`，于是「问满四次、已停止」是一个读数，而不是一行日志。人工对账
 仍可进行，并计入同一份预算：预算限制的是**问目标的次数**，不是哪条代码路径问的。一趟最多发出
 `CLAIM_RECONCILE_MAX_PER_PASS` 个询问（默认 25），最老的先问：每条行的次数上限界的是单行的流量，不是突发，
-一百条到期的行不该在一小时里变成一百个 GET。这趟没轮到的行仍然到期，下一趟再问。同一进程内同一时刻只跑
-一趟；**跨进程没有租约**，故横向扩展的部署仍可能有两趟重叠 —— 这是留着未闭合的扩展问题，没有粉饰。
+一百条到期的行不该在一小时里变成一百个 GET。这趟没轮到的行仍然到期，下一趟再问。某一行在对账中抛出
+（通常是账已动过、决定行的审计写失败）时，只记一笔失败并把占位 id 写进日志，本趟不停，队列里其余到期
+占位照问。同一进程内同一时刻只跑一趟；**跨进程没有租约**，故横向扩展的部署仍可能有两趟重叠 —— 这是
+留着未闭合的扩展问题，没有粉饰。
 
 **队列跑着两只钟，且两只都不释放占位（R-5）。** 待裁队列此前只由占位年龄驱动，于是「最新读数旧了，再问
 目标一次」与「决策开放太久，该由人裁」在队列里长得一样。在途清单现在两只都带：`readingStale` /

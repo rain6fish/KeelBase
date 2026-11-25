@@ -336,6 +336,8 @@ describe('AW-16 在途 claim 只读查询面', () => {
       expect(res.items[0].lastLookup).toMatchObject({
         conclusion: 'unknown',
         reason: 'non_2xx',
+        // R-1：没有真答案就没有种类；未记录读作 `unknown`，绝不默认成 `current_state`。
+        basis: 'unknown',
         lookedUpBy: 'admin-1',
         asUserId: '7',
         queryMethod: 'GET',
@@ -387,6 +389,41 @@ describe('AW-16 在途 claim 只读查询面', () => {
         queryMethod: 'GET',
       });
       expect(res?.total).toBe(2);
+    });
+
+    /**
+     * R-1: two answers that both say `not_executed` are different readings when their bases differ —
+     * a receipt says "never accepted", a current-state read only says "not there now". The read face
+     * must separate them by `basis` alone, and a row written before the column must read `unknown`
+     * rather than being guessed into either kind.
+     *
+     * R-1：两条都说 `not_executed`，但种类不同就是两条不同的读数 —— 收据说「从未被接受」，当前状态读数
+     * 只说「现在没有」。读面必须仅凭 `basis` 区分；早于本列的行必须读作 `unknown`，不得被猜成任一种类。
+     */
+    it('R-1：同为 not_executed 的两行按 basis 区分；旧行读 unknown（不回填、不猜）', async () => {
+      const row = await claim({ idempotencyKey: 'basis', toolName: 'proxy_send' });
+      const receipt = await lookup('basis', { conclusion: 'not_executed', reason: null, basis: 'receipt' });
+      const snapshot = await lookup('basis', {
+        conclusion: 'not_executed',
+        reason: null,
+        basis: 'current_state',
+      });
+      const legacy = await lookup('basis', { conclusion: 'not_executed', reason: null });
+      expect(legacy.basis ?? null).toBeNull();
+      await lookups().update(receipt.id, { at: new Date('2026-11-01T00:00:00Z') });
+      await lookups().update(snapshot.id, { at: new Date('2026-11-01T01:00:00Z') });
+      await lookups().update(legacy.id, { at: new Date('2026-11-01T02:00:00Z') });
+
+      const res = await service.lookupsFor(row.id, { userId: 1, role: UserRole.ADMIN });
+
+      expect(res?.items.map((l) => l.conclusion)).toEqual([
+        'not_executed',
+        'not_executed',
+        'not_executed',
+      ]);
+      expect(res?.items.map((l) => l.basis)).toEqual(['unknown', 'current_state', 'receipt']);
+      // 反向：把种类映射拿掉（都读成同一种）会让上面这行失去区分力。
+      expect(new Set(res?.items.map((l) => l.basis)).size).toBe(3);
     });
 
     it('F-85：两条读数能读成一对 —— 序位按时间、相邻给间隔、并给出「写 → 首问」', async () => {

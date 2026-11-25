@@ -125,9 +125,27 @@ describe('AuditQueryService（从 AuditService 拆出的查询域）', () => {
       const qb = mockQueryBuilder();
       await service.getLogs({ orgId: 3 });
       expect(qb.andWhere).toHaveBeenCalledWith(
-        'CAST(log.userId AS INTEGER) IN (SELECT user_id FROM org_members WHERE org_id = :orgId)',
+        'log.userId IN (SELECT CAST(user_id AS TEXT) FROM org_members WHERE org_id = :orgId)',
         { orgId: 3 },
       );
+    });
+
+    // B-1: a sweep-driven release can put `system:sweep` in `user_id`, which Postgres refuses to cast
+    // to INTEGER — so the audit column must never be the side that is cast.
+    //
+    // B-1：目标驱动的释放会把 `system:sweep` 写进 `user_id`，Postgres 不允许把它转成整数 ——
+    // 因此被 CAST 的绝不能是审计列这一侧。
+    it('组织过滤不对审计列做整数 CAST（B-1）', async () => {
+      const qb = mockQueryBuilder();
+      await service.getLogs({ orgId: 3 });
+      const orgFilters = qb.andWhere.mock.calls
+        .map((call) => String(call[0]))
+        .filter((sql) => sql.includes('org_members'));
+      expect(orgFilters.length).toBeGreaterThan(0);
+      for (const sql of orgFilters) {
+        expect(sql).not.toMatch(/CAST\s*\(\s*log\.userId/);
+        expect(sql).toContain('CAST(user_id AS TEXT)');
+      }
     });
   });
 
@@ -246,7 +264,7 @@ describe('AuditQueryService（从 AuditService 拆出的查询域）', () => {
 
       expect(org.getUserOrgContext).toHaveBeenCalledWith(5);
       expect(qb.andWhere).toHaveBeenCalledWith(
-        'CAST(log.userId AS INTEGER) IN (SELECT user_id FROM org_members WHERE org_id = :readerOrgId)',
+        'log.userId IN (SELECT CAST(user_id AS TEXT) FROM org_members WHERE org_id = :readerOrgId)',
         { readerOrgId: 7 },
       );
     });
@@ -279,11 +297,11 @@ describe('AuditQueryService（从 AuditService 拆出的查询域）', () => {
       await scoped.getLogs({ orgId: 99 }, { userId: 5, role: UserRole.AUDITOR });
 
       expect(qb.andWhere).toHaveBeenCalledWith(
-        'CAST(log.userId AS INTEGER) IN (SELECT user_id FROM org_members WHERE org_id = :orgId)',
+        'log.userId IN (SELECT CAST(user_id AS TEXT) FROM org_members WHERE org_id = :orgId)',
         { orgId: 99 },
       );
       expect(qb.andWhere).toHaveBeenCalledWith(
-        'CAST(log.userId AS INTEGER) IN (SELECT user_id FROM org_members WHERE org_id = :readerOrgId)',
+        'log.userId IN (SELECT CAST(user_id AS TEXT) FROM org_members WHERE org_id = :readerOrgId)',
         { readerOrgId: 7 },
       );
     });

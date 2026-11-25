@@ -4,6 +4,227 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 本文件记录 KeelBase 所有值得关注的变更。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.5.0] - 2026-11-25
+
+**v1.5.0 — A lookup now says what its answer was based on and what it could not have seen, and a release keeps its own decision / 查询证据说清它基于什么、又看不到什么，释放也留下自己的决定**
+
+### Added
+
+- **A target-status lookup reads as a pair, not a single answer.** Each reading carries its chronological
+  position and the seconds since the ask before it, and the response carries when the write was claimed
+  plus the gap to the first ask — the three timestamps that decide what a pair of readings can and cannot
+  have seen. The list order stays newest-first, and nothing is stored differently. The console's history
+  dialog shows the same three timestamps, so the stretch before the first ask is visible instead of
+  looking covered.
+
+- **A release row records what the target answered.** A `claim_release` audit row keeps the lookup count
+  and the newest three readings (`at`, `conclusion`, `reason`, `lookedUpBy`) in the off-chain
+  `release_lookups` column; a hold that was never queried says `lookups: none (never queried)` in words
+  instead of leaving a blank. `/audit/logs` rows carry it as `releaseLookups` (null elsewhere), and
+  contract `ai-audit-log-row` v8 adds the optional property. Releasing still requires no minimum number
+  of asks, so a target without a status endpoint stays releasable.
+
+- **The lookup history states what it could not have seen.** `GET /ai/tool-effects/claims/:id/lookups`
+  carries a read-time `coverage` block: whether the blind window is the stretch before the first reading
+  or the whole life of the claim, how many seconds it spans, when observation began, and the schedule's
+  expected first ask — read from the same plan the hourly sweep uses, never a literal. With no readings
+  the duration is still given instead of being left blank. The console renders the statement in both
+  languages. No column, migration or ordering change.
+
+- **A target-driven release keeps its own decision row.** When a target answers `not_executed`, the
+  release writes a `claim_release` row through the same builder a manual release uses: `detail` names who
+  initiated it (`system:sweep` or an administrator), what the target answered and when, and the lookup
+  count, and states that the hold is released and re-claimable while the effect stays unknown. A later
+  re-claim clears the hold row but not this one; the `executed` path writes none.
+
+- **Every target-status lookup records what its answer was based on.**
+  `ai_target_status_lookups.basis` takes `current_state` (answered from the target's live object store)
+  or `receipt` (answered from its own acceptance record). The probe reads an optional `basis` from the
+  response and records silence as `null`, never inferring a kind from the method or path, because both
+  kinds use the same single GET. The read face, the release evidence and the console map a missing value
+  to `unknown`, so a row written before the column can never be read as a current-state answer. The
+  column is nullable, has no default and is not backfilled (migration
+  `1861000000000-AddTargetStatusLookupBasis`, one `ADD COLUMN` per dialect). The kind is a label, not a
+  gate: `not_executed` still releases the claim regardless of kind.
+
+- **Release tooling gained four deterministic gates.** `scripts/check-release-texts.mjs` requires every
+  product commit since the previous tag to be accounted for in a coverage table and requires the
+  annotated tag body to equal the release-notes file; `scripts/check-artifact-contract.mjs` reads the
+  contract version a published Maven artifact declares (deliberately not wired into `check:all`, because
+  it depends on the network and every artifact is undeclared today); a `commit-order` CI job (and
+  `check:commit-order` locally) gates the English-first, Chinese-second commit-message order and bans
+  `Co-Authored-By`; and `check:contract-matrix --fail-ahead` can raise a pin-ahead-of-tag warning to a
+  failure at close-out points.
+
+- **The published image is smoke-tested before its Release exists.** A `smoke` job pulls the image just
+  pushed for the tag, asserts the image configuration carries no secret keys, starts it with generated
+  secrets to check `/api/v1/health` and the runtime keys, and asserts that a run without secrets exits
+  non-zero. The SBOM/Release job now depends on it, so a broken image cannot produce a Release.
+
+### Changed
+
+- **The console's lookup-history dialog shows position, gap and claim time.** Each reading shows its
+  chronological position, the gap to the ask before it, and when the write was claimed; the list keeps
+  its newest-first order and only the labels are added.
+
+- **The prose protocol and the compatibility matrix follow contract v1.22.0, and the main-line pin moves
+  to v1.23.0.** The prose protocol covers evidence-package format /4 and adds a chain-tail anchor section
+  for `audit-chain-anchor` v1; the conformance reading is 43/43 at the v1.22.0 boundary. The submodule
+  then moves from an intermediate commit to the release commit `015f474` (tag v1.23.0), the TypeScript
+  `main` row follows, and the Java `main` row deliberately stays at v1.22.0.
+
+- **The release manuals now match the procedure they describe.** Release precheck documents the
+  Docker-backed OCR path on Windows (Smart App Control blocks the unsigned native binary), separates a
+  real pin drift from an `UNVERIFIED` reading, states the release-window discipline, lists the
+  release-text gate, and names the smoke job as the workflow names it. Sibling-repository paths in three
+  manuals and the last machine-specific paths in the narration and recording scripts became portable.
+  Several bilingual comment blocks were reordered to English first, Chinese second.
+
+### Fixed
+
+- **Audit reads no longer cast the user id to an integer.** A sweep-driven release records
+  `system:sweep` as the initiator, and the org-scoped audit queries compared that column through
+  `CAST(userId AS INTEGER)`, which Postgres refuses for a non-numeric value — one such row broke the
+  audit list for an org reader. The list filter and the shared reader scope now compare as text
+  (`userId IN (SELECT CAST(user_id AS TEXT) …)`), which also lets the audit column use its index.
+
+- **One failing row no longer aborts the hourly reconcile pass.** A throw while reconciling —
+  typically the decision row's audit write failing after the ledger had already moved — aborted every
+  remaining due hold for that hour. The pass now counts the failure, logs the claim id and continues;
+  the failing row is not retried by the sweep.
+
+- **The image smoke job fetches the image it tests.** `publish` pushes from another runner's daemon,
+  and `scripts/image-smoke.sh` starts with `docker image inspect`, which never pulls, so every tag's
+  smoke job would have failed and the SBOM/Release job that needs it would never have run. The job now
+  logs in to ghcr and pulls the tag before invoking the script.
+
+- **The no-renderer plan fallback honours the tool-result budget.** It masked its step result but put no
+  ceiling on it, while the rendered path bounds every payload at 4,000 characters, so a large result went
+  into the summary prompt whole. The budget is now one exported constant shared by both paths, and the
+  fallback truncates to it with an honest marker after masking.
+
+- **A renderer throw no longer turns a successful plan step into a failure.** Rendering shared the try
+  that executes the tool, so a formatter throw became `ERROR: …`, dependents were skipped and the summary
+  model was told the call failed. Rendering now has its own guard: a throw falls back to the sanitized,
+  budgeted JSON text, and a payload that cannot be serialized at all keeps the step a success behind an
+  explicit marker.
+
+- **A failed lookup read can no longer leave a decision without its record.** Both lookup reads now run
+  before the conditional update, so a failed read leaves the claim untouched; the reads are sequential
+  rather than `Promise.all`, because a synchronous throw from the second call would leave the first
+  promise unhandled.
+
+- **One-click deployment generates or rejects published secrets, and the demo2 upstream is resolved per
+  request.** `deploy.sh` now generates `AUDIT_HMAC_KEY` alongside the other secrets and refuses an
+  existing `.env.production` that still carries a published example value. The host nginx resolves
+  `yudao-admin` through Docker's embedded DNS, so a missing demo2 stack answers 502 and recovers on its
+  own instead of taking nginx down.
+
+- **The image-smoke script proves every secret before using it and bounds its health poll.** A non-zero
+  `openssl rand`, an empty value, non-hex output or a length other than 64 stops the run and names the
+  offending secret; previously two empty secrets compared equal and the runtime assertions could pass.
+  The poll is bounded by `SMOKE_WAIT_SECS` (default 120 s) and its timeout reports the elapsed seconds
+  and the last HTTP status.
+
+- **The embedded-POM key regex escapes every metacharacter.** The pattern escaped only the dot, so a key
+  carrying a backslash or another metacharacter could change the pattern or throw (CodeQL alert #32).
+  The keys are constants today, so nothing was reachable; the escape is now the standard character class.
+
+### 新增
+
+- **目标状态查询成对呈现，不再是一条孤立答案。** 每条读数带上按时间排的序位与到上一次询问的间隔，
+  响应带上写入时刻与「写 → 首问」的间隔 —— 正是这三个时刻决定了一对读数能看到什么、看不到什么。
+  列表顺序仍是「新在前」，存储一点没动。控制台的历史弹窗给出同样三个时刻，第一次询问之前那段因此
+  看得见，而不是看起来被覆盖了。
+
+- **释放行记下目标答了什么。** `claim_release` 审计行在链外列 `release_lookups` 里保留询问次数与最近
+  三次读数（`at`、`conclusion`、`reason`、`lookedUpBy`）；从未查询过的占位明写
+  `lookups: none (never queried)`，而不是留空。`/audit/logs` 的行以 `releaseLookups` 透出该列
+  （其余行发 null），契约 `ai-audit-log-row` 升到 v8 增加这个可选属性。释放仍不设最少询问次数，
+  没有状态端点的目标必须依然可释放。
+
+- **查询历史写明它看不到什么。** `GET /ai/tool-effects/claims/:id/lookups` 带一份读时现算的
+  `coverage`：说清盲区是首问之前那段，还是尚无读数时的整段占位；给出该段的秒数、观测起点，以及计划里
+  的预期首问等待 —— 取每小时清扫所用的同一份计划，而不是写死一个数字。一条读数都没有时仍给出时长，
+  不留空。控制台以中英双语呈现同一句。不加列、不迁移、不改排序。
+
+- **目标驱动的释放留下自己的决定行。** 目标答 `not_executed` 时，释放经由与人工释放同一个构造器写一条
+  `claim_release` 行：`detail` 点名谁发起（`system:sweep` 或管理员）、目标答了什么、何时答的、询问
+  次数，并写明占位已释放、可重占位、效果仍未知。之后的重占位会复用占位行，却抹不掉这一行；
+  `executed` 路径不写这种行。
+
+- **每条目标状态查询都记下答案基于什么。** `ai_target_status_lookups.basis` 取 `current_state`
+  （目标按当前对象存储作答）或 `receipt`（按自己的受理记录作答）。探针从响应里读可选的 `basis`，
+  沉默一律记 `null` —— 两种种类走同一条单次 GET，绝不按方法或路径反推。读面、释放证据与控制台把
+  缺值映成 `unknown`，故早于本列的行永远不会被读成当前状态答案。该列可空、无默认、不回填（迁移
+  `1861000000000-AddTargetStatusLookupBasis`，双方言各一条 `ADD COLUMN`）。种类是标签不是闸：
+  `not_executed` 无论种类都照旧释放。
+
+- **发布工具新增四道确定性门禁。** `scripts/check-release-texts.mjs` 要求上一 tag 以来每笔产品提交
+  都在覆盖表里有交代，并要求附注 tag 的正文等于发布说明文件；`scripts/check-artifact-contract.mjs`
+  读取已发布 Maven 构件自述的契约版本（有意不接进 `check:all`：它依赖网络，且今天的构件都答「未声明」）；
+  新增 `commit-order` CI 作业（本地为 `check:commit-order`）把「英文在前、中文在后、不带
+  `Co-Authored-By`」的提交信息纪律变成门禁；`check:contract-matrix --fail-ahead` 可在收口点把
+  「pin 领先 tag」的告警提升为失败。
+
+- **已发布镜像在产出 Release 之前先冒烟。** 新增 `smoke` 作业：拉取该 tag 刚推送的镜像，断言镜像配置
+  不含密钥，用随机密钥起容器断言 `/api/v1/health` 与运行时密钥，并断言不带密钥启动会非零退出。
+  SBOM/Release 作业改为依赖它，坏镜像因此不可能产出 Release。
+
+### 变更
+
+- **控制台的查询历史弹窗给出序位、间隔与写入时刻。** 每条读数显示按时间排的序位、与上一次询问的间隔，
+  以及写入时刻；列表顺序不变（仍是最近在前），只是加了这些读数。
+
+- **散文协议与兼容矩阵跟随契约 v1.22.0，主线 pin 随后移到 v1.23.0。** 散文协议补上证据包 /4 格式，
+  并为 `audit-chain-anchor` v1 新增「链尾锚」一节；一致性读数在 v1.22.0 边界上为 43/43。子模块随后从
+  一个中间提交移到发布提交 `015f474`（tag v1.23.0），TypeScript 的 `main` 行跟随，Java 的 `main`
+  行有意保持在 v1.22.0。
+
+- **发布手册与它所描述的程序对齐。** 发布预检写明 Windows 下 OCR 走 Docker 的路径（智能应用控制拦截
+  未签名的原生二进制）、把「真漂移」与 `UNVERIFIED` 分开处置、写下发布窗口纪律、列出发布文本门、
+  并把冒烟作业写成工作流里的实际 id。三份手册里的兄弟仓路径与旁白、录屏脚本里最后几处写死的本机路径
+  改为可移植。若干双语注释块改为英文在前、中文在后。
+
+### 修复
+
+- **审计读不再把用户 id 转成整数。** 目标驱动的释放会把 `system:sweep` 记作发起方，而组织范围的审计查询
+  经 `CAST(userId AS INTEGER)` 比较该列 —— Postgres 对非数字值直接报错，一行这样的记录就会让组织读者的
+  审计列表整体失败。列表过滤与共用的读者范围现在改为按文本比较
+  （`userId IN (SELECT CAST(user_id AS TEXT) …)`），审计列也因此能用上索引。
+
+- **一行失败不再废掉整趟每小时对账。** 对账过程中的一次抛出 —— 通常是账已动过、决定行的审计写失败 ——
+  会让那一小时里其余到期的占位全部得不到询问。现在本趟记一笔失败、把占位 id 写进日志并继续；失败的那行
+  不由清扫重试。
+
+- **镜像冒烟作业先取回它要测的镜像。** `publish` 在另一个 runner 的守护进程里推送，而
+  `scripts/image-smoke.sh` 开头就是 `docker image inspect`、自己从不拉取；于是每个 tag 的冒烟作业
+  都会失败，依赖它的 SBOM/Release 作业永远不跑。现在该作业先登录 ghcr、拉取该 tag，再调用脚本。
+
+- **无渲染器的 plan 兜底也受工具结果预算约束。** 它给步骤结果打了码却不设上限，而渲染路径把每份载荷
+  限制在 4,000 字符，大结果因此整份进汇总提示词。现在预算是两条路径共用的一个导出常量，兜底在打码
+  之后按它截断，并留一条如实标记。
+
+- **渲染抛错不再把成功的 plan 步骤判为失败。** 渲染原先与工具执行共用一个 try，格式化抛错会变成
+  `ERROR: …`、下游被跳过、汇总模型被告知调用失败。现在渲染单独受保护：抛错时退回脱敏并按预算截断的
+  JSON 文本；完全无法序列化的载荷则以明确标记让该步骤仍是成功。
+
+- **查询证据读取失败不再留下「有决定、无记录」的账。** 两次读取移到条件更新之前，读取失败时占位保持
+  原状；读取改为顺序执行、不用 `Promise.all`，因为第二个调用若同步抛出，第一个 promise 会变成未处理
+  的拒绝。
+
+- **一键部署生成或拦截公开密钥，demo2 upstream 按请求解析。** `deploy.sh` 在生成 `.env.production`
+  时一并生成 `AUDIT_HMAC_KEY`，已有文件若仍带公开示例值则直接拒绝。宿主 nginx 改经 Docker 内置 DNS
+  按请求解析 `yudao-admin`，demo2 栈缺位时答 502 并自行恢复，不再把 nginx 一起带下去。
+
+- **镜像冒烟脚本逐条自证密钥，并给健康轮询封顶。** `openssl rand` 退出码非零、返回空串、含非十六进制
+  字符或长度不是 64，一律立即中止并点名是哪一项；原先两个空密钥彼此相等，运行期断言可能因此判成通过。
+  轮询由 `SMOKE_WAIT_SECS`（默认 120 秒）控制，超时信息打印已等待秒数与最后一次 HTTP 状态码。
+
+- **内嵌 POM 键的正则转义覆盖全部元字符。** 原写法只转义键里的点号，键若带反斜杠或其它元字符就会改变
+  匹配语义或抛错（CodeQL 告警 #32）。键目前是常量，尚无实际可达路径；转义已改为覆盖全部元字符的标准
+  字符类写法。
+
 ## [1.4.2] - 2026-11-17
 
 **v1.4.2 — Every model-facing tool result is masked first, and webhooks deliver again / 每条喂给模型的工具结果都先脱敏，Webhook 重新投递**

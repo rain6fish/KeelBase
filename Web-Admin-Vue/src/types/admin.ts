@@ -540,6 +540,14 @@ export interface TargetStatusLookup {
   conclusion: 'executed' | 'not_executed' | 'unknown'
   /** Why it is `unknown`; `null` for a real answer. / 为 `unknown` 的成因；真答案为 `null`。 */
   reason: string | null
+  /**
+   * R-1: what the answer is based on — a current-state snapshot or the target's own acceptance
+   * record. `unknown` means the target did not say, or the row predates the column. Never `null`.
+   *
+   * R-1：答案基于什么 —— 当前状态快照，或目标自己的受理记录。`unknown` 表示目标没说，或该行早于
+   * 本列。读面从不为 `null`。
+   */
+  basis: 'current_state' | 'receipt' | 'unknown'
   at: string
   queryMethod: string
   queryPath: string

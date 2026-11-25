@@ -468,6 +468,8 @@ export class AiToolEffectsService {
           queryPath: '',
           conclusion: TARGET_STATUS.UNKNOWN,
           reason: 'target-status-unavailable' as const,
+          // R-1: no answer, so no basis. / R-1：没有答案，也就没有种类。
+          basis: null,
         };
     await this._recordLookup(claim, byUserId, evidence);
 
@@ -588,6 +590,7 @@ export class AiToolEffectsService {
       skippedExhausted: 0,
       skippedNotDue: 0,
       refused: 0,
+      failed: 0,
       deferredByPassCap: 0,
     };
     // Re-entrancy: two overlapping passes in one process could send two GETs for the same row before
@@ -670,23 +673,38 @@ export class AiToolEffectsService {
         summary.deferredByPassCap++;
         continue;
       }
-      const result = await this.reconcileClaim(row.id, SYSTEM_SWEEP_LOOKUP_ACTOR);
-      if (result.outcome === 'reconciled') {
-        summary.asked++;
-        summary.converged++;
-      } else if (result.outcome === 'unresolved') {
-        summary.asked++;
-        summary.unresolved++;
-      } else {
-        // A guard refused between our read and the query (someone settled or released it first).
-        // 我们读到查询之间守卫拒了（有人先落了定或释放了它）。
-        summary.refused++;
+      // B-3: one row must not spend the hour for the rest. A throw here is usually the decision row's
+      // audit write failing after the ledger already moved; the row is not retried in this pass, so the
+      // claim id goes into the log for a manual reconcile, and the remaining due holds are still asked.
+      //
+      // B-3：一行不得替其余行花掉这个小时。这里的抛出通常是账已动过、决定行的审计写失败；本趟不重试该行，
+      // 故把占位 id 写进日志供人工对账，其余到期的占位照问。
+      try {
+        const result = await this.reconcileClaim(row.id, SYSTEM_SWEEP_LOOKUP_ACTOR);
+        if (result.outcome === 'reconciled') {
+          summary.asked++;
+          summary.converged++;
+        } else if (result.outcome === 'unresolved') {
+          summary.asked++;
+          summary.unresolved++;
+        } else {
+          // A guard refused between our read and the query (someone settled or released it first).
+          // 我们读到查询之间守卫拒了（有人先落了定或释放了它）。
+          summary.refused++;
+        }
+      } catch (err) {
+        summary.failed++;
+        const message = err instanceof Error ? err.message : String(err);
+        this.logger.error(
+          `写占位自动对账：占位 #${row.id} 失败，本趟继续（累计失败 ${summary.failed}）：${message}`,
+        );
       }
     }
 
-    if (summary.asked > 0) {
+    if (summary.asked > 0 || summary.failed > 0) {
       this.logger.log(
         `写占位自动对账：问 ${summary.asked} 条（收敛 ${summary.converged} / 未答 ${summary.unresolved}），` +
+          `失败 ${summary.failed} 条，` +
           `上限 ${plan.maxAttempts} 次 / 每趟 ${perPassCap} 条；跳过：不可查 ${summary.skippedUnaskable} / ` +
           `已问满 ${summary.skippedExhausted} / 未到期 ${summary.skippedNotDue} / 因上限顺延 ${summary.deferredByPassCap}`,
       );
@@ -739,6 +757,9 @@ export class AiToolEffectsService {
           queryPath: evidence.queryPath,
           conclusion: evidence.conclusion,
           reason: evidence.reason,
+          // R-1: `null` unless the target declared a basis alongside a real answer.
+          // R-1：只有目标随真答案声明了种类才有值，否则为 `null`。
+          basis: evidence.basis,
         }),
       );
     } catch (err) {

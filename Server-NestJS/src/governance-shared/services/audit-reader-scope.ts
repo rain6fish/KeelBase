@@ -89,7 +89,12 @@ export function auditScopeSql(
   if (!scope) return null;
   if (scope.kind === 'org') {
     return {
-      sql: `CAST(${alias}.userId AS INTEGER) IN (SELECT user_id FROM org_members WHERE org_id = :readerOrgId)`,
+      // Compare as text on both sides: `ai_audit_logs.user_id` is a varchar that may hold a system
+      // actor (`system:sweep`), and casting it to INTEGER raises on Postgres once such a row exists.
+      //
+      // 两侧按文本比较：`ai_audit_logs.user_id` 是 varchar，可能装着系统账号（`system:sweep`）；
+      // 一旦存在这样的行，把它 CAST 成 INTEGER 在 Postgres 上会直接报错。
+      sql: `${alias}.userId IN (SELECT CAST(user_id AS TEXT) FROM org_members WHERE org_id = :readerOrgId)`,
       params: { readerOrgId: scope.orgId },
     };
   }
@@ -120,8 +125,11 @@ export function applyAuditScopeToWhere<T extends object>(
   const scopePredicate: FindOperator<unknown> =
     scope.kind === 'org'
       ? Raw(
+          // Same text comparison as `auditScopeSql` — the audit column is never cast to INTEGER.
+          //
+          // 与 `auditScopeSql` 相同的文本比较 —— 审计列永远不被 CAST 成 INTEGER。
           (alias: string) =>
-            `CAST(${alias} AS INTEGER) IN (SELECT user_id FROM org_members WHERE org_id = :readerOrgId)`,
+            `${alias} IN (SELECT CAST(user_id AS TEXT) FROM org_members WHERE org_id = :readerOrgId)`,
           { readerOrgId: scope.orgId },
         )
       : Equal(String(scope.userId));

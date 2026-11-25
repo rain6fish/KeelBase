@@ -63,6 +63,7 @@ const lookup = (overrides: Partial<TargetStatusLookup> = {}): TargetStatusLookup
   queryPath: '/contracts/status/' + KEY,
   conclusion: 'unknown',
   reason: 'target-status-unavailable',
+  basis: null,
   ...overrides,
 });
 
@@ -162,9 +163,11 @@ describe('AW-17 目标状态对账（只读查询收敛 unknown）', () => {
     expect(evidence[0].at).toBeInstanceOf(Date);
   });
 
-  it('目标答「没执行」⇒ 账收敛为 released（重试的门重新打开），证据记下结论', async () => {
+  it('目标答「没执行」⇒ 账收敛为 released（重试的门重新打开），证据记下结论与种类', async () => {
     const row = await seed();
-    probe.lookup.mockResolvedValue(lookup({ conclusion: 'not_executed', reason: null }));
+    probe.lookup.mockResolvedValue(
+      lookup({ conclusion: 'not_executed', reason: null, basis: 'receipt' }),
+    );
 
     const r = await effects.reconcileClaim(row.id, 'admin-1');
 
@@ -177,6 +180,28 @@ describe('AW-17 目标状态对账（只读查询收敛 unknown）', () => {
 
     const evidence = await lookups().find({ where: { idempotencyKey: KEY } });
     expect(evidence[0].conclusion).toBe('not_executed');
+    // R-1：目标声明的种类随证据落库。
+    expect(evidence[0].basis).toBe('receipt');
+  });
+
+  /**
+   * R-1: the basis is a **label**, not a gate. A `not_executed` whose basis was not recorded still
+   * releases the claim — the same behavior as before the column existed. Gating retries on a receipt
+   * would make every target without a receipt endpoint permanently unreleasable (F-84's objection).
+   *
+   * R-1：种类是**标签**，不是闸。种类未记录的 `not_executed` 照样释放占位 —— 与本列出现之前完全一致。
+   * 要求收据才放行，会让所有没有收据端点的目标永远无法释放（F-84 的反对意见）。
+   */
+  it('R-1 反向：种类未记录（null）不得阻止收敛 —— 标签不是闸', async () => {
+    const row = await seed();
+    probe.lookup.mockResolvedValue(lookup({ conclusion: 'not_executed', reason: null, basis: null }));
+
+    const r = await effects.reconcileClaim(row.id, 'admin-1');
+
+    expect(r.outcome).toBe('reconciled');
+    expect(r.claimStatus).toBe(WRITE_CLAIM_STATUS.RELEASED);
+    const evidence = await lookups().find({ where: { idempotencyKey: KEY } });
+    expect(evidence[0].basis ?? null).toBeNull();
   });
 
   it('**反向对照**：目标不可查 ⇒ 账仍是 claimed（unknown），证据写明「问不到」', async () => {
@@ -535,6 +560,35 @@ describe('AW-17 目标状态对账（只读查询收敛 unknown）', () => {
       const after = await claims().findOne({ where: { id: row.id } });
       expect(after?.status).toBe(WRITE_CLAIM_STATUS.RELEASED);
       expect(after?.releaseReason).toBe('target_status_not_executed');
+    });
+
+    // B-3: one row's decision write failing must not spend the hour for the rest of the queue.
+    // B-3：一行的决定行写失败，不得替队列里其余行花掉这个小时。
+    it('B-3：决定行写失败 ⇒ 本趟继续问其余到期占位，失败计入 failed', async () => {
+      const first = await seedQueued({ idempotencyKey: 'k-b3-1', userId: 'u-alice' });
+      const second = await seedQueued({ idempotencyKey: 'k-b3-2', userId: 'u-bob' });
+      probe.lookup.mockImplementation((_tool: string, key: string) =>
+        Promise.resolve(
+          lookup({ conclusion: 'not_executed', reason: null, queryPath: '/contracts/status/' + key }),
+        ),
+      );
+      (effects as any).writeClaimDecision = {
+        recordTargetRelease: jest
+          .fn()
+          .mockRejectedValueOnce(new Error('audit write failed'))
+          .mockResolvedValue(undefined),
+      };
+
+      const r = await effects.reconcileDueClaims(base);
+
+      expect(r.failed).toBe(1);
+      expect(r.asked).toBe(1);
+      expect(r.converged).toBe(1);
+      expect(probe.lookup).toHaveBeenCalledTimes(2);
+      const one = await claims().findOne({ where: { id: first.id } });
+      const two = await claims().findOne({ where: { id: second.id } });
+      expect(one?.status).toBe(WRITE_CLAIM_STATUS.RELEASED);
+      expect(two?.status).toBe(WRITE_CLAIM_STATUS.RELEASED);
     });
 
     it('每趟上限：到期行多于上限只问最老的几条，其余顺延；不可查的行不占额度；下一趟把余下问掉', async () => {

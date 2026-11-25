@@ -1234,6 +1234,12 @@ const en: ZhDict = {
   lookupExecuted: 'Executed',
   lookupNotExecuted: 'Not executed',
   lookupUnknown: 'Unknown',
+  lookupBasisCol: 'Basis',
+  lookupBasisCurrentState: 'Current-state reading',
+  lookupBasisReceipt: 'Receipt reading',
+  lookupBasisUnknown: 'Basis not recorded',
+  lookupBasisHint:
+    'The basis says what the answer is based on: a current-state reading can only say "not there now", not "never accepted"; and a receipt reading is not authority either — the target\'s own record can lag.',
   lookupReasonUnavailable: 'No status query on target',
   lookupReasonMisconfigured: 'Status query misconfigured',
   lookupReasonTimeout: 'Timed out',

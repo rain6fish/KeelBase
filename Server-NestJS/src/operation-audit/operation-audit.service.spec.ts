@@ -328,7 +328,7 @@ describe('OperationAuditService', () => {
       await service.getLogs(1, 20, undefined, undefined, { userId: 5, role: UserRole.USER } as any);
 
       expect(qb.andWhere).toHaveBeenCalledWith(
-        'CAST(log.userId AS INTEGER) IN (SELECT user_id FROM org_members WHERE org_id = :readerOrgId)',
+        'log.userId IN (SELECT CAST(user_id AS TEXT) FROM org_members WHERE org_id = :readerOrgId)',
         { readerOrgId: 7 },
       );
       // The count carries the same scope — a narrower list with a full count would leak the size.

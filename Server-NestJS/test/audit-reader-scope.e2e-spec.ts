@@ -539,6 +539,7 @@ describe('AW-2 audit reader: field whitelist + org/period scope', () => {
       const second = await addLookup(keyMine, String(userA.id), {
         conclusion: 'executed',
         reason: null,
+        basis: 'receipt',
         queryPath: `/status/${keyMine}?again=1`,
       });
       // Deterministic order: the second query is the most recent one.
@@ -566,15 +567,23 @@ describe('AW-2 audit reader: field whitelist + org/period scope', () => {
         expect(body.items[0]).toMatchObject({
           conclusion: 'executed',
           reason: null,
+          // R-1：目标声明的种类原样透出。
+          basis: 'receipt',
           asUserId: String(userA.id),
           queryMethod: 'GET',
         });
-        expect(body.items[1]).toMatchObject({ conclusion: 'unknown', reason: 'non_2xx' });
-        // 不回显参数：这张面只有结论、成因与查询身份（外加 F-85 的成对读数 seq / intervalSeconds）。
+        // R-1：该行没记种类 ⇒ 读面报 `unknown`，不猜成 `current_state`。
+        expect(body.items[1]).toMatchObject({
+          conclusion: 'unknown',
+          reason: 'non_2xx',
+          basis: 'unknown',
+        });
+        // 不回显参数：这张面只有结论、成因、种类与查询身份（外加 F-85 的成对读数 seq / intervalSeconds）。
         expect(Object.keys(body.items[0]).sort()).toEqual(
           [
             'asUserId',
             'at',
+            'basis',
             'conclusion',
             'id',
             'intervalSeconds',

@@ -362,6 +362,9 @@ export class WriteClaimDecisionService {
           at: l.at.toISOString(),
           conclusion: l.conclusion,
           reason: l.reason ?? null,
+          // R-1: same three values as the lookups read face; `unknown` when not recorded.
+          // R-1：与查询读面同三个取值；未记录时为 `unknown`。
+          basis: l.basis ?? 'unknown',
           lookedUpBy: l.lookedUpBy,
         })),
       }),

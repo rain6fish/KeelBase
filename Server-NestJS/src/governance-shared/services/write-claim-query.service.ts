@@ -10,7 +10,10 @@ import {
   WRITE_CLAIM_STATUS,
 } from '../entities/ai-write-claim.entity';
 import { TargetStatusLookupRow } from '../entities/target-status-lookup.entity';
-import type { TargetStatusConclusion } from '../../governance-core/target-status';
+import type {
+  TargetStatusConclusion,
+  TargetStatusLookupBasisView,
+} from '../../governance-core/target-status';
 import { staleThresholdMinutes } from '../../governance-core/revoke-staleness';
 import {
   claimReconcilePlan,
@@ -433,12 +436,22 @@ export class WriteClaimQueryService {
     };
   }
 
-  /** Field-by-field lookup projection: conclusion, cause, when, by whom, and the path actually asked. */
+  /**
+   * Field-by-field lookup projection: conclusion, cause, when, by whom, and the path actually asked.
+   * R-1 adds the basis, mapped to `unknown` when the row has none (target silent, or predates the
+   * column) — the read face never returns `null`, so consumers cannot mistake "not recorded" for a
+   * fourth kind, and never backfill it into `current_state`.
+   *
+   * 逐字段的查询投影：结论、成因、时刻、发起人，以及真正请求过的路径。R-1 增加种类：行上没有时映成
+   * `unknown`（目标没说，或该行早于本列）—— 读面不返回 `null`，消费者不会把「未记录」误当成第四种
+   * 种类，也不会被回填成 `current_state`。
+   */
   private projectLookup(l: TargetStatusLookupRow): TargetStatusLookupView {
     return {
       id: l.id,
       conclusion: l.conclusion,
       reason: l.reason ?? null,
+      basis: l.basis ?? 'unknown',
       at: l.at.toISOString(),
       queryMethod: l.queryMethod,
       queryPath: l.queryPath,
@@ -573,6 +586,17 @@ export interface TargetStatusLookupView {
   conclusion: TargetStatusConclusion;
   /** Why it is `unknown`; `null` for a real answer. / 为 `unknown` 的成因；真答案为 `null`。 */
   reason: string | null;
+  /**
+   * R-1: what the answer is based on. `current_state` and `receipt` are what the target declared;
+   * `unknown` means it did not say, or the row predates the column. Never `null` on the read face.
+   * Distinct from `ClaimLookupCoverage.basis`, which says which stretch a **coverage statement** is
+   * about (`until-first-lookup` / `no-lookups-yet`) — two vocabularies, two objects, never interchangeable.
+   *
+   * R-1：答案基于什么。`current_state` 与 `receipt` 是目标声明的种类；`unknown` 表示它没说，或该行
+   * 早于本列。读面从不为 `null`。与 `ClaimLookupCoverage.basis` 不同：后者说的是**覆盖声明**针对哪一段
+   * （`until-first-lookup` / `no-lookups-yet`）—— 两套词表、两个对象，不可互换。
+   */
+  basis: TargetStatusLookupBasisView;
   /** ISO 8601. / ISO 8601。 */
   at: string;
   queryMethod: string;
