@@ -64,6 +64,11 @@
       "sha": "5f2ea617",
       "kind": "user-visible",
       "text": "Also 3 — The no-renderer plan fallback honours the 4,000-character tool-result budget"
+    },
+    {
+      "sha": "81db2231",
+      "kind": "user-visible",
+      "text": "Also 5 — Audit reads compare the user id as text, and one failing reconcile row no longer spends the hour for the rest of the queue"
     }
   ]
 }
