@@ -785,4 +785,68 @@ describe('AW-16 F-63/F-64：释放程序与过期策略', () => {
       expect(JSON.parse(after.releaseLookups!).count).toBe(1);
     });
   });
+
+  /**
+   * R-6b: the target-driven path with its evidence row missing. `_recordLookup` swallows a failed
+   * insert by design (the ledger's move rests on the target's answer, not on the evidence table), so
+   * this row can legitimately have `count = 0` while the same `detail` says the target answered.
+   * "Never queried" there would contradict the row itself; the manual path keeps it, because there a
+   * zero truly means nobody asked.
+   *
+   * R-6b：目标驱动路径遇上证据行缺失。`_recordLookup` 按设计会吞掉插入失败（账的移动由目标的回答支撑，
+   * 不由证据表），于是这一行可能 `count = 0`，而同一段 `detail` 却说目标答过。此时「从未问过」会与这一
+   * 行自相矛盾；人工路径沿用该措辞，因为那里的零次确实意味着没人问过。
+   */
+  describe('R-6b 目标驱动：目标答过但读数行缺失', () => {
+    const trigger = {
+      byUserId: 'system:sweep',
+      automatic: true,
+      conclusion: 'not_executed' as const,
+      queryMethod: 'GET',
+      queryPath: '/actions/status',
+      queriedAt: '2026-11-25T00:00:00.000Z',
+    };
+
+    it('读数行缺失 ⇒ 不写「从未问过」，写明记录缺失；链外列 recorded=false', async () => {
+      const claim = await seed();
+      // 读数表为空：count / find 都返回 0，正是插入被吞掉之后的样子。探针可问为 true，确保
+      // 「问过但记录缺失」优先于「可问但没问」，不会退回第二态。
+      // The lookup table is empty, so `count` / `find` return 0 — what a swallowed insert leaves
+      // behind. The probe says askable, so "asked but not recorded" must win over "askable, not asked".
+      const auditRowId = await serviceWithProbe(true).recordTargetRelease(claim, trigger);
+
+      const row = await auditRepo().findOneByOrFail({ id: auditRowId });
+      expect(row.action).toBe('claim_release');
+      expect(row.detail).toContain('origin: target answered not_executed');
+      expect(row.detail).toContain('lookup record missing');
+      expect(row.detail).toContain('the target was asked, the lookup row was not recorded');
+      expect(row.detail).not.toContain('never queried');
+      // 同一事实以字段落进链外列：读数行缺失是可读、可计数的，而不是只剩一句散文。
+      // The same fact as data: a missing lookup row is readable and countable, not prose-only.
+      expect(JSON.parse(row.releaseLookups!)).toEqual({
+        count: 0,
+        askable: true,
+        recorded: false,
+        items: [],
+      });
+    });
+
+    it('人工释放 count=0 ⇒ 仍是「从未问过」，链外列不带 recorded（对照）', async () => {
+      const claim = await seed();
+
+      await serviceWithProbe(true).release(
+        claim.id,
+        { userId: 'admin-1' },
+        { note: '没有人问过', view: viewOf(claim) },
+      );
+
+      const row = await auditRepo().findOneByOrFail({ action: 'claim_release' });
+      expect(row.detail).toContain('lookups: none (never queried)');
+      expect(row.detail).not.toContain('lookup record missing');
+      // 人工路径零次就是真的没人问 —— 链外列形状不变，三态仍可区分（无 recorded 字段）。
+      // On the manual path zero really is "nobody asked"; the column is unchanged and the three
+      // states stay distinguishable (no `recorded` field).
+      expect(JSON.parse(row.releaseLookups!)).toEqual({ count: 0, askable: true, items: [] });
+    });
+  });
 });

@@ -626,7 +626,10 @@ reconcile), what the target answered and when, that the hold is released and re-
 the effect stays unknown — it is not a record that nothing was attempted. The row is needed because a
 later re-claim reuses the hold row and clears its release columns (`status`, `releaseReason`,
 `claimedAt`), so the chained row is the only place the decision survives; the readings travel in
-`releaseLookups` exactly as they do for a manual release.
+`releaseLookups` exactly as they do for a manual release. One further case belongs to this path: if
+the target answered but its lookup row could not be recorded, the row says
+`lookup record missing — the target was asked, the lookup row was not recorded` instead of claiming
+nobody asked, and the column carries `recorded: false`.
 
 **A release is bound to the view the reviewer saw.** The release body carries the review screen's
 frozen reading — the governance disposition and the newest target-status reading's id (`null` when the
@@ -713,7 +716,9 @@ update / delete / 保留期（F-126）。若日后加了保留期，审计行点
 （自动清扫记 `system:sweep`，人工对账记管理员 id）、目标答了什么、何时答的、占位已释放且可重占位、效果仍
 未知 —— 它不是「什么都没试过」的记录。之所以需要这一行：之后的任一次重占位都会复用占位行并清掉它的释放列
 （`status`、`releaseReason`、`claimedAt`），故带链的那一行是这份决定唯一留得住的地方；读数与人工释放一样
-进 `releaseLookups`。
+进 `releaseLookups`。这条路径还有一种情形：目标答过、但它的读数行没能记下时，行内写
+`lookup record missing — the target was asked, the lookup row was not recorded`，而不是声称没人问过；
+链外列带 `recorded: false`。
 
 **释放绑定在审阅者当时看到的视图上。** 释放请求体带上复核屏幕冻结的读数 —— 治理处置与最近一次目标状态读数的
 id（屏幕说当时没人问过时为 `null`）—— 且写入以处置仍一致为条件，于是清扫在屏幕下面把行从 `open` 移到

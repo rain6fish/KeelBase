@@ -313,7 +313,9 @@ export class WriteClaimDecisionService {
     claim: ReleaseClaimRef,
     trigger: TargetReleaseTrigger,
   ): Promise<number> {
-    const evidence = await this._releaseEvidence(claim);
+    // The target answered, so a zero lookup count here is a **missing record**, not "never asked".
+    // The target answered ⇒ 这里读数为零意味着**记录缺失**，不是「从未问过」。
+    const evidence = await this._releaseEvidence(claim, { targetAnswered: true });
     return this._writeReleaseRow(claim, { userId: trigger.byUserId }, this._targetDetail(claim, trigger, evidence), evidence);
   }
 
@@ -344,6 +346,12 @@ export class WriteClaimDecisionService {
    * must be retained, or the copied id dangles: a decision row would then point at a reading no one
    * can produce.
    *
+   * R-6b: a target-driven row whose lookup row is missing adds `recorded: false` to the column — the
+   * target answered but its reading was not recorded, which is neither "never asked" nor "not askable".
+   *
+   * R-6b：目标驱动的行若读数行缺失，列里多带 `recorded: false` —— 目标答过、但这次读数没记下；
+   * 既不是「从未问过」，也不是「问不了」。
+   *
    * F-85b：释放行携带的证据 —— 问过几次、最近三次读数是什么，以数据形式进链外列。散文说次数，这一列说
    * 是哪几次。收案的人需要证据与决定在同一处 —— 否则从审计轨迹上看，「问过没答案」与「从没问过」长得一样。
    * 这是读数、不是门槛：一次没问也照样可释放（否则没有状态端点的目标将永远无法释放）。
@@ -364,6 +372,7 @@ export class WriteClaimDecisionService {
    */
   private async _releaseEvidence(
     claim: Pick<AiWriteClaim, 'idempotencyKey' | 'toolName'>,
+    options?: { targetAnswered?: boolean },
   ): Promise<ReleaseEvidence> {
     // F-127: one statement, not two. `count(...)` followed by `find({ take })` reads the table twice;
     // a concurrent automatic ask in between makes the row say "asked N" while listing N+1 readings.
@@ -395,12 +404,22 @@ export class WriteClaimDecisionService {
     // 同一读数、两种驱动：SQLite 给数字，Postgres 给 bigint 的字符串。
     const lookupCount = recentLookups.length ? Number(raw[0].total) : 0;
     const askable = this._askable(claim.toolName);
+    const targetAnswered = options?.targetAnswered ?? false;
     return {
       lookupCount,
       askable,
+      targetAnswered,
       releaseLookups: JSON.stringify({
         count: lookupCount,
         askable,
+        // Only a target-driven row can tell "asked but not recorded" apart from "never asked": the
+        // target answered, so a zero count is a missing row. Written only when the row is missing —
+        // `recorded: true` would also vouch for an answer that older readings could hide. Manual
+        // releases stay without this flag: there, zero really is "never queried".
+        // 只有目标驱动的行能分清「问过但没记录」与「从未问」：目标答过，计数为零即缺行。只在缺行时写
+        // 这个标志 —— `recorded: true` 还会替被旧读数遮住的答案背书。人工释放不带这个标志：那里零次
+        // 就是「从未问过」。
+        ...(targetAnswered && lookupCount === 0 ? { recorded: false } : {}),
         items: recentLookups.map((l) => ({
           // F-123/F-124: the reading row's own id — the copied values' way back to their source.
           // F-123/F-124：读数行自己的 id —— 所复制的值回到其源头的路。
@@ -605,14 +624,24 @@ export class WriteClaimDecisionService {
    * tool even has a query channel to ask with. `askable === null` (no probe here) falls back to the
    * count-only wording — it does not claim the tool is unaskable.
    *
+   * R-6b: on a target-driven row, zero counts mean the target answered but its lookup row is missing.
+   * "Never queried" would contradict the same row's `origin: target answered …`; it gets its own
+   * wording, while the manual path — where zero really is "never asked" — keeps the old one.
+   *
    * F-85b：次数留在散文里（读行的人要先知道问过几次），读数本身进结构化列 —— 一份数据，不写两遍。
    *
    * R-6：「没有」有三种说法，不是两种。问过 N 次仍是计数；次数为零按「工具到底有没有查询通道」一分为
    * 二。`askable === null`（本进程没接探针）回落到只陈述次数的措辞 —— 它不宣称工具问不了。
+   *
+   * R-6b：目标驱动的行上，计数为零意味着目标答过、而它的读数行缺失。此时「从未问过」会与同一行的
+   * `origin: target answered …` 自相矛盾，故自成一言；人工路径（那里的零次确实就是「从未问过」）沿用原措辞。
    */
   private _lookupPhrase(evidence: ReleaseEvidence): string {
     if (evidence.lookupCount > 0) {
       return `lookups: ${evidence.lookupCount} asked (see releaseLookups)`;
+    }
+    if (evidence.targetAnswered) {
+      return 'lookup record missing — the target was asked, the lookup row was not recorded';
     }
     return evidence.askable === false
       ? 'lookups: none (not askable — this tool has no usable status query)'
@@ -634,6 +663,14 @@ type ReleaseClaimRef = Pick<AiWriteClaim, 'id' | 'idempotencyKey' | 'toolName' |
 interface ReleaseEvidence {
   lookupCount: number;
   askable: boolean | null;
+  /**
+   * R-6b: true only on the target-driven path — the target did answer, so a zero count is a missing
+   * lookup row rather than a "nobody asked". Not in the prose or by itself; it decides the wording.
+   *
+   * R-6b：只在目标驱动的路径上为真 —— 目标确实答过，故计数为零是缺了一条读数行，而不是「没人问」。
+   * 它不进散文、也不单独出现；它决定用哪句措辞。
+   */
+  targetAnswered: boolean;
   releaseLookups: string;
   /**
    * R-4: the newest reading's id — the key the reviewer's frozen view compares against. Not part of
