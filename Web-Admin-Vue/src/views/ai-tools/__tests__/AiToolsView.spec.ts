@@ -596,10 +596,14 @@ describe('AiToolsView', () => {
    * 会在这里失败，因为那等于声明了服务端从不投影的字段。
    */
   it('类型：在途 lastLookup 不声明历史项的位置读数（编译期判据）', () => {
+    // R-1 makes `basis` part of the shared reading; the in-flight list projects it too, so the
+    // fixture carries it. What it must NOT carry is the F-85 sequence.
+    // R-1 把 `basis` 变成了共同读数的一部分，在途清单也投影它，故夹具带上；它**不该**带的是 F-85 的序列。
     const reading: InFlightClaim['lastLookup'] = {
       id: 1,
       conclusion: 'unknown',
       reason: 'timeout',
+      basis: 'unknown',
       at: '2026-11-05T02:00:00Z',
       queryMethod: 'GET',
       queryPath: '/status/k',
