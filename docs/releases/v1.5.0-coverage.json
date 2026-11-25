@@ -69,6 +69,26 @@
       "sha": "81db2231",
       "kind": "user-visible",
       "text": "Also 5 — Audit reads compare the user id as text, and one failing reconcile row no longer spends the hour for the rest of the queue"
+    },
+    {
+      "sha": "5b3a2245",
+      "kind": "user-visible",
+      "text": "Highlights 6 — A release is bound to the view the reviewer saw"
+    },
+    {
+      "sha": "ed5e58a7",
+      "kind": "user-visible",
+      "text": "Highlights 7 — The pending-decision queue runs on two clocks, and neither one releases a hold"
+    },
+    {
+      "sha": "937da276",
+      "kind": "user-visible",
+      "text": "Also 7 — A release with no asks behind it says which kind of none it is"
+    },
+    {
+      "sha": "79d86cbd",
+      "kind": "internal",
+      "reason": "Version bump only: release-line manifests, lockfiles and the Flutter display constant; no product behaviour change"
     }
   ]
 }

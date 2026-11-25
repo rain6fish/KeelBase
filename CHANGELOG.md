@@ -61,6 +61,23 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
   secrets to check `/api/v1/health` and the runtime keys, and asserts that a run without secrets exits
   non-zero. The SBOM/Release job now depends on it, so a broken image cannot produce a Release.
 
+- **A release is bound to the view the reviewer saw.** The release body carries the review screen's
+  frozen reading — the governance disposition and the newest target-status reading's id (`null` when
+  nobody had asked) — and the write is conditional on the disposition still matching, so a hold the
+  hourly sweep moved underneath the screen can no longer be released against the state the reviewer
+  believed. When the ledger has moved since, the call is refused with `stale_view`, and the refusal
+  itself is a `claim_release` row: same chain, same action, `outcome` absent, `detail` stating what the
+  screen said versus what the ledger says now, with no release-evidence column. A missing view is a
+  `400`, never a silent "do not check".
+
+- **The pending-decision queue runs on two clocks, and neither one releases a hold.** The in-flight
+  list now carries reading freshness (`readingStale` / `readingStaleSince`) and decision age
+  (`decisionPendingSince` / `decisionAgeMinutes` / `decisionOverdue`) separately. `escalation` is
+  `reask`, `person` or `null` and has no release value: freshness expiry only permits another ask,
+  and decision expiry only routes the row to a person (bound by `CLAIM_DECISION_BOUND_MINUTES`,
+  default 1440). Decision age is the stable key and the primary order; a re-ask refreshes the reading
+  and never moves the row.
+
 ### Changed
 
 - **The console's lookup-history dialog shows position, gap and claim time.** Each reading shows its
@@ -130,6 +147,14 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
   carrying a backslash or another metacharacter could change the pattern or throw (CodeQL alert #32).
   The keys are constants today, so nothing was reachable; the escape is now the standard character class.
 
+- **A never-asked release says which kind of none it is.** A release with no readings behind it used to
+  say `lookups: none (never queried)` even when the tool had no status endpoint at all, which reads as
+  "askable but nobody asked". It now distinguishes the cases in words — `lookups: none (never queried)`
+  when a usable status query exists that nobody used, `lookups: none (not askable — this tool has no
+  usable status query)` when there is no channel to ask through — and the off-chain column carries
+  `askable` (`true` / `false` / `null` when the writing process cannot tell), so "asked N times",
+  "askable but never asked" and "not askable" are three countable cases rather than two.
+
 ### 新增
 
 - **目标状态查询成对呈现，不再是一条孤立答案。** 每条读数带上按时间排的序位与到上一次询问的间隔，
@@ -170,6 +195,18 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 - **已发布镜像在产出 Release 之前先冒烟。** 新增 `smoke` 作业：拉取该 tag 刚推送的镜像，断言镜像配置
   不含密钥，用随机密钥起容器断言 `/api/v1/health` 与运行时密钥，并断言不带密钥启动会非零退出。
   SBOM/Release 作业改为依赖它，坏镜像因此不可能产出 Release。
+
+- **释放绑定在审阅者当时看到的视图上。** 释放请求体带上复核屏幕冻结的读数 —— 治理处置与最近一次目标
+  状态读数的 id（当时没人问过则为 `null`）—— 写入以处置仍一致为条件，于是清扫在屏幕下面移过的占位，
+  再也不能按审阅者以为的状态释放。账本此后已变动时以 `stale_view` 拒绝，且拒绝本身就是一条
+  `claim_release` 行：同链同动作、不带 `outcome`，`detail` 写明屏幕说的与账本现在说的，且不带释放
+  证据列。视图缺席一律 `400`，绝不静默地等于「不检查」。
+
+- **待裁队列跑在两只时钟上，且两只都不释放占位。** 在途清单把读数新鲜度（`readingStale` /
+  `readingStaleSince`）与决策年龄（`decisionPendingSince` / `decisionAgeMinutes` /
+  `decisionOverdue`）分开给出。`escalation` 取 `reask` / `person` / `null`，没有释放取值：新鲜度
+  到期只允许再问一次，决策到期只把行交给一个人（上限由 `CLAIM_DECISION_BOUND_MINUTES` 控制，默认
+  1440）。决策年龄是稳定键，也是主序；重新询问只刷新读数，从不移动这一行。
 
 ### 变更
 
@@ -224,6 +261,13 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 - **内嵌 POM 键的正则转义覆盖全部元字符。** 原写法只转义键里的点号，键若带反斜杠或其它元字符就会改变
   匹配语义或抛错（CodeQL 告警 #32）。键目前是常量，尚无实际可达路径；转义已改为覆盖全部元字符的标准
   字符类写法。
+
+- **从未问过的释放写明是哪一种「没有」。** 背后没有任何读数的释放，此前即使工具根本没有状态端点也写
+  `lookups: none (never queried)` —— 读起来像「可问但没人问」。现在按情形分写：工具有可用的状态查询
+  却没人用过写 `lookups: none (never queried)`，根本没有可问的通道写
+  `lookups: none (not askable — this tool has no usable status query)`；链外列以 `askable` 取
+  `true` / `false` / 写入进程判断不了时的 `null` 承载同一区分，于是「问过 N 次」「可问但没问」
+  「问不了」是三态、可计数，而不是两态。
 
 ## [1.4.2] - 2026-11-17
 
