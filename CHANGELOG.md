@@ -106,6 +106,13 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 ### Fixed
 
+- **A target-driven release no longer calls a missing lookup row "never queried".** `_recordLookup`
+  swallows a failed insert by design, so a release whose target answered can still carry zero lookup
+  rows; the three-state wording then printed `lookups: none (never queried)` beside the same row's
+  `origin: target answered not_executed`. That path now reports the record as missing — the target was
+  asked, the lookup row was not recorded — and marks the off-chain evidence `recorded: false`. The
+  manual path is unchanged: there a zero count really is "never queried".
+
 - **Audit reads no longer cast the user id to an integer.** A sweep-driven release records
   `system:sweep` as the initiator, and the org-scoped audit queries compared that column through
   `CAST(userId AS INTEGER)`, which Postgres refuses for a non-numeric value — one such row broke the
@@ -242,6 +249,11 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
   改为可移植。若干双语注释块改为英文在前、中文在后。
 
 ### 修复
+
+- **目标驱动的释放不再把缺失的读数行说成「从未查询」。** `_recordLookup` 按设计吞掉插入失败，所以目标
+  答过的释放仍可能一条读数行都没有；三态措辞随后会在同一行上印出 `lookups: none (never queried)`，
+  与它的 `origin: target answered not_executed` 自相矛盾。该路径现在改说记录缺失 —— 目标问过了、读数行
+  没有记下 —— 并在链外证据里标 `recorded: false`。人工路径不变：那里的零次确实就是「从未查询」。
 
 - **审计读不再把用户 id 转成整数。** 目标驱动的释放会把 `system:sweep` 记作发起方，而组织范围的审计查询
   经 `CAST(userId AS INTEGER)` 比较该列 —— Postgres 对非数字值直接报错，一行这样的记录就会让组织读者的

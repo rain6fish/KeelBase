@@ -114,6 +114,11 @@
       "sha": "13c1f175",
       "kind": "internal",
       "reason": "Comment-only reorder of two R-1 bilingual blocks to English-first; no behaviour change"
+    },
+    {
+      "sha": "ff3d9fc3afae",
+      "kind": "user-visible",
+      "text": "Also 10 — A target-driven release whose lookup row was not recorded says so, rather than \"never queried\""
     }
   ]
 }
