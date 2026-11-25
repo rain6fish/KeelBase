@@ -447,6 +447,15 @@ export interface ClaimAutoReconcileSummary {
   /** `reconcileClaim` refused (not_stale / not_claimable / not_found). / 对账守卫拒了。 */
   refused: number;
   /**
+   * A row threw while being reconciled (typically the decision row's audit write). The pass does not
+   * stop: the failure is counted, the row is logged with its claim id, and the remaining due holds are
+   * still asked. A failed row does not consume the per-pass cap.
+   *
+   * 某行在对账过程中抛出（通常是决定行的审计写失败）。本趟不停：失败计数、日志带上占位 id，其余到期的
+   * 占位照问。失败行不占用每趟发出上限。
+   */
+  failed: number;
+  /**
    * Due, but this pass had already sent its maximum (`CLAIM_RECONCILE_MAX_PER_PASS`) — carried over to
    * the next hour, still due. Only rows that would have been asked are counted: the unaskable, the
    * exhausted and the not-yet-due are counted in their own buckets, not here.

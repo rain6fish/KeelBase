@@ -562,6 +562,35 @@ describe('AW-17 目标状态对账（只读查询收敛 unknown）', () => {
       expect(after?.releaseReason).toBe('target_status_not_executed');
     });
 
+    // B-3: one row's decision write failing must not spend the hour for the rest of the queue.
+    // B-3：一行的决定行写失败，不得替队列里其余行花掉这个小时。
+    it('B-3：决定行写失败 ⇒ 本趟继续问其余到期占位，失败计入 failed', async () => {
+      const first = await seedQueued({ idempotencyKey: 'k-b3-1', userId: 'u-alice' });
+      const second = await seedQueued({ idempotencyKey: 'k-b3-2', userId: 'u-bob' });
+      probe.lookup.mockImplementation((_tool: string, key: string) =>
+        Promise.resolve(
+          lookup({ conclusion: 'not_executed', reason: null, queryPath: '/contracts/status/' + key }),
+        ),
+      );
+      (effects as any).writeClaimDecision = {
+        recordTargetRelease: jest
+          .fn()
+          .mockRejectedValueOnce(new Error('audit write failed'))
+          .mockResolvedValue(undefined),
+      };
+
+      const r = await effects.reconcileDueClaims(base);
+
+      expect(r.failed).toBe(1);
+      expect(r.asked).toBe(1);
+      expect(r.converged).toBe(1);
+      expect(probe.lookup).toHaveBeenCalledTimes(2);
+      const one = await claims().findOne({ where: { id: first.id } });
+      const two = await claims().findOne({ where: { id: second.id } });
+      expect(one?.status).toBe(WRITE_CLAIM_STATUS.RELEASED);
+      expect(two?.status).toBe(WRITE_CLAIM_STATUS.RELEASED);
+    });
+
     it('每趟上限：到期行多于上限只问最老的几条，其余顺延；不可查的行不占额度；下一趟把余下问掉', async () => {
       // cap = 2 for this assembly; the default (25) is pinned in the schedule spec.
       // 本装配把上限设成 2；默认值 25 由计划那份用例钉住。

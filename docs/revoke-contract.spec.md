@@ -624,9 +624,12 @@ than a log line. A manual reconcile still works, and counts against the same bud
 how often the target is asked, not which code path did the asking. One pass also sends at most
 `CLAIM_RECONCILE_MAX_PER_PASS` queries (default 25), oldest hold first: a per-row cap bounds one row's
 traffic, not the burst, and a backlog of a hundred due rows must not become a hundred GETs in one
-hour. Rows a pass does not reach stay due and are served next hour. One pass runs at a time inside a
-process; there is **no cross-process lease**, so a horizontally scaled deployment may still overlap
-two passes — a scale-out concern left open rather than papered over.
+hour. Rows a pass does not reach stay due and are served next hour. One row that throws while being
+reconciled — typically the decision row's audit write failing after the ledger already moved — is
+counted and logged with its claim id; it does not stop the pass, so the rest of the queue is still
+asked. One pass runs at a time inside a process; there is **no cross-process lease**, so a
+horizontally scaled deployment may still overlap two passes — a scale-out concern left open rather
+than papered over.
 
 **滞留的占位得到的是一份处置，不是一句判决。** 结局越过 `REVOKE_STALE_MINUTES` 仍未明的写占位，可由管理员
 带书面说明（可选外部引用）释放。占位转为 `closed_unknown`，而 `status` **有意**保持 `claimed` —— 没有任何
@@ -663,8 +666,10 @@ two passes — a scale-out concern left open rather than papered over.
 `autoReconcileStopped`、`autoReconcileDueAt`，于是「问满四次、已停止」是一个读数，而不是一行日志。人工对账
 仍可进行，并计入同一份预算：预算限制的是**问目标的次数**，不是哪条代码路径问的。一趟最多发出
 `CLAIM_RECONCILE_MAX_PER_PASS` 个询问（默认 25），最老的先问：每条行的次数上限界的是单行的流量，不是突发，
-一百条到期的行不该在一小时里变成一百个 GET。这趟没轮到的行仍然到期，下一趟再问。同一进程内同一时刻只跑
-一趟；**跨进程没有租约**，故横向扩展的部署仍可能有两趟重叠 —— 这是留着未闭合的扩展问题，没有粉饰。
+一百条到期的行不该在一小时里变成一百个 GET。这趟没轮到的行仍然到期，下一趟再问。某一行在对账中抛出
+（通常是账已动过、决定行的审计写失败）时，只记一笔失败并把占位 id 写进日志，本趟不停，队列里其余到期
+占位照问。同一进程内同一时刻只跑一趟；**跨进程没有租约**，故横向扩展的部署仍可能有两趟重叠 —— 这是
+留着未闭合的扩展问题，没有粉饰。
 
 ## 7. 相关文档 / Related
 

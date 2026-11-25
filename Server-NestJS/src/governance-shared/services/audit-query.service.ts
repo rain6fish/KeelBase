@@ -151,7 +151,18 @@ export class AuditQueryService {
     return { updated: true };
   }
 
-  /** 查询审计日志并左联用户表带出 username（原则 3：审计显示用户名）。userId 存的是数字字符串，需 CAST。ORG-5 支持按组织维度过滤。 */
+  /**
+   * Read audit rows and carry the username snapshot (principle 3: audit shows a user name). ORG-5
+   * adds an organisation filter.
+   *
+   * `userId` is compared as text, never cast to INTEGER: the column is a varchar and a system actor
+   * (`system:sweep`) can sit in it, which Postgres refuses to cast.
+   *
+   * 读取审计行并带出用户名快照（原则 3：审计显示用户名）。ORG-5 增加组织维度过滤。
+   *
+   * `userId` 一律按文本比较、从不 CAST 成 INTEGER：该列是 varchar，可能装着系统账号
+   *（`system:sweep`），Postgres 不允许把它转成整数。
+   */
   private async _queryLogs(
     options: AuditRowQueryOptions = {},
     reader?: AuditReaderContext,
@@ -200,7 +211,7 @@ export class AuditQueryService {
     }
     if (options.orgId != null) {
       qb.andWhere(
-        'CAST(log.userId AS INTEGER) IN (SELECT user_id FROM org_members WHERE org_id = :orgId)',
+        'log.userId IN (SELECT CAST(user_id AS TEXT) FROM org_members WHERE org_id = :orgId)',
         { orgId: options.orgId },
       );
     }

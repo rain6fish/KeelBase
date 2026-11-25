@@ -44,10 +44,10 @@
     },
     {
       "step": 5,
-      "what": "先裁定 B-1（PG 上 system:sweep 写入审计 userId）与 B-3（对账循环一错全废）；B-2（smoke 未拉镜像）已于本会话修好",
-      "check": "相应用例/工作流复跑",
-      "owner": "需用户裁定",
-      "done": false
+      "what": "三项发布阻断（B-1 审计 userId 整数 CAST、B-2 smoke 未拉镜像、B-3 对账循环一错全废）均已于本会话修好",
+      "check": "定向用例 + audit-reader-scope e2e 19/19 + 反向实证；check:all",
+      "owner": "r1-v150-prep-1124",
+      "done": true
     },
     {
       "step": 6,

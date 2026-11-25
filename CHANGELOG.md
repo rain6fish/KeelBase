@@ -82,6 +82,17 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 ### Fixed
 
+- **Audit reads no longer cast the user id to an integer.** A sweep-driven release records
+  `system:sweep` as the initiator, and the org-scoped audit queries compared that column through
+  `CAST(userId AS INTEGER)`, which Postgres refuses for a non-numeric value — one such row broke the
+  audit list for an org reader. The list filter and the shared reader scope now compare as text
+  (`userId IN (SELECT CAST(user_id AS TEXT) …)`), which also lets the audit column use its index.
+
+- **One failing row no longer aborts the hourly reconcile pass.** A throw while reconciling —
+  typically the decision row's audit write failing after the ledger had already moved — aborted every
+  remaining due hold for that hour. The pass now counts the failure, logs the claim id and continues;
+  the failing row is not retried by the sweep.
+
 - **The image smoke job fetches the image it tests.** `publish` pushes from another runner's daemon,
   and `scripts/image-smoke.sh` starts with `docker image inspect`, which never pulls, so every tag's
   smoke job would have failed and the SBOM/Release job that needs it would never have run. The job now
@@ -176,6 +187,15 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
   改为可移植。若干双语注释块改为英文在前、中文在后。
 
 ### 修复
+
+- **审计读不再把用户 id 转成整数。** 目标驱动的释放会把 `system:sweep` 记作发起方，而组织范围的审计查询
+  经 `CAST(userId AS INTEGER)` 比较该列 —— Postgres 对非数字值直接报错，一行这样的记录就会让组织读者的
+  审计列表整体失败。列表过滤与共用的读者范围现在改为按文本比较
+  （`userId IN (SELECT CAST(user_id AS TEXT) …)`），审计列也因此能用上索引。
+
+- **一行失败不再废掉整趟每小时对账。** 对账过程中的一次抛出 —— 通常是账已动过、决定行的审计写失败 ——
+  会让那一小时里其余到期的占位全部得不到询问。现在本趟记一笔失败、把占位 id 写进日志并继续；失败的那行
+  不由清扫重试。
 
 - **镜像冒烟作业先取回它要测的镜像。** `publish` 在另一个 runner 的守护进程里推送，而
   `scripts/image-smoke.sh` 开头就是 `docker image inspect`、自己从不拉取；于是每个 tag 的冒烟作业
