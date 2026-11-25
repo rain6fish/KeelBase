@@ -3,11 +3,12 @@
 /**
  * Purity guard for `governance-core/`.
  *
- * The five helpers in this directory (`payload`, `cache-keys`, `coverage-gaps`, `revoke-status`,
- * `revoke-staleness`) are shared by the AI path, the audit path and the standalone governance
- * runtime, so they must stay free of runtime coupling: no Nest/DI, no `Repository` or entity, no
- * filesystem/network/process. `cache-keys` is allowed exactly one dependency — `typeorm` — and only
- * as `import type`, which TypeScript erases, leaving no runtime edge at all.
+ * The helpers in this directory (`payload`, `cache-keys`, `coverage-gaps`, `revoke-status`,
+ * `revoke-staleness`, `claim-reconcile-schedule`, `claim-clocks`) are shared by the AI path, the
+ * audit path and the standalone governance runtime, so they must stay free of runtime coupling: no
+ * Nest/DI, no `Repository` or entity, no filesystem/network/process. `cache-keys` is allowed exactly
+ * one dependency — `typeorm` — and only as `import type`, which TypeScript erases, leaving no
+ * runtime edge at all.
  *
  * Nothing enforces that by construction. Writing `import { DataSource } from 'typeorm'` (value
  * instead of type) still boots in-process and every existing test stays green; the coupling only
@@ -17,8 +18,8 @@
  *
  * 共享模块 `governance-core/` 的纯度守卫。
  *
- * 这里的五个助手（`payload` · `cache-keys` · `coverage-gaps` · `revoke-status` ·
- * `revoke-staleness`）被 AI 路径、审计路径与独立治理运行时共用，因此必须与运行时解耦：
+ * 这里的助手（`payload` · `cache-keys` · `coverage-gaps` · `revoke-status` · `revoke-staleness` ·
+ * `claim-reconcile-schedule` · `claim-clocks`）被 AI 路径、审计路径与独立治理运行时共用，因此必须与运行时解耦：
  * 不碰 Nest/DI、不碰 `Repository` 或实体、不碰文件/网络/子进程。`cache-keys` 只允许一个依赖
  * —— `typeorm` —— 且只能是 `import type`（编译期擦除，运行时不留下任何边）。
  *
@@ -35,6 +36,8 @@ const MODULE_DIR = __dirname;
 /** The modules this guard exists for; a silent empty scan must not read as green. */
 const REQUIRED_FILES = [
   'cache-keys.ts',
+  'claim-clocks.ts',
+  'claim-reconcile-schedule.ts',
   'coverage-gaps.ts',
   'payload.ts',
   'revoke-staleness.ts',

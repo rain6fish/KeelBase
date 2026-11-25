@@ -76,6 +76,8 @@ const AppTableStub = defineComponent({
     '<div class="cell-role" v-if="item.decisionState">{{ item.decidedRole }}</div>' +
     '<div class="cell-policy" v-if="item.decisionState">{{ item.policyRevision }}</div>' +
     '<div class="cell-target-status"><slot name="item.targetStatus" :item="item" /></div>' +
+    // R-5 两只时钟（决策年龄 / 读数新鲜度）：断言要读得到行上真正渲染的那两句话
+    '<div class="cell-clocks"><slot name="item.clocks" :item="item" /></div>' +
     '</div>' +
     '</template></div>',
 })
@@ -142,7 +144,7 @@ function mountViewAttached() {
   })
 }
 
-const emptyClaims = { items: [], total: 0, limit: 100, thresholdMinutes: 60, scope: 'all' as const }
+const emptyClaims = { items: [], total: 0, limit: 100, thresholdMinutes: 60, decisionBoundMinutes: 1440, scope: 'all' as const }
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -201,6 +203,7 @@ describe('AiToolsView', () => {
       total: 2,
       limit: 100,
       thresholdMinutes: 60,
+      decisionBoundMinutes: 1440,
       scope: 'all',
     })
 
@@ -243,6 +246,7 @@ describe('AiToolsView', () => {
       total: 2,
       limit: 100,
       thresholdMinutes: 60,
+      decisionBoundMinutes: 1440,
       scope: 'all',
     })
 
@@ -267,6 +271,63 @@ describe('AiToolsView', () => {
     const auditorView = mountView()
     await flushPromises()
     expect(auditorView.findAll('.in-flight-claims .row-stub')[0].find('.cell-actions .release-btn').exists()).toBe(false)
+  })
+
+  /**
+   * R-5: the row must show **both** clocks in words — the freshest reading time and the decision's
+   * pending age are different facts, and the discrepancy is the whole point. The freshness filter
+   * narrows the page; it never reorders it (the server's decision-age order is preserved).
+   *
+   * R-5：行上要把**两只钟**都写出来 —— 读数的新鲜时刻与决策已悬的时长是两件事，它们不一致正是重点。
+   * 新鲜度筛选只收窄当前页，绝不重排（服务端按决策年龄给的顺序原样保留）。
+   */
+  it('R-5：行上同时显示「读数从 X 起陈旧」与「决策从 Y 起待裁」，并按升级方向筛选', async () => {
+    toolsMock.mockResolvedValue([tool])
+    effectsMock.mockResolvedValue({ total: 0, page: 1, limit: 20, items: [] })
+    inFlightMock.mockResolvedValue({
+      ...emptyClaims,
+      items: [
+        // 读数刚刚问过（不陈旧），但决策已悬 30 小时 ⇒ 该由人裁
+        { id: 21, userId: '7', toolName: 'proxy_send', argsHash: 'h1', status: 'claimed', claimedAt: '2026-11-04T00:00:00Z', ageMinutes: 1800, stale: true, attempts: 1, agentId: null, conversationId: null, runId: null, authorizationRef: null, decidedRole: 'unknown', policyRevision: 'unknown', decisionState: 'awaiting_decision', reconcilable: true, lastLookup: null, readingStale: false, readingStaleSince: null, decisionPendingSince: '2026-11-04T01:00:00Z', decisionAgeMinutes: 1740, decisionOverdue: true, escalation: 'person' },
+        // 读数已陈旧（该再问），决策只悬 2 小时 ⇒ 该重问
+        { id: 22, userId: '7', toolName: 'proxy_send', argsHash: 'h2', status: 'claimed', claimedAt: '2026-11-05T02:00:00Z', ageMinutes: 120, stale: true, attempts: 0, agentId: null, conversationId: null, runId: null, authorizationRef: null, decidedRole: 'unknown', policyRevision: 'unknown', decisionState: 'awaiting_decision', reconcilable: true, lastLookup: null, readingStale: true, readingStaleSince: '2026-11-05T02:30:00Z', decisionPendingSince: '2026-11-05T03:00:00Z', decisionAgeMinutes: 120, decisionOverdue: false, escalation: 'reask' },
+      ],
+      total: 2,
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const rows = wrapper.findAll('.in-flight-claims .row-stub')
+    expect(rows).toHaveLength(2)
+    // 第一行：决策那只钟与「该由人裁」；读数不陈旧，故不出现「读数从…起陈旧」
+    expect(rows[0].find('.cell-clocks').text()).toContain('决策从')
+    expect(rows[0].find('.cell-clocks').text()).toContain('该由人裁')
+    expect(rows[0].find('.cell-clocks .escalate-person').exists()).toBe(true)
+    expect(rows[0].find('.cell-clocks').text()).not.toContain('读数从')
+    // 第二行：读数陈旧与「该重问」
+    expect(rows[1].find('.cell-clocks').text()).toContain('读数从')
+    expect(rows[1].find('.cell-clocks').text()).toContain('该重问')
+    expect(rows[1].find('.cell-clocks .escalate-reask').exists()).toBe(true)
+
+    // 筛选「该由人裁」⇒ 只剩第一行，且顺序没变
+    const selects = wrapper.findAllComponents({ name: 'ElSelect' })
+    expect(selects).toHaveLength(2)
+    selects[1].vm.$emit('update:modelValue', 'person')
+    await flushPromises()
+    const filtered = wrapper.findAll('.in-flight-claims .row-stub')
+    expect(filtered).toHaveLength(1)
+    expect(filtered[0].attributes('data-id')).toBe('21')
+
+    // 新鲜度筛选与升级方向正交：清掉升级筛选，只勾「只看读数陈旧」⇒ 只剩第二行
+    selects[1].vm.$emit('update:modelValue', '')
+    const checkboxes = wrapper.findAllComponents({ name: 'ElCheckbox' })
+    // 0 = 「只看滞留」（服务端筛选），1 = 「只看读数陈旧」
+    checkboxes[1].vm.$emit('update:modelValue', true)
+    await flushPromises()
+    const readingStaleOnly = wrapper.findAll('.in-flight-claims .row-stub')
+    expect(readingStaleOnly).toHaveLength(1)
+    expect(readingStaleOnly[0].attributes('data-id')).toBe('22')
   })
 
   /**

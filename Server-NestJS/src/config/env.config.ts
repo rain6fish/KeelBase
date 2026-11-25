@@ -54,6 +54,13 @@ export const envValidationSchema = Joi.object({
   // How many queries one hourly pass may send (default 25), across all claims — a burst bound, not a
   // per-row one. Rows left over stay due and are served next hour, oldest first.
   CLAIM_RECONCILE_MAX_PER_PASS: Joi.number().integer().min(1).default(25),
+  // R-5：待裁队列的**决策上限**（分钟，默认 1440 = 一天）。占位进入待裁队列超过这么久，队列把它升级到
+  // 一个人，即便自动重问还在按计划继续。它与读数新鲜度是两只钟：新鲜度只允许再问，决策上限才升级到人；
+  // 两者都不释放任何东西。
+  // R-5: how long a hold may await a decision before the queue escalates it to a person (minutes,
+  // default 1440 = one day). It is the second of two clocks: freshness only permits another ask,
+  // this bound escalates to a human — and neither releases anything.
+  CLAIM_DECISION_BOUND_MINUTES: Joi.number().integer().min(1).default(1440),
 
   // 连接池（文档规范，初期保守配置）
   DB_POOL_MAX: Joi.number().default(20),

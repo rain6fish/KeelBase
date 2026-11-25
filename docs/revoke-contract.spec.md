@@ -627,6 +627,18 @@ hour. Rows a pass does not reach stay due and are served next hour. One pass run
 process; there is **no cross-process lease**, so a horizontally scaled deployment may still overlap
 two passes — a scale-out concern left open rather than papered over.
 
+**The queue runs on two clocks, and neither one releases a hold (R-5).** The pending-decision queue
+used to be driven by claim age alone, so "the latest reading is old, ask the target again" and "the
+decision has been open too long, a person must decide" looked the same there. The in-flight list now
+carries both: `readingStale` / `readingStaleSince` (the reconcile plan's due moment has passed — a
+licence to ask again, nothing more) and `decisionPendingSince` / `decisionAgeMinutes` /
+`decisionOverdue` (pending since the in-flight window closed, judged against
+`CLAIM_DECISION_BOUND_MINUTES`, default 1440). `escalation` is `reask`, `person` or `null` and has
+**no release value**: freshness expiry only permits another ask, decision expiry only routes the row
+to a person, and a release still needs the target's explicit `not_executed` or a recorded decision
+at the deadline. Decision age is the stable key and the primary order — a re-ask refreshes the
+reading and never moves the row — while freshness only filters and badges.
+
 **滞留的占位得到的是一份处置，不是一句判决。** 结局越过 `REVOKE_STALE_MINUTES` 仍未明的写占位，可由管理员
 带书面说明（可选外部引用）释放。占位转为 `closed_unknown`，而 `status` **有意**保持 `claimed` —— 没有任何
 东西证明这次写是否落库，写成 `released` 等于断言「确认未落库」。键仍被占住，故同一次调用会被 `claimWrite`
@@ -663,6 +675,14 @@ two passes — a scale-out concern left open rather than papered over.
 `CLAIM_RECONCILE_MAX_PER_PASS` 个询问（默认 25），最老的先问：每条行的次数上限界的是单行的流量，不是突发，
 一百条到期的行不该在一小时里变成一百个 GET。这趟没轮到的行仍然到期，下一趟再问。同一进程内同一时刻只跑
 一趟；**跨进程没有租约**，故横向扩展的部署仍可能有两趟重叠 —— 这是留着未闭合的扩展问题，没有粉饰。
+
+**队列跑着两只钟，且两只都不释放占位（R-5）。** 待裁队列此前只由占位年龄驱动，于是「最新读数旧了，再问
+目标一次」与「决策开放太久，该由人裁」在队列里长得一样。在途清单现在两只都带：`readingStale` /
+`readingStaleSince`（对账计划的到期时刻已过 —— 再问一次的许可，仅此而已）与 `decisionPendingSince` /
+`decisionAgeMinutes` / `decisionOverdue`（自 在途窗口关闭起待裁，按 `CLAIM_DECISION_BOUND_MINUTES` 判定，
+默认 1440）。`escalation` 取 `reask`、`person` 或 `null`，**没有释放取值**：新鲜度到期只允许再问一次，
+决策到期只把行交给人，而释放仍须目标的明确 `not_executed`，或占位到期时记录在案的裁决。决策年龄是稳定键、
+也是主序 —— 重问只刷新读数、永不移动行 —— 新鲜度只做筛选与徽标。
 
 ## 7. 相关文档 / Related
 

@@ -1178,6 +1178,17 @@ const zh = {
   inFlightDecisionClosed: '已释放（未知）',
   inFlightDecisionAll: '全部（含已释放）',
   inFlightDecisionClosedHint: '已释放',
+  // R-5：两只时钟 —— 决策年龄是主序、读数新鲜度是筛选与徽标；两者都不释放占位
+  inFlightClocks: '两只时钟',
+  inFlightClocksHint:
+    '决策年龄是主序：重问只刷新读数、不重排队列。决策超过 {bound} 分钟即该由人裁；两只钟都不会释放占位。',
+  inFlightDecisionClock: '决策从 {at} 起待裁 · 已 {age} 分钟',
+  inFlightReadingClock: '读数从 {at} 起陈旧',
+  inFlightReadingFresh: '读数未到期',
+  inFlightEscalateReask: '该重问',
+  inFlightEscalatePerson: '该由人裁',
+  inFlightEscalationAll: '全部升级',
+  inFlightReadingStaleOnly: '只看读数陈旧',
   // AW-15：判定依据两列；服务端对缺失列报 unknown
   inFlightDecidedRole: '判定角色',
   inFlightPolicyRevision: '策略版本',

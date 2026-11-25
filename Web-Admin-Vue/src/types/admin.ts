@@ -479,6 +479,18 @@ export interface InFlightClaim {
   reconcilable: boolean
   /** AW-17: the latest attempt, or `null` when nobody ever asked. / 最近一次尝试；从没问过为 null。 */
   lastLookup: TargetStatusLookup | null
+  /** R-5: the latest reading is past the point where another ask became allowed — a permission to re-ask, never a release. / R-5：读数已越过允许再问的时刻。 */
+  readingStale: boolean
+  /** R-5: when the reading went stale (the plan's due moment); `null` when no ask is due. / R-5：读数从何时起陈旧。 */
+  readingStaleSince: string | null
+  /** R-5: when the decision came to be pending (the in-flight window closed); `null` when not queued. / R-5：决策从何时起待裁。 */
+  decisionPendingSince: string | null
+  /** R-5: whole minutes the decision has been pending. / R-5：决策已悬的整分钟数。 */
+  decisionAgeMinutes: number | null
+  /** R-5: the decision clock has passed the decision bound. / R-5：决策年龄已超过决策上限。 */
+  decisionOverdue: boolean
+  /** R-5: where the row is being pushed — `reask` / `person` / `null`. Never a release. / R-5：这行正被推向哪边。 */
+  escalation: 'reask' | 'person' | null
 }
 
 /** AW-16 F-63：释放滞留占位的裁决结果（按种类报，不压成一句「失败」） */
@@ -566,6 +578,8 @@ export interface InFlightClaimsResponse {
   total: number
   limit: number
   thresholdMinutes: number
+  /** R-5：判 `decisionOverdue` 用的决策上限（分钟，部署属性）。/ The decision bound in minutes. */
+  decisionBoundMinutes: number
   /** 实际施加的行范围；短列表因此有解释 */
   scope: 'all' | 'org' | 'own'
 }

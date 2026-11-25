@@ -18,6 +18,11 @@ import {
   type ClaimReconcilePlan,
 } from '../../governance-core/claim-reconcile-schedule';
 import {
+  claimClocks,
+  claimDecisionBoundMinutes,
+  type ClaimEscalation,
+} from '../../governance-core/claim-clocks';
+import {
   auditScopeSql,
   resolveAuditReaderScope,
   type AuditReaderContext,
@@ -45,6 +50,9 @@ import { OrgService } from '../../org/org.service';
  * - **No verdict.** A stale row is not "failed" and not "succeeded": for an external write the truth
  *   lives in the target system, and after a crash it lives in a moment we cannot recover. `stale` is
  *   an age reading, nothing more.
+ * - **No release.** R-5 separates the freshness clock from the decision clock so the queue can tell
+ *   "ask again" from "a person must decide"; neither clock's expiry is an outcome, and the row says
+ *   so in its own fields (`readingStale`, `decisionOverdue`, `escalation`).
  *
  * Row scope follows the audit reader's existing rule: admins see everything, an auditor sees the
  * account's organisation (or their own rows when they belong to none), and a request-side filter can
@@ -61,6 +69,8 @@ import { OrgService } from '../../org/org.service';
  *   带出明文的字段。
  * - **判决**。陈旧行既不是「失败」也不是「成功」：外部写的真值在目标系统，崩溃之后真值在找不回来的
  *   那一刻。`stale` 只是年龄读数，仅此而已。
+ * - **释放**。R-5 把读数新鲜度与决策年龄拆成两只钟，于是队列分得清「该再问一次」与「该由人裁」；
+ *   两只钟的到期都不是结论，行用自有字段（`readingStale`、`decisionOverdue`、`escalation`）把这点说出来。
  *
  * 行范围沿用审计读者既有的规则：管理员看全部，审计读者看账号所属组织（不属于任何组织时看本人行），
  * 请求侧过滤只能收紧、不能替换。
@@ -154,6 +164,14 @@ export class WriteClaimQueryService {
     if (scopeFragment) qb.andWhere(scopeFragment.sql, scopeFragment.params);
 
     const total = await qb.getCount();
+    // R-5: the primary order is the **decision** clock. `claimedAt` is how the query spells it: the
+    // decision clock is a fixed offset from the claim time (`claimedAt + REVOKE_STALE_MINUTES`), so
+    // ascending claim time is ascending decision age within one deployment. Freshness deliberately
+    // does not participate — a re-ask would otherwise move a row to the bottom and starve it.
+    //
+    // R-5：主序是**决策**那只钟。查询用 `claimedAt` 拼写它：决策钟是占位时刻的固定偏移
+    //（`claimedAt + REVOKE_STALE_MINUTES`），故在同一部署里占位时间升序就是决策年龄升序。新鲜度有意不参与 ——
+    // 否则一次重问就会把行推到队尾，把它饿死。
     const rows = await qb
       .orderBy('c.claimedAt', 'ASC')
       .addOrderBy('c.id', 'ASC')
@@ -165,6 +183,9 @@ export class WriteClaimQueryService {
     // 整页一次查询 —— 与副作用列表批量取可比性历史的理由相同：这里再按行往返，就是 500 行上的 N+1。
     const lookups = await this.lookupStats(rows.map((c) => c.idempotencyKey));
     const plan = this.reconcilePlan();
+    const decisionBoundMinutes = claimDecisionBoundMinutes(
+      this.configService?.get<number>('CLAIM_DECISION_BOUND_MINUTES'),
+    );
     return {
       items: rows.map((c) =>
         this.project(
@@ -174,11 +195,16 @@ export class WriteClaimQueryService {
           this.canAsk(c.toolName),
           lookups.get(c.idempotencyKey),
           plan,
+          decisionBoundMinutes,
         ),
       ),
       total,
       limit,
       thresholdMinutes,
+      // R-5: the decision clock's bound travels with the page, like the stale threshold and the
+      // re-ask cap — a reader can tell overdue from on-time without knowing the deployment.
+      // R-5：决策钟的上限随页带出，与陈旧阈值、重问上限一样 —— 读者不必知道部署配置就能分出「超期」与「未到期」。
+      decisionBoundMinutes,
       // The cap travels with the page so `autoReconcileStopped` / `autoReconcileDueAt` can be read
       // without a second request — and so the screen shows the number the sweep is actually using.
       // 上限随页带出，故不必再发一次请求就能读懂 `autoReconcileStopped` / `autoReconcileDueAt`，
@@ -320,6 +346,7 @@ export class WriteClaimQueryService {
     reconcilable: boolean,
     lookups: { count: number; latest: TargetStatusLookupRow } | undefined,
     plan: ClaimReconcilePlan,
+    decisionBoundMinutes: number,
   ): InFlightClaimRow {
     const ageMinutes = Math.max(0, Math.floor((now.getTime() - c.claimedAt.getTime()) / 60_000));
     const lookupCount = lookups?.count ?? 0;
@@ -343,6 +370,20 @@ export class WriteClaimQueryService {
       c.status === WRITE_CLAIM_STATUS.CLAIMED &&
       c.decisionState === WRITE_CLAIM_DECISION_STATE.AWAITING_DECISION &&
       reconcilable;
+    // R-5: two clocks read at this instant. The freshness input is the schedule's existing due
+    // moment (the same value `autoReconcileDueAt` carries), so there is one ruler for "may we ask
+    // again"; the decision clock is read from the window, never from the latest ask.
+    //
+    // R-5：在此刻读两只钟。新鲜度的输入就是计划既有的到期时刻（与 `autoReconcileDueAt` 同一个值），
+    // 故「可以再问了吗」只有一把尺子；决策钟读自窗口，绝不读自最近一次询问。
+    const clocks = claimClocks({
+      pendingDecision: c.decisionState === WRITE_CLAIM_DECISION_STATE.AWAITING_DECISION,
+      claimedAt: c.claimedAt,
+      windowMinutes: thresholdMinutes,
+      freshnessDueAt: eligible && !schedule.stopped ? schedule.nextDueAt : null,
+      decisionBoundMinutes,
+      now,
+    });
     return {
       id: c.id,
       userId: c.userId,
@@ -378,6 +419,17 @@ export class WriteClaimQueryService {
       lookupCount,
       autoReconcileStopped: schedule.stopped,
       autoReconcileDueAt: eligible && !schedule.stopped ? (schedule.nextDueAt?.toISOString() ?? null) : null,
+      // R-5: the two clocks, visible on the row. `readingStale` is the freshness badge and the
+      // filter; `escalation` is where the row is being pushed. Neither can ever say "release" —
+      // `ClaimEscalation` has no such value.
+      // R-5：两只钟，在行上可见。`readingStale` 是新鲜度的徽标与筛选；`escalation` 说这行正被推向哪边。
+      // 两者都不可能说「释放」—— `ClaimEscalation` 没有这个取值。
+      readingStale: clocks.readingStale,
+      readingStaleSince: clocks.readingStaleSince?.toISOString() ?? null,
+      decisionPendingSince: clocks.decisionPendingSince?.toISOString() ?? null,
+      decisionAgeMinutes: clocks.decisionAgeMinutes,
+      decisionOverdue: clocks.decisionOverdue,
+      escalation: clocks.escalation,
     };
   }
 
@@ -474,6 +526,45 @@ export interface InFlightClaimRow {
    * 不是「还没到期」。
    */
   autoReconcileDueAt: string | null;
+  /**
+   * R-5: the latest reading is past the point where another ask became allowed. This is a
+   * **permission to re-ask**, never a verdict and never a release. Distinct from `stale` above,
+   * which is the claim's age.
+   *
+   * R-5：最新读数已越过「允许再问」的时刻。这是**再问的许可**，绝不是判决、更不是释放。与上面的
+   * `stale`（占位年龄）是两回事。
+   */
+  readingStale: boolean;
+  /**
+   * R-5: when the reading went stale — the reconcile plan's due moment. `null` when no ask is due
+   * (target not askable, budget used up, or the row is not in the queue).
+   *
+   * R-5：读数从何时起陈旧 —— 对账计划的到期时刻。没有可问的（目标问不了、预算用尽，或行不在队列）时为
+   * `null`。
+   */
+  readingStaleSince: string | null;
+  /**
+   * R-5: when the decision came to be pending — the moment the in-flight window closed
+   * (`claimedAt + threshold`). `null` for rows not in the pending-decision queue. This is the
+   * **stable key**: a re-ask never moves it.
+   *
+   * R-5：决策从何时起待裁 —— 在途窗口关闭的那一刻（`claimedAt + threshold`）。不在待裁队列的行是
+   * `null`。这是**稳定键**：重问永不移动它。
+   */
+  decisionPendingSince: string | null;
+  /** R-5: whole minutes the decision has been pending; `null` when not pending. / 决策已悬的整分钟数。 */
+  decisionAgeMinutes: number | null;
+  /** R-5: the decision clock has passed `decisionBoundMinutes`. / 决策年龄已超过页上的决策上限。 */
+  decisionOverdue: boolean;
+  /**
+   * R-5: where this row is being pushed — `reask` (a stale reading, ask the target again), `person`
+   * (the decision is overdue), or `null` (neither clock has expired). There is **no** release value:
+   * an unknown clock cannot conclude anything.
+   *
+   * R-5：这行正被推向哪边 —— `reask`（读数陈旧，再问目标）、`person`（决策超期），或 `null`
+   *（两只钟都未到期）。**没有**释放取值：未知时钟得不出任何结论。
+   */
+  escalation: ClaimEscalation | null;
 }
 
 /** One recorded attempt to ask the target whether a write happened (AW-17). / 一次目标状态查询的读数。 */
@@ -581,6 +672,14 @@ export interface InFlightClaimsResult {
   limit: number;
   /** The threshold `stale` was judged by (minutes). / 判 `stale` 用的阈值（分钟）。 */
   thresholdMinutes: number;
+  /**
+   * R-5: the bound `decisionOverdue` was judged by (minutes, `CLAIM_DECISION_BOUND_MINUTES`). Stated
+   * once per page because it is a deployment property, not a row's.
+   *
+   * R-5：判 `decisionOverdue` 用的决策上限（分钟，`CLAIM_DECISION_BOUND_MINUTES`）。每页只说一次，
+   * 因为它是部署的属性，不是某一行的。
+   */
+  decisionBoundMinutes: number;
   /**
    * F-79: the automatic re-ask cap in force (`CLAIM_RECONCILE_MAX_ATTEMPTS`, capped by the length of
    * the backoff table). Stated once per page because it is a property of the deployment, not a row.

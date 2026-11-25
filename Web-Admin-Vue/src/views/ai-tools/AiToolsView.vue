@@ -89,7 +89,15 @@
           <el-option value="closed_unknown" :label="t('inFlightDecisionClosed')" />
           <el-option value="all" :label="t('inFlightDecisionAll')" />
         </el-select>
+        <!-- R-5：按升级方向筛选 —— 读数陈旧只是「该再问」，决策超期才是「该由人裁」 -->
+        <el-select v-model="claimEscalation" style="max-width: 170px">
+          <el-option value="" :label="t('inFlightEscalationAll')" />
+          <el-option value="reask" :label="t('inFlightEscalateReask')" />
+          <el-option value="person" :label="t('inFlightEscalatePerson')" />
+        </el-select>
         <el-checkbox v-model="claimStaleOnly">{{ t('inFlightOnlyStale') }}</el-checkbox>
+        <!-- R-5：新鲜度筛选（与上面的升级方向筛选正交）—— 只看「最新读数已过重问点」的行 -->
+        <el-checkbox v-model="claimReadingStaleOnly">{{ t('inFlightReadingStaleOnly') }}</el-checkbox>
         <el-button type="primary" @click="loadInFlight()">
           <template #icon><AppIcon icon="mdi-filter-variant" /></template>
           {{ t('filter') }}
@@ -98,18 +106,44 @@
       <div class="text-caption text-medium-emphasis mt-2">
         {{ t('inFlightHint', { scope: claimScopeLabel, threshold: claimThreshold }) }}
       </div>
+      <!-- R-5：队列的主序是决策年龄；重问只刷新读数、不重排。两只钟都不释放占位。 -->
       <div class="text-caption text-medium-emphasis">
-        {{ t('inFlightCount', { shown: claims.length, total: claimTotal }) }}
+        {{ t('inFlightClocksHint', { bound: claimDecisionBound }) }}
+      </div>
+      <div class="text-caption text-medium-emphasis">
+        {{ t('inFlightCount', { shown: visibleClaims.length, total: claimTotal }) }}
       </div>
     </el-card>
 
-    <AppTable v-if="canReadClaims" class="in-flight-claims" :headers="claimHeaders" :items="claims" :loading="claimsLoading">
+    <AppTable v-if="canReadClaims" class="in-flight-claims" :headers="claimHeaders" :items="visibleClaims" :loading="claimsLoading">
       <template #item.argsHash="{ item }"><code class="text-caption">{{ item.argsHash }}</code></template>
       <template #item.claimedAt="{ item }">{{ formatTime(item.claimedAt) }}</template>
       <template #item.ageMinutes="{ item }">{{ item.ageMinutes }} {{ t('inFlightMinutes') }}</template>
       <template #item.stale="{ item }">
         <el-tag v-if="item.stale" size="small" type="warning" effect="light">{{ t('inFlightStale') }}</el-tag>
         <span v-else class="text-caption text-medium-emphasis">{{ t('inFlightRunning') }}</span>
+      </template>
+      <!-- R-5：两只钟。决策年龄是主序、也是稳定的那只（重问不移动它）；读数新鲜度是筛选与徽标。
+           两者都不释放占位 —— 这里只显示「该再问」或「该由人裁」。 -->
+      <template #item.clocks="{ item }">
+        <template v-if="item.decisionPendingSince || item.readingStale">
+          <div v-if="item.decisionPendingSince" class="text-caption">
+            {{ t('inFlightDecisionClock', { at: formatTime(item.decisionPendingSince), age: item.decisionAgeMinutes ?? 0 }) }}
+            <el-tag v-if="item.decisionOverdue" size="small" type="danger" effect="light" class="escalate-person">
+              {{ t('inFlightEscalatePerson') }}
+            </el-tag>
+          </div>
+          <div v-if="item.readingStale" class="text-caption text-warning">
+            {{ t('inFlightReadingClock', { at: formatTime(item.readingStaleSince ?? '') }) }}
+            <el-tag size="small" type="warning" effect="light" class="escalate-reask">
+              {{ t('inFlightEscalateReask') }}
+            </el-tag>
+          </div>
+          <div v-else-if="item.decisionPendingSince" class="text-caption text-medium-emphasis">
+            {{ t('inFlightReadingFresh') }}
+          </div>
+        </template>
+        <span v-else class="text-medium-emphasis">—</span>
       </template>
       <!-- AW-16 F-64：治理处置 —— 「待裁」不是失败，「已关闭」也不是成功：两者都还是未知 -->
       <template #item.decisionState="{ item }">
@@ -434,6 +468,8 @@ const claims = ref<InFlightClaim[]>([])
 const claimsLoading = ref(false)
 const claimTotal = ref(0)
 const claimThreshold = ref(60)
+// R-5：判「决策超期」的决策上限（分钟），随页带出 —— 屏幕显示的就是服务端在用的那个数。
+const claimDecisionBound = ref(1440)
 const claimScope = ref<'all' | 'org' | 'own'>('all')
 const claimUserId = ref('')
 const claimToolName = ref('')
@@ -441,6 +477,15 @@ const claimStaleOnly = ref(false)
 // AW-16 F-64：默认「未关闭」= 在途 + 待裁。已释放的行只在明确选择「已关闭」时出现。
 const claimDecision = ref<'in_flight' | 'open' | 'awaiting_decision' | 'closed_unknown' | 'all'>(
   'in_flight',
+)
+// R-5：按升级方向筛选，筛选对象是当前这一页（服务端仍按决策年龄给序）。
+const claimEscalation = ref<'' | 'reask' | 'person'>('')
+// R-5：新鲜度筛选 —— 与升级方向正交（一条行可以既读数陈旧、又决策超期）。
+const claimReadingStaleOnly = ref(false)
+const visibleClaims = computed(() =>
+  claims.value
+    .filter((c) => !claimEscalation.value || c.escalation === claimEscalation.value)
+    .filter((c) => !claimReadingStaleOnly.value || c.readingStale),
 )
 const claimScopeLabel = computed(() =>
   claimScope.value === 'org'
@@ -461,6 +506,7 @@ const claimHeaders = computed(() => [
   { key: 'decidedRole', title: t('inFlightDecidedRole') },
   { key: 'policyRevision', title: t('inFlightPolicyRevision') },
   { key: 'targetStatus', title: t('targetStatusCol') },
+  { key: 'clocks', title: t('inFlightClocks') },
   { key: 'actions', title: t('actionCol') },
 ])
 
@@ -688,6 +734,7 @@ async function loadInFlight() {
     claims.value = res.items
     claimTotal.value = res.total
     claimThreshold.value = res.thresholdMinutes
+    claimDecisionBound.value = res.decisionBoundMinutes
     claimScope.value = res.scope
   } catch (err) {
     snackbar.error(err instanceof Error ? err.message : t('loadFailed'))

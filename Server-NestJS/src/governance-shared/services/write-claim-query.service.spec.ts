@@ -126,11 +126,17 @@ describe('AW-16 在途 claim 只读查询面', () => {
         'claimedAt',
         'conversationId',
         'decidedRole',
+        'decisionAgeMinutes',
+        'decisionOverdue',
+        'decisionPendingSince',
         'decisionState',
+        'escalation',
         'id',
         'lastLookup',
         'lookupCount',
         'policyRevision',
+        'readingStale',
+        'readingStaleSince',
         'reconcilable',
         'runId',
         'stale',
@@ -575,6 +581,128 @@ describe('AW-16 在途 claim 只读查询面', () => {
 
       expect(list.items[0].lookupCount).toBe(history?.total);
       expect(list.items[0].lookupCount).toBe(2);
+    });
+  });
+
+  /**
+   * R-5: the queue used to be driven by claim age only, so "the reading is old, ask again" and "the
+   * decision is old, a person must decide" looked the same. These cases pin the split, the stable
+   * key, and the rule that neither clock releases anything — an `unknown` reading past its re-ask
+   * point still leaves the row `claimed` and in the queue.
+   *
+   * R-5：队列此前只由占位年龄驱动，于是「读数旧了、该再问」与「决策旧了、该由人裁」长得一样。这些
+   * 用例钉住拆分、稳定键，以及「两只钟都不释放」—— 过了重问点的 `unknown` 读数，行仍是 `claimed`、仍在队列。
+   */
+  describe('R-5：两只时钟（读数新鲜度 vs 决策年龄）', () => {
+    const MIN = 60_000;
+    const queued = (key: string, claimedAt: Date) =>
+      claim({
+        idempotencyKey: key,
+        toolName: 'proxy_send',
+        claimedAt,
+        decisionState: WRITE_CLAIM_DECISION_STATE.AWAITING_DECISION,
+      });
+
+    it('页上带出决策上限：默认 1440 分钟', async () => {
+      const res = await service.list({});
+      expect(res.decisionBoundMinutes).toBe(1440);
+    });
+
+    it('读数过期、决策未超限 ⇒ 升级为**重问**；行上写明「读数从 X 起陈旧」与「决策从 Y 起待裁」', async () => {
+      probe.canAsk.mockReturnValue(true);
+      const claimedAt = new Date(Date.now() - 3 * 60 * MIN);
+      await queued('reading-stale', claimedAt);
+
+      const row = (await service.list({})).items[0];
+
+      // 决策从窗口关闭那一刻起算 = claimedAt + 60 分钟。
+      expect(row.decisionPendingSince).toBe(new Date(claimedAt.getTime() + 60 * MIN).toISOString());
+      expect(row.decisionAgeMinutes).toBeGreaterThanOrEqual(119);
+      expect(row.decisionAgeMinutes).toBeLessThan(125);
+      expect(row.decisionOverdue).toBe(false);
+      // 一次没问过 ⇒ 计划的第一档 +1h 早已到期。
+      expect(row.readingStale).toBe(true);
+      expect(row.readingStaleSince).toBe(new Date(claimedAt.getTime() + 60 * MIN).toISOString());
+      expect(row.escalation).toBe('reask');
+      // 升级只是「再问一次」的许可：结论与占位形态都没动。
+      expect(row.status).toBe(WRITE_CLAIM_STATUS.CLAIMED);
+      expect(row.decisionState).toBe(WRITE_CLAIM_DECISION_STATE.AWAITING_DECISION);
+    });
+
+    it('决策超限 ⇒ 升级为**人**，即便最新读数刚刚问过（读数并未陈旧）', async () => {
+      probe.canAsk.mockReturnValue(true);
+      const claimedAt = new Date(Date.now() - 30 * 60 * MIN);
+      await queued('decision-overdue', claimedAt);
+      // 最近一次询问在 5 分钟前 ⇒ 下一档（+6h）远未到期，读数不陈旧。
+      const fresh = await lookup('decision-overdue', { conclusion: 'unknown', reason: 'timeout' });
+      await lookups().update(fresh.id, { at: new Date(Date.now() - 5 * MIN) });
+
+      const row = (await service.list({})).items[0];
+
+      expect(row.decisionAgeMinutes).toBeGreaterThanOrEqual(29 * 60);
+      expect(row.decisionOverdue).toBe(true);
+      expect(row.readingStale).toBe(false);
+      expect(row.readingStaleSince).toBeNull();
+      expect(row.escalation).toBe('person');
+    });
+
+    it('**未知读数过了重问点仍不能释放**：升级只说重问，行仍是 claimed + awaiting', async () => {
+      probe.canAsk.mockReturnValue(true);
+      const claimedAt = new Date(Date.now() - 9 * 60 * MIN);
+      const saved = await queued('unknown-past-due', claimedAt);
+      // 一次 `unknown` 读数在 8 小时前 ⇒ 下一档 +6h 已在 2 小时前到期，但决策只悬了 8 小时。
+      const answered = await lookup('unknown-past-due', { conclusion: 'unknown', reason: 'timeout' });
+      await lookups().update(answered.id, { at: new Date(claimedAt.getTime() + 60 * MIN) });
+
+      const res = await service.list({});
+      const row = res.items.find((r) => r.id === saved.id)!;
+
+      expect(row.readingStale).toBe(true);
+      expect(row.decisionOverdue).toBe(false);
+      expect(row.escalation).toBe('reask');
+      // 未知时钟永不释放：行还在队列里、仍是 claimed，账上没有任何「已释放」的读数。
+      expect(res.items.map((r) => r.id)).toContain(saved.id);
+      expect(row.status).toBe(WRITE_CLAIM_STATUS.CLAIMED);
+      expect(row.decisionState).toBe(WRITE_CLAIM_DECISION_STATE.AWAITING_DECISION);
+      // 升级取值域里没有 release（类型层也没有）：这里再钉一次运行期的读数。
+      expect([null, 'reask', 'person']).toContain(row.escalation);
+    });
+
+    it('**稳定键**：重问刷新新鲜度、不重排队列，决策年龄一字不动', async () => {
+      probe.canAsk.mockReturnValue(true);
+      const older = new Date(Date.now() - 5 * 60 * MIN);
+      const newer = new Date(Date.now() - 2 * 60 * MIN);
+      const a = await queued('order-a', older);
+      await queued('order-b', newer);
+
+      const before = await service.list({});
+      expect(before.items.map((r) => r.id)).toEqual([a.id, before.items[1].id]);
+      const aBefore = before.items[0];
+      expect(aBefore.readingStale).toBe(true);
+
+      // 对最老的行再问一次（读数写入「刚刚」）。
+      const reask = await lookup('order-a', { conclusion: 'unknown', reason: 'timeout' });
+      await lookups().update(reask.id, { at: new Date() });
+
+      const after = await service.list({});
+      // 队首没变：主序是决策年龄，重问没有把它推到队尾。
+      expect(after.items.map((r) => r.id)).toEqual(before.items.map((r) => r.id));
+      const aAfter = after.items.find((r) => r.id === a.id)!;
+      expect(aAfter.readingStale).toBe(false);
+      expect(aAfter.decisionPendingSince).toBe(aBefore.decisionPendingSince);
+      expect(aAfter.decisionAgeMinutes).toBeGreaterThanOrEqual(aBefore.decisionAgeMinutes!);
+    });
+
+    it('决策上限读自配置：调小到 60 分钟后同一条行即超期', async () => {
+      service = build(undefined, { CLAIM_DECISION_BOUND_MINUTES: 60 });
+      probe.canAsk.mockReturnValue(true);
+      await queued('tight-bound', new Date(Date.now() - 3 * 60 * MIN));
+
+      const res = await service.list({});
+
+      expect(res.decisionBoundMinutes).toBe(60);
+      expect(res.items[0].decisionOverdue).toBe(true);
+      expect(res.items[0].escalation).toBe('person');
     });
   });
 });

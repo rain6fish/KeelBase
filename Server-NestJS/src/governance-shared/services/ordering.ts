@@ -115,9 +115,17 @@ export const REPORT_ROWS_ORDERING: OrderingDeclaration = {
  * and `id` breaks ties so the page boundary is deterministic. The position is not hash-covered —
  * claims are not part of the audit chain — so `attested` says `none` rather than implying evidence.
  *
+ * R-5: this order is the **decision clock**, spelled `claimedAt`. The decision clock is a fixed
+ * offset from the claim time (`claimedAt + REVOKE_STALE_MINUTES`), so ascending claim time is
+ * ascending decision age. Freshness does not order anything: a re-ask must not move a row.
+ *
  * `GET /ai/tool-effects/claims` —— 在途占位查询。最老的占位在前，卡住的执行因此浮到首页。
  * `claimedAt` 由服务在占位时写入（接收方提供），并列以 `id` 决序，故页边界确定。位置不受哈希链覆盖 ——
  * 占位行不在审计链内 —— 故 `attested` 写 `none`，而不是暗示有证据。
+ *
+ * R-5：这个顺序就是**决策钟**，用 `claimedAt` 拼写。决策钟是占位时刻的固定偏移
+ *（`claimedAt + REVOKE_STALE_MINUTES`），故占位时间升序就是决策年龄升序。新鲜度不参与排序：重问不得移动
+ * 任何一行。
  */
 export const IN_FLIGHT_CLAIMS_ORDERING: OrderingDeclaration = {
   field: 'claimedAt',

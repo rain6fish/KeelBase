@@ -1179,6 +1179,17 @@ const en: ZhDict = {
   inFlightDecisionClosed: 'Released (unknown)',
   inFlightDecisionAll: 'All (incl. released)',
   inFlightDecisionClosedHint: 'Released',
+  // R-5: two clocks — decision age orders the queue, reading freshness filters and badges it; neither releases a hold
+  inFlightClocks: 'Two clocks',
+  inFlightClocksHint:
+    'Decision age is the primary order: a re-ask refreshes the reading without reordering the queue. A decision pending past {bound} min needs a person; neither clock releases a hold.',
+  inFlightDecisionClock: 'Decision pending since {at} · {age} min',
+  inFlightReadingClock: 'Reading stale since {at}',
+  inFlightReadingFresh: 'Reading not due',
+  inFlightEscalateReask: 'Re-ask',
+  inFlightEscalatePerson: 'Needs a person',
+  inFlightEscalationAll: 'Any escalation',
+  inFlightReadingStaleOnly: 'Stale reading only',
   // AW-15: the decision basis; the server says unknown when the column is missing
   inFlightDecidedRole: 'Decided role',
   inFlightPolicyRevision: 'Policy revision',
