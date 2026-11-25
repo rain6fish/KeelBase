@@ -1,0 +1,69 @@
+{
+  "entries": [
+    {
+      "sha": "712e91e4",
+      "kind": "user-visible",
+      "text": "Highlights 1 — Every target-status lookup now records a basis"
+    },
+    {
+      "sha": "4920b943",
+      "kind": "user-visible",
+      "text": "Highlights 3 — A target-driven release writes its own claim_release decision row"
+    },
+    {
+      "sha": "4b15b702",
+      "kind": "user-visible",
+      "text": "Highlights 2 — The lookup history states what it could not have seen"
+    },
+    {
+      "sha": "c060ecf5",
+      "kind": "user-visible",
+      "text": "Highlights 4 — /audit/logs exposes the readings as releaseLookups"
+    },
+    {
+      "sha": "165c71e5",
+      "kind": "user-visible",
+      "text": "Highlights 4 — A release row keeps the newest three readings off-chain (release_lookups)"
+    },
+    {
+      "sha": "5f846eff",
+      "kind": "user-visible",
+      "text": "Also 4 — A failed lookup read leaves the claim untouched, so a release decision never lands without its record"
+    },
+    {
+      "sha": "f2155c1e",
+      "kind": "user-visible",
+      "text": "Highlights 5 — The console renders reading position, gap and claim time"
+    },
+    {
+      "sha": "78909f26",
+      "kind": "user-visible",
+      "text": "Highlights 4 — A release row keeps the newest three readings off-chain"
+    },
+    {
+      "sha": "58a0f3a3",
+      "kind": "user-visible",
+      "text": "Highlights 5 — The console renders reading position, gap and claim time"
+    },
+    {
+      "sha": "528cee52",
+      "kind": "internal",
+      "reason": "Comment-only reorder of the plan call-site block to English-first; no behaviour change"
+    },
+    {
+      "sha": "251132b5",
+      "kind": "user-visible",
+      "text": "Also 3 — A renderer throw no longer turns a successful plan step into a failure"
+    },
+    {
+      "sha": "5303966a",
+      "kind": "internal",
+      "reason": "Comment-only reorder of four bilingual blocks to English-first; no behaviour change"
+    },
+    {
+      "sha": "5f2ea617",
+      "kind": "user-visible",
+      "text": "Also 3 — The no-renderer plan fallback honours the 4,000-character tool-result budget"
+    }
+  ]
+}
