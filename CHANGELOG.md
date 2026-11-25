@@ -155,6 +155,12 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
   `askable` (`true` / `false` / `null` when the writing process cannot tell), so "asked N times",
   "askable but never asked" and "not askable" are three countable cases rather than two.
 
+- **A claim's lookup history measures coverage from the current claim.** A retry re-claims the same
+  row and resets `claimedAt`, so a reading older than that belongs to the previous attempt; the
+  coverage statement used to clamp the resulting negative interval to zero and call the stretch
+  observed. The window now starts at `claimedAt`, and those earlier readings are counted as
+  `readingsBeforeClaim` while staying in the history as evidence.
+
 ### 新增
 
 - **目标状态查询成对呈现，不再是一条孤立答案。** 每条读数带上按时间排的序位与到上一次询问的间隔，
@@ -268,6 +274,10 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
   `lookups: none (not askable — this tool has no usable status query)`；链外列以 `askable` 取
   `true` / `false` / 写入进程判断不了时的 `null` 承载同一区分，于是「问过 N 次」「可问但没问」
   「问不了」是三态、可计数，而不是两态。
+
+- **占位的查询历史以本次占位为覆盖起点。** 重试会重占位同一行并重置 `claimedAt`，早于它的读数属于
+  上一次尝试；覆盖声明原先会把由此产生的负间隔夹到 0，把这段说成已观测。现在窗口从 `claimedAt` 起算，
+  那些更早的读数计入 `readingsBeforeClaim`，同时仍作为证据留在历史里。
 
 ## [1.4.2] - 2026-11-17
 

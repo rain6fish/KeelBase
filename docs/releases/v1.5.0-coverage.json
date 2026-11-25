@@ -86,6 +86,11 @@
       "text": "Also 7 — A release with no asks behind it says which kind of none it is"
     },
     {
+      "sha": "ebb31a779b94",
+      "kind": "user-visible",
+      "text": "Also 8 — A claim's lookup history measures coverage from the current claim"
+    },
+    {
       "sha": "79d86cbd",
       "kind": "internal",
       "reason": "Version bump only: release-line manifests, lockfiles and the Flutter display constant; no product behaviour change"
