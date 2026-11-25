@@ -164,12 +164,15 @@ export class AiAuditLog {
 
   /**
    * F-85b: the query evidence behind a release decision, as JSON
-   * (`{count, items:[{at, conclusion, reason, lookedUpBy}]}`) — so "asked twice, both said not there"
-   * is answerable without parsing `detail`. Off-chain, same stance as `toolArgs`: putting it in the
-   * payload would recompute every historical v2 row's hash. Absent on rows that are not releases.
+   * (`{count, askable, items:[{id, at, conclusion, reason, lookedUpBy}]}`) — so "asked twice, both said
+   * not there" is answerable without parsing `detail`. Each item names its source row by `id` (R-3
+   * follow-up), so the copy resolves back to what it copied. Off-chain, same stance as `toolArgs`:
+   * putting it in the payload would recompute every historical v2 row's hash. Absent on rows that are
+   * not releases.
    *
-   * F-85b：释放决定背后的查询证据，JSON 形态（`{count, items:[…]}`）—— 于是「问过两次、两次都说
-   * 没执行」不必解析 `detail` 就答得出。链外，与 `toolArgs` 同一立场；不是释放行时为空。
+   * F-85b：释放决定背后的查询证据，JSON 形态（`{count, askable, items:[{id, at, conclusion, reason, lookedUpBy}]}`）
+   * —— 于是「问过两次、两次都说没执行」不必解析 `detail` 就答得出。每项以 `id` 点名它的源行（R-3 后续），
+   * 故拷贝点得回它复制的东西。链外，与 `toolArgs` 同一立场；不是释放行时为空。
    */
   @Column({ type: 'text', nullable: true, name: 'release_lookups' })
   releaseLookups?: string;

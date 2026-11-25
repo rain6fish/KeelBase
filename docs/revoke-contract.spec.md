@@ -580,7 +580,7 @@ optional external reference. The claim moves to `closed_unknown`; `status` delib
 "confirmed not stored". The key stays occupied, so the same call is refused by `claimWrite` and is
 never silently retried. The act itself is one chained AI-audit row (`action=claim_release`), carrying
 the note and reference and **no** outcome word. That row also states **what the asking said**: the
-count and the newest three readings (`at`, `conclusion`, `reason`, `lookedUpBy`), newest first,
+count and the newest three readings (`id`, `at`, `conclusion`, `reason`, `lookedUpBy`), newest first,
 written `lookups: N asked, newest first (k of N)` when there are more than three. A release with no
 asks behind it says so outright rather than leaving a blank that would read as a default — and it
 says **which kind of none**: `lookups: none (never queried)` when the tool has a usable status query
@@ -588,6 +588,19 @@ that nobody used, `lookups: none (not askable — this tool has no usable status
 no channel to ask through at all. The off-chain column carries the same distinction as `askable`
 (`true` / `false` / `null` when the writing process cannot tell), so "asked N times", "askable but
 never asked" and "not askable" are three countable cases rather than two.
+
+**The copy points back at what it copied.** Each copied reading carries the reading row's own `id`
+(`ai_target_status_lookups.id`) alongside the observed values, so a decision row resolves back to the
+rows it names instead of restating them with no way home — a review-time query would answer what the
+readings say *now*, not what the decider saw (F-121, F-123, F-124). The copy is partial (the count
+plus the newest three) and holds only observed fields; a write-time test pins every copied entry equal
+to the row it names and forbids a derived value in the copy (F-125). Because the copy is a boundary
+rather than the set, the newest copied id is the **watermark**: any larger id was written after the
+decision (F-127). The count and the newest three are read in **one statement** — a `COUNT(*) OVER ()`
+window with a `LIMIT` — because two reads let a concurrent automatic ask land between them and leave
+the row disagreeing with itself by one. This holds only while the lookup table **only ever gains
+rows** — one insert path, no update, delete or retention path (F-126). If pruning is ever added, the
+rows an audit row names must be retained, or the copied id dangles.
 
 An hourly sweep moves overdue `open` holds to `awaiting_decision`. It changes no status and writes no
 conclusion, so a slow external call can still settle; a sweep that released rows would take that
@@ -662,12 +675,21 @@ reading and never moves the row — while freshness only filters and badges.
 带书面说明（可选外部引用）释放。占位转为 `closed_unknown`，而 `status` **有意**保持 `claimed` —— 没有任何
 东西证明这次写是否落库，写成 `released` 等于断言「确认未落库」。键仍被占住，故同一次调用会被 `claimWrite`
 拒绝，绝不会被静默重试。动作本身是一条带链 AI 审计行（`action=claim_release`），带说明与引用，**不**带
-任何结局词。该行同时陈述**询问说了什么**：次数与最近三次读数（`at`、`conclusion`、`reason`、
+任何结局词。该行同时陈述**询问说了什么**：次数与最近三次读数（`id`、`at`、`conclusion`、`reason`、
 `lookedUpBy`），最近的在前，超过三条时写作 `lookups: N asked, newest first (k of N)`。一次都没问过的
 释放会明写出来，而不是留空让人当默认值 —— 并且写明是**哪一种「没有」**：工具有可用的状态查询却没人
 用过，写作 `lookups: none (never queried)`；根本没有可问的通道，写作 `lookups: none (not askable —
 this tool has no usable status query)`。链外列以 `askable` 承载同一区分（`true` / `false` / 写入进程
 判断不了时的 `null`），于是「问过 N 次」「可问但没问」「问不了」是三态、可计数，而不是两态。
+
+**拷贝点得回它复制的东西。** 每条被复制的读数在观测值旁带上读数行自己的 `id`
+（`ai_target_status_lookups.id`），于是决定行能解析回它点名的那些行，而不是复述了值却回不去 ——
+审阅时现查答的是读数**现在**说什么，不是裁决者当时看到的（F-121、F-123、F-124）。拷贝本就不全
+（总数加最近三条），只装观测到的字段；写时测试钉住每条拷贝等于它点名的那一行，并禁止拷贝里出现
+派生值（F-125）。正因拷贝是边界而非全集，最新的拷贝 id 就是**水位**：更大的 id 都写在此决定之后
+（F-127）。次数与最近三条用**一条语句**读出 —— `COUNT(*) OVER ()` 窗口配 `LIMIT` —— 因为两次读会让
+并发的自动询问落进缝里，使行与自己差一。这一性质只在读数表**仅追加**时成立：一条插入路径，没有
+update / delete / 保留期（F-126）。若日后加了保留期，审计行点名的行必须保留，否则拷贝的 id 悬空。
 
 每小时清扫把到期的 `open` 占位移入 `awaiting_decision`：不改状态、不写结论，故慢的外部调用仍能落定 ——
 若清扫把行改成 `released`，那份能力就没了。读永远不改状态：`stale` 仍是年龄读数，不是决定。
