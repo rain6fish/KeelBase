@@ -592,6 +592,9 @@ const LOOKUP_REASON_KEYS: Record<string, string> = {
   timeout: 'lookupReasonTimeout',
   unreachable: 'lookupReasonUnreachable',
   call_failed: 'lookupReasonCallFailed',
+  // F-122: the target refused to show the record — a deliberate "no", distinct from a broken target.
+  // F-122：目标拒绝展示这条记录 —— 有意的「不给看」，与「目标坏了」不同。
+  not_permitted: 'lookupReasonNotPermitted',
   non_2xx: 'lookupReasonNon2xx',
   unrecognized_answer: 'lookupReasonUnrecognized',
 }

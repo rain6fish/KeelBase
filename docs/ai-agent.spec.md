@@ -432,7 +432,7 @@ Semantics: a target that honours the header treats two requests carrying the sam
 - only `GET` is sent; any other method is refused as misconfigured and **nothing is transmitted**, so a status query can never become a second write;
 - it is sent **once**, never retried;
 - it carries the **writer's** delegation identity, not the administrator's, because the target authorises reading that user's record;
-- it concludes `executed` or `not_executed` **only** when the target answers `{"status":"executed"|"not_executed"}`; a timeout, an unreachable target, a non-2xx answer, an unrecognised body, or no query channel at all all conclude `unknown`.
+- it concludes `executed` or `not_executed` **only** when the target answers `{"status":"executed"|"not_executed"}`; a timeout, an unreachable target, a non-2xx answer, an unrecognised body, or no query channel at all all conclude `unknown`. Within `unknown`, a **401/403 is recorded with its own cause `not_permitted`** (F-122): the target deliberately refused to show the record, which is a different fact from "the target is broken" — a reader branches on the cause field instead of parsing prose.
 
 A real answer converges the ledger (`executed` → `settled`, `not_executed` → `released`, which re-opens retry because the target itself said nothing ran). Every attempt is recorded as evidence — when, by which query, with which conclusion — so "never asked" and "asked, got no answer" are different readings. `POST /api/v1/ai/tool-effects/claims/:id/reconcile` performs one lookup for a stale claim (administrators only; a claim still inside the staleness threshold is refused as `not_stale`, since it may be running).
 
@@ -457,7 +457,7 @@ KeelBase 代工具对**外部目标**执行写时，请求**携带** `Idempotenc
 - **只发 `GET`**；配成别的方法一律按 misconfigured 拒绝、**一个字节都不发**，故状态查询不可能变成第二次写；
 - **只发一次**，不重试；
 - 携带**写入者**的委托身份，不是管理员的 —— 目标按那个用户的权限放行读；
-- 只有目标答 `{"status":"executed"|"not_executed"}` 时才判 `executed` / `not_executed`；超时、不可达、非 2xx、认不出的响应体、乃至根本没有查询通道，结论都是 `unknown`。
+- 只有目标答 `{"status":"executed"|"not_executed"}` 时才判 `executed` / `not_executed`；超时、不可达、非 2xx、认不出的响应体、乃至根本没有查询通道，结论都是 `unknown`。在 `unknown` 之内，**401/403 自成一个成因 `not_permitted`**（F-122）：目标是**有意拒绝展示**这条记录，这与「目标坏了」是两件事 —— 读者按成因字段分流，不必去读哪句散文是哪一句。
 
 真答案会让账收敛（`executed` → `settled`，`not_executed` → `released`，后者重开重试之门，因为是目标自己说没跑）。每次尝试都留下证据 —— 何时、按哪个查询、结论是什么 —— 于是「从没问过」与「问了没答案」是两个读数。`POST /api/v1/ai/tool-effects/claims/:id/reconcile` 对一条陈旧占位执行一次查询（仅管理员；仍在陈旧阈值内的占位按 `not_stale` 拒绝，因为它可能正在跑）。
 

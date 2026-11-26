@@ -9,9 +9,11 @@
  *
  * - **`GET` only.** A configured method other than `GET` is refused as `misconfigured` — never sent.
  * - **One request, no retry.** A retry would turn one query into traffic the target never agreed to.
- * - **Never `not_executed` on silence.** Timeout, unreachable, non-2xx, an unrecognised body — all
- *   conclude `unknown`. Reading silence as "it did not run" is the mistake this whole item exists to
- *   prevent; the only path to `not_executed` is the target saying so.
+ * - **Never `not_executed` on silence.** Timeout, unreachable, a non-2xx answer, an unrecognised body
+ *   — all conclude `unknown`. Within that, a **401/403 is its own cause** (`not_permitted`): the
+ *   target deliberately refused to show the record, which is a different fact from "it is broken"
+ *   (F-122). Reading silence as "it did not run" is the mistake this whole item exists to prevent;
+ *   the only path to `not_executed` is the target saying so.
  * - **The writer's identity.** The delegation token is signed for the user who issued the write, not
  *   for the administrator who triggered the reconciliation: the target authorizes reading that user's
  *   record, and an admin token would ask in a different scope (or be refused outright).
@@ -27,8 +29,10 @@
  *
  * - **只发 `GET`**。配了别的方法一律按 `misconfigured` 拒绝 —— **发都不发**。
  * - **一次请求、不重试**。重试等于把一次询问变成目标没答应过的流量。
- * - **沉默绝不判 `not_executed`**。超时、不可达、非 2xx、认不出的响应 —— 结论都是 `unknown`。把沉默
- *   读成「它没跑」正是本项要防的那个错；通向 `not_executed` 的唯一路径是目标**自己这么说**。
+ * - **沉默绝不判 `not_executed`**。超时、不可达、非 2xx、认不出的响应 —— 结论都是 `unknown`。其中
+ *   **401/403 自成一个成因**（`not_permitted`）：目标是**有意拒绝展示**这条记录，这与「目标坏了」是
+ *   两件事（F-122）。把沉默读成「它没跑」正是本项要防的那个错；通向 `not_executed` 的唯一路径是目标
+ *   **自己这么说**。
  * - **用写入者的身份**。委托 token 签给发起那次写的用户，而不是触发对账的管理员：目标按那个用户的
  *   权限放行读，管理员 token 问的是另一个范围（或被直接拒）。
  *
@@ -153,7 +157,12 @@ export class ProxyTargetStatusProbe implements TargetStatusProbe {
         tool.timeoutMs,
       );
       if (!res.ok) {
-        return { queriedAt, queryMethod: method, queryPath: path, conclusion: TARGET_STATUS.UNKNOWN, reason: 'non_2xx', basis: null };
+        // F-122: 401/403 is the target **refusing to show** the record — an intentional answer, not
+        // "the target is down". Everything else non-2xx keeps the broader `non_2xx`.
+        // F-122：401/403 是目标**拒绝展示** —— 有意为之的回答，不是「目标坏了」。其余非 2xx 仍归
+        // `non_2xx`。
+        const reason = res.status === 401 || res.status === 403 ? 'not_permitted' : 'non_2xx';
+        return { queriedAt, queryMethod: method, queryPath: path, conclusion: TARGET_STATUS.UNKNOWN, reason, basis: null };
       }
       const body = (await res.json().catch(() => null)) as { status?: unknown; basis?: unknown } | null;
       const status = body?.status;

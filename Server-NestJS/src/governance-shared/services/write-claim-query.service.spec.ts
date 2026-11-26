@@ -426,6 +426,25 @@ describe('AW-16 在途 claim 只读查询面', () => {
       expect(new Set(res?.items.map((l) => l.basis)).size).toBe(3);
     });
 
+    it('F-122：拒绝成因在读数行上自成一个值 —— 「不让看」与「坏了」无需解析散文即可区分', async () => {
+      const row = await claim({ idempotencyKey: 'refusal', toolName: 'proxy_send' });
+      const denied = await lookup('refusal', { conclusion: 'unknown', reason: 'not_permitted' });
+      const broken = await lookup('refusal', { conclusion: 'unknown', reason: 'non_2xx' });
+      await lookups().update(denied.id, { at: new Date('2026-11-01T00:00:00Z') });
+      await lookups().update(broken.id, { at: new Date('2026-11-02T00:00:00Z') });
+
+      const res = await service.lookupsFor(row.id, { userId: 1, role: UserRole.ADMIN });
+
+      // 两条都是 unknown，成因字段却给出两个不同的值 —— 这正是本项要的：读者按字段分流，
+      // 不必去读哪句散文是哪一句。
+      // Both are `unknown`, yet the cause field holds two distinct values — the reader can branch on
+      // the field instead of parsing prose.
+      expect(res?.items.map((l) => [l.conclusion, l.reason])).toEqual([
+        ['unknown', 'non_2xx'],
+        ['unknown', 'not_permitted'],
+      ]);
+    });
+
     it('F-85：两条读数能读成一对 —— 序位按时间、相邻给间隔、并给出「写 → 首问」', async () => {
       const row = await claim({
         idempotencyKey: 'pair',

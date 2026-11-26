@@ -389,10 +389,11 @@ describe('AiToolsView', () => {
         readingsBeforeClaim: 0,
         expectedFirstAskAfterMinutes: 60,
       },
-      total: 2,
+      total: 3,
       items: [
-        { id: 2, conclusion: 'executed', reason: null, basis: 'current_state', at: '2026-11-05T02:10:00Z', queryMethod: 'GET', queryPath: '/status/k', lookedUpBy: 'admin', asUserId: '7', seq: 2, intervalSeconds: 600 },
-        { id: 1, conclusion: 'not_executed', reason: null, basis: 'receipt', at: '2026-11-05T02:00:00Z', queryMethod: 'GET', queryPath: '/status/k', lookedUpBy: 'system:sweep', asUserId: '7', seq: 1, intervalSeconds: null },
+        { id: 3, conclusion: 'executed', reason: null, basis: 'current_state', at: '2026-11-05T02:20:00Z', queryMethod: 'GET', queryPath: '/status/k', lookedUpBy: 'admin', asUserId: '7', seq: 3, intervalSeconds: 600 },
+        { id: 2, conclusion: 'not_executed', reason: null, basis: 'receipt', at: '2026-11-05T02:10:00Z', queryMethod: 'GET', queryPath: '/status/k', lookedUpBy: 'admin', asUserId: '7', seq: 2, intervalSeconds: 600 },
+        { id: 1, conclusion: 'unknown', reason: 'not_permitted', basis: 'unknown', at: '2026-11-05T02:00:00Z', queryMethod: 'GET', queryPath: '/status/k', lookedUpBy: 'system:sweep', asUserId: '7', seq: 1, intervalSeconds: null },
       ],
     })
 
@@ -417,6 +418,9 @@ describe('AiToolsView', () => {
     expect(dialog).toContain('写 → 首问：')
     // 两次是自动清扫 + 人工，读者要能分辨
     expect(dialog).toContain('system:sweep')
+    // F-122：拒绝成因有自己的文案，不是原样漏出 `not_permitted`，也不与「非 2xx」共用一句。
+    expect(dialog).toContain('目标拒绝展示（401/403）')
+    expect(dialog).not.toContain('not_permitted')
     // R-2：声明直说首问之前那一小时没有观测，预期等待读自服务端给出的计划。
     expect(dialog).toContain('首问之前的 1h 完全没有观测')
     expect(dialog).toContain('计划在占位后 1h 才首次询问')
