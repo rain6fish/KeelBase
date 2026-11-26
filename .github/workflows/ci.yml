@@ -226,6 +226,26 @@ jobs:
   # 实体有表、却没有任何迁移建它。上面两个 `migration-consistency` job 确实会逮到，但它们要数据库，
   # 而且在**推送之后**才跑 —— `c81232a0` 那两个模块就是这样让 main 红了约十小时。这一道是静态的
   # （建了哪些表就在迁移的 SQL 里），因此也进得了 `npm run check:all`，那是**推送之前**看的那一眼。
+  # F-139: the snapshot job guards itself, but a careless edit can take the guard and the thing it
+  # guards together — both live in that job. This job reads the same file from a different job, so
+  # deleting either line (the flag, or the self-check step) fails here even when the postgres job is
+  # edited badly. Deleting this job as well is the same recursion one level up: a CI configuration
+  # cannot be its own last reviewer, and that residue is named rather than papered over.
+  #
+  # F-139：快照 job 自己守自己，但一次粗心编辑可以把守卫和它守的东西一起删掉 —— 两者在同一个 job 里。
+  # 这个 job 从**另一个 job** 读同一份文件，于是删掉任一行（开关或自检步骤）都会在这里红，哪怕 postgres job
+  # 被改坏。连这个 job 也删掉，是同一递归的上一层；CI 配置无法当自己的最后一位评审，这层残余照实写出来。
+  workflow-invariants:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: the snapshot lane keeps its flag and its self-check
+        run: |
+          set -eu
+          f=".github/workflows/ci.yml"
+          grep -q "PG_SNAPSHOT_REQUIRED: '1'" "$f" || { echo "::error::the snapshot flag is missing from $f"; exit 1; }
+          grep -q "the snapshot case must not skip" "$f" || { echo "::error::the snapshot self-check step is missing from $f"; exit 1; }
+
   entity-migrations:
     runs-on: ubuntu-latest
     steps:
