@@ -1,0 +1,83 @@
+# F-122 拒绝成因落地（2026-11-25）
+
+- worktree `wonderful-banach-252d61` / 分支 `claude/wonderful-banach-252d61`
+- 基于 `main` `379c385f`，未推送
+- 来源：2026-11-23 对外文章讨论（F-122，`whiteknightonhorse`）；私库台账与规划节已由派工会话登记，本次未改私库。
+
+## 改了什么
+
+**成因词表**
+- `Server-NestJS/src/governance-core/target-status.ts:62-70`：`TargetStatusLookupReason` 新增
+  `not_permitted`，并在 `non_2xx` 的注释上写明它现在只覆盖 401/403 以外的非 2xx。
+
+**探针分支**
+- `Server-NestJS/src/ai/proxy/target-status.ts:136-146`：`!res.ok` 分支按 `res.status` 分流 ——
+  `401` / `403` ⇒ `not_permitted`，其余非 2xx ⇒ `non_2xx`。结论仍是 `unknown`，`release` / `reconcile`
+  的行为一个字未动（成因只是「为什么没拿到答案」的分类，不是重试闸）。
+- 同文件头部注释（EN:13、ZH:33）补上「401/403 自成一个成因」。
+
+**读面**
+- 读面本来就是原样透出 `reason`（`write-claim-query.service.ts` 的 `projectLookup` / `lookupsFor`
+  与在途清单的 `lastLookup`；释放证据的 `releaseLookups` 亦然），本次不需要改代码，只补测试钉住。
+
+**控制台**
+- `Web-Admin-Vue/src/views/ai-tools/AiToolsView.vue:570-572`：`LOOKUP_REASON_KEYS` 加
+  `not_permitted: 'lookupReasonNotPermitted'`。
+- `Web-Admin-Vue/src/i18n/zh.ts:1239`：`目标拒绝展示（401/403）`；
+  `Web-Admin-Vue/src/i18n/en.ts:1242`：`Target refused to show it (401/403)`。
+
+**测试**
+- `Server-NestJS/src/ai/proxy/target-status.spec.ts:209-227`：401 与 403 ⇒ `not_permitted`；
+  404 与 500 ⇒ 仍是 `non_2xx`（不扩大细分）。
+- `Server-NestJS/src/governance-shared/services/write-claim-query.service.spec.ts:392-409`：
+  两条 `unknown` 读数在 `lookupsFor` 上给出 `non_2xx` 与 `not_permitted` 两个不同成因 ——
+  读者按字段分流，不必解析散文。
+- `Web-Admin-Vue/src/views/ai-tools/__tests__/AiToolsView.spec.ts:393,416-418`：历史对话框渲染
+  中文案而非原样漏出 `not_permitted`，且不与非 2xx 共用一句。
+
+**文档（对外可读取值域变了，按 §11.2 / §9 同步）**
+- `CLAUDE.md:858`（lookups 行，中英各一句）。
+- `docs/ai-agent.spec.md:435`（EN）/ `:460`（ZH）。
+- `docs/revoke-contract.spec.md:603`（EN）/ `:681`（ZH）。
+- `docs/manual/ai-bridge-en.md:106` / `docs/manual/ai-bridge.md:106`。
+
+## 为什么
+
+`unknown` 的成因是「我们为什么没拿到答案」。把 401/403 与 5xx 都记作 `non_2xx`，等于把
+「目标有意不让看」与「目标坏了」压成同一个值 —— 这正是审计系列一直在纠的那类塌缩。二者都仍是
+`unknown`（都没有告诉我们写有没有执行），但成因必须可区分。
+
+## 验收如何被满足
+
+- 401/403 ⇒ 新成因：由 `target-status.spec.ts` 两条码逐一断言。
+- 500 / 其他非 2xx ⇒ 仍是 `non_2xx`：同文件对 404/500 断言（原有 500 用例保留）。
+- 两种读数在读面上无需解析散文即可区分：`write-claim-query.service.spec.ts` 的字段级断言；
+  控制台另有文案级断言。
+- 未改 schema / 契约 / 重试行为：`reason` 是 `varchar(32)` 字符串列（`1847000000000-AddTargetStatusLookups.ts`），
+  代码里类型窄、库里只是字符串，无需迁移；契约行 `ai-audit-log-row` 不含该表。
+
+## 命令与读数
+
+- `npx jest src/ai/proxy/target-status.spec.ts src/governance-shared/services/write-claim-query.service.spec.ts`
+  ⇒ 2 套 / 48 例全绿。
+- `npx jest src/governance-shared src/governance-core src/ai/proxy`
+  ⇒ 49 套 / 650 例全绿（首次 6 套红是 worktree 未初始化 `specs/protocol` 子模块；
+  `git -c protocol.file.allow=always submodule update --init Server-NestJS/specs/protocol` 后复跑全绿）。
+- `npx tsc -p tsconfig.build.json --noEmit` ⇒ 0 错。
+- `Web-Admin-Vue`：`npm run typecheck` ⇒ 0 错；`npx vitest run src/views/ai-tools/__tests__/AiToolsView.spec.ts`
+  ⇒ 22/22。
+- `KEELBASE_JAVA_REPO=D:/Rain6fish/KeelBase4J npm run check:all` ⇒ **36/36 全过（71.3s）**。
+- `npx eslint`（后端四个改动文件 / 控制台四个改动文件）⇒ 0 error（控制台 14 条 warning 均为文件内既有）。
+
+> 环境说明：本 worktree 原本没有 `node_modules`，为跑测试对三个位置建了指向主检出依赖的目录联接
+> （根 / `Server-NestJS` / `Web-Admin-Vue`）。联接是未跟踪的本地产物，提交不含它。
+
+## 未做 / 风险
+
+- **既有读数不变**：历史行里已有的 `non_2xx` 原样保留，不回填、不改写 —— 它们是当时的事实，
+  只是不再产生新的同类值。导出/控制台对旧值仍有映射（`lookupReasonNon2xx`），无迁移问题。
+- **401 的语义**：401 也可能是委托 token 过期/不被接受，而非目标主动「不让看」；两者都仍是
+  「目标拒绝展示」这一上层事实（目标活着、有意地回答了拒绝），故归入同一成因。若日后需要区分
+  401 与 403，可在同一词表上再拆，当前 F-122 不要求。
+- **未动** `release` / `reconcile` 门槛、审计动作、schema、契约版本。
+- 控制台 React 预览版没有该读面，无需同步。

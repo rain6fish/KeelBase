@@ -13,9 +13,11 @@ import { ToolRegistry } from '../tools/tool-registry';
  * - a target that answers `executed` / `not_executed` produces that conclusion, and the request that
  *   got it was a single `GET` — the write is never re-sent (a `POST` status path or an unfilled
  *   placeholder sends **nothing at all**);
- * - every way of **not** getting an answer (no channel, timeout, unreachable, non-2xx, an unknown
- *   body) concludes `unknown`. If any of them concluded `not_executed`, "we could not ask" would be
- *   recorded as "it did not happen" — the exact misreading this item was raised to prevent.
+ * - every way of **not** getting an answer (no channel, timeout, unreachable, a non-2xx answer, an
+ *   unknown body) concludes `unknown`. If any of them concluded `not_executed`, "we could not ask"
+ *   would be recorded as "it did not happen" — the exact misreading this item was raised to prevent;
+ *   and within `unknown`, **401/403 has its own cause** (`not_permitted`, F-122): "the target said
+ *   no" and "the target broke" must not read as the same value.
  *
  * AW-17：只读目标状态探针。
  *
@@ -24,7 +26,9 @@ import { ToolRegistry } from '../tools/tool-registry';
  * - 目标答 `executed` / `not_executed` ⇒ 结论就是它，且拿到它的那次请求是**一次 `GET`** —— 写绝不重发
  *   （配成 `POST` 状态路径、或占位没填完，都**一个字节都不发**）；
  * - 每一种**拿不到**答案的情形（没有通道、超时、不可达、非 2xx、认不出的响应）结论都是 `unknown`。
- *   若有任何一种结论成 `not_executed`，「问不到」就会被记成「没发生」—— 正是本项要防的那个误读。
+ *   若有任何一种结论成 `not_executed`，「问不到」就会被记成「没发生」—— 正是本项要防的那个误读；
+ *   且在 `unknown` 之内，**401/403 自成一个成因**（`not_permitted`，F-122）：「目标说不给看」与
+ *   「目标坏了」不得读成同一个值。
  */
 const base = 'http://localhost:4000/api';
 const audience = 'legacy-erp';
@@ -232,6 +236,34 @@ describe('AW-17 目标状态查询（只读，一次）', () => {
       expect(r.reason).toBe('unreachable');
     } finally {
       global.fetch = orig;
+    }
+  });
+
+  it('F-122：401 / 403 ⇒ unknown（not_permitted）：拒绝展示不是不可达，也不是「坏了」', async () => {
+    for (const status of [401, 403]) {
+      const probe = probeFor(writeTool({ statusPath: 'GET /contracts/status/{key}' }));
+      const f = stubFetch(async () => answer({ error: 'denied' }, status));
+      try {
+        const r = await probe.lookup('proxy_create_contract', 'key-1', 'u1');
+        expect(r.conclusion).toBe('unknown');
+        expect(r.reason).toBe('not_permitted');
+      } finally {
+        f.restore();
+      }
+    }
+  });
+
+  it('F-122：401/403 以外（404 / 500）仍归 non_2xx，不扩大细分', async () => {
+    for (const status of [404, 500]) {
+      const probe = probeFor(writeTool({ statusPath: 'GET /contracts/status/{key}' }));
+      const f = stubFetch(async () => answer({ error: 'boom' }, status));
+      try {
+        const r = await probe.lookup('proxy_create_contract', 'key-1', 'u1');
+        expect(r.conclusion).toBe('unknown');
+        expect(r.reason).toBe('non_2xx');
+      } finally {
+        f.restore();
+      }
     }
   });
 

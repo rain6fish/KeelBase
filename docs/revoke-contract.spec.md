@@ -614,7 +614,8 @@ reconcile one stale claim with `POST /ai/tool-effects/claims/:id/reconcile`. The
 only**, once, never retried, carrying the original writer's delegation identity. Only a target answer
 of `{"status":"executed"|"not_executed"}` converges the ledger (`executed` → `settled`,
 `not_executed` → `released`); everything else — timeout, unreachable, non-2xx, an unrecognised body,
-no channel at all — concludes `unknown` and leaves the ledger `claimed`. Each attempt is stored as
+no channel at all — concludes `unknown` and leaves the ledger `claimed`. A **401/403** carries its own
+cause (`not_permitted`): a deliberate refusal is not "unreachable" (F-122). Each attempt is stored as
 evidence. A hold a person already released is **not** reconcilable: the release recorded that the
 truth is unknown, and a later query must not overwrite that decision.
 
@@ -709,6 +710,7 @@ update / delete / 保留期（F-126）。若日后加了保留期，审计行点
 做一次对账。查询**只发 GET**、只发一次、不重试，并携带原写入者的委托身份。只有目标答
 `{"status":"executed"|"not_executed"}` 才让账收敛（`executed` → `settled`，`not_executed` → `released`）；
 其余一切 —— 超时、不可达、非 2xx、认不出的响应体、乃至根本没有通道 —— 都判 `unknown`，账保持 `claimed`。
+其中 **401/403 自成一个成因**（`not_permitted`）：有意的拒绝不是「不可达」（F-122）。
 每次尝试都留下证据。**人已释放的占位不再可对账**：那次释放记录的正是「真相未知」，后来的查询不得覆盖那份决定。
 
 **目标回答引起的释放留下的是一份决定，不只是一个被移过的账。** 答案为 `not_executed` 时账转为 `released`，

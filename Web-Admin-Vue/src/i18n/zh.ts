@@ -1243,6 +1243,7 @@ const zh = {
   lookupReasonTimeout: '超时',
   lookupReasonUnreachable: '不可达',
   lookupReasonCallFailed: '调用失败',
+  lookupReasonNotPermitted: '目标拒绝展示（401/403）',
   lookupReasonNon2xx: '非 2xx 响应',
   lookupReasonUnrecognized: '响应无法识别',
   reconcileDoneExecuted: '目标说已执行 —— 该占位已落定',

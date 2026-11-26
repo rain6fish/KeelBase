@@ -101,7 +101,16 @@ export type TargetStatusLookupReason =
   | 'unreachable'
   /** The call failed after the request may have gone out, so the query's own fate is unknown. / 调用失败。 */
   | 'call_failed'
-  /** The target answered with a non-2xx status. / 目标回了非 2xx。 */
+  /**
+   * The target answered 401/403: it **refused to show** the record (F-122). A deliberate refusal is
+   * its own fact — folding it into `non_2xx` would make "not permitted to look" and "the target is
+   * broken" the same reading.
+   *
+   * 目标回了 401/403：它**拒绝展示**这条记录（F-122）。有意的拒绝自成一件事 —— 并进 `non_2xx`
+   * 会让「不让看」与「坏了」读成同一个值。
+   */
+  | 'not_permitted'
+  /** The target answered with a non-2xx status other than 401/403. / 目标回了 401/403 以外的非 2xx。 */
   | 'non_2xx'
   /** The target answered, but not in a shape this vocabulary recognises. / 答了，但认不出。 */
   | 'unrecognized_answer';

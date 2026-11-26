@@ -1247,6 +1247,7 @@ const en: ZhDict = {
   lookupReasonTimeout: 'Timed out',
   lookupReasonUnreachable: 'Unreachable',
   lookupReasonCallFailed: 'Call failed',
+  lookupReasonNotPermitted: 'Target refused to show it (401/403)',
   lookupReasonNon2xx: 'Non-2xx response',
   lookupReasonUnrecognized: 'Unrecognised answer',
   reconcileDoneExecuted: 'Target says executed — the claim is settled',
