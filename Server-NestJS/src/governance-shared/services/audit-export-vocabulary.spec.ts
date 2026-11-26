@@ -59,6 +59,16 @@ describe('audit export vocabulary', () => {
     expect(productActionLabel(null, 'brand_new_action')).toBe('AI action');
   });
 
+  it('a decision or undo row says what happened, not which tool it was about', () => {
+    // The row carries `tool` for filtering; the Action cell answers "what happened". A release is
+    // not a `create_event`, and an undo is not the thing it undid.
+    // 行带 `tool` 是为筛选；动作列回答的是「发生了什么」。释放不是一次 `create_event`，撤销也不是
+    // 它所撤销的那件事。
+    expect(productActionLabel('create_event', 'claim_release')).toBe('Write-hold release');
+    expect(productActionLabel('create_event', 'effect_revoke')).toBe('Undo of an AI write');
+    expect(productActionLabel('create_event', 'audit_review')).toBe('Audit review receipt');
+  });
+
   it('every explanation state has a product word', () => {
     for (const state of EXPLANATION_STATES) {
       const word = productResultLabel(state);

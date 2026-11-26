@@ -147,3 +147,24 @@ export function explainState(input: ExplanationStateInput): ExplanationState {
   if (input.isError) return 'failed';
   return 'executed';
 }
+
+/**
+ * `claim_release` is a **decision row**, not a tool execution. The frozen vocabulary defines no
+ * outcome for it (the column is deliberately absent), and reading that absence as `executed` is how
+ * a refused release came to be exported as "Executed". A refusal — the only wording `_refusalDetail`
+ * writes — is `rejected`; every other release row stays `result_unknown`, because a release records
+ * that handling stopped, not that the write happened. Returns `null` for every other action, so
+ * callers keep the one shared derivation above.
+ *
+ * `claim_release` 是**决定行**，不是工具执行。冻结词表没有为它定义 outcome（该列有意缺席），而把
+ * 缺席读成 `executed`，正是一次被拒的释放被导出成「Executed」的来路。拒绝行（`_refusalDetail` 写
+ * 的唯一措辞）记 `rejected`；其余释放行停在 `result_unknown` —— 释放只说明处理结束了，不说明写
+ * 发生过。其他动作一律返回 `null`，调用方继续走上面那条唯一共享推导。
+ */
+export function releaseRowState(row: {
+  action?: string | null;
+  detail?: string | null;
+}): ExplanationState | null {
+  if (row.action !== 'claim_release') return null;
+  return (row.detail ?? '').startsWith('release refused') ? 'rejected' : 'result_unknown';
+}

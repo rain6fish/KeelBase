@@ -825,14 +825,17 @@ describe('AuditEvidenceService.getInterpretation（P0-20 单事件解释面）',
        * 同一会话中紧随锚点行之后的额外行。
        */
       convRows?: any[];
+      /** Override the anchor row's action and detail (e.g. a `claim_release` decision row). */
+      action?: string;
+      detail?: string;
     } = {},
   ) {
     const auditRow = row({
       id: 7,
       userId: opts.rowUserId ?? 'u1',
       username: 'alex',
-      action: 'tool_call',
-      detail: 'create_task({"title":"跟进"})',
+      action: opts.action ?? 'tool_call',
+      detail: opts.detail ?? 'create_task({"title":"跟进"})',
       isError: false,
       authorization: null,
       conversationId: opts.conversationId === undefined ? 'c1' : opts.conversationId,
@@ -881,6 +884,23 @@ describe('AuditEvidenceService.getInterpretation（P0-20 单事件解释面）',
     );
     return { service, operationAudit, logRepo };
   }
+
+  it('释放行是决定，不是执行：释放 ⇒ result_unknown，拒绝 ⇒ rejected', async () => {
+    // The row carries no `outcome` by design; the interpretation must not turn that absence into
+    // "Executed", and a refused release must not read as an executed tool call.
+    // 该行有意不带 `outcome`；解释面不得把缺席变成「Executed」，被拒的释放也不得读成执行过的工具调用。
+    const released = build({
+      action: 'claim_release',
+      detail: 'released write claim #7; effect stays unknown',
+    });
+    expect((await released.service.getInterpretation(7)).state).toBe('result_unknown');
+
+    const refused = build({
+      action: 'claim_release',
+      detail: 'release refused (stale_view): screens said open',
+    });
+    expect((await refused.service.getInterpretation(7)).state).toBe('rejected');
+  });
 
   it('无会话的审计行 ⇒ conversation 为空数组，且不去读「空谓词」的整表', async () => {
     // A row with no conversation used to query with an empty `where`, which means every audit row —

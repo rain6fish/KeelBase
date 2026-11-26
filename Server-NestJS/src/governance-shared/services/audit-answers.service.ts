@@ -13,7 +13,7 @@ import {
   type AiAuditLogWithUser,
   type AuditReaderContext,
 } from './audit-query.service';
-import { explainState } from './audit-explanation-state';
+import { explainState, releaseRowState } from './audit-explanation-state';
 import {
   ANSWER_HEADERS,
   productActionLabel,
@@ -249,13 +249,18 @@ export class AuditAnswersService {
         ? evidence.confirmations.get(claim.authorizationRef)
         : undefined;
 
-    const state = explainState({
-      outcome: row.outcome,
-      isError: row.isError,
-      confirmationStatus: confirmation?.status ?? null,
-      revokeStatus: effect?.revokeStatus ?? null,
-      revokeWindow: effect ? revokeWindow(effect.revokeStatus, effect.revokeAcknowledgedAt) : null,
-    });
+    // A release row records a decision, not a tool outcome — `releaseRowState` answers for it and
+    // everything else keeps the one shared derivation.
+    // 释放行记录的是决定、不是工具结局 —— 由 `releaseRowState` 作答，其余动作仍走那条唯一共享推导。
+    const state =
+      releaseRowState(row) ??
+      explainState({
+        outcome: row.outcome,
+        isError: row.isError,
+        confirmationStatus: confirmation?.status ?? null,
+        revokeStatus: effect?.revokeStatus ?? null,
+        revokeWindow: effect ? revokeWindow(effect.revokeStatus, effect.revokeAcknowledgedAt) : null,
+      });
 
     const authorizationShape = parseAuthorizationShape(row.authorization);
 

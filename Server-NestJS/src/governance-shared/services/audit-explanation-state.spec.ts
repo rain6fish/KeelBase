@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { EXPLANATION_STATES, explainState } from './audit-explanation-state';
+import { EXPLANATION_STATES, explainState, releaseRowState } from './audit-explanation-state';
 
 /**
  * The cases below pin two things the derivation could get wrong quietly.
@@ -118,5 +118,20 @@ describe('explainState（单事件解释面的那一个状态）', () => {
     // 词表里没有 witness 覆盖不到的成员（反之亦然）—— 两处一起改，漏一处即红。
     // Nothing in the list lacks a witness, and nothing witnessed is outside the list.
     expect([...EXPLANATION_STATES].sort()).toEqual(Object.keys(witness).sort());
+  });
+
+  it('释放行是决定，不是执行：拒绝记 rejected，其余停在 result_unknown', () => {
+    // `claim_release` carries no outcome by design; reading that absence as `executed` is how a
+    // refused release was exported as "Executed".
+    // `claim_release` 有意不带 outcome；把缺席读成 `executed`，正是被拒的释放被导出成「Executed」的来路。
+    expect(
+      releaseRowState({ action: 'claim_release', detail: 'release refused (stale_view): screens said open' }),
+    ).toBe('rejected');
+    expect(
+      releaseRowState({ action: 'claim_release', detail: 'released write claim #7; effect stays unknown' }),
+    ).toBe('result_unknown');
+    // Every other action keeps the shared derivation.
+    // 其他动作继续走共享推导。
+    expect(releaseRowState({ action: 'tool_call', detail: 'create_event({})' })).toBeNull();
   });
 });

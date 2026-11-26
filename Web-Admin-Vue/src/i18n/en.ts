@@ -1092,6 +1092,10 @@ const en: ZhDict = {
     knowledge: 'Knowledge',
     delegate: 'Sub-agent',
     login: 'Login',
+    // A release row and an undo row are decisions/compensations, not the tool they name.
+    // 释放行与撤销行是决定/补偿，不是它们点名的那个工具。
+    claim_release: 'Release write claim',
+    effect_revoke: 'Effect revoke',
   },
 
   // Trash

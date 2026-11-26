@@ -1091,6 +1091,10 @@ const zh = {
     knowledge: '知识库',
     delegate: '子代理',
     login: '登录',
+    // A release row and an undo row are decisions/compensations, not the tool they name.
+    // 释放行与撤销行是决定/补偿，不是它们点名的那个工具。
+    claim_release: '释放写占位',
+    effect_revoke: '撤销副作用',
   },
 
   // 回收站

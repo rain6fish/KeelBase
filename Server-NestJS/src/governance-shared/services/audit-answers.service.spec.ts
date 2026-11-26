@@ -85,6 +85,35 @@ describe('AuditAnswersService', () => {
     expect(scanForInternalNames(matrix.rows.flat())).toEqual([]);
   });
 
+  it('a claim_release row is a decision, not "Create event / Executed"', async () => {
+    // The row carries the hold's tool for filtering; the export must still say a release happened.
+    // A refused release must not read as an executed `create_event`.
+    // 行带占位的工具名是为筛选；导出仍须说「一次释放发生了」。被拒的释放不得读成一次执行过的
+    // `create_event`。
+    const { service } = build([
+      {
+        id: 31,
+        action: 'claim_release',
+        tool: 'create_event',
+        outcome: null,
+        detail: 'released write claim #7; effect stays unknown',
+      },
+      {
+        id: 32,
+        action: 'claim_release',
+        tool: 'create_event',
+        outcome: null,
+        detail: 'release refused (stale_view): screens said open',
+      },
+    ]);
+    const matrix = await service.export({ limit: 500 }, undefined, reader);
+
+    expect(matrix.rows[0][1]).toBe('Write-hold release');
+    expect(matrix.rows[0][2]).toBe('Result unknown');
+    expect(matrix.rows[1][1]).toBe('Write-hold release');
+    expect(matrix.rows[1][2]).toBe('Rejected');
+  });
+
   it('reads a zone-less database instant as UTC, not as the machine’s local time', async () => {
     // SQLite hands back TypeORM's UTC wall clock without a zone. Parsing it as local is how an
     // export ends up eight hours off on a +08 machine.
