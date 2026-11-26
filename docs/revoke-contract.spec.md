@@ -583,7 +583,10 @@ the note and reference and **no** outcome word. That row also states **what the 
 count and the newest three readings (`id`, `at`, `conclusion`, `reason`, `basis`, `lookedUpBy`), newest
 first, written `lookups: N asked, newest first (k of N)` when there are more than three. `basis`
 (R-1) is `current_state` | `receipt` | `unknown` and says what the answer was based on — a
-current-state reading cannot establish "never accepted". A release with no asks behind it says so
+current-state reading cannot establish "never accepted". Both kinds are answers this repository's own
+reference target gives over the wire: an end-to-end case carries a `receipt` reading from the probe
+through the stored row into this column, the lookup history and the in-flight `lastLookup`, and keeps
+`current_state` a different value on all three (F-128). A release with no asks behind it says so
 outright rather than leaving a blank that would read as a default — and it says **which kind of
 none**: `lookups: none (never queried)` when the tool has a usable status query that nobody used,
 `lookups: none (not askable — this tool has no usable status query)` when there is no channel to ask
@@ -686,7 +689,9 @@ reading and never moves the row — while freshness only filters and badges.
 任何结局词。该行同时陈述**询问说了什么**：次数与最近三次读数（`id`、`at`、`conclusion`、`reason`、
 `basis`、`lookedUpBy`），最近的在前，超过三条时写作 `lookups: N asked, newest first (k of N)`。
 `basis`（R-1）取 `current_state` | `receipt` | `unknown`，说的是答案**基于什么** —— 当前状态读数
-确立不了「从未被接受」。一次都没问过的释放会明写出来，而不是留空让人当默认值 —— 并且写明是
+确立不了「从未被接受」。两种种类都是本仓参考目标真的从线上给出的答案：一条端到端用例把 `receipt`
+读数从探针经落库的行带进这一列、查询历史与在途清单的 `lastLookup`，并让 `current_state` 在三处都保持
+另一个取值（F-128）。一次都没问过的释放会明写出来，而不是留空让人当默认值 —— 并且写明是
 **哪一种「没有」**：工具有可用的状态查询却没人用过，写作 `lookups: none (never queried)`；根本没有
 可问的通道，写作 `lookups: none (not askable — this tool has no usable status query)`。链外列以
 `askable` 承载同一区分（`true` / `false` / 写入进程判断不了时的 `null`），于是「问过 N 次」「可问但

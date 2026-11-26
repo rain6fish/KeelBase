@@ -3,7 +3,8 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { createServer, Server } from 'http';
-import { createTestApp, registerUser, authHeader } from './helpers';
+import { DataSource } from 'typeorm';
+import { createTestApp, registerUser, loginAs, authHeader } from './helpers';
 import { ProxyTool } from '../src/ai/proxy/proxy-tool';
 import { ProxyToolRegistryService } from '../src/ai/proxy/proxy-tool.service';
 import { ToolRegistry } from '../src/ai/tools/tool-registry';
@@ -11,6 +12,12 @@ import { SettingsService } from '../src/settings/settings.service';
 import { AiService } from '../src/ai/ai.service';
 import { ToolExecutionService } from '../src/ai/tools/tool-execution.service';
 import { DelegationTokenService } from '../src/auth/delegation-token.service';
+import { AiWriteClaim } from '../src/governance-shared/entities/ai-write-claim.entity';
+import { AiToolSideEffect } from '../src/governance-shared/entities/ai-tool-side-effect.entity';
+import { AiAuditLog } from '../src/governance-shared/entities/ai-audit-log.entity';
+import { TargetStatusLookupRow } from '../src/governance-shared/entities/target-status-lookup.entity';
+import { WriteClaimStore } from '../src/governance-shared/services/write-claim.store';
+import { buildKey } from '../src/governance-shared/services/effect-shared';
 
 /**
  * AI Bridge B 路径（§4）：ProxyTool → 模拟 Java 系统端到端验收。
@@ -25,9 +32,22 @@ describe('AI Bridge B 路径：ProxyTool × 模拟 Java 系统', () => {
   let app: INestApplication;
   let server: Server;
   let base: string;
+  let ds: DataSource;
   let delegation: DelegationTokenService;
   let userAId: string;
   let userAToken: string;
+  let adminId: number;
+  let adminToken: string;
+
+  /**
+   * F-128: what the target answers to a status query, keyed by the write's action key. A key that was
+   * never seeded answers `unknown` — carrying no basis, so a wiring mistake reads as "the target did
+   * not answer" rather than as a fabricated receipt. Cleared before every case.
+   *
+   * F-128：目标对状态查询的回答，按写的 action key 索引。没种过的键答 `unknown` —— 不带种类，故接线
+   * 错了会表现为「目标没有回答」而不是伪造一张收据。每个用例前清空。
+   */
+  const targetStatus = new Map<string, { status: string; basis?: string }>();
 
   /** 等真实 app 的 proxyRegistry 热更新（SettingsService.onChange → reload）把工具注册进 registry */
   async function waitUntilRegistered(registry: ToolRegistry, name: string, timeoutMs = 3000): Promise<void> {
@@ -58,6 +78,18 @@ describe('AI Bridge B 路径：ProxyTool × 模拟 Java 系统', () => {
         res.end(JSON.stringify({ error: 'forbidden' }));
         return;
       }
+      // F-128: the status query a target may offer (AW-17). The answer is only `status` plus the
+      // optional `basis` the probe parses — here seeded per case, so both `current_state` and
+      // `receipt` are answers this target really gives over the wire, not fixture values written
+      // straight into the evidence table.
+      // F-128：目标可以提供的状态查询（AW-17）。回答只有 `status` 与探针解析的可选 `basis` —— 这里按
+      // 用例种下，故 `current_state` 与 `receipt` 都是这个目标真的从线上给出的答案，而不是直接写进
+      // 证据表的夹具值。
+      if (req.method === 'GET' && /\/contracts\/status\//.test(req.url || '')) {
+        const key = decodeURIComponent((req.url || '').split('/contracts/status/')[1] ?? '');
+        res.end(JSON.stringify(targetStatus.get(key) ?? { status: 'unknown' }));
+        return;
+      }
       // Java 端补偿端点（B 路径撤销约定）：POST /contracts/{id}/cancel → 记录 + 200
       if (req.method === 'POST' && /\/contracts\/\d+\/cancel$/.test(req.url || '')) {
         res.end(JSON.stringify({ cancelled: true, user: auth.slice(7), path: req.url }));
@@ -74,6 +106,7 @@ describe('AI Bridge B 路径：ProxyTool × 模拟 Java 系统', () => {
     base = `http://localhost:${port}/api`;
 
     app = await createTestApp();
+    ds = app.get(DataSource);
     const { accessToken } = await registerUser(app, {
       username: 'proxy_a',
       email: 'proxy_a@test.com',
@@ -87,6 +120,27 @@ describe('AI Bridge B 路径：ProxyTool × 模拟 Java 系统', () => {
     userAId = String(me.body.data.id);
     userAToken = accessToken;
     delegation = app.get(DelegationTokenService);
+
+    // F-128: reconciling a hold is an administrator action; the same app serves both roles.
+    // F-128：对账占位是管理员的动作；同一个应用同时服务两种角色。
+    const adminUsername = `proxy_admin_${Date.now()}`;
+    const adminReg = await registerUser(app, {
+      username: adminUsername,
+      email: `${adminUsername}@test.com`,
+      password: 'ProxyAdmin1',
+      nickname: 'ProxyAdmin',
+    });
+    const adminMe = await request(app.getHttpServer())
+      .get('/api/v1/auth/me')
+      .set('Authorization', `Bearer ${adminReg.accessToken}`)
+      .expect(200);
+    adminId = adminMe.body.data.id as number;
+    await ds.getRepository('users').update(adminId, { role: 'admin' });
+    adminToken = (await loginAs(app, adminUsername, 'ProxyAdmin1')).accessToken;
+  });
+
+  beforeEach(() => {
+    targetStatus.clear();
   });
 
   afterAll(async () => {
@@ -297,5 +351,207 @@ describe('AI Bridge B 路径：ProxyTool × 模拟 Java 系统', () => {
       .get(`/api/v1/ai/governance/action/proxy_call/${effect.resultId}`)
       .set(authHeader(other.accessToken))
       .expect(404);
+  });
+
+  /**
+   * F-128: the **receipt** path, run once for real.
+   *
+   * R-1 gave the evidence row a `basis` column and taught the probe to read an optional `basis` from
+   * the target's answer. Until this case existed, nothing in the repository ever *answered* `receipt`
+   * over the wire: the column was read on every surface while its second value was only ever written
+   * from a fixture. Here the mock target — the one this repository controls — answers a status query
+   * with both kinds, and the reading is followed from the probe through the stored row to all three
+   * read faces: the claim's lookup history (`items`), the in-flight list (`lastLookup`), and the
+   * release evidence (`releaseLookups`). The distinction is asserted on the field, never by parsing
+   * prose.
+   *
+   * The hold is taken through the production claim path (`WriteClaimStore.claimWrite`) and only its
+   * `claimedAt` is moved back — a stale hold is otherwise an hour of waiting, and it is exactly the
+   * fixture the hourly sweep would leave behind.
+   *
+   * F-128：**收据**路径，真的跑一次。
+   *
+   * R-1 给证据行加了 `basis` 列，也让探针读目标应答里的可选 `basis`。在本用例出现之前，仓内没有任何
+   * 目标真的在线上答过 `receipt`：这一列在每个读面上都被读到，而它的第二个取值只从夹具里写过。这里由
+   * 本仓控制的模拟目标对状态查询给出两种种类，读数从探针一路追到落库的行，再追到三个读面：占位的查询
+   * 历史（`items`）、在途清单（`lastLookup`）、释放证据（`releaseLookups`）。区分由字段断言，绝不
+   * 解析散文。
+   *
+   * 占位走生产路径（`WriteClaimStore.claimWrite`）取得，只把 `claimedAt` 拨回 —— 否则要等一小时，而
+   * 这份夹具正是每小时清扫会留下的那种陈旧占位。
+   */
+  describe('F-128 收据（receipt）路径：我们控制的目标真的答一次收据', () => {
+    let seq = 0;
+    const uniqueTool = (label: string) => `proxy_f128_${label}_${Date.now()}_${++seq}`;
+
+    const claimsRepo = () => ds.getRepository(AiWriteClaim);
+    const lookupsRepo = () => ds.getRepository(TargetStatusLookupRow);
+    const auditRepo = () => ds.getRepository(AiAuditLog);
+    const store = () => new WriteClaimStore(ds.getRepository(AiToolSideEffect), claimsRepo());
+
+    const age = (claimId: number) =>
+      claimsRepo().update(claimId, { claimedAt: new Date(Date.now() - 90 * 60_000) });
+
+    /** Register a write tool whose target answers status queries, so the probe has somewhere to ask. */
+    async function registerStatusTool(toolName: string): Promise<void> {
+      const settings = app.get(SettingsService);
+      const appRegistry = (app.get(AiService) as any).toolRegistry;
+      await settings.set('ai_proxy_tools', JSON.stringify({
+        baseUrl: base,
+        audience: 'legacy-erp',
+        tools: [{
+          name: toolName,
+          description: '建合同（F-128 收据路径）',
+          method: 'POST',
+          path: '/contracts',
+          parameters: [{ name: 'title', type: 'string', description: '标题', required: true }],
+          riskLevel: 'R3',
+          statusPath: 'GET /contracts/status/{key}',
+        }],
+      }));
+      await waitUntilRegistered(appRegistry, toolName);
+    }
+
+    /** Take the hold through the production claim path, then move it past the staleness threshold. */
+    async function takeStaleHold(toolName: string, conversationId: string) {
+      const ctx = {
+        userId: String(userAId),
+        conversationId,
+        toolName,
+        args: { title: `${toolName}:${conversationId}` },
+      };
+      expect((await store().claimWrite(ctx)).won).toBe(true);
+      const key = buildKey(ctx);
+      const row = await claimsRepo().findOneByOrFail({ idempotencyKey: key });
+      await age(row.id);
+      return { ctx, key, claimId: row.id };
+    }
+
+    const reconcile = (claimId: number) =>
+      request(app.getHttpServer())
+        .post(`/api/v1/ai/tool-effects/claims/${claimId}/reconcile`)
+        .set(authHeader(adminToken));
+
+    const lookupsFor = (claimId: number) =>
+      request(app.getHttpServer())
+        .get(`/api/v1/ai/tool-effects/claims/${claimId}/lookups`)
+        .set(authHeader(adminToken))
+        .expect(200);
+
+    async function listedClaim(toolName: string, claimId: number) {
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/ai/tool-effects/claims')
+        .query({ toolName, decisionState: 'all', limit: 100 })
+        .set(authHeader(adminToken))
+        .expect(200);
+      const row = (res.body.data.items as Array<{ id: number; lastLookup: unknown }>).find(
+        (r) => r.id === claimId,
+      );
+      expect(row).toBeTruthy();
+      return row!;
+    }
+
+    /** The off-chain `releaseLookups` column of the newest/oldest `claim_release` row for a tool. */
+    async function releaseEvidence(toolName: string, index = 0) {
+      const rows = (await auditRepo().find({
+        where: { action: 'claim_release', tool: toolName } as never,
+        order: { id: 'ASC' },
+      })) as unknown as Array<{ releaseLookups: string | null }>;
+      expect(rows[index]).toBeTruthy();
+      return JSON.parse(rows[index].releaseLookups!) as {
+        count: number;
+        items: Array<{ conclusion: string; basis: string }>;
+      };
+    }
+
+    it('目标答 executed + receipt ⇒ 账落定；证据行与查询历史都读得出 receipt', async () => {
+      const toolName = uniqueTool('exec');
+      await registerStatusTool(toolName);
+      const { key, claimId } = await takeStaleHold(toolName, 'f128-exec');
+      targetStatus.set(key, { status: 'executed', basis: 'receipt' });
+
+      const res = await reconcile(claimId).expect(200);
+      expect(res.body.data).toMatchObject({
+        outcome: 'reconciled',
+        conclusion: 'executed',
+        claimStatus: 'settled',
+      });
+      expect(res.body.data.evidence.basis).toBe('receipt');
+
+      // The row the probe wrote — not a fixture value.
+      const [row] = await lookupsRepo().find({ where: { idempotencyKey: key } });
+      expect(row).toMatchObject({
+        conclusion: 'executed',
+        reason: null,
+        basis: 'receipt',
+        lookedUpBy: String(adminId),
+        asUserId: String(userAId),
+      });
+
+      const history = await lookupsFor(claimId);
+      expect(history.body.data.items[0]).toMatchObject({ conclusion: 'executed', basis: 'receipt' });
+    });
+
+    it('目标答 not_executed + receipt ⇒ 释放证据带 receipt；重占位后在途清单的 lastLookup 也带它', async () => {
+      const toolName = uniqueTool('release');
+      await registerStatusTool(toolName);
+      const { ctx, key, claimId } = await takeStaleHold(toolName, 'f128-release');
+      targetStatus.set(key, { status: 'not_executed', basis: 'receipt' });
+
+      const res = await reconcile(claimId).expect(200);
+      expect(res.body.data).toMatchObject({
+        outcome: 'reconciled',
+        conclusion: 'not_executed',
+        claimStatus: 'released',
+      });
+
+      const evidence = await releaseEvidence(toolName);
+      expect(evidence.items[0]).toMatchObject({ conclusion: 'not_executed', basis: 'receipt' });
+
+      // Re-claim through the production path: the hold is `claimed` again while the reading it caused
+      // stays in the evidence — which is what the in-flight list reads back as `lastLookup`.
+      // 经生产路径重占位：占位行回到 `claimed`，而它引起的那次读数仍在证据里 —— 在途清单据此读回 `lastLookup`。
+      expect((await store().claimWrite(ctx)).won).toBe(true);
+      const listed = await listedClaim(toolName, claimId);
+      expect(listed.lastLookup).toMatchObject({ conclusion: 'not_executed', basis: 'receipt' });
+    });
+
+    it('同一条占位的两次读数：查询历史与最新释放证据都把 receipt 与 current_state 分得开', async () => {
+      const toolName = uniqueTool('both');
+      await registerStatusTool(toolName);
+      const { ctx, key, claimId } = await takeStaleHold(toolName, 'f128-both');
+
+      // First ask: the target answers from its own acceptance record.
+      // 第一次询问：目标按自己的受理记录作答。
+      targetStatus.set(key, { status: 'not_executed', basis: 'receipt' });
+      await reconcile(claimId).expect(200);
+
+      // Re-claim, move the hold back into the stale window, and ask again — this time the target
+      // answers from its live object store.
+      // 重占位、把占位时间拨回陈旧区间，再问一次 —— 这一次目标按当前对象存储作答。
+      expect((await store().claimWrite(ctx)).won).toBe(true);
+      await age(claimId);
+      targetStatus.set(key, { status: 'not_executed', basis: 'current_state' });
+      await reconcile(claimId).expect(200);
+
+      // One key, two readings: the kind is a field, not prose — the two are told apart by value.
+      // 同一个键、两条读数：种类是字段不是散文 —— 两者按取值分得开。
+      const history = await lookupsFor(claimId);
+      expect((history.body.data.items as Array<{ basis: string }>).map((i) => i.basis)).toEqual([
+        'current_state',
+        'receipt',
+      ]);
+
+      const evidence = await releaseEvidence(toolName, 1);
+      expect(evidence.items.map((i) => i.basis)).toEqual(['current_state', 'receipt']);
+
+      // One more re-claim: `lastLookup` takes the newest reading, so it now reads `current_state` —
+      // a different value from the `receipt` the same field carried after the first round.
+      // 再重占位一次：`lastLookup` 取最新那条读数，于是读作 `current_state` —— 与第一轮之后同一字段带的
+      // `receipt` 是两个取值。
+      expect((await store().claimWrite(ctx)).won).toBe(true);
+      const listed = await listedClaim(toolName, claimId);
+      expect(listed.lastLookup).toMatchObject({ conclusion: 'not_executed', basis: 'current_state' });
+    });
   });
 });
