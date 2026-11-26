@@ -573,6 +573,8 @@ ARC-6 对「缺失集合已变」的处理同一条规则。**不回填**：引�
 
 ## 6. 滞留占位的处置与对账（AW-16 / AW-17）/ A stuck hold's disposition and its reconciliation
 
+**Reconciliation needs a receipt.** The verb names the act of asking, but the account is settled only when the answer is based on the target's own acceptance record (`basis=receipt`). Against a target that serves current state only, the reading is a sample — which is why the read surface's field is `lastLookup` and not a history, and why every copied reading carries its basis. The verb is not renamed per target; the distinction lives in the data, because the data is what a reader acts on (F-136).
+
 **A hold nobody can resolve gets a disposition, not a verdict.** A write claim whose outcome stayed
 unknown past `REVOKE_STALE_MINUTES` can be released by an administrator with a written note and an
 optional external reference. The claim moves to `closed_unknown`; `status` deliberately stays
@@ -706,6 +708,8 @@ licence to ask again, nothing more) and `decisionPendingSince` / `decisionAgeMin
 to a person, and a release still needs the target's explicit `not_executed` or a recorded decision
 at the deadline. Decision age is the stable key and the primary order — a re-ask refreshes the
 reading and never moves the row — while freshness only filters and badges.
+
+**对账要有收据。** 这个动词命名的是「去问」这个动作，但账只有在答案基于目标自己的受理记录（`basis=receipt`）时才算对上。对只提供当前状态的目标，读数只是一次采样 —— 所以读面上的字段叫 `lastLookup` 而不是历史，也所以每条被复制的读数都带着自己的种类。动词不按目标改称呼；区分放在数据里，因为读者据以行动的是数据（F-136）。
 
 **滞留的占位得到的是一份处置，不是一句判决。** 结局越过 `REVOKE_STALE_MINUTES` 仍未明的写占位，可由管理员
 带书面说明（可选外部引用）释放。占位转为 `closed_unknown`，而 `status` **有意**保持 `claimed` —— 没有任何
