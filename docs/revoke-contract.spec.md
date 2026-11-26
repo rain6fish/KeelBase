@@ -602,7 +602,7 @@ decision (F-127). The count and the newest three are read in **one statement** �
 window with a `LIMIT` — because two reads let a concurrent automatic ask land between them and leave
 the row disagreeing with itself by one. This holds only while the lookup table **only ever gains
 rows** — one insert path, no update, delete or retention path (F-126). If pruning is ever added, the
-rows an audit row names must be retained, or the copied id dangles. That one-statement read is a snapshot only because both supported stores give a statement one consistent view — SQLite runs it serially, Postgres read-committed takes a statement-level snapshot. The shape test pins the statement, not the isolation level; the isolation is a deployment assumption recorded here, and a concurrent-writer test against a real Postgres is the guard to add when such a deployment exists (F-130, F-131).
+rows an audit row names must be retained, or the copied id dangles. That one-statement read is a snapshot only because both supported stores give a statement one consistent view — SQLite runs it serially, Postgres read-committed takes a statement-level snapshot. The shape test pins the statement, not the isolation level; the isolation is a deployment assumption recorded here, and a concurrent-writer test against a real Postgres is the guard to add when such a deployment exists (F-130, F-131). The owner of this assumption is whoever changes the deployment: a change that cannot say why it still holds is the change that adds the test (F-132).
 
 An hourly sweep moves overdue `open` holds to `awaiting_decision`. It changes no status and writes no
 conclusion, so a slow external call can still settle; a sweep that released rows would take that
@@ -699,7 +699,7 @@ reading and never moves the row — while freshness only filters and badges.
 派生值（F-125）。正因拷贝是边界而非全集，最新的拷贝 id 就是**水位**：更大的 id 都写在此决定之后
 （F-127）。次数与最近三条用**一条语句**读出 —— `COUNT(*) OVER ()` 窗口配 `LIMIT` —— 因为两次读会让
 并发的自动询问落进缝里，使行与自己差一。这一性质只在读数表**仅追加**时成立：一条插入路径，没有
-update / delete / 保留期（F-126）。若日后加了保留期，审计行点名的行必须保留，否则拷贝的 id 悬空。那条单语句读之所以是快照，只因为两种受支持的库都给单条语句一个一致视图 —— sqlite 单语句串行，postgres read-committed 取语句级快照。形状测试钉的是语句，不是隔离级别；隔离是部署假设，记在这里，等真有 Postgres 部署时再补一个并发写的测试来守（F-130、F-131）。
+update / delete / 保留期（F-126）。若日后加了保留期，审计行点名的行必须保留，否则拷贝的 id 悬空。那条单语句读之所以是快照，只因为两种受支持的库都给单条语句一个一致视图 —— sqlite 单语句串行，postgres read-committed 取语句级快照。形状测试钉的是语句，不是隔离级别；隔离是部署假设，记在这里，等真有 Postgres 部署时再补一个并发写的测试来守（F-130、F-131）。这条假设的所有者就是改部署的人：一次改动能说不出它为何仍成立，那次改动就该把测试补上（F-132）。
 
 每小时清扫把到期的 `open` 占位移入 `awaiting_decision`：不改状态、不写结论，故慢的外部调用仍能落定 ——
 若清扫把行改成 `released`，那份能力就没了。读永远不改状态：`stale` 仍是年龄读数，不是决定。
