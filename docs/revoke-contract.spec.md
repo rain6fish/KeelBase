@@ -618,6 +618,21 @@ no channel at all — concludes `unknown` and leaves the ledger `claimed`. Each 
 evidence. A hold a person already released is **not** reconcilable: the release recorded that the
 truth is unknown, and a later query must not overwrite that decision.
 
+**A second mode reads the target's history.** A tool may declare `historyPath` instead of `statusPath`
+(same convention; `GET` only, one request, never retried, the writer's identity). The answer still has
+to carry the target's verdict — `{"status": ...}` with an optional `basis` — and the probe reads
+nothing else: a history list is disclosure, not a decision. When no verdict arrives, what the target
+disclosed about its own coverage names the silence: `history.available:false` →
+`history-unavailable`, `history.coversActionKey:false` → `history-does-not-cover`,
+`history.complete:false` (or `hasMore:true`) → `history-truncated`, a history with no such disclosure
+→ `history-no-verdict`, and a body that is not a history object → `unrecognized_answer`. Every one is
+`unknown`; in particular an empty history with no disclosure is never `not_executed`, because a list
+that does not mention the key is not evidence that nothing ran. A target that keeps the history and
+refuses to show it answers 401/403 — a refusal to show, not an unreachable target. Declaring
+both `statusPath` and `historyPath` is refused as `misconfigured` before anything is sent: two
+declarations are two questions and the probe does not choose. An `unknown` history answer does not
+trigger a second query to another endpoint — one reconciliation is one request.
+
 **A release the target's answer caused leaves a decision, not just a moved ledger.** When the answer
 is `not_executed` the ledger moves to `released`, and the same act is written as one chained
 `claim_release` row — the same action and the same row shape a manual release uses. Its `detail` names
@@ -710,6 +725,16 @@ update / delete / 保留期（F-126）。若日后加了保留期，审计行点
 `{"status":"executed"|"not_executed"}` 才让账收敛（`executed` → `settled`，`not_executed` → `released`）；
 其余一切 —— 超时、不可达、非 2xx、认不出的响应体、乃至根本没有通道 —— 都判 `unknown`，账保持 `claimed`。
 每次尝试都留下证据。**人已释放的占位不再可对账**：那次释放记录的正是「真相未知」，后来的查询不得覆盖那份决定。
+
+**第二种模式读目标的历史。** 工具可声明 `historyPath` 代替 `statusPath`（同一约定；只发 GET、一次请求、不重试、
+携带写入者身份）。应答仍须带目标的判决 —— `{"status": ...}`，可选 `basis` —— 探针不读别的：历史列表是披露，
+不是判决。没有判决时，目标对自己覆盖范围的披露决定这份沉默叫什么：`history.available:false` →
+`history-unavailable`，`history.coversActionKey:false` → `history-does-not-cover`，`history.complete:false`
+（或 `hasMore:true`）→ `history-truncated`，有历史但以上都没披露 → `history-no-verdict`，连历史对象都不是 →
+`unrecognized_answer`。它们全是 `unknown`；尤其**没有披露的空历史绝不是 `not_executed`** —— 一份没提到这个键
+的列表，不构成「什么都没发生」的证据。目标留着历史却拒绝展示时答 401/403 —— 那是「不给看」，不是不可达。
+同时声明 `statusPath` 与 `historyPath` 会在发送前按 `misconfigured` 拒绝：两处声明是两个问题，探针不替人挑。
+历史答 `unknown` 时不会再去问另一个端点 —— 一次对账就是一次请求。
 
 **目标回答引起的释放留下的是一份决定，不只是一个被移过的账。** 答案为 `not_executed` 时账转为 `released`，
 而同一次动作也写成一条带链的 `claim_release` 行 —— 与人工释放同一动作、同一行形状。其 `detail` 点名谁发起

@@ -1519,6 +1519,29 @@ test('parseOpenApiProxy：x-keelbase-status-path → statusPath（AW-17 目标�
   assert.equal(plain.tools[0].statusPath, undefined);
 });
 
+test('parseOpenApiProxy：x-keelbase-history-path → historyPath（AW-17 历史模式）', () => {
+  const r = parseOpenApiProxy({
+    paths: {
+      '/contracts': {
+        post: {
+          operationId: 'createContract',
+          'x-keelbase-history-path': 'GET /contracts/{key}/history',
+          requestBody: { content: { 'application/json': { schema: { properties: { title: { type: 'string' } } } } } },
+        },
+      },
+    },
+  }, {});
+  const t = r.tools[0];
+  assert.equal(t.historyPath, 'GET /contracts/{key}/history');
+  assert.equal(t.statusPath, undefined);
+  assert.match(t.description, /历史查询/);
+  // 没配扩展的工具保持既有形状：字段缺席，不是空串。
+  const plain = parseOpenApiProxy({
+    paths: { '/todos': { get: { operationId: 'listTodos' } } },
+  }, {});
+  assert.equal(plain.tools[0].historyPath, undefined);
+});
+
 test('parseOpenApiProxy：Swagger 2（in: body 参数）→ body 字段解析', () => {
   const r = parseOpenApiProxy({
     swagger: '2.0',

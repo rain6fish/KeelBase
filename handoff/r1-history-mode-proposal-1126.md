@@ -161,7 +161,7 @@ historyPath?: string   // `[METHOD] path`，如 "GET /contracts/{key}/history"
 
 - 语义：**声明即选中历史模式**。没有 `historyPath` 时行为与今天完全一致。
 - 复用现有约定，一字不改：`[METHOD] path` 拆分（`splitStatusPath`）、缺方法默认 GET、`{key}` 代表幂等键、代入后不得残留 `{占位}`、路径必须相对 `baseUrl`。
-- **两条路径同时声明**：推荐记 `misconfigured`（发送前拒绝），理由——两处声明是两个问题，探针只问一个；猜哪个问，正是本项存在的意义所反对的那类错。`canAsk()` 仍返回 `true`（通道确实存在），与「配了但不可用仍报 `misconfigured`」的既有语义一致（`tool-effects.types.ts:359-380` 的接口注释）。
+- **两条路径同时声明**：推荐记 `misconfigured`（发送前拒绝），理由——两处声明是两个问题，探针只问一个；猜哪个问，正是本项存在的意义所反对的那类错。`canAsk()` 返回 `false`（镜像 `lookup` 发送前那组门，与「POST 配成状态路径即按钮不亮」的既有判据同法），故控制台按钮不亮、清扫也跳过 —— 这份配置错误由配置自身暴露，而不是靠反复写 `misconfigured` 证据行。
 - 备选：`statusPath` + `statusMode: 'history'`。多一个键、表达同一件事，不推荐。
 
 ### 3.2 应答形状

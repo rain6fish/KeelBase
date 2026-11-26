@@ -104,7 +104,40 @@ export type TargetStatusLookupReason =
   /** The target answered with a non-2xx status. / 目标回了非 2xx。 */
   | 'non_2xx'
   /** The target answered, but not in a shape this vocabulary recognises. / 答了，但认不出。 */
-  | 'unrecognized_answer';
+  | 'unrecognized_answer'
+  /**
+   * History mode only: the target says it keeps no history for this kind of record. Distinct from
+   * `not_permitted` (it has something but will not show it) and from `non_2xx` (the route is broken).
+   *
+   * 仅历史模式：目标说它不为这类记录保留历史。与 `not_permitted`（有、但不给看）和 `non_2xx`
+   * （路由坏了）都不同。
+   */
+  | 'history-unavailable'
+  /**
+   * History mode only: the target's retained history does not reach the moment this action key
+   * occurred, and it said so. The absence we would otherwise read is outside what it kept.
+   *
+   * 仅历史模式：目标保留的历史覆盖不到该键发生的时刻，且它明说了。我们看到的「没有」落在它保留的
+   * 范围之外。
+   */
+  | 'history-does-not-cover'
+  /**
+   * History mode only: the target returned part of its history and disclosed that there is more.
+   * What is missing from this page was never shown, which is not the same as never happened.
+   *
+   * 仅历史模式：目标只返回了部分历史，并披露还有更多。这一页里没有的东西从未被展示过，这与「从未
+   * 发生」不是一回事。
+   */
+  | 'history-truncated'
+  /**
+   * History mode only: the target showed a history (possibly empty) but stated no verdict for this
+   * action key. Events are material, not a decision — reading them as one is the inference R-1 keeps
+   * out of this layer.
+   *
+   * 仅历史模式：目标展示了历史（可能为空），却没有对该 action key 给出判决。事件是材料，不是判决 ——
+   * 把它读成判决正是 R-1 挡在这一层之外的那种推断。
+   */
+  | 'history-no-verdict';
 
 /**
  * What one lookup leaves behind: **when**, **by what query**, and **what it concluded**.
