@@ -161,6 +161,8 @@ function operationToTool(method, path, pathItem, operation, spec) {
   const revokePath = operation['x-keelbase-revoke-path'];
   // AW-17 目标状态查询约定：管理员对账时按 {key} 问目标「这次写执行了吗」，如 GET /contracts/status/{key}
   const statusPath = operation['x-keelbase-status-path'];
+  // AW-17 历史模式：目标只读历史端点，如 GET /contracts/{key}/history；同一约定，但与 statusPath 互斥
+  const historyPath = operation['x-keelbase-history-path'];
   // Single grading point: explicit extension override, else write defaults to R3, read to R1.
   // `riskBasis` records which rule produced the level so the pre-import preview can show its evidence.
   // 分级唯一入口：扩展字段显式覆盖，否则写默认 R3、读默认 R1。
@@ -170,7 +172,7 @@ function operationToTool(method, path, pathItem, operation, spec) {
 
   return {
     name: nameBase,
-    description: `${tagPrefix}${summary}（B 路径代理：${method} ${rewrittenPath}${revokePath ? `；撤销 ${revokePath}` : ''}${statusPath ? `；状态查询 ${statusPath}` : ''}）`,
+    description: `${tagPrefix}${summary}（B 路径代理：${method} ${rewrittenPath}${revokePath ? `；撤销 ${revokePath}` : ''}${statusPath ? `；状态查询 ${statusPath}` : ''}${historyPath ? `；历史查询 ${historyPath}` : ''}）`,
     method,
     path: rewrittenPath,
     parameters,
@@ -179,6 +181,7 @@ function operationToTool(method, path, pathItem, operation, spec) {
     riskBasis: explicitRisk ? 'override' : isWrite ? 'default-write' : 'default-read',
     revokePath: revokePath ?? undefined,
     statusPath: statusPath ?? undefined,
+    historyPath: historyPath ?? undefined,
     skipped,
   };
 }

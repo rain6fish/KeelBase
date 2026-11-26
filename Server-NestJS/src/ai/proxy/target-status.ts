@@ -22,6 +22,10 @@
  * idempotency key — the one identity both sides already agree on. Any other `{placeholder}` left
  * unfilled means the query would ask about something we do not know, so it is refused rather than sent.
  *
+ * A **second mode** reads the target's history (`historyPath`) under the same one-shot rules. The
+ * answer must still carry the target's own verdict; the history is disclosure, and a list with no
+ * verdict stays `history-no-verdict` — never `not_executed`.
+ *
  * AW-17：B 路径探针 —— 向目标问**一个只读**问题：「这个 action key 你执行了吗？」
  *
  * 出站写的结局未知时（超时、重置，或任何「说不清请求到没到」的失败），诚实的账是 *unknown*，直到有人
@@ -38,6 +42,9 @@
  *
  * 路径约定与 `revokePath` 同构：`[METHOD] path`，`{key}` 代表这次写的幂等键 —— 两侧已经认同的那一个
  * 身份。代入后若还剩别的 `{占位}`，说明这次查询要问一件我们并不知道的事，故拒绝，而不是发出去。
+ *
+ * **第二种模式**读目标的历史（`historyPath`），同受一次性规则约束。应答仍须带目标自己的判决；历史只是
+ * 披露，没有判决的列表停在 `history-no-verdict` —— 绝不是 `not_executed`。
  */
 import { Injectable } from '@nestjs/common';
 import { ToolRegistry } from '../tools/tool-registry';
@@ -85,6 +92,26 @@ function declaredBasis(raw: unknown): TargetStatusBasis | null {
     : null;
 }
 
+/**
+ * Why a **history** answer without a verdict is silent. Every branch is something the target said
+ * about what it kept; the fallback is a history it showed without saying what it means, which is
+ * material, not a decision. A response that is not a history object at all is a shape we cannot
+ * recognise. None of these means "it did not run".
+ *
+ * 历史模式**没有判决**时为什么是沉默。每个分支都是目标就「它保留了什么」说过的话；兜底是它给了历史却
+ * 没说这意味着什么 —— 那是材料，不是判决。连历史对象都不是的响应，是认不出的形状。没有一种意思是
+ * 「它没跑」。
+ */
+function historySilence(body: { history?: unknown } | null): TargetStatusLookup['reason'] {
+  const history = body?.history;
+  if (!history || typeof history !== 'object' || Array.isArray(history)) return 'unrecognized_answer';
+  const h = history as Record<string, unknown>;
+  if (h.available === false) return 'history-unavailable';
+  if (h.coversActionKey === false) return 'history-does-not-cover';
+  if (h.complete === false || h.hasMore === true) return 'history-truncated';
+  return 'history-no-verdict';
+}
+
 /** The evidence for "we could not even ask": no query channel, or a configuration we refuse to send. */
 function unanswered(
   reason: TargetStatusLookup['reason'],
@@ -119,14 +146,21 @@ export class ProxyTargetStatusProbe implements TargetStatusProbe {
     // 「未获许可」：未声明的工具没有告诉我们目标的任何事，沉默不能被读成「它支持」。两种读法相同 ——
     // 目标没被问过，账照样留 `unknown`。
     if (resolveCapabilities(tool).statusLookup !== 'yes') {
-      return unanswered('target-status-unavailable', 'GET', tool.statusPath ?? '');
+      return unanswered('target-status-unavailable', 'GET', tool.historyPath ?? tool.statusPath ?? '');
+    }
+    // Two declared channels are two questions, and the probe asks one. Choosing for the integrator
+    // would be a guess about which reading they meant — refused before anything is sent.
+    // 两条通道 = 两个问题，而探针只问一个。替接入方挑一个，等于猜他们想要哪份读数 —— 发送前拒绝。
+    if (tool.statusPath && tool.historyPath) {
+      return unanswered('misconfigured', 'GET', tool.historyPath);
     }
     // Declared `yes` but with nothing configured to ask: the gap is recorded, never a success.
     // 声明 `yes` 却没有可问的配置：记下这个缺口，绝不报成功。
-    if (!tool.statusPath) return unanswered('target-status-unavailable');
+    const declaration = tool.historyPath ?? tool.statusPath;
+    if (!declaration) return unanswered('target-status-unavailable');
 
     // `[METHOD] path` — a missing method defaults to GET, the same reading `revokePath` gets.
-    const { method, path: declaredPath } = splitStatusPath(tool.statusPath);
+    const { method, path: declaredPath } = splitStatusPath(declaration);
     let path = declaredPath;
 
     // Read-only by construction: anything but GET is refused before a single byte is sent.
@@ -164,7 +198,11 @@ export class ProxyTargetStatusProbe implements TargetStatusProbe {
         const reason = res.status === 401 || res.status === 403 ? 'not_permitted' : 'non_2xx';
         return { queriedAt, queryMethod: method, queryPath: path, conclusion: TARGET_STATUS.UNKNOWN, reason, basis: null };
       }
-      const body = (await res.json().catch(() => null)) as { status?: unknown; basis?: unknown } | null;
+      const body = (await res.json().catch(() => null)) as {
+        status?: unknown;
+        basis?: unknown;
+        history?: unknown;
+      } | null;
       const status = body?.status;
       if (status === TARGET_STATUS.EXECUTED || status === TARGET_STATUS.NOT_EXECUTED) {
         // The basis is recorded only alongside a real answer; an unrecognised value stays `null`.
@@ -178,13 +216,17 @@ export class ProxyTargetStatusProbe implements TargetStatusProbe {
           basis: declaredBasis(body?.basis),
         };
       }
-      // A target that answers in a shape we do not know is **silent**, not a "no".
+      // A target that answers in a shape we do not know is **silent**, not a "no". In history mode
+      // the silence is named by what the target disclosed about what it kept; that disclosure never
+      // turns the silence into `not_executed`.
+      // 认不出形状的回答是**沉默**，不是「没有」。历史模式下，沉默由目标就「它保留了什么」所作的披露来
+      // 命名；那份披露永远不会把沉默变成 `not_executed`。
       return {
         queriedAt,
         queryMethod: method,
         queryPath: path,
         conclusion: TARGET_STATUS.UNKNOWN,
-        reason: 'unrecognized_answer',
+        reason: tool.historyPath ? historySilence(body) : 'unrecognized_answer',
         basis: null,
       };
     } catch (err) {
@@ -209,9 +251,14 @@ export class ProxyTargetStatusProbe implements TargetStatusProbe {
    */
   canAsk(toolName: string): boolean {
     const tool = this.tool(toolName);
-    if (!tool || !tool.statusPath) return false;
+    if (!tool) return false;
     if (resolveCapabilities(tool).statusLookup !== 'yes') return false;
-    const { method, path } = splitStatusPath(tool.statusPath);
+    // The same refusal `lookup` makes before it sends: two declarations, one question.
+    // 与 `lookup` 发送前作同一处拒绝：两处声明、一个问题。
+    if (tool.statusPath && tool.historyPath) return false;
+    const declaration = tool.historyPath ?? tool.statusPath;
+    if (!declaration) return false;
+    const { method, path } = splitStatusPath(declaration);
     return (
       method === 'GET' &&
       !path.startsWith('//') &&

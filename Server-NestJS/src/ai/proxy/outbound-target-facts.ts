@@ -5,8 +5,8 @@
  * deployment fact behind the `target-status-unavailable` coverage gap.
  *
  * Two channels, two readings, and the difference is the point:
- * - **B path (`ProxyTool`)** — a write tool without `statusPath` cannot be asked. A write tool *with*
- *   one can.
+ * - **B path (`ProxyTool`)** — a write tool with neither `statusPath` nor `historyPath` cannot be
+ *   asked. Either channel makes it askable.
  * - **External MCP** — there is no status channel on that path at all (the MCP server decides what it
  *   exposes; KeelBase cannot query it), so **any** external write tool counts as unresolvable.
  *
@@ -22,7 +22,8 @@
  * 背后的部署事实。
  *
  * 两条通道、两个读数，差别正是要点：
- * - **B 路径（`ProxyTool`）** —— 写工具没有 `statusPath` 就问不到；有的能问。
+ * - **B 路径（`ProxyTool`）** —— 写工具两条通道（`statusPath` / `historyPath`）都没有就问不到；
+ *   有任意一条即可问。
  * - **外部 MCP** —— 那条路上根本没有状态通道（MCP server 自己决定暴露什么，KeelBase 无法查），故
  *   **任何**外部写工具都算「收敛不了」。
  *
@@ -47,7 +48,16 @@ export class OutboundTargetFactsProvider implements OutboundTargetFacts {
 
   async hasWriteTargetWithoutStatusQuery(): Promise<boolean> {
     for (const tool of this.toolRegistry.getAllTools()) {
-      if (tool instanceof ProxyTool && isProxyWriteMethod(tool.method) && !tool.statusPath) return true;
+      // Either channel makes the target askable; only a write tool with neither leaves the gap.
+      // 任一通道都让目标可问；两条都没有的写工具才构成缺口。
+      if (
+        tool instanceof ProxyTool &&
+        isProxyWriteMethod(tool.method) &&
+        !tool.statusPath &&
+        !tool.historyPath
+      ) {
+        return true;
+      }
     }
 
     const provider = this.externalTools.current;

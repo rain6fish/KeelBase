@@ -431,6 +431,59 @@ describe('AiToolsView', () => {
   })
 
   /**
+   * AW-17 history mode: its causes are their own sentences, not the raw vocabulary leaking into the
+   * dialog. "History gave no verdict" and "history truncated" say different things to an operator.
+   *
+   * AW-17 历史模式：它的成因各有一句话，不是把词表原样漏进对话框。「历史未给判决」与「历史被截断」
+   * 对操作者是两回事。
+   */
+  it('历史模式的成因经本地化渲染，不把词表原样漏出', async () => {
+    toolsMock.mockResolvedValue([tool])
+    effectsMock.mockResolvedValue({ total: 0, page: 1, limit: 20, items: [] })
+    inFlightMock.mockResolvedValue({
+      ...emptyClaims,
+      items: [
+        { id: 9, userId: '7', toolName: 'proxy_send', argsHash: 'h', status: 'claimed', claimedAt: '2026-11-05T01:00:00Z', ageMinutes: 90, stale: true, attempts: 2, agentId: null, conversationId: null, runId: null, authorizationRef: null, reconcilable: true, lastLookup: null },
+      ],
+      total: 1,
+    })
+    lookupsMock.mockResolvedValue({
+      claimId: 9,
+      toolName: 'proxy_send',
+      claimStatus: 'claimed',
+      claimedAt: '2026-11-05T01:00:00Z',
+      firstLookupAfterWriteSeconds: 3600,
+      coverage: {
+        basis: 'until-first-lookup',
+        unobservedSeconds: 3600,
+        observedFrom: '2026-11-05T02:00:00Z',
+        readingsBeforeClaim: 0,
+        expectedFirstAskAfterMinutes: 60,
+      },
+      total: 2,
+      items: [
+        { id: 2, conclusion: 'unknown', reason: 'history-no-verdict', basis: 'unknown', at: '2026-11-05T02:10:00Z', queryMethod: 'GET', queryPath: '/contracts/k/history', lookedUpBy: 'admin', asUserId: '7', seq: 2, intervalSeconds: 600 },
+        { id: 1, conclusion: 'unknown', reason: 'history-truncated', basis: 'unknown', at: '2026-11-05T02:00:00Z', queryMethod: 'GET', queryPath: '/contracts/k/history', lookedUpBy: 'system:sweep', asUserId: '7', seq: 1, intervalSeconds: null },
+      ],
+    })
+
+    const wrapper = mountViewAttached()
+    await flushPromises()
+    const btn = wrapper.find('.in-flight-claims .row-stub .lookup-history-btn')
+    expect(btn.exists()).toBe(true)
+    await btn.trigger('click')
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+    await wrapper.vm.$nextTick()
+
+    const dialog = document.body.textContent ?? ''
+    expect(dialog).toContain('历史未给判决')
+    expect(dialog).toContain('历史被截断')
+    expect(dialog).not.toContain('history-no-verdict')
+    expect(dialog).not.toContain('history-truncated')
+  })
+
+  /**
    * R-2: with no reading at all the coverage line must still speak — "everything so far is
    * unobserved" — instead of collapsing to the empty-state text alone.
    *

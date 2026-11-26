@@ -49,6 +49,12 @@ describe('AW-17 部署事实：有出站写目标问不到状态？', () => {
     ).toBe(false);
   });
 
+  it('B 路径写工具只配了 historyPath ⇒ false（历史模式也是能问）', async () => {
+    expect(
+      await provider([tool({ historyPath: 'GET /a/{key}/history' })]).hasWriteTargetWithoutStatusQuery(),
+    ).toBe(false);
+  });
+
   it('读工具不算（读的结局由读本身回答）', async () => {
     expect(await provider([tool({ method: 'GET' })]).hasWriteTargetWithoutStatusQuery()).toBe(false);
   });

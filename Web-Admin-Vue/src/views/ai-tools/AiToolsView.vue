@@ -599,6 +599,12 @@ const LOOKUP_REASON_KEYS: Record<string, string> = {
   not_permitted: 'lookupReasonNotPermitted',
   non_2xx: 'lookupReasonNon2xx',
   unrecognized_answer: 'lookupReasonUnrecognized',
+  // History mode (AW-17): the target was asked for its history and did not give a verdict.
+  // 历史模式（AW-17）：问了目标的历史，它没有给出判决。
+  'history-unavailable': 'lookupReasonHistoryUnavailable',
+  'history-does-not-cover': 'lookupReasonHistoryNotCovering',
+  'history-truncated': 'lookupReasonHistoryTruncated',
+  'history-no-verdict': 'lookupReasonHistoryNoVerdict',
 }
 
 function lookupReasonLabel(reason: string): string {

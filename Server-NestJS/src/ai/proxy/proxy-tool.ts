@@ -52,6 +52,24 @@ export interface ProxyToolConfig {
    * 配置形状与 `revokePath` 相同（`[METHOD] path`、`{占位}`），理由相同：接入方学一套约定，不是两套。
    */
   statusPath?: string;
+  /**
+   * The target's **read-only history endpoint**, e.g. `GET /contracts/{key}/history` — a second mode
+   * of the same one-shot reconciliation, not a wider query. Same `[METHOD] path` / `{key}` convention
+   * as `statusPath`; `GET` only, one request, no retry. The answer still has to carry the target's own
+   * verdict (`status`, optional `basis`); a history list alone never converges the ledger.
+   *
+   * Declaring both `statusPath` and `historyPath` is a configuration the probe refuses as
+   * `misconfigured` before sending: two declarations are two questions, and guessing which one to ask
+   * is the class of mistake this item exists to prevent.
+   *
+   * 目标**只读的历史端点**，如 `GET /contracts/{key}/history` —— 同一次对账的第二种模式，不是把查询
+   * 改大。`[METHOD] path` / `{key}` 约定与 `statusPath` 相同；只发 GET、一次请求、不重试。应答仍须带
+   * 目标自己的判决（`status`，可选 `basis`）；只有一份历史列表**不会**让账收敛。
+   *
+   * 同时声明 `statusPath` 与 `historyPath` 是探针在发送前按 `misconfigured` 拒绝的配置：两处声明是
+   * 两个问题，猜问哪一个正是本项存在意义所反对的那类错。
+   */
+  historyPath?: string;
   /** KB-6：撤销能力档位显式覆盖；缺省按 method/revokePath 派生（写+revokePath→governed_external，读恒 none，写无 revokePath→none） */
   revokeClass?: RevokeClass;
 }
@@ -93,6 +111,8 @@ export class ProxyTool implements AiTool {
   readonly revokeClass: RevokeClass;
   /** AW-17：目标只读状态端点（`[METHOD] path`，`{key}` 占位为幂等键）；缺省 = 问不到。 */
   readonly statusPath?: string;
+  /** AW-17：目标只读历史端点（同一约定）；配了它即选中历史模式，两条同时配会被拒绝。 */
+  readonly historyPath?: string;
   /**
    * AW-19: what this tool declares about its target. `statusLookup` is derived from the configured
    * `statusPath` — a configured endpoint is the target offering a query (`yes`); no endpoint means
@@ -127,8 +147,13 @@ export class ProxyTool implements AiTool {
     this.requiresConfirmation = this.riskLevel === 'R3' || this.riskLevel === 'R4';
     this.revokePath = cfg.revokePath;
     this.statusPath = cfg.statusPath;
+    this.historyPath = cfg.historyPath;
+    // Either channel licenses the one-shot lookup; which one is asked is the probe's decision, and
+    // declaring both is refused there. A tool with neither has told us nothing.
+    // 任一通道都构成一次查询的许可；具体问哪条由探针决定，两条同配会被它拒绝。两条都没有，则等于
+    // 什么都没告诉我们。
     this.capabilities = {
-      statusLookup: cfg.statusPath ? 'yes' : 'unknown',
+      statusLookup: cfg.statusPath || cfg.historyPath ? 'yes' : 'unknown',
     };
     // KB-6 撤销能力档位（语义源 protocol-trust-proof-card R9）：
     // 显式覆盖优先；读恒 none；写 + revokePath → governed_external（补偿 2xx 仅"已请求"，结果以目标为准）；

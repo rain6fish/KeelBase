@@ -291,6 +291,150 @@ describe('AW-17 目标状态查询（只读，一次）', () => {
     }
   });
 
+  /**
+   * AW-17 history mode: the same one-shot `GET`, pointed at a target's history endpoint. The target
+   * still has to say what it concluded — events are material, not a verdict. The central case is the
+   * empty history with no disclosure: it must stay `unknown`, because "nothing in the list" is not
+   * "nothing ran".
+   *
+   * AW-17 历史模式：同一次 `GET`，指向目标的历史端点。判决仍须由目标自己给出 —— 事件是材料，不是
+   * 判决。核心用例是「空历史且没有披露」：它必须停在 `unknown`，因为「列表里没有」不是「没有发生」。
+   */
+  describe('AW-17 历史模式（historyPath）', () => {
+    it('目标在历史端点上答 executed ⇒ 结论与今天同路，且只发一次 GET', async () => {
+      const probe = probeFor(writeTool({ historyPath: 'GET /contracts/{key}/history' }));
+
+      const f = stubFetch(async () => answer({ status: 'executed' }));
+      try {
+        const r = await probe.lookup('proxy_create_contract', 'key-1', 'u-alice');
+        expect(r.conclusion).toBe('executed');
+        expect(r.reason).toBeNull();
+        expect(r.queryPath).toBe('/contracts/key-1/history');
+      } finally {
+        f.restore();
+      }
+      expect(f.calls).toHaveLength(1);
+      expect(f.calls[0].method).toBe('GET');
+      expect(f.calls[0].headers.Authorization).toBe('Bearer jwt-u-alice-legacy-erp');
+    });
+
+    it('判决与披露同时出现时以判决为准（R-1：种类仍原样记录）', async () => {
+      const probe = probeFor(writeTool({ historyPath: 'GET /contracts/{key}/history' }));
+
+      const f = stubFetch(async () =>
+        answer({ status: 'not_executed', basis: 'receipt', history: { complete: false } }),
+      );
+      try {
+        const r = await probe.lookup('proxy_create_contract', 'key-1', 'u1');
+        expect(r.conclusion).toBe('not_executed');
+        expect(r.reason).toBeNull();
+        expect(r.basis).toBe('receipt');
+      } finally {
+        f.restore();
+      }
+    });
+
+    it('**核心**：空历史且无披露 ⇒ unknown / history-no-verdict，绝不是 not_executed', async () => {
+      const probe = probeFor(writeTool({ historyPath: 'GET /contracts/{key}/history' }));
+
+      for (const body of [
+        { history: {} },
+        { history: { events: [] } },
+        { history: { retainedFrom: '2026-11-01T00:00:00Z', events: [] } },
+      ]) {
+        const f = stubFetch(async () => answer(body));
+        try {
+          const r = await probe.lookup('proxy_create_contract', 'key-1', 'u1');
+          expect({ body, conclusion: r.conclusion }).toEqual({ body, conclusion: 'unknown' });
+          expect(r.reason).toBe('history-no-verdict');
+        } finally {
+          f.restore();
+        }
+      }
+    });
+
+    it('披露决定沉默的名字：不保留 / 覆盖不到 / 被截断', async () => {
+      const probe = probeFor(writeTool({ historyPath: 'GET /contracts/{key}/history' }));
+
+      const cases: Array<{ body: unknown; reason: string }> = [
+        { body: { history: { available: false } }, reason: 'history-unavailable' },
+        { body: { history: { coversActionKey: false } }, reason: 'history-does-not-cover' },
+        { body: { history: { complete: false } }, reason: 'history-truncated' },
+        { body: { history: { hasMore: true } }, reason: 'history-truncated' },
+        // 优先级：先「不保留」，再「覆盖不到」，再「被截断」。
+        { body: { history: { available: false, complete: false } }, reason: 'history-unavailable' },
+        { body: { history: { coversActionKey: false, complete: false } }, reason: 'history-does-not-cover' },
+      ];
+
+      for (const c of cases) {
+        const f = stubFetch(async () => answer(c.body));
+        try {
+          const r = await probe.lookup('proxy_create_contract', 'key-1', 'u1');
+          expect({ body: c.body, reason: r.reason }).toEqual({ body: c.body, reason: c.reason });
+          expect(r.conclusion).toBe('unknown');
+        } finally {
+          f.restore();
+        }
+      }
+    });
+
+    it('连历史对象都不是的响应 ⇒ unrecognized_answer（不猜）', async () => {
+      const probe = probeFor(writeTool({ historyPath: 'GET /contracts/{key}/history' }));
+
+      for (const body of [{ ok: true }, { history: null }, { history: [1, 2] }, null, 'executed']) {
+        const f = stubFetch(async () => answer(body));
+        try {
+          const r = await probe.lookup('proxy_create_contract', 'key-1', 'u1');
+          expect({ body, reason: r.reason }).toEqual({ body, reason: 'unrecognized_answer' });
+        } finally {
+          f.restore();
+        }
+      }
+    });
+
+    it('**反向**：两条路径同时声明 ⇒ misconfigured，一个字节都不发（不猜问哪个）', async () => {
+      const probe = probeFor(
+        writeTool({
+          statusPath: 'GET /contracts/status/{key}',
+          historyPath: 'GET /contracts/{key}/history',
+        }),
+      );
+
+      const f = stubFetch(async () => answer({ status: 'executed' }));
+      try {
+        const r = await probe.lookup('proxy_create_contract', 'key-1', 'u1');
+        expect(r.conclusion).toBe('unknown');
+        expect(r.reason).toBe('misconfigured');
+      } finally {
+        f.restore();
+      }
+      expect(f.calls).toHaveLength(0);
+    });
+
+    it('canAsk：只配历史端点也可问；两条同时配或历史路径不可读 ⇒ 按钮不亮', () => {
+      const f = stubFetch(async () => answer({ status: 'executed' }));
+      try {
+        expect(
+          probeFor(writeTool({ historyPath: 'GET /contracts/{key}/history' })).canAsk('proxy_create_contract'),
+        ).toBe(true);
+        expect(
+          probeFor(
+            writeTool({
+              statusPath: 'GET /contracts/status/{key}',
+              historyPath: 'GET /contracts/{key}/history',
+            }),
+          ).canAsk('proxy_create_contract'),
+        ).toBe(false);
+        expect(
+          probeFor(writeTool({ historyPath: 'POST /contracts/{key}/history' })).canAsk('proxy_create_contract'),
+        ).toBe(false);
+        expect(f.calls).toHaveLength(0);
+      } finally {
+        f.restore();
+      }
+    });
+  });
+
   it('工具不在注册表 / 不是代理工具 ⇒ 不可问（unknown），不抛', async () => {
     const probe = probeFor();
     const r = await probe.lookup('proxy_create_contract', 'key-1', 'u1');
