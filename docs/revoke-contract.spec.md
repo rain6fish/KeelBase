@@ -580,8 +580,9 @@ optional external reference. The claim moves to `closed_unknown`; `status` delib
 "confirmed not stored". The key stays occupied, so the same call is refused by `claimWrite` and is
 never silently retried. The act itself is one chained AI-audit row (`action=claim_release`), carrying
 the note and reference and **no** outcome word. That row also states **what the asking said**: the
-count and the newest three readings (`id`, `at`, `conclusion`, `reason`, `basis`, `lookedUpBy`), newest
-first, written `lookups: N asked, newest first (k of N)` when there are more than three. `basis`
+count in prose, written `lookups: N asked (see releaseLookups)` at every count, and the newest three
+readings (`id`, `at`, `conclusion`, `reason`, `basis`, `lookedUpBy`), newest first, in the off-chain
+column — the readings are recorded once there and are not restated in the prose. `basis`
 (R-1) is `current_state` | `receipt` | `unknown` and says what the answer was based on — a
 current-state reading cannot establish "never accepted". Both kinds are answers this repository's own
 reference target gives over the wire: an end-to-end case carries a `receipt` reading from the probe
@@ -710,8 +711,9 @@ reading and never moves the row — while freshness only filters and badges.
 带书面说明（可选外部引用）释放。占位转为 `closed_unknown`，而 `status` **有意**保持 `claimed` —— 没有任何
 东西证明这次写是否落库，写成 `released` 等于断言「确认未落库」。键仍被占住，故同一次调用会被 `claimWrite`
 拒绝，绝不会被静默重试。动作本身是一条带链 AI 审计行（`action=claim_release`），带说明与引用，**不**带
-任何结局词。该行同时陈述**询问说了什么**：次数与最近三次读数（`id`、`at`、`conclusion`、`reason`、
-`basis`、`lookedUpBy`），最近的在前，超过三条时写作 `lookups: N asked, newest first (k of N)`。
+任何结局词。该行同时陈述**询问说了什么**：散文写次数，不论几次都是 `lookups: N asked (see releaseLookups)`
+这一句；最近三次读数（`id`、`at`、`conclusion`、`reason`、`basis`、`lookedUpBy`）最近的在前，记在链外列
+里 —— 读数只记那一处，不在散文中复述。
 `basis`（R-1）取 `current_state` | `receipt` | `unknown`，说的是答案**基于什么** —— 当前状态读数
 确立不了「从未被接受」。两种种类都是本仓参考目标真的从线上给出的答案：一条端到端用例把 `receipt`
 读数从探针经落库的行带进这一列、查询历史与在途清单的 `lastLookup`，并让 `current_state` 在三处都保持

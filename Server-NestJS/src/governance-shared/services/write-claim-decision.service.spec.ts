@@ -749,6 +749,11 @@ describe('AW-16 F-63/F-64：释放程序与过期策略', () => {
         count: number;
         items: CopiedEntry[];
       };
+      // The prose carries the count and nothing else — the same wording at every count, because the
+      // readings live in the structured column. Nothing here spells out "k of N".
+      // 散文只装次数，措辞不随次数变 —— 读数在结构化列里；这里不会出现「k of N」。
+      expect(row.detail).toContain('lookups: 5 asked (see releaseLookups)');
+      expect(row.detail).not.toContain('newest first');
       // 计数覆盖全集，条目是同一集合的最新三条 —— 两者自洽。
       expect(structured.count).toBe(5);
       expect(structured.items.map((i) => i.id)).toEqual(
