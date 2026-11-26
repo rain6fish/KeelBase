@@ -63,6 +63,7 @@ export type ExplanationState =
   | 'compensating'
   | 'executed'
   | 'failed'
+  | 'not_executed'
   | 'rejected'
   | 'result_unknown'
 

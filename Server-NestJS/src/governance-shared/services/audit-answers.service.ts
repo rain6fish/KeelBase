@@ -286,7 +286,12 @@ export class AuditAnswersService {
         denied: authorizationShape === 'denied',
         allowed: authorizationShape === 'allowed',
       }),
-      productInitiatorLabel({ username: row.username, action: row.action, agentId: row.agentId }),
+      productInitiatorLabel({
+        username: row.username,
+        userId: row.userId,
+        action: row.action,
+        agentId: row.agentId,
+      }),
     ];
   }
 

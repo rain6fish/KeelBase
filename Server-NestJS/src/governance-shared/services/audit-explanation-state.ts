@@ -49,6 +49,13 @@
  * <p><b>顺序即判断，而顺序是时间序。</b>后发生的事实压过先发生的：还在等人批准的动作**尚未发生**，
  * 故它排最前；执行过、之后又被补偿的动作，由**补偿**而不是执行来代表。下面每一步都写明它读的是
  * 哪个事实、以及为什么它压得住排在它下面的那些。
+ *
+ * <p><b>A `claim_release` row answers separately.</b> It records a decision about the handling, so it
+ * leaves this derivation alone and is answered by `releaseRowState` below — the vocabulary keeps its
+ * existing words instead of growing one per row kind.
+ *
+ * <p><b>`claim_release` 行另行作答。</b>它记的是对处理方式的决定，故不参与上面这条推导，由下面的
+ * `releaseRowState` 回答 —— 词表保持既有取值，不为每种行各长一个词。
  */
 
 import { REVOKE_STATUS, type RevokeStatus } from '../../governance-core/revoke-status';

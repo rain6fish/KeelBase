@@ -627,7 +627,7 @@ const zh = {
   revokeWindowAwaitingTarget: '已到达，外部系统尚无终态',
   revokeWindowLabel: '补偿窗口',
   executionError: '执行出错',
-  // P0-20 解释面的状态词表（八个值）。比 tool-effects 那套四值多：那套里「撤销失败」≠「动作失败」，
+  // P0-20 解释面的状态词表。比 tool-effects 那套四值多：那套里「撤销失败」≠「动作失败」，
   // 而「被拒」「等人的批准」「结果未知」在那里没有名字。与后端 `audit-explanation-state.ts` 同源。
   explanationStateAwaiting: '待确认',
   explanationStateCompensationFailed: '补偿失败',
@@ -635,6 +635,7 @@ const zh = {
   explanationStateCompensating: '补偿中',
   explanationStateExecuted: '已执行',
   explanationStateFailed: '失败',
+  explanationStateNotExecuted: '未执行',
   explanationStateRejected: '被拒',
   explanationStateResultUnknown: '结果未知',
   decisionPolicy: '策略',
@@ -1091,10 +1092,13 @@ const zh = {
     knowledge: '知识库',
     delegate: '子代理',
     login: '登录',
-    // A release row and an undo row are decisions/compensations, not the tool they name.
-    // 释放行与撤销行是决定/补偿，不是它们点名的那个工具。
+    // 落在这张表里的动作才显示产品词；缺一个，时间线就把原始动作令牌显示出来。
+    // Only actions named here get a product word; a missing key shows the raw action token.
     claim_release: '释放写占位',
     effect_revoke: '撤销副作用',
+    audit_review: '复核回执',
+    content_blocked: '内容已拦截',
+    flow_node: '工作流步骤',
   },
 
   // 回收站

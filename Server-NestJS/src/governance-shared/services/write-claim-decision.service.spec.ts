@@ -923,4 +923,43 @@ describe('AW-16 F-63/F-64：释放程序与过期策略', () => {
       expect(JSON.parse(row.releaseLookups!)).toEqual({ count: 0, askable: true, items: [] });
     });
   });
+
+  /**
+   * The six-answer export's Initiated-by cell reads `username`; a target-driven release written
+   * without it said «Not recorded» even when a person initiated. The snapshot now travels beside the
+   * id, while the automatic pass keeps none — its actor kind is read from the id, not invented as a
+   * name.
+   *
+   * 六问导出的「发起人」列读 `username`；此前由人发起的目标驱动释放也因没有它而说「未记录」。快照现在
+   * 与 id 并列落库，而自动清扫仍然没有 —— 它的主体种类从 id 读出，不编一个名字。
+   */
+  it('目标驱动释放：人发起时带 username 快照，自动清扫不带', async () => {
+    const trigger = (byUserId: string, byUsername?: string, automatic = false) => ({
+      byUserId,
+      byUsername,
+      automatic,
+      conclusion: 'not_executed' as const,
+      queryMethod: 'GET',
+      queryPath: '/actions/status',
+      queriedAt: '2026-11-25T00:00:00.000Z',
+    });
+
+    const manualClaim = await seed();
+    const manualId = await serviceWithProbe(true).recordTargetRelease(
+      manualClaim,
+      trigger('7', 'audit_admin'),
+    );
+    const manualRow = await auditRepo().findOneByOrFail({ id: manualId });
+    expect(manualRow.userId).toBe('7');
+    expect(manualRow.username).toBe('audit_admin');
+
+    const sweepClaim = await seed();
+    const sweepId = await serviceWithProbe(true).recordTargetRelease(
+      sweepClaim,
+      trigger('system:sweep', undefined, true),
+    );
+    const sweepRow = await auditRepo().findOneByOrFail({ id: sweepId });
+    expect(sweepRow.userId).toBe('system:sweep');
+    expect(sweepRow.username).toBeNull();
+  });
 });
