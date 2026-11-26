@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { EXPLANATION_STATES, explainState } from './audit-explanation-state';
+import { EXPLANATION_STATES, explainState, releaseRowState } from './audit-explanation-state';
 
 /**
  * The cases below pin two things the derivation could get wrong quietly.
@@ -99,21 +99,6 @@ describe('explainState（单事件解释面的那一个状态）', () => {
     expect(explainState({})).toBe('executed');
   });
 
-  it('⚠ 释放行不是执行：两种结局各是一个状态，由证据列决定', () => {
-    // The fallback would call both «Executed» — the row records a decision about the handling, and a
-    // refused attempt released nothing.
-    // 兜底会把两者都叫「已执行」—— 这一行记的是对处理方式的决定，而被拒的尝试什么都没释放。
-    expect(explainState({ action: 'claim_release', releaseLookups: '{"count":0,"items":[]}' })).toBe(
-      'release_recorded',
-    );
-    expect(explainState({ action: 'claim_release', releaseLookups: null })).toBe('release_refused');
-    // Other actions never reach these two values, even with the column in hand.
-    // 其它动作即便手上有这一列，也到不了这两个值。
-    expect(explainState({ action: 'tool_call', outcome: 'executed', releaseLookups: '{}' })).toBe(
-      'executed',
-    );
-  });
-
   it('可达性：词表里每个值都有输入能产生它（并列出反例输入）', () => {
     const witness: Record<string, Parameters<typeof explainState>[0]> = {
       awaiting_confirmation: { confirmationStatus: 'pending' },
@@ -124,8 +109,6 @@ describe('explainState（单事件解释面的那一个状态）', () => {
       failed: { outcome: 'failed' },
       not_executed: { outcome: 'not_executed' },
       rejected: { outcome: 'refused' },
-      release_recorded: { action: 'claim_release', releaseLookups: '{"count":0,"items":[]}' },
-      release_refused: { action: 'claim_release', releaseLookups: null },
       result_unknown: { revokeStatus: 'compensating', revokeWindow: 'awaiting_target' },
     };
     for (const state of EXPLANATION_STATES) {
@@ -135,5 +118,20 @@ describe('explainState（单事件解释面的那一个状态）', () => {
     // 词表里没有 witness 覆盖不到的成员（反之亦然）—— 两处一起改，漏一处即红。
     // Nothing in the list lacks a witness, and nothing witnessed is outside the list.
     expect([...EXPLANATION_STATES].sort()).toEqual(Object.keys(witness).sort());
+  });
+
+  it('释放行是决定，不是执行：拒绝记 rejected，其余停在 result_unknown', () => {
+    // `claim_release` carries no outcome by design; reading that absence as `executed` is how a
+    // refused release was exported as "Executed".
+    // `claim_release` 有意不带 outcome；把缺席读成 `executed`，正是被拒的释放被导出成「Executed」的来路。
+    expect(
+      releaseRowState({ action: 'claim_release', detail: 'release refused (stale_view): screens said open' }),
+    ).toBe('rejected');
+    expect(
+      releaseRowState({ action: 'claim_release', detail: 'released write claim #7; effect stays unknown' }),
+    ).toBe('result_unknown');
+    // Every other action keeps the shared derivation.
+    // 其他动作继续走共享推导。
+    expect(releaseRowState({ action: 'tool_call', detail: 'create_event({})' })).toBeNull();
   });
 });

@@ -116,21 +116,32 @@ const ACTION_LABELS: Readonly<Record<string, string>> = {
 const GENERIC_ACTION = 'AI action';
 
 /**
- * The Action cell: the tool's business label when there is one, else the action kind. A tool the
- * metadata table does not know falls back to the action kind — never to the tool name.
+ * Actions whose row carries a `tool` **for filtering**, but whose Action cell is the action itself:
+ * the row records a decision or an undo, not a call of that tool. `claim_release` says a hold was
+ * released (or that the release was refused); `effect_revoke` says an effect was undone. Printing
+ * the tool's label there answered "which tool" to a reader asking "what happened" — a refused
+ * release exported as `Create event / Executed` (R-4 note §1.7).
  *
- * 动作列：有工具就用它的业务标签，否则用动作种类。元数据表不认识的工具退回动作种类 —— **绝不**
- * 退回工具名。
+ * 这些动作的行会带 `tool` 供筛选，但动作列回答的是**动作本身**：行记录的是决定或撤销，不是对该
+ * 工具的一次调用。`claim_release` 说的是占位被释放（或释放被拒）；`effect_revoke` 说的是副作用
+ * 被撤销。此处显示工具标签，等于对问「发生了什么」的读者回答「哪个工具」—— 一次被拒的释放因此
+ * 被导出成 `Create event / Executed`（R-4 注记 §1.7）。
+ */
+const ACTION_FIRST = new Set(['claim_release', 'effect_revoke', 'audit_review']);
+
+/**
+ * The Action cell: the tool's business label when there is one and the action is a tool call, else
+ * the action kind. A tool the metadata table does not know falls back to the action kind — never to
+ * the tool name.
+ *
+ * 动作列：一次工具调用且有工具时，用它的业务标签；否则用动作种类。元数据表不认识的工具退回动作
+ * 种类 —— **绝不**退回工具名。
  */
 export function productActionLabel(
   tool: string | null | undefined,
   action: string,
 ): string {
-  // A release row names the tool it is **about**, not one that ran under this row's own action.
-  // Taking the tool label would make "a hold on create_event was released" read as «Create event».
-  // 释放行点名的是它**关于**哪个工具，而不是在这一行自己的动作下跑过的工具。取工具标签会把
-  //「create_event 的占位被释放」读成「Create event」。
-  if (action !== 'claim_release' && tool) {
+  if (!ACTION_FIRST.has(action) && tool) {
     const meta = TOOL_METADATA[tool];
     if (meta) return meta.label;
   }
@@ -153,8 +164,6 @@ const RESULT_LABELS: Readonly<Record<ExplanationState, string>> = {
   failed: 'Failed',
   not_executed: 'Not executed',
   rejected: 'Rejected',
-  release_recorded: 'Release recorded',
-  release_refused: 'Release refused',
   result_unknown: 'Result unknown',
 };
 

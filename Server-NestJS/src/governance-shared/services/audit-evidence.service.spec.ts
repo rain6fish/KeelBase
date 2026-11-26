@@ -825,10 +825,9 @@ describe('AuditEvidenceService.getInterpretation（P0-20 单事件解释面）',
        * 同一会话中紧随锚点行之后的额外行。
        */
       convRows?: any[];
-      /** The anchor row's action (default `tool_call`). / 锚点行的动作（默认 `tool_call`）。 */
+      /** Override the anchor row's action and detail (e.g. a `claim_release` decision row). */
       action?: string;
-      /** The anchor row's off-chain release evidence, when it is a `claim_release` row. */
-      releaseLookups?: string | null;
+      detail?: string;
     } = {},
   ) {
     const auditRow = row({
@@ -836,8 +835,7 @@ describe('AuditEvidenceService.getInterpretation（P0-20 单事件解释面）',
       userId: opts.rowUserId ?? 'u1',
       username: 'alex',
       action: opts.action ?? 'tool_call',
-      releaseLookups: opts.releaseLookups ?? null,
-      detail: 'create_task({"title":"跟进"})',
+      detail: opts.detail ?? 'create_task({"title":"跟进"})',
       isError: false,
       authorization: null,
       conversationId: opts.conversationId === undefined ? 'c1' : opts.conversationId,
@@ -887,6 +885,23 @@ describe('AuditEvidenceService.getInterpretation（P0-20 单事件解释面）',
     return { service, operationAudit, logRepo };
   }
 
+  it('释放行是决定，不是执行：释放 ⇒ result_unknown，拒绝 ⇒ rejected', async () => {
+    // The row carries no `outcome` by design; the interpretation must not turn that absence into
+    // "Executed", and a refused release must not read as an executed tool call.
+    // 该行有意不带 `outcome`；解释面不得把缺席变成「Executed」，被拒的释放也不得读成执行过的工具调用。
+    const released = build({
+      action: 'claim_release',
+      detail: 'released write claim #7; effect stays unknown',
+    });
+    expect((await released.service.getInterpretation(7)).state).toBe('result_unknown');
+
+    const refused = build({
+      action: 'claim_release',
+      detail: 'release refused (stale_view): screens said open',
+    });
+    expect((await refused.service.getInterpretation(7)).state).toBe('rejected');
+  });
+
   it('无会话的审计行 ⇒ conversation 为空数组，且不去读「空谓词」的整表', async () => {
     // A row with no conversation used to query with an empty `where`, which means every audit row —
     // and the result was returned as `conversation` after only the anchor row was scope-checked.
@@ -930,18 +945,6 @@ describe('AuditEvidenceService.getInterpretation（P0-20 单事件解释面）',
     // 不猜的判据：没有占位行时**根本没去问**业务那一腿。
     // The no-guessing criterion: with no claim it does not even ask the business leg.
     expect(operationAudit.chainRowsByTarget).not.toHaveBeenCalled();
-  });
-
-  it('⚠ 释放行在解释面同样不是「已执行」：证据列有值 ⇒ 已记录，没有值 ⇒ 被拒', async () => {
-    const recorded = await build({
-      action: 'claim_release',
-      releaseLookups: '{"count":0,"askable":true,"items":[]}',
-    }).service.getInterpretation(7);
-    expect(recorded.state).toBe('release_recorded');
-
-    const refused = await build({ action: 'claim_release', releaseLookups: null }).service
-      .getInterpretation(7);
-    expect(refused.state).toBe('release_refused');
   });
 
   it('占位行 → 副作用 → 已撤销 ⇒ 状态是补偿成功，副作用带撤销档位', async () => {

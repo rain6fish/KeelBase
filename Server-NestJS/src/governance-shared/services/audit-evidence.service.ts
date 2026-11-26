@@ -27,7 +27,7 @@ import { AiConfirmationRequest } from '../../governance-shared/entities/ai-confi
 // P0-20: the single-event explanation. `revokeWindow` is reused from governance-core rather than re-derived here.
 import { revokeWindow } from '../../governance-core/revoke-staleness';
 import { REVOKE_STATUS, type RevokeStatus } from '../../governance-core/revoke-status';
-import { ExplanationState, explainState } from './audit-explanation-state';
+import { ExplanationState, explainState, releaseRowState } from './audit-explanation-state';
 import { AuditChainService, ChainVerification } from '../../common/audit-chain/audit-chain.service';
 import { CacheService } from '../../common/cache/cache.service';
 import type { AuthorizationExplainerService } from '../../ai/authorization-explainer.service';
@@ -1013,17 +1013,15 @@ export class AuditEvidenceService {
       row,
       summary,
       conversation: convRows,
-      state: explainState({
-        outcome: row.outcome,
-        isError: row.isError,
-        confirmationStatus: confirmationRow?.status ?? null,
-        revokeStatus: effectRow?.revokeStatus ?? null,
-        revokeWindow: window,
-        // Same inputs as the six answers: a release row's ending is its evidence column, not an
-        // execution. / 与六问同一组输入：释放行的结局看证据列，不是一次执行。
-        action: row.action,
-        releaseLookups: row.releaseLookups ?? null,
-      }),
+      state:
+        releaseRowState(row) ??
+        explainState({
+          outcome: row.outcome,
+          isError: row.isError,
+          confirmationStatus: confirmationRow?.status ?? null,
+          revokeStatus: effectRow?.revokeStatus ?? null,
+          revokeWindow: window,
+        }),
       effect: effectRow
         ? {
             id: effectRow.id,

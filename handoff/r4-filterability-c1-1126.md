@@ -5,6 +5,15 @@
 - 范围：**未改契约、未改 schema、未加迁移、未推送、未打 tag**。契约子模块 pin 未动
   （`015f474ebf0cf5f45c855614b18020857665c700`）。
 
+## 与主检出上另一会话的同一修正合并（取并集）
+
+主检出上已有另一会话的 `f24092b7`（报告 `handoff/claim-release-labels-1126.md`）修了同一处误读，
+模型不同：`releaseRowState()` 复用既有状态（拒绝前缀 ⇒ `rejected`；其余释放 ⇒ `result_unknown`），
+`ACTION_FIRST` 让释放/撤销/复核三类行不取工具标签，**不扩状态词表**。
+
+合并**以 main 的模型为准**（它复用冻结词表、不依赖「该列存在之后」的时间分界、且已评审并入），
+本分支原拟的 `release_recorded` / `release_refused` 两个新状态**已放弃**。本分支保留的是 main 没有的部分。
+
 ## 做了什么
 
 ### 1. 读规则（提案 §5.2）
@@ -16,76 +25,49 @@
 - 自动清扫的释放另有 `userId = 'system:sweep'`，日志列表可精确选出；
 - 人工释放 vs 人工对账仍只有散文可分 —— 那是 `releaseKind` 要补的缺口（D2/D3 未裁）。
 
-### 2. 标签（提案 §5.3）
+### 2. 标签：main 的模型 + 本分支独有的补足
 
-后端：
+采用 main（`f24092b7`）：`releaseRowState` 的 `rejected` / `result_unknown`、`ACTION_FIRST` 三类动作、
+六问导出与单事件解释面两个消费点。
 
-- `audit-explanation-state.ts`：词表新增 `release_recorded` / `release_refused`，按行的 `action` 进入，
-  由结构化 `releaseLookups` 列决定；`outcome === null` 不再落到 `executed`。
-  六问导出（`_answer`）与单事件解释（`getInterpretation`）都喂同一组输入。
-- `audit-export-vocabulary.ts`：
-  - `productActionLabel`：`claim_release` 行不再取工具标签（此前一条关于 `create_event` 的释放行显示为
-    「Create event」），显示动作「Write-hold release」；
-  - `RESULT_LABELS`：新增「Release recorded」/「Release refused」；
-  - `productInitiatorLabel`：新增 `userId` 入参；无 `username` 且 id 属 `system:` 命名空间时答
-    「Automated」，不再把已知的自动主体说成「Not recorded」；不打印 id（内部名）。
-- `recordTargetRelease` 现在接收 `byUsername`：`reconcileClaim(claimId, byUserId, byUsername?)` →
-  `TargetReleaseTrigger.byUsername` → 行的 `username` 快照。控制器传 `user.username`；
-  自动清扫仍无名字（不编造），导出按 id 判为 Automated。
+本分支保留的独有部分：
 
-控制台：
+- **发起人身份**：`recordTargetRelease` 接收 `byUsername` —— `reconcileClaim(claimId, byUserId, byUsername?)`
+  → `TargetReleaseTrigger.byUsername` → 行的 `username` 快照；控制器传 `user.username`。自动清扫仍无名字
+  （不编造）。这正是并行报告列为「属另一项」的第 3 条。
+- **`productInitiatorLabel` 新增 `userId`**：无用户名且 id 属 `system:` 命名空间时答 `Automated`，
+  不再把已知的自动主体说成「Not recorded」；不打印 id（内部名）。
+- **时间线文案键**：main 补了 `action.claim_release` / `action.effect_revoke`；本分支补齐
+  `action.audit_review` / `action.content_blocked` / `action.flow_node`（这张表缺键就显示原始动作令牌）。
+- **控制台状态文案**：补 `not_executed`（后端 2026-10-28 起就有，控制台此前会回落到原始令牌 ——
+  同一张表、同一类缺陷）。
 
-- `types/audit.ts` / `AiAuditView.vue`：状态联合与标签/颜色表同步；顺带补上此前缺失的
-  `not_executed`（后端 2026-10-28 起就有，控制台会回落显示原始令牌 —— 同一张表、同一类缺陷）。
-- 颜色：`release_recorded` = info（释放不等于成功，写的结局仍未知，故不用绿色）；`release_refused` = warning。
-- i18n zh/en 各 3 个键。
+### 3. 测试（合并后）
+
+- `audit-explanation-state.spec.ts`：保留 main 的 `releaseRowState` 三态用例。
+- `audit-answers.service.spec.ts`：三类 `claim_release` 行（释放 / 拒绝 / 自动清扫）—— 前两类按 main 的
+  `Result unknown` / `Rejected`，第三类断言发起人列为 `Automated`；「0 内部名」仍成立。
+- `audit-evidence.service.spec.ts`：保留 main 的解释面用例（`result_unknown` / `rejected`）。
+- `audit-export-vocabulary.spec.ts`：保留 main 的 `ACTION_FIRST` 用例；新增 `system:` 主体答 `Automated`。
+- `write-claim-decision.service.spec.ts`：人发起的目标驱动释放带 `username` 快照；自动清扫为 null。
 
 ## 已知边界（如实）
 
-1. **`releaseLookups` 缺席的旧行**：早于 v1.23.0 的释放行在这个标签下读作「Release refused」。
-   标签走结构化列（六问导出的既有性质），不回退解析散文；该时间分界已写进 `docs/revoke-contract.spec.md`
-   与 `audit-explanation-state.ts` 文件头，行内 `detail` 是可核之处。
-2. **六问导出的 Object 列**仍为 `Not recorded`（释放行不挂 effect）—— 不在本次范围。
-3. ~~**AI 时间线**仍把 `claim_release` 显示为原始动作令牌~~ —— **已补**（见下「补记」）。
-4. 控制台的 AI 审计**列表**用户列仍只读 `username`；自动清扫行仍空白（导出已能说 Automated）。
-5. D2/D3（是否加 `releaseKind` 链外列、取值词表）未做，触发条件见提案 §2。
+1. 拒绝/释放的判定按 main 的模型读 `detail` 固定前缀（`release refused`，由同一服务写出），
+   不是结构化列；结构化种类是 D2/D3，未做。
+2. 六问导出的 Object 列仍为 `Not recorded`（释放行不挂 effect）—— 不在本次范围。
+3. 控制台的 AI 审计**列表**用户列仍只读 `username`；自动清扫行仍空白（导出已能说 Automated）。
+4. D2/D3（是否加 `releaseKind` 链外列、取值词表）未做，触发条件见提案 §2。
 
-## 读数
+## 读数（合并后）
 
 | 命令 | 读数 |
 |---|---|
-| `npx jest`（6 个受影响单测：解释状态/导出词表/六问/解释面/决策服务/对账） | **125/125 通过，6 套** |
-| `npx jest src/governance-shared src/ai/ai.controller.spec.ts` | **584 通过 / 3 跳过（PG 套件），38 套 + 1 跳过** |
-| `NODE_ENV=test npx jest --config test/jest-e2e.json test/stale-view-release.e2e-spec.ts test/audit-reader-scope.e2e-spec.ts` | **23/23 通过，2 套** |
 | `npx tsc -p tsconfig.build.json --noEmit` | 0 错误 |
-| `npx eslint`（7 个改动源码文件） | 0 findings |
+| `npx jest src/governance-shared src/ai/ai.controller.spec.ts` | **585 通过 / 3 跳过（PG 套件），38 套 + 1 跳过** |
 | `cd Web-Admin-Vue && npm run typecheck` | 0 错误 |
-| `npx vitest run src/views/audit/__tests__/AiAuditView.spec.ts` | **19/19 通过** |
+| `npx vitest run src/views/audit/__tests__/AiAuditView.spec.ts src/views/ai-timeline/__tests__/AiTimelineView.spec.ts` | **26/26 通过** |
 
-未跑：全量 `npm test` / `npm run check:all`（本次改动面窄且均已定向覆盖）；若合并前要跑，按仓库惯例带
-`KEELBASE_JAVA_REPO=D:/Rain6fish/KeelBase4J`（本 worktree 无同级 Java 检出）。
-
-## 新增/改动的测试
-
-- `audit-explanation-state.spec.ts`：释放行两种结局各产生一个状态；其它动作带 `releaseLookups` 也到不了；
-  可达性 witness 覆盖新值。
-- `audit-export-vocabulary.spec.ts`：`claim_release` 不取工具标签；`system:` 主体答 Automated。
-- `audit-answers.service.spec.ts`：三类释放行各一格（Write-hold release / Release recorded /
-  Release refused）+ 自动清扫行 Automated，且「0 内部名」仍成立。
-- `audit-evidence.service.spec.ts`：解释面同样给 `release_recorded` / `release_refused`（端到端，不只纯函数）。
-- `write-claim-decision.service.spec.ts`：人发起的目标驱动释放带 `username` 快照；自动清扫为 null。
-
-## 补记：时间线文案键（同一张 `action.*` 表）
-
-AI 时间线的动作名取自 `t('action.' + log.action)`，表里没有的键会回落到**原始动作令牌**。`action` 块此前只有
-`chat / plan / analyze / knowledge / delegate / login`，于是 `claim_release`、`effect_revoke`、`audit_review`、
-`content_blocked`、`flow_node` 五种行都显示原始令牌。按「同类缺陷就近一并修」，五个键一次补齐：
-
-- `claim_release`：释放写占位 / Write-hold release（与六问导出的动作词一致）；
-- `effect_revoke`：撤销 AI 写入 / Undo of an AI write；
-- `audit_review`：复核回执 / Review receipt（复用审计页已有的同一措辞）；
-- `content_blocked`：内容已拦截 / Content blocked；
-- `flow_node`：工作流步骤 / Workflow step。
-
-`Web-Admin-Vue/src/i18n/zh.ts` / `en.ts` 各五条；`vue-tsc` 0 错（`en.ts` 按 `ZhDict` 收窄，缺键即编译不过）；
-时间线用例 7/7。未在浏览器里跑起来看（需要后端 + 有这些动作的种子数据），展示层未改。
+合并前本分支的单分支读数（全量单测 445 套 / 4213 例、目标 e2e 23/23）针对的是后来被放弃的
+`release_recorded` 模型；合并后以本表为准。未跑 `npm run check:all`；合并提交触及语义源
+`audit-evidence.service.ts`，提交信息带 `[no-semantic-change]`（纯派生状态，无契约影响）。

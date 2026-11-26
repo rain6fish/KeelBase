@@ -314,3 +314,7 @@ Java 运行时是否 vendor 该行 schema 需在动手时确认 —— v8 的 CH
 
 用户裁定 **D1 = 先做零契约**。§5.2（读规则文档化）与 §5.3（标签修正）已实施，见
 `handoff/r4-filterability-c1-1126.md`；D2/D3（是否加 `releaseKind` 列、取值词表）仍未裁，触发条件不变。
+
+并入本地 `main` 时发现另一会话已用**另一套模型**修了 §5.3 的标签（main `f24092b7`：`releaseRowState`
+复用 `rejected` / `result_unknown`，不扩词表）。合并以该模型为准，本分支保留其独有的发起人身份快照、
+`Automated` 标签、其余动作文案键与 `not_executed` 控制台文案；本稿 §5.3 第 1 条设想的两个新状态未采用。

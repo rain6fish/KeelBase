@@ -573,6 +573,8 @@ ARC-6 对「缺失集合已变」的处理同一条规则。**不回填**：引�
 
 ## 6. 滞留占位的处置与对账（AW-16 / AW-17）/ A stuck hold's disposition and its reconciliation
 
+**Reconciliation needs a receipt.** The verb names the act of asking, but the account is settled only when the answer is based on the target's own acceptance record (`basis=receipt`). Against a target that serves current state only, the reading is a sample — which is why the read surface's field is `lastLookup` and not a history, and why every copied reading carries its basis. The verb is not renamed per target; the distinction lives in the data, because the data is what a reader acts on (F-136).
+
 **A hold nobody can resolve gets a disposition, not a verdict.** A write claim whose outcome stayed
 unknown past `REVOKE_STALE_MINUTES` can be released by an administrator with a written note and an
 optional external reference. The claim moves to `closed_unknown`; `status` deliberately stays
@@ -580,8 +582,9 @@ optional external reference. The claim moves to `closed_unknown`; `status` delib
 "confirmed not stored". The key stays occupied, so the same call is refused by `claimWrite` and is
 never silently retried. The act itself is one chained AI-audit row (`action=claim_release`), carrying
 the note and reference and **no** outcome word. That row also states **what the asking said**: the
-count and the newest three readings (`id`, `at`, `conclusion`, `reason`, `basis`, `lookedUpBy`), newest
-first, written `lookups: N asked, newest first (k of N)` when there are more than three. `basis`
+count in prose, written `lookups: N asked (see releaseLookups)` at every count, and the newest three
+readings (`id`, `at`, `conclusion`, `reason`, `basis`, `lookedUpBy`), newest first, in the off-chain
+column — the readings are recorded once there and are not restated in the prose. `basis`
 (R-1) is `current_state` | `receipt` | `unknown` and says what the answer was based on — a
 current-state reading cannot establish "never accepted". Both kinds are answers this repository's own
 reference target gives over the wire: an end-to-end case carries a `receipt` reading from the probe
@@ -605,7 +608,7 @@ decision (F-127). The count and the newest three are read in **one statement** �
 window with a `LIMIT` — because two reads let a concurrent automatic ask land between them and leave
 the row disagreeing with itself by one. This holds only while the lookup table **only ever gains
 rows** — one insert path, no update, delete or retention path (F-126). If pruning is ever added, the
-rows an audit row names must be retained, or the copied id dangles. That one-statement read is a snapshot only because both supported stores give a statement one consistent view — SQLite runs it serially, Postgres read-committed takes a statement-level snapshot. The shape test pins the statement, not the isolation level; the isolation is a deployment assumption recorded here, and that guard is built, not owed: a Postgres-only case opens two connections on one database — one inserting readings, one reading the release evidence — and every decision row it writes must agree with itself; it runs in CI on the migration-consistency job (`12a987da`). A run that would skip it is a failure (`PG_SNAPSHOT_REQUIRED=1`), so a green lane means the property was exercised rather than that the test was absent (F-133, F-134). The case covers the isolation the deployment actually uses; it does not assert the isolation level itself, and a green lane must not be read as that assertion. The owner of this assumption is whoever changes the deployment: a change that cannot say why it still holds is the change that extends the test (F-132).
+rows an audit row names must be retained, or the copied id dangles. That one-statement read is a snapshot only because both supported stores give a statement one consistent view — SQLite runs it serially, Postgres read-committed takes a statement-level snapshot. The shape test pins the statement, not the isolation level; the isolation is a deployment assumption recorded here, and that guard is built, not owed: a Postgres-only case opens two connections on one database — one inserting readings, one reading the release evidence — and every decision row it writes must agree with itself; it runs in CI on the migration-consistency job (`12a987da`). **A run that would skip it must fail** (`PG_SNAPSHOT_REQUIRED=1`); a lane that passes without running does not satisfy this section, and a green lane may be read only as “the property was exercised” (F-133, F-134, F-135). The case covers the isolation the deployment actually uses; it does not assert the isolation level itself, and a green lane must not be read as that assertion. The owner of this assumption is whoever changes the deployment: a change that cannot say why it still holds is the change that extends the test (F-132).
 
 An hourly sweep moves overdue `open` holds to `awaiting_decision`. It changes no status and writes no
 conclusion, so a slow external call can still settle; a sweep that released rows would take that
@@ -715,12 +718,15 @@ to a person, and a release still needs the target's explicit `not_executed` or a
 at the deadline. Decision age is the stable key and the primary order — a re-ask refreshes the
 reading and never moves the row — while freshness only filters and badges.
 
+**对账要有收据。** 这个动词命名的是「去问」这个动作，但账只有在答案基于目标自己的受理记录（`basis=receipt`）时才算对上。对只提供当前状态的目标，读数只是一次采样 —— 所以读面上的字段叫 `lastLookup` 而不是历史，也所以每条被复制的读数都带着自己的种类。动词不按目标改称呼；区分放在数据里，因为读者据以行动的是数据（F-136）。
+
 **滞留的占位得到的是一份处置，不是一句判决。** 结局越过 `REVOKE_STALE_MINUTES` 仍未明的写占位，可由管理员
 带书面说明（可选外部引用）释放。占位转为 `closed_unknown`，而 `status` **有意**保持 `claimed` —— 没有任何
 东西证明这次写是否落库，写成 `released` 等于断言「确认未落库」。键仍被占住，故同一次调用会被 `claimWrite`
 拒绝，绝不会被静默重试。动作本身是一条带链 AI 审计行（`action=claim_release`），带说明与引用，**不**带
-任何结局词。该行同时陈述**询问说了什么**：次数与最近三次读数（`id`、`at`、`conclusion`、`reason`、
-`basis`、`lookedUpBy`），最近的在前，超过三条时写作 `lookups: N asked, newest first (k of N)`。
+任何结局词。该行同时陈述**询问说了什么**：散文写次数，不论几次都是 `lookups: N asked (see releaseLookups)`
+这一句；最近三次读数（`id`、`at`、`conclusion`、`reason`、`basis`、`lookedUpBy`）最近的在前，记在链外列
+里 —— 读数只记那一处，不在散文中复述。
 `basis`（R-1）取 `current_state` | `receipt` | `unknown`，说的是答案**基于什么** —— 当前状态读数
 确立不了「从未被接受」。两种种类都是本仓参考目标真的从线上给出的答案：一条端到端用例把 `receipt`
 读数从探针经落库的行带进这一列、查询历史与在途清单的 `lastLookup`，并让 `current_state` 在三处都保持
@@ -737,7 +743,7 @@ reading and never moves the row — while freshness only filters and badges.
 派生值（F-125）。正因拷贝是边界而非全集，最新的拷贝 id 就是**水位**：更大的 id 都写在此决定之后
 （F-127）。次数与最近三条用**一条语句**读出 —— `COUNT(*) OVER ()` 窗口配 `LIMIT` —— 因为两次读会让
 并发的自动询问落进缝里，使行与自己差一。这一性质只在读数表**仅追加**时成立：一条插入路径，没有
-update / delete / 保留期（F-126）。若日后加了保留期，审计行点名的行必须保留，否则拷贝的 id 悬空。那条单语句读之所以是快照，只因为两种受支持的库都给单条语句一个一致视图 —— sqlite 单语句串行，postgres read-committed 取语句级快照。形状测试钉的是语句，不是隔离级别；隔离是部署假设，记在这里，这道护栏已建好、不再是待办：仅在 Postgres 上运行的用例开两条连接指向同一个库 —— 一条不停插入读数，一条读取释放证据 —— 它写出的每条决定行都必须自洽；该用例跑在 CI 的迁移一致性 job 里（`12a987da`）。本该跑却跳过即判失败（`PG_SNAPSHOT_REQUIRED=1`），所以 lane 绿意味着该性质被跑过，而不是测试缺席（F-133、F-134）。该用例覆盖的是部署实际使用的隔离；它本身不断言隔离级别，也不得把 lane 绿当成那一断言。这条假设的所有者就是改部署的人：一次改动能说不出它为何仍成立，那次改动就该把测试扩展上（F-132）。
+update / delete / 保留期（F-126）。若日后加了保留期，审计行点名的行必须保留，否则拷贝的 id 悬空。那条单语句读之所以是快照，只因为两种受支持的库都给单条语句一个一致视图 —— sqlite 单语句串行，postgres read-committed 取语句级快照。形状测试钉的是语句，不是隔离级别；隔离是部署假设，记在这里，这道护栏已建好、不再是待办：仅在 Postgres 上运行的用例开两条连接指向同一个库 —— 一条不停插入读数，一条读取释放证据 —— 它写出的每条决定行都必须自洽；该用例跑在 CI 的迁移一致性 job 里（`12a987da`）。本该跑却跳过**必须**判失败（`PG_SNAPSHOT_REQUIRED=1`）；没跑就通过的 lane 不构成本节的满足，lane 绿只能读作「该性质被跑过」（F-133、F-134、F-135）。该用例覆盖的是部署实际使用的隔离；它本身不断言隔离级别，也不得把 lane 绿当成那一断言。这条假设的所有者就是改部署的人：一次改动能说不出它为何仍成立，那次改动就该把测试扩展上（F-132）。
 
 每小时清扫把到期的 `open` 占位移入 `awaiting_decision`：不改状态、不写结论，故慢的外部调用仍能落定 ——
 若清扫把行改成 `released`，那份能力就没了。读永远不改状态：`stale` 仍是年龄读数，不是决定。

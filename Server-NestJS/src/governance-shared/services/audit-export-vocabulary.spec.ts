@@ -57,9 +57,16 @@ describe('audit export vocabulary', () => {
     expect(productActionLabel('some_new_tool', 'tool_call')).toBe('AI action');
     expect(productActionLabel(null, 'audit_review')).toBe('Audit review receipt');
     expect(productActionLabel(null, 'brand_new_action')).toBe('AI action');
-    // A release row names the tool it is *about*; taking that tool's label would read as an action.
-    // 释放行点名的是它**关于**哪个工具；取那个工具的标签会被读成一次该动作。
+  });
+
+  it('a decision or undo row says what happened, not which tool it was about', () => {
+    // The row carries `tool` for filtering; the Action cell answers "what happened". A release is
+    // not a `create_event`, and an undo is not the thing it undid.
+    // 行带 `tool` 是为筛选；动作列回答的是「发生了什么」。释放不是一次 `create_event`，撤销也不是
+    // 它所撤销的那件事。
     expect(productActionLabel('create_event', 'claim_release')).toBe('Write-hold release');
+    expect(productActionLabel('create_event', 'effect_revoke')).toBe('Undo of an AI write');
+    expect(productActionLabel('create_event', 'audit_review')).toBe('Audit review receipt');
   });
 
   it('every explanation state has a product word', () => {

@@ -637,8 +637,6 @@ const en: ZhDict = {
   explanationStateFailed: 'Failed',
   explanationStateNotExecuted: 'Not executed',
   explanationStateRejected: 'Rejected',
-  explanationStateReleaseRecorded: 'Release recorded',
-  explanationStateReleaseRefused: 'Release refused',
   explanationStateResultUnknown: 'Result unknown',
   decisionPolicy: 'Policy',
   stepConfirmation: 'Confirmation',
@@ -1097,8 +1095,8 @@ const en: ZhDict = {
     login: 'Login',
     // Only actions named here get a product word; a missing key shows the raw action token.
     // 落在这张表里的动作才显示产品词；缺一个，时间线就把原始动作令牌显示出来。
-    claim_release: 'Write-hold release',
-    effect_revoke: 'Undo of an AI write',
+    claim_release: 'Release write claim',
+    effect_revoke: 'Effect revoke',
     audit_review: 'Review receipt',
     content_blocked: 'Content blocked',
     flow_node: 'Workflow step',

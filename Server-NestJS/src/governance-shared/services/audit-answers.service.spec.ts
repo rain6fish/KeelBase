@@ -85,11 +85,12 @@ describe('AuditAnswersService', () => {
     expect(scanForInternalNames(matrix.rows.flat())).toEqual([]);
   });
 
-  it('a release row is not an execution: the evidence column names the ending, and the tool never names the action', async () => {
-    // Before this, every `claim_release` row exported as «Create event / Executed» — the tool label
-    // won the Action cell and `outcome === null` fell through to `executed`.
-    // 此前每条 `claim_release` 行都导出成「Create event / Executed」—— 工具标签赢下动作列，而
-    // `outcome === null` 落到了 `executed`。
+  it('a claim_release row is a decision, not "Create event / Executed"', async () => {
+    // The row carries the hold's tool for filtering; the export must still say a release happened.
+    // A refused release must not read as an executed `create_event`. The third row is the automatic
+    // sweep: no username exists, and the cell names the actor kind instead of «Not recorded».
+    // 行带占位的工具名是为筛选；导出仍须说「一次释放发生了」。被拒的释放不得读成一次执行过的
+    // `create_event`。第三行是自动清扫：没有用户名，该格说主体的种类，而不是「未记录」。
     const { service } = build([
       {
         id: 31,
@@ -123,8 +124,8 @@ describe('AuditAnswersService', () => {
 
     const matrix = await service.export({ limit: 500 }, undefined, reader);
 
-    expect(matrix.rows[0].slice(1, 3)).toEqual(['Write-hold release', 'Release recorded']);
-    expect(matrix.rows[1].slice(1, 3)).toEqual(['Write-hold release', 'Release refused']);
+    expect(matrix.rows[0].slice(1, 3)).toEqual(['Write-hold release', 'Result unknown']);
+    expect(matrix.rows[1].slice(1, 3)).toEqual(['Write-hold release', 'Rejected']);
     expect(matrix.rows[2][5]).toBe('Automated');
     expect(scanForInternalNames(matrix.rows.flat())).toEqual([]);
   });

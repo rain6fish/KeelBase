@@ -637,8 +637,6 @@ const zh = {
   explanationStateFailed: '失败',
   explanationStateNotExecuted: '未执行',
   explanationStateRejected: '被拒',
-  explanationStateReleaseRecorded: '释放已记录',
-  explanationStateReleaseRefused: '释放被拒',
   explanationStateResultUnknown: '结果未知',
   decisionPolicy: '策略',
   stepConfirmation: '确认决策',
@@ -1097,7 +1095,7 @@ const zh = {
     // 落在这张表里的动作才显示产品词；缺一个，时间线就把原始动作令牌显示出来。
     // Only actions named here get a product word; a missing key shows the raw action token.
     claim_release: '释放写占位',
-    effect_revoke: '撤销 AI 写入',
+    effect_revoke: '撤销副作用',
     audit_review: '复核回执',
     content_blocked: '内容已拦截',
     flow_node: '工作流步骤',

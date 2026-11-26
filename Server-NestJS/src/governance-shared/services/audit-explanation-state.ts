@@ -50,22 +50,12 @@
  * 故它排最前；执行过、之后又被补偿的动作，由**补偿**而不是执行来代表。下面每一步都写明它读的是
  * 哪个事实、以及为什么它压得住排在它下面的那些。
  *
- * <p><b>A `claim_release` row is not an execution, and its two endings are different states.</b>
- * The release rows sit on the same chain, but a release is a decision about the handling — the
- * write's result stays unknown — and a refused attempt never released anything. Falling through to
- * `executed` (the `outcome === null` fallback) said both were executions, so the vocabulary gains
- * `release_recorded` and `release_refused`, keyed off the row's action. The structured
- * `releaseLookups` column decides which: present ⇒ a release was recorded; absent ⇒ not (the
- * contract makes absence a property of non-release rows; a release written before the column
- * existed is indistinguishable here and reads as refused — the same historical boundary the release
- * read rule states, and the row's `detail` is where it can be checked).
+ * <p><b>A `claim_release` row answers separately.</b> It records a decision about the handling, so it
+ * leaves this derivation alone and is answered by `releaseRowState` below — the vocabulary keeps its
+ * existing words instead of growing one per row kind.
  *
- * <p><b>`claim_release` 行不是一次执行，而它的两种结局是两个状态。</b>释放行在同一条链上，但释放是
- * 对**处理方式**的决定 —— 那次写的结局仍未知 —— 而被拒的尝试什么都没释放。落到 `executed`（`outcome
- * === null` 的兜底）等于把两者都说成执行，故词表新增 `release_recorded` 与 `release_refused`，按行的
- * `action` 进入。由结构化的 `releaseLookups` 列决定是哪一种：有值 ⇒ 记下一次释放；没有值 ⇒ 不是
- *（契约把「缺席」定为非释放行的性质；早于该列存在的释放行在这里分辨不出、读作被拒 —— 与释放读规则
- * 写明的那条时间分界同源，行里的 `detail` 是可核之处）。
+ * <p><b>`claim_release` 行另行作答。</b>它记的是对处理方式的决定，故不参与上面这条推导，由下面的
+ * `releaseRowState` 回答 —— 词表保持既有取值，不为每种行各长一个词。
  */
 
 import { REVOKE_STATUS, type RevokeStatus } from '../../governance-core/revoke-status';
@@ -80,8 +70,6 @@ export type ExplanationState =
   | 'failed'
   | 'not_executed'
   | 'rejected'
-  | 'release_recorded'
-  | 'release_refused'
   | 'result_unknown';
 
 /** Every value, in the order the derivation considers them. Specs walk this to prove none is missed. */
@@ -94,8 +82,6 @@ export const EXPLANATION_STATES: readonly ExplanationState[] = [
   'not_executed',
   'failed',
   'rejected',
-  'release_recorded',
-  'release_refused',
   'executed',
 ];
 
@@ -120,21 +106,6 @@ export interface ExplanationStateInput {
   revokeStatus?: RevokeStatus | null;
   /** REV-2's window on a `compensating` effect: whether the target has been heard from. */
   revokeWindow?: string | null;
-  /**
-   * The row's `action`. Only `claim_release` is special-cased: it is a decision row, not an
-   * execution, so it must not fall through to `executed`.
-   *
-   * 行的 `action`。只有 `claim_release` 被特判：它是决定行、不是执行行，故不得落到 `executed`。
-   */
-  action?: string | null;
-  /**
-   * `claim_release` rows only: the row's `releaseLookups` column. Present ⇒ a release was recorded;
-   * absent ⇒ not (see the header for the historical boundary).
-   *
-   * 仅 `claim_release` 行：行的 `releaseLookups` 列。有值 ⇒ 记下一次释放；没有值 ⇒ 不是（时间分界见
-   * 文件头）。
-   */
-  releaseLookups?: string | null;
 }
 
 /**
@@ -163,14 +134,6 @@ export function explainState(input: ExplanationStateInput): ExplanationState {
       ? 'result_unknown'
       : 'compensating';
   }
-  // A release row is an act's ending, not an execution of a tool: the structured evidence column
-  // separates the two endings, and the `outcome === null` fallback below would report both as
-  // `executed`.
-  // 释放行是一次动作的结局、不是工具执行：结构化的证据列分开两种结局，而下面的 `outcome === null`
-  // 兜底会把两者都报成 `executed`。
-  if (input.action === 'claim_release') {
-    return input.releaseLookups != null ? 'release_recorded' : 'release_refused';
-  }
   // A named outcome beats the bare `isError` fallback: each word is a specific fact, while `isError`
   // is only the shape rows had before `outcome` existed. This matters in practice, not just in
   // theory — a policy-blocked row is written with `isError: true` and `outcome: 'blocked'`, so an
@@ -190,4 +153,25 @@ export function explainState(input: ExplanationStateInput): ExplanationState {
   // 只属于历史行：它们写的时候还没有 `outcome` 列。
   if (input.isError) return 'failed';
   return 'executed';
+}
+
+/**
+ * `claim_release` is a **decision row**, not a tool execution. The frozen vocabulary defines no
+ * outcome for it (the column is deliberately absent), and reading that absence as `executed` is how
+ * a refused release came to be exported as "Executed". A refusal — the only wording `_refusalDetail`
+ * writes — is `rejected`; every other release row stays `result_unknown`, because a release records
+ * that handling stopped, not that the write happened. Returns `null` for every other action, so
+ * callers keep the one shared derivation above.
+ *
+ * `claim_release` 是**决定行**，不是工具执行。冻结词表没有为它定义 outcome（该列有意缺席），而把
+ * 缺席读成 `executed`，正是一次被拒的释放被导出成「Executed」的来路。拒绝行（`_refusalDetail` 写
+ * 的唯一措辞）记 `rejected`；其余释放行停在 `result_unknown` —— 释放只说明处理结束了，不说明写
+ * 发生过。其他动作一律返回 `null`，调用方继续走上面那条唯一共享推导。
+ */
+export function releaseRowState(row: {
+  action?: string | null;
+  detail?: string | null;
+}): ExplanationState | null {
+  if (row.action !== 'claim_release') return null;
+  return (row.detail ?? '').startsWith('release refused') ? 'rejected' : 'result_unknown';
 }

@@ -65,8 +65,6 @@ export type ExplanationState =
   | 'failed'
   | 'not_executed'
   | 'rejected'
-  | 'release_recorded'
-  | 'release_refused'
   | 'result_unknown'
 
 /**

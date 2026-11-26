@@ -832,8 +832,6 @@ const explanationStateLabels = computed<Record<ExplanationState, string>>(() => 
   failed: t('explanationStateFailed'),
   not_executed: t('explanationStateNotExecuted'),
   rejected: t('explanationStateRejected'),
-  release_recorded: t('explanationStateReleaseRecorded'),
-  release_refused: t('explanationStateReleaseRefused'),
   result_unknown: t('explanationStateResultUnknown'),
 }))
 
@@ -847,10 +845,6 @@ const explanationStateColors: Record<ExplanationState, string> = {
   failed: 'danger',
   not_executed: 'warning',
   rejected: 'warning',
-  // A recorded release is not a success: the write's result stays unknown, so it must not be green.
-  // 记下一次释放不是成功：那次写的结局仍未知，故不能是绿色。
-  release_recorded: 'info',
-  release_refused: 'warning',
   result_unknown: 'danger',
 }
 
