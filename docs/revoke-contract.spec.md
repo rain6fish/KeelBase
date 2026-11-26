@@ -631,6 +631,14 @@ the target answered but its lookup row could not be recorded, the row says
 `lookup record missing — the target was asked, the lookup row was not recorded` instead of claiming
 nobody asked, and the column carries `recorded: false`.
 
+**The decision row keeps two clocks apart.** In a target-driven row's `detail`, the time inside
+`origin: target answered … at <queriedAt>` is when the status query was **issued** — it is stamped
+before the request leaves. The `at` of each copied reading in `releaseLookups` is the
+`@CreateDateColumn` of its `ai_target_status_lookups` row — when the answer was **recorded**, after
+the round trip. On a slow target the two can be seconds apart, so subtracting one from the other
+measures the query's latency, not an interval between observations. Read a copy's `at` for when an
+answer was recorded; read `detail`'s `queriedAt` for when the question was asked.
+
 **A release is bound to the view the reviewer saw.** The release body carries the review screen's
 frozen reading — the governance disposition and the newest target-status reading's id (`null` when the
 screen said nobody had asked) — and the write is conditional on the disposition still matching, so a
@@ -719,6 +727,12 @@ update / delete / 保留期（F-126）。若日后加了保留期，审计行点
 进 `releaseLookups`。这条路径还有一种情形：目标答过、但它的读数行没能记下时，行内写
 `lookup record missing — the target was asked, the lookup row was not recorded`，而不是声称没人问过；
 链外列带 `recorded: false`。
+
+**决定行把两只时钟分开。** 目标驱动行的 `detail` 里，`origin: target answered … at <queriedAt>` 中的时刻
+是状态查询**发出**的时刻 —— 它在请求离开之前就打上。`releaseLookups` 里每条拷贝的 `at` 则是该
+`ai_target_status_lookups` 行的 `@CreateDateColumn` —— 答案被**记下**的时刻，在一次往返之后。目标慢时
+两者可差出数秒，故拿一个减另一个，量到的是这次查询的往返耗时，不是两次观测之间的间隔。要问答案何时被
+记下，读拷贝的 `at`；要问问题何时发出，读 `detail` 的 `queriedAt`。
 
 **释放绑定在审阅者当时看到的视图上。** 释放请求体带上复核屏幕冻结的读数 —— 治理处置与最近一次目标状态读数的
 id（屏幕说当时没人问过时为 `null`）—— 且写入以处置仍一致为条件，于是清扫在屏幕下面把行从 `open` 移到
