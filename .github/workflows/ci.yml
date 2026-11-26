@@ -141,6 +141,10 @@ jobs:
     defaults:
       run:
         working-directory: Server-NestJS
+    # F-138: the flag lives on the job, not on one step, so the self-check below can see its absence.
+    # F-138：开关放在 job 上、而不是单个 step 上，下面的自检才看得见它被删掉。
+    env:
+      PG_SNAPSHOT_REQUIRED: '1'
     services:
       postgres:
         image: pgvector/pgvector:pg17@sha256:7d0a41464797aeb9862dfdc0bbf1526b82cfd324cdd8036df19e3545f4a9ccb8
@@ -191,6 +195,20 @@ jobs:
       # 自洽。覆盖的是部署实际使用的隔离（PG 默认 read-committed，语句级快照）；用例本身不检查隔离级别
       # —— 契约 §6 是这件事的单源。`PG_SNAPSHOT_REQUIRED=1`：本 lane 若配错使套件跳过，则改为失败，
       # 而不是拿一个跳过的绿交差。
+      # F-138: the obligation is enforced here, not in the contract's prose. If the flag above is
+      # deleted (or this job is copied without it), the suite would skip and the lane would go green
+      # about a property it never exercised. This step reads the same variable the test reads and
+      # fails when it is missing, so the cheapest accidental edit breaks the job instead of the claim.
+      #
+      # F-138：义务在这里执行，不在契约的散文里。上面的开关若被删掉（或整个 job 被复制时漏掉），
+      # 套件会跳过，lane 会对一件从未跑过的性质报绿。这一步读的是测试读的同一个变量，缺了就失败 ——
+      # 最省事的那种误编辑会让 job 红，而不是让那句主张悄悄变假。
+      - name: the snapshot case must not skip
+        run: |
+          if [ "$PG_SNAPSHOT_REQUIRED" != "1" ]; then
+            echo "::error::PG_SNAPSHOT_REQUIRED is not 1 - the snapshot case would skip and report green"
+            exit 1
+          fi
       - name: postgres · 释放证据计数与条目出自同一快照（并发写）
         env:
           DB_TYPE: postgres
@@ -198,7 +216,6 @@ jobs:
           DB_PORT: 5432
           DB_USER: postgres
           DB_PASSWORD: postgres
-          PG_SNAPSHOT_REQUIRED: '1'
         run: npx jest src/governance-shared/services/write-claim-decision.pg-snapshot.spec.ts
 
   # An entity whose table no migration creates. The `migration-consistency` jobs above do catch this,
