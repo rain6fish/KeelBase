@@ -67,6 +67,8 @@
 - `Web-Admin-Vue`：`npm run typecheck` ⇒ 0 错；`npx vitest run src/views/ai-tools/__tests__/AiToolsView.spec.ts`
   ⇒ 22/22。
 - `KEELBASE_JAVA_REPO=D:/Rain6fish/KeelBase4J npm run check:all` ⇒ **36/36 全过（71.3s）**。
+- `NODE_ENV=test npx jest --config ./test/jest-e2e.json test/audit-reader-scope.e2e-spec.ts --runInBand`
+  ⇒ 1 套 / 19 例全绿（含 AW-17 读面：普通用户 403、审计读者见成因、范围外 404）。
 - `npx eslint`（后端四个改动文件 / 控制台四个改动文件）⇒ 0 error（控制台 14 条 warning 均为文件内既有）。
 
 > 环境说明：本 worktree 原本没有 `node_modules`，为跑测试对三个位置建了指向主检出依赖的目录联接
