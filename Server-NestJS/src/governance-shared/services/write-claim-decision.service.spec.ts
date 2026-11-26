@@ -14,6 +14,7 @@ import { buildKey } from './effect-shared';
 import { WriteClaimStore } from './write-claim.store';
 import { WriteClaimDecisionService } from './write-claim-decision.service';
 import { WriteClaimQueryService } from './write-claim-query.service';
+import { UserRole } from '../../common/entities/user.entity';
 
 /**
  * AW-16 second slice — the **release procedure** (F-63) and the **expiry / decision policy** (F-64).
@@ -783,6 +784,74 @@ describe('AW-16 F-63/F-64：释放程序与过期策略', () => {
       const after = await auditRepo().findOneByOrFail({ id: row.id });
       expect(after.releaseLookups).toBe(row.releaseLookups);
       expect(JSON.parse(after.releaseLookups!).count).toBe(1);
+    });
+
+    it('两读面对得上：屏幕上冻结的 `lastLookup.id` 就是释放行的水位，拷贝的每个 id 都能在历史读面按同值找到', async () => {
+      const claim = await seed();
+      await seedLookup(claim.idempotencyKey, new Date('2026-11-22T10:00:00Z'), {
+        basis: 'receipt',
+      });
+      const second = await seedLookup(claim.idempotencyKey, new Date('2026-11-22T12:00:00Z'), {
+        conclusion: 'unknown',
+        reason: 'timeout',
+        lookedUpBy: 'system:sweep',
+      });
+
+      // The frozen view comes from the list read face itself, not an id assembled here: this test is
+      // about the same number on both surfaces.
+      // 冻结视图取自列表读面本身，而不是测试另拼一个 id —— 这条用例要证的是两面同号。
+      const readFace = new WriteClaimQueryService(repo(), lookups(), undefined);
+      const listed = await readFace.list(
+        { decisionState: 'all' },
+        { userId: 1, role: UserRole.ADMIN },
+      );
+      const onScreen = listed.items.find((r) => r.id === claim.id)!;
+      expect(onScreen.lastLookup?.id).toBe(second.id);
+
+      const res = await service.release(
+        claim.id,
+        { userId: 'admin-1' },
+        {
+          note: '按屏幕冻结的读数释放',
+          view: {
+            decisionState: onScreen.decisionState,
+            lastLookupId: onScreen.lastLookup?.id ?? null,
+          },
+        },
+      );
+      expect(res.outcome).toBe('released_unknown');
+
+      const row = await auditRepo().findOneByOrFail({ action: 'claim_release' });
+      const copy = JSON.parse(row.releaseLookups!) as { items: CopiedEntry[] };
+      // The watermark is the id the screen froze, so the two surfaces agree without inferring order
+      // from timestamps.
+      // 水位 = 屏幕上冻结的那条 ⇒ 两读面同一个 id，不需要靠时间戳猜先后。
+      expect(copy.items[0].id).toBe(onScreen.lastLookup?.id);
+
+      // The second read face (history): every copied id is on it, with identical observed values.
+      // 第二条读面（历史）：拷贝的每个 id 都在上面，且观测字段逐一同值。
+      const history = await readFace.lookupsFor(claim.id, {
+        userId: 1,
+        role: UserRole.ADMIN,
+      });
+      expect(history).not.toBeNull();
+      for (const item of copy.items) {
+        const shown = history!.items.find((l) => l.id === item.id);
+        expect(shown).toBeTruthy();
+        expect({
+          at: shown!.at,
+          conclusion: shown!.conclusion,
+          reason: shown!.reason,
+          basis: shown!.basis,
+          lookedUpBy: shown!.lookedUpBy,
+        }).toEqual({
+          at: item.at,
+          conclusion: item.conclusion,
+          reason: item.reason,
+          basis: item.basis,
+          lookedUpBy: item.lookedUpBy,
+        });
+      }
     });
   });
 
