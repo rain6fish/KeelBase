@@ -46,8 +46,7 @@
    标签走结构化列（六问导出的既有性质），不回退解析散文；该时间分界已写进 `docs/revoke-contract.spec.md`
    与 `audit-explanation-state.ts` 文件头，行内 `detail` 是可核之处。
 2. **六问导出的 Object 列**仍为 `Not recorded`（释放行不挂 effect）—— 不在本次范围。
-3. **AI 时间线**仍把 `claim_release` 显示为原始动作令牌（缺 `action.claim_release` 文案键）——
-   一行 i18n 的事，未纳入本次裁定范围。
+3. ~~**AI 时间线**仍把 `claim_release` 显示为原始动作令牌~~ —— **已补**（见下「补记」）。
 4. 控制台的 AI 审计**列表**用户列仍只读 `username`；自动清扫行仍空白（导出已能说 Automated）。
 5. D2/D3（是否加 `releaseKind` 链外列、取值词表）未做，触发条件见提案 §2。
 
@@ -75,3 +74,18 @@
   Release refused）+ 自动清扫行 Automated，且「0 内部名」仍成立。
 - `audit-evidence.service.spec.ts`：解释面同样给 `release_recorded` / `release_refused`（端到端，不只纯函数）。
 - `write-claim-decision.service.spec.ts`：人发起的目标驱动释放带 `username` 快照；自动清扫为 null。
+
+## 补记：时间线文案键（同一张 `action.*` 表）
+
+AI 时间线的动作名取自 `t('action.' + log.action)`，表里没有的键会回落到**原始动作令牌**。`action` 块此前只有
+`chat / plan / analyze / knowledge / delegate / login`，于是 `claim_release`、`effect_revoke`、`audit_review`、
+`content_blocked`、`flow_node` 五种行都显示原始令牌。按「同类缺陷就近一并修」，五个键一次补齐：
+
+- `claim_release`：释放写占位 / Write-hold release（与六问导出的动作词一致）；
+- `effect_revoke`：撤销 AI 写入 / Undo of an AI write；
+- `audit_review`：复核回执 / Review receipt（复用审计页已有的同一措辞）；
+- `content_blocked`：内容已拦截 / Content blocked；
+- `flow_node`：工作流步骤 / Workflow step。
+
+`Web-Admin-Vue/src/i18n/zh.ts` / `en.ts` 各五条；`vue-tsc` 0 错（`en.ts` 按 `ZhDict` 收窄，缺键即编译不过）；
+时间线用例 7/7。未在浏览器里跑起来看（需要后端 + 有这些动作的种子数据），展示层未改。
