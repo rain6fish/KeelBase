@@ -99,6 +99,21 @@ describe('explainState（单事件解释面的那一个状态）', () => {
     expect(explainState({})).toBe('executed');
   });
 
+  it('⚠ 释放行不是执行：两种结局各是一个状态，由证据列决定', () => {
+    // The fallback would call both «Executed» — the row records a decision about the handling, and a
+    // refused attempt released nothing.
+    // 兜底会把两者都叫「已执行」—— 这一行记的是对处理方式的决定，而被拒的尝试什么都没释放。
+    expect(explainState({ action: 'claim_release', releaseLookups: '{"count":0,"items":[]}' })).toBe(
+      'release_recorded',
+    );
+    expect(explainState({ action: 'claim_release', releaseLookups: null })).toBe('release_refused');
+    // Other actions never reach these two values, even with the column in hand.
+    // 其它动作即便手上有这一列，也到不了这两个值。
+    expect(explainState({ action: 'tool_call', outcome: 'executed', releaseLookups: '{}' })).toBe(
+      'executed',
+    );
+  });
+
   it('可达性：词表里每个值都有输入能产生它（并列出反例输入）', () => {
     const witness: Record<string, Parameters<typeof explainState>[0]> = {
       awaiting_confirmation: { confirmationStatus: 'pending' },
@@ -109,6 +124,8 @@ describe('explainState（单事件解释面的那一个状态）', () => {
       failed: { outcome: 'failed' },
       not_executed: { outcome: 'not_executed' },
       rejected: { outcome: 'refused' },
+      release_recorded: { action: 'claim_release', releaseLookups: '{"count":0,"items":[]}' },
+      release_refused: { action: 'claim_release', releaseLookups: null },
       result_unknown: { revokeStatus: 'compensating', revokeWindow: 'awaiting_target' },
     };
     for (const state of EXPLANATION_STATES) {

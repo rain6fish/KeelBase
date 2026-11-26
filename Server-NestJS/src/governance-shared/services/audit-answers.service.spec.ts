@@ -85,6 +85,50 @@ describe('AuditAnswersService', () => {
     expect(scanForInternalNames(matrix.rows.flat())).toEqual([]);
   });
 
+  it('a release row is not an execution: the evidence column names the ending, and the tool never names the action', async () => {
+    // Before this, every `claim_release` row exported as «Create event / Executed» — the tool label
+    // won the Action cell and `outcome === null` fell through to `executed`.
+    // 此前每条 `claim_release` 行都导出成「Create event / Executed」—— 工具标签赢下动作列，而
+    // `outcome === null` 落到了 `executed`。
+    const { service } = build([
+      {
+        id: 31,
+        action: 'claim_release',
+        tool: 'create_event',
+        outcome: null,
+        username: 'admin',
+        detail: 'release write claim #3 (create_event, as user 1) → closed_unknown; note: …',
+        releaseLookups: '{"count":0,"askable":true,"items":[]}',
+      },
+      {
+        id: 32,
+        action: 'claim_release',
+        tool: 'create_event',
+        outcome: null,
+        username: 'admin',
+        detail: 'release refused (stale_view): write claim #3 …',
+        releaseLookups: null,
+      },
+      {
+        id: 33,
+        action: 'claim_release',
+        tool: 'create_event',
+        outcome: null,
+        username: null,
+        userId: 'system:sweep',
+        detail: 'release write claim #4 (create_event, as user 1) → released; origin: …',
+        releaseLookups: '{"count":1,"askable":true,"items":[]}',
+      },
+    ]);
+
+    const matrix = await service.export({ limit: 500 }, undefined, reader);
+
+    expect(matrix.rows[0].slice(1, 3)).toEqual(['Write-hold release', 'Release recorded']);
+    expect(matrix.rows[1].slice(1, 3)).toEqual(['Write-hold release', 'Release refused']);
+    expect(matrix.rows[2][5]).toBe('Automated');
+    expect(scanForInternalNames(matrix.rows.flat())).toEqual([]);
+  });
+
   it('reads a zone-less database instant as UTC, not as the machine’s local time', async () => {
     // SQLite hands back TypeORM's UTC wall clock without a zone. Parsing it as local is how an
     // export ends up eight hours off on a +08 machine.

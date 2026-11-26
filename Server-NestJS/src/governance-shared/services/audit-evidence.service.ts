@@ -1019,6 +1019,10 @@ export class AuditEvidenceService {
         confirmationStatus: confirmationRow?.status ?? null,
         revokeStatus: effectRow?.revokeStatus ?? null,
         revokeWindow: window,
+        // Same inputs as the six answers: a release row's ending is its evidence column, not an
+        // execution. / 与六问同一组输入：释放行的结局看证据列，不是一次执行。
+        action: row.action,
+        releaseLookups: row.releaseLookups ?? null,
       }),
       effect: effectRow
         ? {

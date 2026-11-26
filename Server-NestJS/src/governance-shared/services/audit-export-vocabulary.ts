@@ -126,7 +126,11 @@ export function productActionLabel(
   tool: string | null | undefined,
   action: string,
 ): string {
-  if (tool) {
+  // A release row names the tool it is **about**, not one that ran under this row's own action.
+  // Taking the tool label would make "a hold on create_event was released" read as «Create event».
+  // 释放行点名的是它**关于**哪个工具，而不是在这一行自己的动作下跑过的工具。取工具标签会把
+  //「create_event 的占位被释放」读成「Create event」。
+  if (action !== 'claim_release' && tool) {
     const meta = TOOL_METADATA[tool];
     if (meta) return meta.label;
   }
@@ -149,6 +153,8 @@ const RESULT_LABELS: Readonly<Record<ExplanationState, string>> = {
   failed: 'Failed',
   not_executed: 'Not executed',
   rejected: 'Rejected',
+  release_recorded: 'Release recorded',
+  release_refused: 'Release refused',
   result_unknown: 'Result unknown',
 };
 
@@ -239,15 +245,27 @@ const HUMAN_ONLY_ACTIONS = new Set(['audit_review', 'claim_release', 'login']);
  * The Initiated-by cell: the person, plus whether the action ran through the assistant or was their
  * own direct act. A delegated agent execution is a third state and says so.
  *
+ * <p>A row written by a system principal has no username snapshot and never will — nobody typed it.
+ * Saying «Not recorded» is true but treats a known fact as a gap; the actor kind is known from the
+ * id's `system:` namespace, so the cell says the act was automated. It never prints the id itself:
+ * that token is an internal name, and this export has none.
+ *
  * 发起人列：人 + 这次动作是经助手执行，还是本人的直接动作。代理执行是第三种，并如实说出来。
+ *
+ * <p>由系统主体写下的行没有、也不会有用户名快照 —— 没有人在那儿敲字。说「未记录」是真的，却把一个
+ * 已知事实说成缺口；主体的种类从 id 的 `system:` 命名空间就能知道，故这一格说这次动作是自动的。
+ * 它绝不打印 id 本身：那是内部名，而本导出一处都没有。
  */
 export function productInitiatorLabel(row: {
   username?: string | null;
+  userId?: string | null;
   action: string;
   agentId?: string | null;
 }): string {
   const name = row.username?.trim();
-  if (!name) return 'Not recorded';
+  if (!name) {
+    return row.userId?.startsWith('system:') ? 'Automated' : 'Not recorded';
+  }
   if (row.agentId) return `${name} (through the AI assistant, delegated)`;
   if (HUMAN_ONLY_ACTIONS.has(row.action)) return `${name} (directly)`;
   return `${name} (through the AI assistant)`;

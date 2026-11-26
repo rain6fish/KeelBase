@@ -255,6 +255,12 @@ export class AuditAnswersService {
       confirmationStatus: confirmation?.status ?? null,
       revokeStatus: effect?.revokeStatus ?? null,
       revokeWindow: effect ? revokeWindow(effect.revokeStatus, effect.revokeAcknowledgedAt) : null,
+      // A release row is a decision, not an execution; its structured evidence column says which
+      // ending it records. Without this, every release row fell through to `executed`.
+      // 释放行是决定、不是执行；结构化的证据列说明它记的是哪种结局。没有这一项，每条释放行都会落到
+      // `executed`。
+      action: row.action,
+      releaseLookups: row.releaseLookups ?? null,
     });
 
     const authorizationShape = parseAuthorizationShape(row.authorization);
@@ -281,7 +287,12 @@ export class AuditAnswersService {
         denied: authorizationShape === 'denied',
         allowed: authorizationShape === 'allowed',
       }),
-      productInitiatorLabel({ username: row.username, action: row.action, agentId: row.agentId }),
+      productInitiatorLabel({
+        username: row.username,
+        userId: row.userId,
+        action: row.action,
+        agentId: row.agentId,
+      }),
     ];
   }
 

@@ -400,7 +400,8 @@ export class AiToolEffectsService {
    * overwritten by any later re-claim, so the release is also written as one chained `claim_release`
    * row — the same action and builder a manual release uses — whose `detail` names who initiated
    * (`system:sweep` or a person), what the target answered, that the hold is released and re-claimable,
-   * and that the effect stays unknown.
+   * and that the effect stays unknown. A person's username travels beside the id as the row's
+   * snapshot; the automatic pass has none, and the export reads its actor kind from the id.
    *
    * AW-17：对一条卡住的写占位做一次对账 —— 向目标**只问一次**、只读，问它到底跑了没有。
    *
@@ -419,8 +420,13 @@ export class AiToolEffectsService {
    * **`not_executed` 的答案留下的是一份决定，不只是一个被移过的账（R-3）。** 占位行会被之后任何一次
    * 重占位覆盖，故这次释放同时写成一条带链的 `claim_release` 行 —— 与人工释放同一动作、同一构造器 ——
    * `detail` 写明谁发起（`system:sweep` 还是人）、目标答了什么、占位已释放且可重占位、效果仍未知。
+   * 由人发起时，用户名与 id 一起作为行的快照；自动清扫没有名字，导出从 id 读出主体的种类。
    */
-  async reconcileClaim(claimId: number, byUserId: string): Promise<ReconcileClaimResult> {
+  async reconcileClaim(
+    claimId: number,
+    byUserId: string,
+    byUsername?: string,
+  ): Promise<ReconcileClaimResult> {
     const claim = this.claimsRepo ? await this.claimsRepo.findOne({ where: { id: claimId } }) : null;
     if (!claim) {
       // `absent` is not a claim status: there is no row. Reporting `unknown` here would read as the
@@ -514,6 +520,7 @@ export class AiToolEffectsService {
     if (evidence.conclusion === TARGET_STATUS.NOT_EXECUTED) {
       await this.writeClaimDecision?.recordTargetRelease(claim, {
         byUserId,
+        byUsername,
         automatic: byUserId === SYSTEM_SWEEP_LOOKUP_ACTOR,
         conclusion: evidence.conclusion,
         queryMethod: evidence.queryMethod,

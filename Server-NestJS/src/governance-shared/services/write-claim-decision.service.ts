@@ -297,6 +297,9 @@ export class WriteClaimDecisionService {
    * The row's `userId` is the initiator: `system:sweep` for the automatic pass, the administrator's id
    * for a manual reconcile. Whose identity the write itself carried is the original writer, named in
    * the `detail` — the two facts are separate everywhere else in this feature and stay separate here.
+   * A person's username is snapshotted beside the id when the caller has one, so the export's
+   * Initiated-by cell names them instead of saying «not recorded»; the automatic pass has none, and
+   * that cell reads «Automated» from the id's `system:` namespace.
    *
    * R-3：记录一次由**目标回答**引起的释放。账已经移过（`reconcileClaim` → `released`）；这里用与人工
    * 释放**同一个构造器**写同一种 `claim_release` 行，`detail` 写明谁发起、目标答了什么、占位已释放且
@@ -307,7 +310,9 @@ export class WriteClaimDecisionService {
    * 失败要大声，理由与人工路径相同。
    *
    * 行的 `userId` 是发起方：自动清扫记 `system:sweep`，人工对账记管理员 id。这次写本身携带的是原写入者的
-   * 身份，名字写在 `detail` 里 —— 本特性别处也把这两件事分开，这里同样分开。
+   * 身份，名字写在 `detail` 里 —— 本特性别处也把这两件事分开，这里同样分开。调用方手上有发起人的用户名时，
+   * 就与 id 并列快照下来，导出里的「发起人」格便能点名而不是说「未记录」；自动清扫没有名字，那一格从
+   * id 的 `system:` 命名空间读出「自动」。
    */
   async recordTargetRelease(
     claim: ReleaseClaimRef,
@@ -316,7 +321,12 @@ export class WriteClaimDecisionService {
     // The target answered, so a zero lookup count here is a **missing record**, not "never asked".
     // The target answered ⇒ 这里读数为零意味着**记录缺失**，不是「从未问过」。
     const evidence = await this._releaseEvidence(claim, { targetAnswered: true });
-    return this._writeReleaseRow(claim, { userId: trigger.byUserId }, this._targetDetail(claim, trigger, evidence), evidence);
+    return this._writeReleaseRow(
+      claim,
+      { userId: trigger.byUserId, username: trigger.byUsername },
+      this._targetDetail(claim, trigger, evidence),
+      evidence,
+    );
   }
 
   /**
@@ -699,6 +709,13 @@ interface ReleaseEvidence {
 export interface TargetReleaseTrigger {
   /** `system:sweep` for the automatic pass; the administrator's id for a manual reconcile. */
   byUserId: string;
+  /**
+   * The initiator's username snapshot, when a person initiated. Absent for the automatic pass —
+   * nobody typed it, and a made-up name would be worse than none.
+   *
+   * 发起人的用户名快照（人发起时）。自动清扫没有 —— 没有人在那儿敲字，编一个名字比没有更糟。
+   */
+  byUsername?: string;
   /** True when the hourly sweep asked. / 每小时清扫发起时为 true。 */
   automatic: boolean;
   /** The answer that converged the ledger — only `not_executed` reaches here. / 让账收敛的答案。 */

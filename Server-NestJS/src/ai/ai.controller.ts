@@ -658,7 +658,7 @@ export class AiController {
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.toolEffectsService.reconcileClaim(id, String(user.sub));
+    return this.toolEffectsService.reconcileClaim(id, String(user.sub), user.username);
   }
 
   /**

@@ -825,13 +825,18 @@ describe('AuditEvidenceService.getInterpretation（P0-20 单事件解释面）',
        * 同一会话中紧随锚点行之后的额外行。
        */
       convRows?: any[];
+      /** The anchor row's action (default `tool_call`). / 锚点行的动作（默认 `tool_call`）。 */
+      action?: string;
+      /** The anchor row's off-chain release evidence, when it is a `claim_release` row. */
+      releaseLookups?: string | null;
     } = {},
   ) {
     const auditRow = row({
       id: 7,
       userId: opts.rowUserId ?? 'u1',
       username: 'alex',
-      action: 'tool_call',
+      action: opts.action ?? 'tool_call',
+      releaseLookups: opts.releaseLookups ?? null,
       detail: 'create_task({"title":"跟进"})',
       isError: false,
       authorization: null,
@@ -925,6 +930,18 @@ describe('AuditEvidenceService.getInterpretation（P0-20 单事件解释面）',
     // 不猜的判据：没有占位行时**根本没去问**业务那一腿。
     // The no-guessing criterion: with no claim it does not even ask the business leg.
     expect(operationAudit.chainRowsByTarget).not.toHaveBeenCalled();
+  });
+
+  it('⚠ 释放行在解释面同样不是「已执行」：证据列有值 ⇒ 已记录，没有值 ⇒ 被拒', async () => {
+    const recorded = await build({
+      action: 'claim_release',
+      releaseLookups: '{"count":0,"askable":true,"items":[]}',
+    }).service.getInterpretation(7);
+    expect(recorded.state).toBe('release_recorded');
+
+    const refused = await build({ action: 'claim_release', releaseLookups: null }).service
+      .getInterpretation(7);
+    expect(refused.state).toBe('release_refused');
   });
 
   it('占位行 → 副作用 → 已撤销 ⇒ 状态是补偿成功，副作用带撤销档位', async () => {

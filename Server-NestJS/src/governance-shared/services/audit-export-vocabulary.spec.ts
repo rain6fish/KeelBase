@@ -57,6 +57,9 @@ describe('audit export vocabulary', () => {
     expect(productActionLabel('some_new_tool', 'tool_call')).toBe('AI action');
     expect(productActionLabel(null, 'audit_review')).toBe('Audit review receipt');
     expect(productActionLabel(null, 'brand_new_action')).toBe('AI action');
+    // A release row names the tool it is *about*; taking that tool's label would read as an action.
+    // 释放行点名的是它**关于**哪个工具；取那个工具的标签会被读成一次该动作。
+    expect(productActionLabel('create_event', 'claim_release')).toBe('Write-hold release');
   });
 
   it('every explanation state has a product word', () => {
@@ -150,6 +153,14 @@ describe('audit export vocabulary', () => {
       productInitiatorLabel({ username: 'alice', action: 'tool_call', agentId: 'headless:abc' }),
     ).toBe('alice (through the AI assistant, delegated)');
     expect(productInitiatorLabel({ username: null, action: 'tool_call' })).toBe('Not recorded');
+    // A system principal has no name and never will; the kind is known even when the person is not.
+    // 系统主体没有名字、也不会有；人不知道，但主体的种类是知道的。
+    expect(
+      productInitiatorLabel({ username: null, userId: 'system:sweep', action: 'claim_release' }),
+    ).toBe('Automated');
+    expect(productInitiatorLabel({ username: null, userId: '7', action: 'claim_release' })).toBe(
+      'Not recorded',
+    );
   });
 
   it('the picker and the CSV name the same object the same way', () => {

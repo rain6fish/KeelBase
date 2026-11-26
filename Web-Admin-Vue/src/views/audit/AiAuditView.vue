@@ -379,7 +379,6 @@
       <div v-else-if="chainVerify" class="text-caption text-medium-emphasis">
         {{ chainVerify.chain?.length ? t('hashChainHint') : t('noChainData') }}
       </div>
-
     </el-card>
 
     <!-- 0-B：留存的结果正文单独成卡 —— 它是本次工具调用的证据，与链级证据是两个关切。
@@ -809,19 +808,19 @@ async function loadToolResult() {
 
 /**
  * P0-20：解释面的状态词表。**不是** tool-effects 那套四值 —— 那套里 `revoke_failed` 说的是「撤销失败」，
- * 而这里要能说出「这次动作失败」「被拒」「等人的批准」「结果未知」这些。八个值与后端
+ * 而这里要能说出「这次动作失败」「被拒」「等人的批准」「结果未知」这些。这些值与后端
  * `audit-explanation-state.ts` 同源，**两处必须一起改**。
  *
  * P0-20: the explanation surface's own vocabulary. Deliberately **not** the four values tool-effects
  * uses — `revoke_failed` there means "the revoke failed", whereas this surface has to be able to say
- * "the action failed", "it was refused", "it is still waiting for a person" and "nobody knows". The
- * eight values are the same set as the back end's `audit-explanation-state.ts`; the two move together.
+ * "the action failed", "it was refused", "it is still waiting for a person" and "nobody knows". These
+ * values are the same set as the back end's `audit-explanation-state.ts`; the two move together.
  *
- * Both maps are typed against the union rather than `Record<string, string>`, so a ninth value added on
+ * Both maps are typed against the union rather than `Record<string, string>`, so a value added on
  * the wire fails `vue-tsc` here instead of rendering the raw enum in the console (StatusChip falls back
  * to the raw value when a key is missing).
  *
- * 两张表都按联合类型声明、而不是 `Record<string, string>`：线上加了第九个值时，这里**编译不过**，
+ * 两张表都按联合类型声明、而不是 `Record<string, string>`：线上新增取值时，这里**编译不过**，
  * 而不是在管理台里把原始枚举值显示出来（`StatusChip` 在缺少键时回落到原值）。
  */
 const explanationStateLabels = computed<Record<ExplanationState, string>>(() => ({
@@ -831,7 +830,10 @@ const explanationStateLabels = computed<Record<ExplanationState, string>>(() => 
   compensating: t('explanationStateCompensating'),
   executed: t('explanationStateExecuted'),
   failed: t('explanationStateFailed'),
+  not_executed: t('explanationStateNotExecuted'),
   rejected: t('explanationStateRejected'),
+  release_recorded: t('explanationStateReleaseRecorded'),
+  release_refused: t('explanationStateReleaseRefused'),
   result_unknown: t('explanationStateResultUnknown'),
 }))
 
@@ -843,7 +845,12 @@ const explanationStateColors: Record<ExplanationState, string> = {
   compensating: 'info',
   executed: 'success',
   failed: 'danger',
+  not_executed: 'warning',
   rejected: 'warning',
+  // A recorded release is not a success: the write's result stays unknown, so it must not be green.
+  // 记下一次释放不是成功：那次写的结局仍未知，故不能是绿色。
+  release_recorded: 'info',
+  release_refused: 'warning',
   result_unknown: 'danger',
 }
 

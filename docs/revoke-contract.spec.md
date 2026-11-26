@@ -673,6 +673,15 @@ new action would extend the contract's closed enum. The row makes the refusal le
 ending from the audit row alone is **not** offered — the same deferred structured change the release
 kinds wait on. A missing view is a `400`, never a silent "do not check".
 
+**Reading the kind from the row, without parsing the prose.** Two facts about a `claim_release` row
+are structured. First, `releaseLookups` is present when the row records a release: the contract says
+the column is absent on rows that are not releases, so presence is proof of a release. Absence is
+proof of a refusal only for rows written after the column existed — the contract is one-way, and a
+release written before v1.23.0 carries no column either, so those rows must not be counted as
+refusals. Second, an automatic sweep's release carries `userId = system:sweep`, which the log list
+selects exactly. Neither fact separates a manual release from a manual reconcile: that distinction
+remains in the prose, and it is the one gap a structured kind would close.
+
 **Automatic re-asking is bounded, and then it stops.** The hourly sweep also asks the target for every
 queued hold that is due, at most `CLAIM_RECONCILE_MAX_ATTEMPTS` times (default 4) on a decaying
 schedule — `CLAIM_RECONCILE_BACKOFF_MINUTES`, default `60,360,1440,4320` (+1h, +6h, +24h, +72h after
@@ -775,6 +784,12 @@ id（屏幕说当时没人问过时为 `null`）—— 且写入以处置仍一�
 决定）。同链同动作，因为两行是同一次动作的两个结局；换一条链会把一次动作分到两本账上，新增动作则会扩展契约
 的闭合枚举。这一行让拒绝可读；**不**提供「只读审计行就按结局筛选」—— 那是与释放种类同样在等的结构化改动。
 视图缺席一律 `400`，绝不静默地等于「不检查」。
+
+**不解散文，也能从行里读出种类。** `claim_release` 行有两件结构化事实。其一，`releaseLookups` 有值即说明
+这一行记下了一次释放：契约写明该列在非释放行上缺席，故有值就是释放的证据。没有值只对**该列存在之后**写下
+的行才等于拒绝 —— 契约只给了一个方向，而 v1.23.0 之前写下的释放同样没有这一列，故那些行不得被算成拒绝。
+其二，自动清扫的释放带 `userId = system:sweep`，日志列表可据此精确选出。这两件事实都分不开人工释放与人工
+对账：那条界线仍在散文里，也正是结构化种类要补的那一个缺口。
 
 **自动重问是有界的，用尽即停。** 每小时清扫还会对队列里到期的占位再向目标问一次，按衰减计划至多
 `CLAIM_RECONCILE_MAX_ATTEMPTS` 次（默认 4）—— 间隔由 `CLAIM_RECONCILE_BACKOFF_MINUTES` 给出，默认

@@ -627,7 +627,7 @@ const zh = {
   revokeWindowAwaitingTarget: '已到达，外部系统尚无终态',
   revokeWindowLabel: '补偿窗口',
   executionError: '执行出错',
-  // P0-20 解释面的状态词表（八个值）。比 tool-effects 那套四值多：那套里「撤销失败」≠「动作失败」，
+  // P0-20 解释面的状态词表。比 tool-effects 那套四值多：那套里「撤销失败」≠「动作失败」，
   // 而「被拒」「等人的批准」「结果未知」在那里没有名字。与后端 `audit-explanation-state.ts` 同源。
   explanationStateAwaiting: '待确认',
   explanationStateCompensationFailed: '补偿失败',
@@ -635,7 +635,10 @@ const zh = {
   explanationStateCompensating: '补偿中',
   explanationStateExecuted: '已执行',
   explanationStateFailed: '失败',
+  explanationStateNotExecuted: '未执行',
   explanationStateRejected: '被拒',
+  explanationStateReleaseRecorded: '释放已记录',
+  explanationStateReleaseRefused: '释放被拒',
   explanationStateResultUnknown: '结果未知',
   decisionPolicy: '策略',
   stepConfirmation: '确认决策',
