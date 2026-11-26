@@ -43,23 +43,23 @@
   `write-claim-decision.service.ts:608-610` 的 `_targetDetail` 当 `automatic` 时写 `system:sweep (automatic sweep)`。
 - **为什么不改代码**：任务明确「不改导出代码」；结构化触发来源属契约变更，不在本项。
 
-### §九.4 · 三处单语注释 —— **未改代码，只给位置与措辞**
+### §九.4 · 三处单语注释 —— 已补（3 处均改为英文在前、中文在后的双语块）
 
-复核指出的 3 处仍在（行号为当前 HEAD `f45d9655`）：
+用户随后要求「现在补改」，三处均已改（行号为改前 HEAD `b1e79039`）：
 
-| # | 文件:行 | 现状 | 建议改成 |
+| # | 文件:行 | 改前 | 改后 |
 |---|---|---|---|
-| 1 | `Web-Admin-Vue/src/views/ai-tools/AiToolsView.vue:394` | 模板注释仅中文：`<!-- R-2：覆盖声明（服务端读时现算）——首问之前那段没有观测，空历史则全部未观测 -->` | 英文块在前、中文块在后，见下方建议文本 ① |
-| 2 | `Web-Admin-Vue/src/views/ai-tools/AiToolsView.vue:862` | 文档注释仅中文：`/** R-2：服务端读时现算的覆盖声明；空历史也有话可说（全部未观测），故与 items 分开存。 */` | 见下方建议文本 ② |
-| 3 | `Server-NestJS/src/governance-shared/services/write-claim-decision.service.ts:652` | 文档注释仅英文：`/** The hold fields a release row names. Every release path already holds a full \`AiWriteClaim\`. */` | 见下方建议文本 ③ |
+| 1 | `Web-Admin-Vue/src/views/ai-tools/AiToolsView.vue:394` | 模板注释仅中文 | 英文块在前、中文块在后（同一注释内两段） |
+| 2 | `Web-Admin-Vue/src/views/ai-tools/AiToolsView.vue:862` | 文档注释仅中文 | 同上，JSDoc 内两段，空行分隔 |
+| 3 | `Server-NestJS/src/governance-shared/services/write-claim-decision.service.ts:652` | 文档注释仅英文 | 补中文块在后，JSDoc 内两段 |
 
-建议文本：
+改后文本：
 
 ```
 ①
-    <!-- R-2: the server's coverage statement, computed when the response is built — the stretch before
-         the first reading was not observed, and an empty history has observed nothing.
-         R-2：覆盖声明（服务端读时现算）—— 首问之前那段没有观测，空历史则全部未观测 -->
+      <!-- R-2: the server's coverage statement, computed when the response is built — the stretch before
+           the first reading was not observed, and an empty history has observed nothing.
+           R-2：覆盖声明（服务端读时现算）—— 首问之前那段没有观测，空历史则全部未观测 -->
 
 ②
 /**
@@ -77,16 +77,8 @@
  */
 ```
 
-**为什么没改**（任务给的判据是「正被并发会话修改」，`git status` / 会话列表可证）：
-
-- 第 3 处在 `write-claim-decision.service.ts` —— 任务点名「若该文件正被并发会话修改则只写报告」。
-  观察时（2026-11-26 07:5x）该文件本身尚未出现未提交改动，但**紧邻它的两个文件正被两个活会话改**：
-  `epic-lewin-d45f7a`（会话「R-6 措辞矛盾」，改的正是该服务的数词措辞主题，当时正在改 `src/ai/proxy/target-status.ts`）
-  与 `happy-feistel-269f3a`（会话「R-3 后续」，正改 `write-claim-decision.service.spec.ts`）。
-  该文件是 R-2 起连续五个会话的冲突热点（见 `r6b-missing-evidence-landed.md` 等交接件），此刻动它是制造冲突而非收尾。
-- 第 1、2 处在 `AiToolsView.vue` —— 该文件当时**确有未提交改动**（`modest-allen-6396ae` 暂存中，`quizzical-almeida-1e4dd4` 也改过），
-  而 `quizzical-almeida` 那一会话的主题正是「覆盖假值 + 控制台竞态」，与本两行同段。改了大概率撞车。
-- 这三处均为**纯注释、零行为**，留给安静时刻一次改完（或由对应会话顺手带上）成本更低。**本条因此未完成**，记为遗留。
+改前先记录过一次并发状态（`epic-lewin-d45f7a`、`happy-feistel-269f3a`、`modest-allen-6396ae`、`quizzical-almeida-1e4dd4`
+当时正在这些文件或其紧邻文件上工作）；用户在知悉这一点后要求直接补改，故按最小 hunk（3 处、纯注释）完成，未动任何行为。
 
 ---
 
@@ -94,10 +86,14 @@
 
 | 项 | 结果 |
 |---|---|
-| `npx tsc -p tsconfig.build.json --noEmit`（Server-NestJS） | **0 错**（`TSC_EXIT=0`） |
+| `npx tsc -p tsconfig.build.json --noEmit`（Server-NestJS，文档提交后） | **0 错** |
+| `npx tsc -p tsconfig.build.json --noEmit`（注释提交后） | **0 错**（`TSC_EXIT=0`） |
+| `npx jest src/governance-shared --runInBand`（注释提交后） | **37 套 / 542 例全过**（15.0s） |
 | `KEELBASE_JAVA_REPO=D:/Rain6fish/KeelBase4J npm run check:all` | **36/36 全过**（71.9s） |
 | `npm run check:terminology`（单跑） | 通过：术语单一真源无违规 |
-| jest | **未跑**：本改动不含代码/注释改动，跑它证不了任何与本 diff 相关的东西（任务条件为「若改了代码注释」） |
+
+> `Web-Admin-Vue` 的 `vue-tsc` 未跑：本 worktree 未装该子项目依赖；改动为注释，且已目视确认模板注释
+> 闭合（`-->`）与 JSDoc 闭合，不可影响编译。
 
 > 首次 `check:all` 为 34/36，两红是 `check:test-types` / `check:app-wiring`，原因均为本 worktree 未装后端依赖
 > （`Server-NestJS/node_modules` 不存在），与本改动无关；`npm ci` 后复跑 36/36。
@@ -111,6 +107,6 @@
 
 ## 未做 / 遗留
 
-1. **§九.4 三处注释**：按上表逐条改（纯注释，合计 3 个 hunk）。建议在 `write-claim-decision.service.ts` 的合作会话收工后一次带掉。
-2. §九.1 不在本任务内，未碰。
-3. 未跑 e2e / jest：本项不涉及行为。
+1. §九.1（count=0 措辞矛盾）不在本任务内，未碰。
+2. 未跑 e2e：本项不涉及行为；治理单测与 `check:all` 已跑。
+3. 若并发会话在本分支合入前又改了同一批注释行，按并集保留（三处均为纯注释，语义无第二解）。

@@ -649,7 +649,11 @@ export class WriteClaimDecisionService {
   }
 }
 
-/** The hold fields a release row names. Every release path already holds a full `AiWriteClaim`. */
+/**
+ * The hold fields a release row names. Every release path already holds a full `AiWriteClaim`.
+ *
+ * 释放行会点名的占位字段。每条释放路径手上本来就有一整条 `AiWriteClaim`。
+ */
 type ReleaseClaimRef = Pick<AiWriteClaim, 'id' | 'idempotencyKey' | 'toolName' | 'userId'>;
 
 /**
