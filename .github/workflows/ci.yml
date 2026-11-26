@@ -176,6 +176,30 @@ jobs:
         # 复用 scripts/check-pg-migration-consistency.mjs（本地 npm run migration:consistency:pg 同源，
         # 消除 CI/本地两处逻辑漂移——sqlite 绿不代表 pg 无漂移，本脚本是 pg 方言防线）
         run: node scripts/check-pg-migration-consistency.mjs
+      # F-130/F-132: the release evidence's count and newest three must come from one snapshot. The
+      # shape test only reads SQL, and SQLite's single writer cannot produce the race. This step lets
+      # the suite create its own database (keelbase_snapshot_test, dropped afterwards) on this Postgres,
+      # open two connections — one inserting readings without pause, one reading the evidence — and
+      # check every decision row for self-consistency. It covers the isolation the deployment actually
+      # uses (PG's default read-committed, statement-level snapshot); the suite does not check the
+      # isolation level itself — contract §6 is the single source for that. PG_SNAPSHOT_REQUIRED=1
+      # makes a would-be skip fail instead of reporting a guarantee nothing checked.
+      #
+      # F-130/F-132：释放证据的「计数 + 最近三条」必须出自同一快照。隔壁的形状测试只读 SQL，而 SQLite
+      # 单写者造不出并发写。这一步在同一条真 Postgres 上让用例自建一个独立的库（keelbase_snapshot_test，
+      # 跑完即删），开两条连接：一条不停插入读数行，一条读证据，并逐条检查每条决定行的 count 与 items
+      # 自洽。覆盖的是部署实际使用的隔离（PG 默认 read-committed，语句级快照）；用例本身不检查隔离级别
+      # —— 契约 §6 是这件事的单源。`PG_SNAPSHOT_REQUIRED=1`：本 lane 若配错使套件跳过，则改为失败，
+      # 而不是拿一个跳过的绿交差。
+      - name: postgres · 释放证据计数与条目出自同一快照（并发写）
+        env:
+          DB_TYPE: postgres
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          PG_SNAPSHOT_REQUIRED: '1'
+        run: npx jest src/governance-shared/services/write-claim-decision.pg-snapshot.spec.ts
 
   # An entity whose table no migration creates. The `migration-consistency` jobs above do catch this,
   # but they need a database and they run after the push — which is how the two modules from `c81232a0`
