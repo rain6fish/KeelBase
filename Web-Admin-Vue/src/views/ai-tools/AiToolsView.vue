@@ -391,7 +391,9 @@
       <div class="text-caption text-medium-emphasis mb-2">
         {{ t('lookupHistoryHint', { tool: lookupHistoryClaim?.toolName ?? '' }) }}
       </div>
-      <!-- R-2：覆盖声明（服务端读时现算）——首问之前那段没有观测，空历史则全部未观测 -->
+      <!-- R-2: the server's coverage statement, computed when the response is built — the stretch before
+           the first reading was not observed, and an empty history has observed nothing.
+           R-2：覆盖声明（服务端读时现算）—— 首问之前那段没有观测，空历史则全部未观测 -->
       <div v-if="lookupCoverage" class="text-caption mb-2">
         {{ lookupCoverageText(lookupCoverage) }}
       </div>
@@ -862,7 +864,12 @@ const lookupHistoryClaim = ref<InFlightClaim | null>(null)
 /** F-85/F-86：写→首问这一段才是盲区上界，和每条之间的间隔分开显示。 */
 const lookupClaimedAt = ref<string | null>(null)
 const lookupFirstGap = ref<number | null>(null)
-/** R-2：服务端读时现算的覆盖声明；空历史也有话可说（全部未观测），故与 items 分开存。 */
+/**
+ * R-2: the server's coverage statement, computed when the response is built; an empty history still
+ * has something to say (nothing was observed), so it is stored apart from `items`.
+ *
+ * R-2：服务端读时现算的覆盖声明；空历史也有话可说（全部未观测），故与 items 分开存。
+ */
 const lookupCoverage = ref<ClaimLookupCoverage | null>(null)
 
 /**

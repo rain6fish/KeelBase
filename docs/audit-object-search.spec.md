@@ -42,6 +42,15 @@ R4 second-person approval). The difference is recorded here, not silently reconc
 values remain out of scope for the same reason the minute gives: the "after" value today is the
 host's current record, not a write-time snapshot.
 
+**Initiated by, when no request-level actor existed.** The cell reads the row's `username` snapshot.
+Work the system does on its own — the hourly sweep that re-asks a target — has no request behind it,
+so its `claim_release` row carries a `userId` (`system:sweep`) but no `username`, and the cell says
+**"Not recorded"**, which is what the row holds. That is not a claim that nobody initiated: the
+row's `userId` and its `detail` (`initiated by: system:sweep (automatic sweep)`) still name it, and
+both stay readable in the audit trail even though this column cannot carry them. Making the column
+itself say so would need a structured initiator source — the same deferred contract change the
+release kinds wait on.
+
 ### 3. Search semantics
 
 **Object identity is the write claim.** An audit row carries no business object. The only
@@ -141,6 +150,13 @@ zero-internal-names property is testable without a browser.
 **2026-11-07** 为准 —— 那一份才是 U1 的来源，且它的两个硬场景（被拦下的删除、R4 第二人批准）
 正好由这六项作答。这处出入**记在这里，不悄悄抹平**。改前/改后继续不做，理由与纪要保持一致：
 今天的「改后」是宿主**现在的记录**，不是写入时的快照。
+
+**没有请求级发起人时的「发起人」列。** 该列读的是行上的 `username` 快照。系统自行做的事 —— 整点清扫
+代系统再次询问目标 —— 背后没有请求，故它的 `claim_release` 行带 `userId`（`system:sweep`），却不带
+`username`；这一列于是写 **`Not recorded`**（导出词表是英文），那正是行里实际有的东西。这不是在说「没人发起」：行的 `userId`
+与其 `detail`（`initiated by: system:sweep (automatic sweep)`）仍点名了它，两者在审计轨迹里都读得到，
+尽管这一列载不动它们。要让这一列自己说出来，得有一个结构化的发起方来源 —— 与释放种类一样，那笔改动
+在等契约变更。
 
 ### 3. 检索语义
 
