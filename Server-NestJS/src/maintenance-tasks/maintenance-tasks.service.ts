@@ -22,6 +22,7 @@ import { WriteClaimDecisionService } from '../governance-shared/services/write-c
 import { AiToolEffectsService } from '../governance-shared/services/ai-tool-effects.service';
 import { boundedToolArgs } from '../ai/audit/tool-call-audit';
 import { ToolResultBodyStore } from '../governance-shared/services/tool-result-body.store';
+import { AUTOMATION_SOURCE } from '../governance-shared/services/audit-export-vocabulary';
 
 /**
  * 定时任务（PL-7，@nestjs/schedule cron）。
@@ -134,9 +135,15 @@ export class MaintenanceTasksService {
    * column, and the basis when the row had one. `tool_confirmation` + `timeout` is a legal pair in
    * `ai-audit-log-outcome-v2` — no new action value, so the vocabulary stays frozen.
    *
+   * The row also declares the **channel** it came through (`AUTOMATION_SOURCE`): the operator's id
+   * and name are there for scope and for the trail, not as a claim that the person acted (R-8).
+   *
    * 每次到期写一行 `tool_confirmation`：用契约自己的词 `timeout`，带操作人的用户名快照（确认表里只有
    * id）、机器可读的参数列，以及该行若有就带上依据。`tool_confirmation` 配 `timeout` 是
    * `ai-audit-log-outcome-v2` 里的合法组合 —— 不新增 action 值，词表因此保持冻结。
+   *
+   * 这一行同时声明它来自**哪个频道**（`AUTOMATION_SOURCE`）：操作人的 id 与姓名是为了范围与轨迹，
+   * 不是在说这个人动过手（R-8）。
    */
   private async _recordExpiries(expired: ExpiredConfirmation[]): Promise<void> {
     const ids = [...new Set(expired.map((row) => Number(row.operatorId)).filter(Number.isFinite))];
@@ -147,6 +154,15 @@ export class MaintenanceTasksService {
         userId: row.operatorId,
         username: usernameById.get(row.operatorId),
         conversationId: row.conversationId ?? undefined,
+        // R-8: the row belongs to the operator for **scope** — `userId` is the reader's row
+        // predicate, and a `system:` id would take this row out of the very person's own trail. It
+        // does not make them the initiator: nobody typed this, the sweep wrote it. The channel says
+        // so, and the export's initiator cell reads the channel and says «Automated».
+        //
+        // R-8：这一行的 `userId` 属于操作人，是为了**范围** —— 它正是读者的行谓词，写 `system:` 的
+        // id 会把这一行挪出那个人自己的轨迹。但这不使他成为发起人：没有人敲下这一行，是清扫写的。
+        // 频道说明了这一点，导出的发起人格读频道、说「自动」。
+        source: AUTOMATION_SOURCE,
         action: 'tool_confirmation',
         detail: `${row.toolName} → timeout (offline window closed with no decision)`,
         outcome: 'timeout',

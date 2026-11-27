@@ -251,6 +251,28 @@ export function productAuthorizationLabel(facts: AuthorizationFacts): string {
 const HUMAN_ONLY_ACTIONS = new Set(['audit_review', 'claim_release', 'login']);
 
 /**
+ * The `source` value a background task writes when **it**, not a person, produced the row. The
+ * writer imports this token, so the two sides cannot drift apart on the spelling.
+ *
+ * <p>Why a channel and not the actor id: the audit row's `userId` is what the reader's row scope is
+ * built on (`audit-reader-scope.ts`). A sweep that wrote a `system:` id would drop its row out of
+ * the operator's own scope — the person could no longer find the record of their own expired
+ * confirmation. Keeping `userId` theirs while the channel says «automation» is how the row stays
+ * visible to them **and** stops claiming they did it.
+ *
+ * 后台任务（而不是某个人）产出该行时写下的 `source` 取值。写入方 import 这个令牌，故两侧不会在拼写上
+ * 漂开。
+ *
+ * <p>为什么用频道而不是主体 id：审计行的 `userId` 正是读者行范围的依据（`audit-reader-scope.ts`）。
+ * 清扫若写 `system:` 的 id，就会把自己的行挪出操作人本人的范围 —— 那个人再也找不到自己那条确认到期的
+ * 记录。让 `userId` 仍属于他、由频道说明「自动化」，行既留在他看得见的地方，**又**不再声称是他做的。
+ */
+export const AUTOMATION_SOURCE = 'automation';
+
+/** Channels that mean «a scheduled/background writer produced this row; nobody typed it». */
+const AUTOMATION_SOURCES = new Set([AUTOMATION_SOURCE]);
+
+/**
  * The Initiated-by cell: the person, plus whether the action ran through the assistant or was their
  * own direct act. A delegated agent execution is a third state and says so.
  *
@@ -270,7 +292,15 @@ export function productInitiatorLabel(row: {
   userId?: string | null;
   action: string;
   agentId?: string | null;
+  source?: string | null;
 }): string {
+  // Checked before the name: an automated row may still carry the operator's name snapshot and id —
+  // the sweep keeps both so the row stays inside that person's read scope. Neither makes the person
+  // the initiator; the channel does say who wrote it, so the cell names the act and never them.
+  //
+  // 先于姓名判断：自动行仍可带操作人的姓名快照与 id —— 清扫保留两者，正是为了让行留在这个人的读取
+  // 范围里。两者都不使这个人成为发起人；是频道说明了行是谁写的，故这一格说的是**动作**，绝不点名。
+  if (row.source && AUTOMATION_SOURCES.has(row.source)) return 'Automated';
   const name = row.username?.trim();
   if (!name) {
     return row.userId?.startsWith('system:') ? 'Automated' : 'Not recorded';

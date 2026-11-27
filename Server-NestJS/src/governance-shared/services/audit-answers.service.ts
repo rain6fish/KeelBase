@@ -291,6 +291,9 @@ export class AuditAnswersService {
         userId: row.userId,
         action: row.action,
         agentId: row.agentId,
+        // The channel decides «automated» even when the row keeps the operator's name and id (R-8).
+        // 即使行保留着操作人的姓名与 id，频道也决定了「自动」（R-8）。
+        source: row.source,
       }),
     ];
   }

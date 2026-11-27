@@ -18,6 +18,7 @@ import { AuditEvidenceService } from '../governance-shared/services/audit-eviden
 import { OperationAuditService } from '../operation-audit/operation-audit.service';
 import { AuditService } from '../governance-shared/services/audit.service';
 import { WriteClaimDecisionService } from '../governance-shared/services/write-claim-decision.service';
+import { AUTOMATION_SOURCE } from '../governance-shared/services/audit-export-vocabulary';
 import { AiToolEffectsService } from '../governance-shared/services/ai-tool-effects.service';
 import { MaintenanceTasksService } from './maintenance-tasks.service';
 
@@ -211,6 +212,32 @@ describe('MaintenanceTasksService', () => {
       expect(logged.authorization).toBeUndefined();
       expect(logged.username).toBeUndefined();
       expect(auditService.log.mock.calls[0][0]).toMatchObject({ outcome: 'timeout', tool: 'create_event' });
+    });
+
+    /**
+     * R-8, the scope half of the writer: the row stays under the operator's own id — that is what
+     * keeps it inside their read scope (proved on a real read by
+     * `test/audit-reader-scope.e2e-spec.ts`) — while the channel declares the automation wrote it,
+     * so the export says «Automated» instead of naming the person as the initiator.
+     *
+     * R-8 写入侧的**范围**那一半：行仍写在操作人自己的 id 之下 —— 那正是它留在他读取范围内的原因
+     * （由 `test/audit-reader-scope.e2e-spec.ts` 在真实读取上证明）—— 同时由频道声明是自动化写的，
+     * 好让导出说「自动」，而不是把这个人读成发起人。
+     */
+    it('R-8：到期行仍属于操作人（范围所需），频道声明它来自自动化', async () => {
+      confirmationStore.expireStale.mockResolvedValue([expiredRow]);
+      usersRepo.find.mockResolvedValue([{ id: 7, username: 'alex' }]);
+
+      await service.expireStaleConfirmations();
+
+      const logged = auditService.log.mock.calls[0][0] as {
+        userId: string;
+        source?: string;
+        agentId?: string;
+      };
+      expect(logged.userId).toBe('7');
+      expect(logged.source).toBe(AUTOMATION_SOURCE);
+      expect(logged.agentId).toBeUndefined();
     });
 
     it('没有到期行 → 不写、不打日志', async () => {
