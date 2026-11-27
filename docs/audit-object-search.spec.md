@@ -73,6 +73,13 @@ row. It stays one column on purpose — the kind is a property of the result's e
 question, and no new contract field is read. `basis` is read as data from the off-chain column;
 `detail` is still never parsed.
 
+**An expiry row reads “Not executed”.** When a confirmation window closes with nobody deciding, the
+hourly sweep writes a `tool_confirmation` row with `outcome: 'timeout'`. The derivation reads that
+word as `not_executed` — the state the vocabulary gave this shape on 2026-10-28 — so the Result cell
+says **Not executed**, not **Failed**. A row that really ran and broke still reads **Failed**:
+`timeout` is only ever written on confirmation rows (the sweep and the two in-chat windows), while a
+tool call whose confirmation timed out already writes `not_executed`.
+
 ### 3. Search semantics
 
 **Object identity is the write claim.** An audit row carries no business object. The only
@@ -195,6 +202,11 @@ zero-internal-names property is testable without a browser.
 于是这个区分**随文件一起走**：两条仅
 「基于什么」不同的答案，导出后不是同一行。它有意仍是一列 —— 种类是结果**证据**的性质，不是第七个
 问题，也没有读入任何新的契约字段。`basis` 本身从链外列按数据读出；`detail` 仍然从不解析。
+
+**到期行读作「未执行」。** 确认窗口到期、无人裁决时，整点清扫写下 `outcome: 'timeout'` 的
+`tool_confirmation` 行。推导把这个词读作 `not_executed` —— 2026-10-28 词表给这个形状的那个状态 ——
+故结果列说 **Not executed**，而不是 **Failed**。真正跑过、坏了的行仍读 **Failed**：`timeout` 只写在
+确认行上（清扫与对话内两处窗口），而确认超时的工具调用行本就直接写 `not_executed`。
 
 ### 3. 检索语义
 

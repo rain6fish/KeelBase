@@ -11,6 +11,8 @@
 // 这里曾为 `parseToolName` 引入 `parseToolCall`；它随取代它的那一列一起没了。本文件里没有别处解析
 // `detail`。
 
+import { countsAsError } from './audit-outcome';
+
 export interface AuditEvidence {
   decision?: string;
   evidence?: string[];
@@ -332,7 +334,7 @@ export function aggregateConversation(convRows: AuditInterpretationRow[]): Audit
       if (outcome === 'decline') confirmations.declined++;
     }
     if (r.action === 'content_blocked' || (r.action === 'tool_call' && r.isError && BLOCKED_RE.test(r.errorMessage ?? ''))) blocked++;
-    if (r.isError) errors++;
+    if (countsAsError(r)) errors++;
   }
 
   return {

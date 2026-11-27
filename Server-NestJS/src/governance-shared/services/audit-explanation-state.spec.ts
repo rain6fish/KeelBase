@@ -77,6 +77,20 @@ describe('explainState（单事件解释面的那一个状态）', () => {
     expect(explainState({ outcome: 'not_executed', isError: true })).toBe('not_executed');
   });
 
+  it('⚠ 确认窗口到期（outcome=timeout）也是「没发生」，不是「失败」', () => {
+    // The sweep and both in-chat confirmation windows write `timeout` on `tool_confirmation` rows;
+    // every one of them means the window closed with nobody deciding. The export's Result cell must
+    // say "Not executed", not "Failed".
+    // 清扫与对话内两处确认窗口都在 `tool_confirmation` 行上写 `timeout`；每一行都是「窗口到期、
+    // 无人裁决」。导出的结果格必须说「未执行」，而不是「失败」。
+    expect(explainState({ outcome: 'timeout' })).toBe('not_executed');
+    expect(explainState({ outcome: 'timeout', isError: true })).toBe('not_executed');
+    // Counter-example: an attempt that ran and broke keeps the failed word, with or without `outcome`.
+    // 反证：真正跑过、坏了的动作仍是「失败」，有无 `outcome` 都如此。
+    expect(explainState({ outcome: 'failed', isError: true })).toBe('failed');
+    expect(explainState({ isError: true })).toBe('failed');
+  });
+
   it('被拒：blocked / refused / declined 三种都算，且不算作失败', () => {
     for (const outcome of ['blocked', 'refused', 'declined']) {
       expect(explainState({ outcome })).toBe('rejected');

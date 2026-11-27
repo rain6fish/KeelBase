@@ -59,7 +59,7 @@ import {
 } from './audit-reader-scope';
 import { OrgService } from '../../org/org.service';
 import { AuditByDayBucket, byDayAggregation } from './by-day';
-import { resolveOutcome } from './audit-outcome';
+import { countsAsError, resolveOutcome } from './audit-outcome';
 import { Sm2SignatureBlock, buildSm2Block, sm2ConfigFromEnv } from '../../common/crypto/sm2';
 
 export interface ActionReport {
@@ -449,7 +449,11 @@ export class AuditEvidenceService {
     const byAction = new Map<string, number>();
     for (const l of logs) {
       byAction.set(l.action, (byAction.get(l.action) ?? 0) + 1);
-      if (l.isError) { errors++; }
+      // An expired confirmation is `not_executed`, not an error: `countsAsError` keeps the
+      // "nobody decided" row out of this tally while every row that really ran and broke stays in.
+      // 到期确认是 `not_executed`，不是错误：`countsAsError` 把「没人裁决」的行挡在这格之外，
+      // 真正跑过、坏了的行仍计入。
+      if (countsAsError(l)) { errors++; }
       // C-3：计数**按列读**。`blocked` 的含义随之收紧了——它此前是「任何带 authorization 的拒绝，
       // 或 errorMessage 里带某一族词」，现在只是「`outcome` 答 blocked」，而那个词只在 `authorization`
       // 点名 `risk_policy` 时才有：那道闸**没到过裁决**，其余拒绝是 `refused`。⇒ 历史数据的 blocked

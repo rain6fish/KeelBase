@@ -175,6 +175,22 @@ describe('Audit Interpreter（§internal.16 A-4 审计解释器）', () => {
     ];
     expect(aggregateConversation(conv).confirmations).toEqual({ approved: 1, declined: 1 });
   });
+
+  it('aggregateConversation：到期确认不计入 errors；真失败仍计', () => {
+    // The expiry row still says `isError` (the action did not complete), but nobody decided —
+    // counting it as an error would report «nobody decided» as «it broke».
+    // 到期行仍带 `isError`（这次动作没有完成），但没人裁决 —— 计成错误等于把「没人裁决」报成「它坏了」。
+    const conv = [
+      row({ userId: '1', action: 'tool_confirmation', detail: 'create_x() → timeout', isError: true }),
+      // The tool call's word for the same fact: nobody decided, nothing ran.
+      // 工具调用行对同一件事的说法：没人裁决、什么都没跑。
+      { userId: '1', action: 'tool_call', detail: 'create_z()', outcome: 'not_executed', isError: true },
+      row({ userId: '1', action: 'tool_call', detail: 'create_y()', isError: true, errorMessage: 'boom' }),
+    ];
+    const stats = aggregateConversation(conv);
+    expect(stats.errors).toBe(1);
+    expect(stats.confirmations).toEqual({ approved: 0, declined: 0 });
+  });
 });
 
 describe('D-3 人读「决策说明」（explainAuthorization）', () => {

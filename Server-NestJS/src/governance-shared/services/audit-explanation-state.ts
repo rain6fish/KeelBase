@@ -59,6 +59,7 @@
  */
 
 import { REVOKE_STATUS, type RevokeStatus } from '../../governance-core/revoke-status';
+import { NOT_EXECUTED_OUTCOMES } from './audit-outcome';
 
 /** The single value the viewer shows. See the header for why it is not the roadmap's five. */
 export type ExplanationState =
@@ -146,7 +147,15 @@ export function explainState(input: ExplanationStateInput): ExplanationState {
   // `outcome: 'blocked'`，于是把 `isError` 判在「被拒」集合之前的写法，会把每一次被挡下的动作报成
   // **失败**。`not_executed` 早已出于同一理由挪到兜底之前（超时行 `isError` 仍为真）；这里把同一条
   // 规则延到其余具名词上。
-  if (input.outcome === 'not_executed') return 'not_executed';
+  // The whole "nobody decided, nothing ran" shape is one set: `not_executed` on a tool call and
+  // `timeout` on a confirmation row say the same fact (contract v2), and both rows still carry
+  // `isError: true`, so the set has to sit ahead of the fallback. That is why the input needs no
+  // `action`: the word alone is unambiguous.
+  //
+  // 整个「没人裁决、什么都没跑」的形状是一个集合：工具调用行上的 `not_executed` 与确认行上的
+  // `timeout` 说的是同一件事（契约 v2），而两种行的 `isError` 仍为真，故这个集合必须排在兜底之前。
+  // 这就是入参不需要 `action` 的原因：词本身就无歧义。
+  if (input.outcome && NOT_EXECUTED_OUTCOMES.has(input.outcome)) return 'not_executed';
   if (input.outcome === 'failed') return 'failed';
   if (input.outcome && REJECTED_OUTCOMES.has(input.outcome)) return 'rejected';
   // Legacy rows only: no `outcome` column was written for them.
