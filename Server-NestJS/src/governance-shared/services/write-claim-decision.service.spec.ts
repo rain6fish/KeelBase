@@ -970,4 +970,66 @@ describe('AW-16 F-63/F-64：释放程序与过期策略', () => {
     expect(sweepRow.userId).toBe('system:sweep');
     expect(sweepRow.username).toBeNull();
   });
+
+  /**
+   * R-9: the weak-reading refusal is the other ending of the release act. It records the decision on
+   * the same chain and action, moves no state, carries no `releaseLookups` (that column is a release's
+   * evidence), and names every reading on record — who asked, by what query, what it concluded and its
+   * basis — so a second refused ask says what the first one said.
+   *
+   * R-9：弱读数拒绝是释放动作的另一个结局。它以同一条链、同一个动作记下决定，不移动任何状态，也不带
+   * `releaseLookups`（那一列是释放的证据），并点名在案的每条读数 —— 谁问的、按什么查的、结论与种类 ——
+   * 于是第二次被拒的询问说得出第一次说了什么。
+   */
+  it('R-9 弱读数拒绝：同一 claim_release 动作、不改状态、不带 releaseLookups、点名前后两次读数', async () => {
+    const claim = await seed();
+    const first = await seedLookup(claim.idempotencyKey, new Date('2026-11-27T01:00:00.000Z'), {
+      basis: 'current_state',
+      lookedUpBy: 'admin-1',
+      queryPath: '/actions/status-before',
+    });
+    const second = await seedLookup(claim.idempotencyKey, new Date('2026-11-27T02:00:00.000Z'), {
+      basis: 'current_state',
+      lookedUpBy: 'system:sweep',
+      queryPath: '/actions/status',
+    });
+
+    const auditRowId = await serviceWithProbe(true).recordWeakReadingRefusal(
+      claim,
+      {
+        byUserId: 'system:sweep',
+        automatic: true,
+        conclusion: 'not_executed',
+        queryMethod: 'GET',
+        queryPath: '/actions/status',
+        queriedAt: '2026-11-27T02:00:00.000Z',
+        basis: 'current_state',
+        dedup: 'unknown',
+      },
+      true,
+    );
+
+    const row = await auditRepo().findOneByOrFail({ id: auditRowId });
+    expect(row.action).toBe('claim_release');
+    expect(row.userId).toBe('system:sweep');
+    expect(row.releaseLookups ?? null).toBeNull();
+    const detail = row.detail ?? '';
+    expect(detail.startsWith('release refused (weak_reading)')).toBe(true);
+    expect(detail).toContain('a current-state reading');
+    expect(detail).toContain('the tool\'s dedup declaration is unknown');
+    expect(detail).toContain('the hold stays claimed and its key stays occupied');
+    expect(detail).toContain('initiated by: system:sweep (automatic sweep)');
+    expect(detail).toContain('readings (newest first)');
+    expect(detail).toContain(`#${second.id} by system:sweep`);
+    expect(detail).toContain(`#${first.id} by admin-1`);
+    expect(detail).toContain('GET /actions/status-before');
+    expect(detail).toContain('→ not_executed, basis=current_state');
+
+    // No state moved: the claim is still the ledger's unknown and its disposition is untouched.
+    // 状态一个没动：占位仍是账上的未知态，处置也没被碰过。
+    const after = await load(claim.id);
+    expect(after.status).toBe(WRITE_CLAIM_STATUS.CLAIMED);
+    expect(after.decisionState).toBe(WRITE_CLAIM_DECISION_STATE.OPEN);
+    expect(after.releaseReason ?? null).toBeNull();
+  });
 });

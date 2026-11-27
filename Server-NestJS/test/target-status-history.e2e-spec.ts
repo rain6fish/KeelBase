@@ -348,9 +348,15 @@ describe('AW-17 history mode: the target answer, through the real reconcile path
     });
   });
 
-  it('目标答 not_executed ⇒ 释放；释放证据行指向历史路径，账上留决定', async () => {
+  it('目标答 not_executed（收据）⇒ 释放；释放证据行指向历史路径，账上留决定', async () => {
     const { id: claimId, key } = await seedStaleClaim(TOOL_HISTORY, 'release');
-    target.answers.set(key, { type: 'json', body: { status: 'not_executed' } });
+    // R-9: only a receipt (or a target that declares it honours the idempotency key) may release a
+    // hold. The history route answers from the target's own acceptance record, so it sends a receipt.
+    // R-9：只有收据（或声明遵守幂等键的目标）才能释放占位。历史路由读的是目标自己的受理记录，故回传收据。
+    target.answers.set(key, {
+      type: 'json',
+      body: { status: 'not_executed', basis: 'receipt' },
+    });
 
     const res = await reconcile(claimId).expect(200);
     expect(res.body.data).toMatchObject({
@@ -366,6 +372,7 @@ describe('AW-17 history mode: the target answer, through the real reconcile path
     expect(lookup).toMatchObject({
       conclusion: 'not_executed',
       reason: null,
+      basis: 'receipt',
       queryMethod: 'GET',
       queryPath: `/contracts/${key}/history`,
     });
@@ -388,7 +395,7 @@ describe('AW-17 history mode: the target answer, through the real reconcile path
       items: Array<{ conclusion: string; basis: string }>;
     };
     expect(evidence.count).toBe(1);
-    expect(evidence.items[0]).toMatchObject({ conclusion: 'not_executed', basis: 'unknown' });
+    expect(evidence.items[0]).toMatchObject({ conclusion: 'not_executed', basis: 'receipt' });
   });
 
   /**

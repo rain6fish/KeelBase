@@ -575,6 +575,23 @@ ARC-6 对「缺失集合已变」的处理同一条规则。**不回填**：引�
 
 **Reconciliation needs a receipt.** The verb names the act of asking, but the account is settled only when the answer is based on the target's own acceptance record (`basis=receipt`). Against a target that serves current state only, the reading is a sample — which is why the read surface's field is `lastLookup` and not a history, and why every copied reading carries its basis. The verb is not renamed per target; the distinction lives in the data, because the data is what a reader acts on (F-136).
 
+**A `not_executed` releases only when the reading licenses a retry (R-9).** A **receipt**
+(`basis=receipt`) answers the release question itself — the target's own acceptance record says this
+action key was never accepted — so it releases the hold on **any** effect. A **current-state** reading
+(`basis=current_state`) says only "not there now"; a record can be reversed or deleted later, so it
+cannot show that a non-idempotent effect never ran. A reading whose basis was not declared is not
+stronger: silence is not a receipt. Those weak readings release only when the tool declares
+`dedup: yes` — the target honours the `Idempotency-Key` the outbound write carries, so a repeat of the
+same logical call would be dropped. `dedup: no`, `dedup: unknown` and an absent declaration all read
+as "no guarantee", because silence cannot license a retry; `dedup` describes the **target dropping a
+repeated key**, not the effect being idempotent, and no declaration says the latter, so it is never
+inferred. When a weak reading cannot release, the hold stays `claimed` (its key stays occupied and the
+same call is not retried) and the decision is still recorded: one `claim_release` row opening
+`release refused (weak_reading)`, naming the reading that could not release it — who asked, by which
+query, when it was recorded, its conclusion and its basis — together with the earlier readings on
+record, and carrying no `releaseLookups` column (that column is a release's evidence). The result kind
+is `not_released`.
+
 **A hold nobody can resolve gets a disposition, not a verdict.** A write claim whose outcome stayed
 unknown past `REVOKE_STALE_MINUTES` can be released by an administrator with a written note and an
 optional external reference. The claim moves to `closed_unknown`; `status` deliberately stays
@@ -619,8 +636,10 @@ ability away. Reading never mutates: `stale` remains an age reading, not a decis
 `{key}` = the write's idempotency key, the same convention as `revokePath`); an administrator can then
 reconcile one stale claim with `POST /ai/tool-effects/claims/:id/reconcile`. The query sends **GET
 only**, once, never retried, carrying the original writer's delegation identity. Only a target answer
-of `{"status":"executed"|"not_executed"}` converges the ledger (`executed` → `settled`,
-`not_executed` → `released`); everything else — timeout, unreachable, non-2xx, an unrecognised body,
+of `{"status":"executed"|"not_executed"}` converges the ledger (`executed` → `settled`;
+`not_executed` → `released` only when the reading licenses a retry — see R-9 above — otherwise the
+hold stays `claimed` and the refusal is recorded as a decision row); everything else — timeout,
+unreachable, non-2xx, an unrecognised body,
 no channel at all — concludes `unknown` and leaves the ledger `claimed`. A **401/403** carries its own
 cause (`not_permitted`): a deliberate refusal is not "unreachable" (F-122). Each attempt is stored as
 evidence. A hold a person already released is **not** reconcilable: the release recorded that the
@@ -642,8 +661,9 @@ declarations are two questions and the probe does not choose. An `unknown` histo
 trigger a second query to another endpoint — one reconciliation is one request.
 
 **A release the target's answer caused leaves a decision, not just a moved ledger.** When the answer
-is `not_executed` the ledger moves to `released`, and the same act is written as one chained
-`claim_release` row — the same action and the same row shape a manual release uses. Its `detail` names
+is a `not_executed` that licenses a retry (R-9) the ledger moves to `released`, and the same act is
+written as one chained `claim_release` row — the same action and the same row shape a manual release
+uses. Its `detail` names
 who initiated it (`system:sweep` for the automatic pass, the administrator's id for a manual
 reconcile), what the target answered and when, that the hold is released and re-claimable, and that
 the effect stays unknown — it is not a record that nothing was attempted. The row is needed because a
@@ -726,6 +746,18 @@ reading and never moves the row — while freshness only filters and badges.
 
 **对账要有收据。** 这个动词命名的是「去问」这个动作，但账只有在答案基于目标自己的受理记录（`basis=receipt`）时才算对上。对只提供当前状态的目标，读数只是一次采样 —— 所以读面上的字段叫 `lastLookup` 而不是历史，也所以每条被复制的读数都带着自己的种类。动词不按目标改称呼；区分放在数据里，因为读者据以行动的是数据（F-136）。
 
+**`not_executed` 只有在读数足以授权重试时才释放（R-9）。** **收据**（`basis=receipt`）回答的正是
+释放本身要问的问题 —— 目标自己的受理记录说这个 action key 从未被接受 —— 故它对**任何**效果都释放
+占位。**当前状态**读数（`basis=current_state`）只说了「现在不在」；记录之后可能被撤销或删除，故它
+证明不了非幂等效果从未落地。未声明种类的读数也不更强：沉默不是收据。这类弱读数只有在工具声明
+`dedup: yes` 时才释放 —— 目标遵守出站写携带的 `Idempotency-Key`，同一逻辑调用的重复会被丢掉。
+`dedup: no`、`dedup: unknown` 与缺席声明一律读作「没有保证」，因为沉默不能授权重试；`dedup` 说的是
+**目标丢掉重复的键**，不是效果幂等，而没有任何声明说后者，故绝不推断。弱读数不能释放时，占位保持
+`claimed`（键仍被占住，同一次调用不会被重试），而决定照样记下：一条以
+`release refused (weak_reading)` 开头的 `claim_release` 行，点名那份没能放行的读数 —— 谁问的、
+按什么查的、何时记下、结论与种类 —— 以及此前在案的读数，并且不带 `releaseLookups` 列（那一列是
+释放的证据）。结果种类为 `not_released`。
+
 **滞留的占位得到的是一份处置，不是一句判决。** 结局越过 `REVOKE_STALE_MINUTES` 仍未明的写占位，可由管理员
 带书面说明（可选外部引用）释放。占位转为 `closed_unknown`，而 `status` **有意**保持 `claimed` —— 没有任何
 东西证明这次写是否落库，写成 `released` 等于断言「确认未落库」。键仍被占住，故同一次调用会被 `claimWrite`
@@ -757,7 +789,8 @@ update / delete / 保留期（F-126）。若日后加了保留期，审计行点
 **目标可以被问一次，且只读。** B 路径工具可声明 `statusPath`（`[METHOD] path`，`{key}` 为这次写的幂等键，
 与 `revokePath` 同一约定）；管理员随后可用 `POST /ai/tool-effects/claims/:id/reconcile` 对一条陈旧占位
 做一次对账。查询**只发 GET**、只发一次、不重试，并携带原写入者的委托身份。只有目标答
-`{"status":"executed"|"not_executed"}` 才让账收敛（`executed` → `settled`，`not_executed` → `released`）；
+`{"status":"executed"|"not_executed"}` 才让账收敛（`executed` → `settled`；`not_executed` → `released`
+仅当读数足以授权重试 —— 见上文 R-9 —— 否则占位保持 `claimed`，拒绝记成一条决定行）；
 其余一切 —— 超时、不可达、非 2xx、认不出的响应体、乃至根本没有通道 —— 都判 `unknown`，账保持 `claimed`。
 其中 **401/403 自成一个成因**（`not_permitted`）：有意的拒绝不是「不可达」（F-122）。
 每次尝试都留下证据。**人已释放的占位不再可对账**：那次释放记录的正是「真相未知」，后来的查询不得覆盖那份决定。
@@ -772,8 +805,9 @@ update / delete / 保留期（F-126）。若日后加了保留期，审计行点
 同时声明 `statusPath` 与 `historyPath` 会在发送前按 `misconfigured` 拒绝：两处声明是两个问题，探针不替人挑。
 历史答 `unknown` 时不会再去问另一个端点 —— 一次对账就是一次请求。
 
-**目标回答引起的释放留下的是一份决定，不只是一个被移过的账。** 答案为 `not_executed` 时账转为 `released`，
-而同一次动作也写成一条带链的 `claim_release` 行 —— 与人工释放同一动作、同一行形状。其 `detail` 点名谁发起
+**目标回答引起的释放留下的是一份决定，不只是一个被移过的账。** 答案为足以授权重试的 `not_executed`
+（R-9）时账转为 `released`，而同一次动作也写成一条带链的 `claim_release` 行 —— 与人工释放同一动作、
+同一行形状。其 `detail` 点名谁发起
 （自动清扫记 `system:sweep`，人工对账记管理员 id）、目标答了什么、何时答的、占位已释放且可重占位、效果仍
 未知 —— 它不是「什么都没试过」的记录。之所以需要这一行：之后的任一次重占位都会复用占位行并清掉它的释放列
 （`status`、`releaseReason`、`claimedAt`），故带链的那一行是这份决定唯一留得住的地方；读数与人工释放一样

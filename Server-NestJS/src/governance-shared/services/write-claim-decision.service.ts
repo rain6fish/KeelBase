@@ -11,6 +11,8 @@ import {
 } from '../entities/ai-write-claim.entity';
 import { staleThresholdMinutes } from '../../governance-core/revoke-staleness';
 import { TargetStatusLookupRow } from '../entities/target-status-lookup.entity';
+import type { TargetStatusBasis } from '../../governance-core/target-status';
+import type { DedupDeclaration } from '../../governance-core/tool-dedup';
 import { AuditService } from './audit.service';
 import { TARGET_STATUS_PROBE } from './tool-effects.types';
 import type { TargetStatusProbe } from './tool-effects.types';
@@ -338,6 +340,46 @@ export class WriteClaimDecisionService {
   }
 
   /**
+   * R-9: record a release the target's answer would have caused but that the reading cannot license.
+   *
+   * This is the same `claim_release` action and the same chain as a release, because it is the other
+   * ending of the same act — the release the answer proposed. It moves no state: `status` stays
+   * `claimed`, so the key stays occupied and the same call is not silently retried. The row's `detail`
+   * opens `release refused (weak_reading)` and names the reading that could not release the hold — who
+   * asked, by which query, what it concluded and its basis — plus the tool's dedup declaration, so a
+   * later reader sees why this answer did not open a retry. It carries **no** `releaseLookups` column:
+   * that column is the evidence behind a release, and no release decision was made.
+   *
+   * The readings are named in the prose rather than copied into the column for the same reason: the
+   * copy would look like release evidence. They stay in `ai_target_status_lookups`, and each is named
+   * here by its row id, so the prose resolves to its source.
+   *
+   * R-9：记录一次「目标答案本想引发、但读数不足以授权」的释放。
+   *
+   * 与释放同一个 `claim_release` 动作、同一条链，因为它是同一次动作的另一个结局 —— 答案提出的那次
+   * 释放。它不移动任何状态：`status` 仍是 `claimed`，键仍被占住，同一次调用不会被静默重试。行的
+   * `detail` 以 `release refused (weak_reading)` 开头，点名那份没能放行的读数 —— 谁问的、按什么查的、
+   * 结论与种类 —— 以及工具的去重声明，使后来者看得到这次为什么没有打开重试。它**不带**
+   * `releaseLookups` 列：那一列是释放决定背后的证据，而这里没有做出释放决定。
+   *
+   * 读数写在散文里、不复制进列，理由相同：拷贝会看起来像释放证据。它们仍留在
+   * `ai_target_status_lookups`，这里按行 id 逐条点名，故散文能够解析回源头。
+   */
+  async recordWeakReadingRefusal(
+    claim: ReleaseClaimRef,
+    trigger: TargetWeakReadingTrigger,
+    lookupRecorded: boolean,
+  ): Promise<number> {
+    const evidence = await this._releaseEvidence(claim, { lookupRecorded });
+    return this._writeReleaseRow(
+      claim,
+      { userId: trigger.byUserId, username: trigger.byUsername },
+      this._weakReadingDetail(claim, trigger, evidence),
+      null,
+    );
+  }
+
+  /**
    * F-85b: the evidence a release row carries — how many asks, and the newest three readings, as data
    * for the off-chain column. The prose names the count; the column says which. A reviewer closing the
    * case needs the evidence in the same place as the decision — otherwise "asked and got nothing" and
@@ -421,6 +463,14 @@ export class WriteClaimDecisionService {
       // 于是每条拷贝都写成 `unknown`。
       .addSelect('lookup.basis')
       .addSelect('lookup.lookedUpBy')
+      // R-9: the refusal row names each reading by **what was asked** (method + path) as well as who
+      // asked and what it said. These three columns are read here but never copied into
+      // `releaseLookups` — that column's shape is fixed to the observed values a release cites.
+      // R-9：拒绝行除了「谁问的、说了什么」，还要点名**问的是什么**（方法 + 路径）。这三列在这里读出，
+      // 但不复制进 `releaseLookups` —— 那一列的形状固定为释放所引用的观测值。
+      .addSelect('lookup.queryMethod')
+      .addSelect('lookup.queryPath')
+      .addSelect('lookup.asUserId')
       .addSelect('COUNT(*) OVER ()', 'total')
       .where('lookup.idempotencyKey = :key', { key: claim.idempotencyKey })
       .orderBy('lookup.at', 'DESC')
@@ -469,6 +519,19 @@ export class WriteClaimDecisionService {
       // `null` = 没人问过，视图也必须这么说。
       // R-3 后续：它也是拷贝条目记下的水位 —— 更大的 id 出现在其后。
       latestLookupId: recentLookups[0]?.id ?? null,
+      // R-9: the same rows, with the query that produced each — internal to the prose of a refusal row,
+      // never serialised into the off-chain column.
+      // R-9：同样这几行，各自带上产生它的那条查询 —— 只供拒绝行的散文使用，绝不序列化进链外列。
+      readings: recentLookups.map((l) => ({
+        id: l.id,
+        at: l.at,
+        conclusion: l.conclusion,
+        basis: l.basis ?? 'unknown',
+        lookedUpBy: l.lookedUpBy,
+        asUserId: l.asUserId,
+        queryMethod: l.queryMethod,
+        queryPath: l.queryPath,
+      })),
     };
   }
 
@@ -646,6 +709,72 @@ export class WriteClaimDecisionService {
   }
 
   /**
+   * R-9: the refusal row's prose. It must answer, without a join: **what was refused and why**, which
+   * reading could not release the hold (who asked, by what query, when it was recorded, what it
+   * concluded and its basis), what the tool promises about dedup, and that the hold **stays claimed**
+   * with its key occupied. It ends by naming the readings previously on record too — so the second ask
+   * that is refused says what the first one said, and a reader sees how long the target has been
+   * answering weakly rather than reading one sample as the whole story.
+   *
+   * R-9：拒绝行的散文。它必须无需联接就回答：**拒绝了什么、为什么**，哪份读数没能放行（谁问的、
+   * 按什么查的、何时记下、结论与种类），工具对去重承诺了什么，以及占位**保持 claimed**、键仍被占住。
+   * 结尾同时点名此前在案的读数 —— 于是第二次被拒的询问说得出第一次说了什么，读者能看到目标弱答了多久，
+   * 而不是把一次采样读成全部。
+   */
+  private _weakReadingDetail(
+    claim: ReleaseClaimRef,
+    trigger: TargetWeakReadingTrigger,
+    evidence: ReleaseEvidence,
+  ): string {
+    const initiator = trigger.automatic
+      ? `${trigger.byUserId} (automatic sweep)`
+      : `user ${trigger.byUserId} (manual reconcile)`;
+    return (
+      `release refused (weak_reading): write claim #${claim.id} (${claim.toolName}, as user ${claim.userId}) was not released — ` +
+      `the target answered not_executed from ${this._basisLabel(trigger.basis)}; ` +
+      `that reading cannot show that a non-idempotent effect never ran, and the tool's dedup declaration is ${trigger.dedup} ` +
+      `(only yes would make a re-send safe by key); ` +
+      `the hold stays claimed and its key stays occupied; ` +
+      `origin: target answered ${trigger.conclusion} (${trigger.queryMethod} ${trigger.queryPath} at ${trigger.queriedAt}); ` +
+      `initiated by: ${initiator}; ${this._readingsPhrase(evidence)}`
+    );
+  }
+
+  /** The refusal's own words for a basis — `null` is said, not guessed at. / 拒绝行对种类的说法 —— `null` 也说出来，不猜。 */
+  private _basisLabel(basis: TargetStatusBasis | null): string {
+    if (basis === 'receipt') return 'a receipt reading';
+    if (basis === 'current_state') return 'a current-state reading';
+    return 'a reading with no declared basis';
+  }
+
+  /**
+   * R-9: the readings as prose — each with the ask that produced it (who, when, method + path), its
+   * conclusion and its basis, and its row id so it resolves back to the source. `releaseLookups` is
+   * deliberately not used: this row is not a release, and that column is the evidence behind one.
+   *
+   * R-9：以散文列出的读数 —— 每条带上产生它的询问（谁、何时、方法与路径）、结论、种类，以及行 id，
+   * 于是它能解析回源头。这里**有意**不用 `releaseLookups`：这一行不是释放，而那一列是释放背后的证据。
+   */
+  private _readingsPhrase(evidence: ReleaseEvidence): string {
+    if (evidence.readings.length === 0) {
+      if (evidence.thisAskRecorded !== null) {
+        return 'lookup record missing — the target was asked, the lookup row was not recorded';
+      }
+      return evidence.askable === false
+        ? 'lookups: none (not askable — this tool has no usable status query)'
+        : 'lookups: none (never queried)';
+    }
+    const missing = evidence.thisAskRecorded === false ? ', this ask was not recorded' : '';
+    const readings = evidence.readings
+      .map(
+        (r) =>
+          `#${r.id} by ${r.lookedUpBy} at ${r.at.toISOString()} (${r.queryMethod} ${r.queryPath}) → ${r.conclusion}, basis=${r.basis}`,
+      )
+      .join('; ');
+    return `lookups on record: ${evidence.lookupCount}${missing}; readings (newest first): ${readings}`;
+  }
+
+  /**
    * F-85b: the count stays in prose (a person reading the row needs it), the readings themselves go
    * to the structured column — one place, not two spellings of the same list.
    *
@@ -720,6 +849,24 @@ interface ReleaseEvidence {
   thisAskRecorded: boolean | null;
   releaseLookups: string;
   /**
+   * R-9: the same newest readings as entities — id, when recorded, who asked, whose identity went out,
+   * the query that produced it, and its conclusion/basis. Used only by the refusal prose; never
+   * serialised, so the fixed shape of `releaseLookups` cannot drift by accident.
+   *
+   * R-9：与拷贝同源的最近几次读数（实体形状）—— id、记录时刻、谁问的、以谁的身份、产生它的查询、结论与
+   * 种类。只供拒绝行散文使用，绝不序列化，故 `releaseLookups` 的固定形状不会意外漂移。
+   */
+  readings: Array<{
+    id: number;
+    at: Date;
+    conclusion: string;
+    basis: string;
+    lookedUpBy: string;
+    asUserId: string;
+    queryMethod: string;
+    queryPath: string;
+  }>;
+  /**
    * R-4: the newest reading's id — the key the reviewer's frozen view compares against. Not part of
    * the prose; it exists so the release can tell whether the screen still describes the row. It is
    * also the watermark the copied items carry (R-3 follow-up): the same id heads `items`, and any
@@ -758,6 +905,26 @@ export interface TargetReleaseTrigger {
   queryPath: string;
   /** ISO 8601, from the lookup itself. / 查询自身的时刻（ISO 8601）。 */
   queriedAt: string;
+}
+
+/**
+ * R-9: the facts a weak-reading refusal is built from — the same trigger as a target-driven release,
+ * plus the two facts that made this answer unreleasable: its basis and the tool's dedup declaration.
+ *
+ * R-9：弱读数拒绝所依据的事实 —— 与目标驱动的释放同一个触发器，另加让这份答案不可放行的两件事：它的
+ * 种类与工具的去重声明。
+ */
+export interface TargetWeakReadingTrigger extends TargetReleaseTrigger {
+  /** `current_state`, `null` (undeclared), or `receipt` — only the last two never reach here. / 种类。 */
+  basis: TargetStatusBasis | null;
+  /**
+   * The tool's `dedup` declaration, resolved (`unknown` when absent). Only `yes` could have licensed
+   * the retry, so this is `no` or `unknown` on every row this method writes.
+   *
+   * 工具解析后的 `dedup` 声明（缺席为 `unknown`）。只有 `yes` 才可能授权重试，故本方法写出的行上它
+   * 只会是 `no` 或 `unknown`。
+   */
+  dedup: DedupDeclaration;
 }
 
 /**

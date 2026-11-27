@@ -9,6 +9,11 @@
 
 import { LlmUsage } from '../llm-usage';
 import type { DenialCause } from '../../common/errors/denial-guidance';
+// R-9: the resolution rule (absent ⇒ `unknown`) is single-sourced in governance-core, because the
+// governance reconcile path reads the same declaration and must not import this module at runtime.
+// R-9：解析规则（缺席 ⇒ `unknown`）单源在 governance-core，因为治理对账路径读同一份声明，且在运行时
+// 不得 import 本模块。
+import { declaredDedup } from '../../governance-core/tool-dedup';
 
 /**
  * One human-readable line about a tool call, addressed to whichever renderer will show it.
@@ -289,7 +294,7 @@ export function resolveCapabilities(
   return {
     statusLookup: tool.capabilities?.statusLookup ?? 'unknown',
     cancellation: tool.capabilities?.cancellation ?? 'unknown',
-    dedup: tool.capabilities?.dedup ?? 'unknown',
+    dedup: declaredDedup(tool),
   };
 }
 
