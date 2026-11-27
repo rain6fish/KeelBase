@@ -582,7 +582,8 @@ optional external reference. The claim moves to `closed_unknown`; `status` delib
 "confirmed not stored". The key stays occupied, so the same call is refused by `claimWrite` and is
 never silently retried. The act itself is one chained AI-audit row (`action=claim_release`), carrying
 the note and reference and **no** outcome word. That row also states **what the asking said**: the
-count in prose, written `lookups: N asked (see releaseLookups)` at every count, and the newest three
+count in prose, written `lookups: N asked (see releaseLookups)` at every count — with one clause
+added when the target-driven path could not record this ask's own row, below — and the newest three
 readings (`id`, `at`, `conclusion`, `reason`, `basis`, `lookedUpBy`), newest first, in the off-chain
 column — the readings are recorded once there and are not restated in the prose. `basis`
 (R-1) is `current_state` | `receipt` | `unknown` and says what the answer was based on — a
@@ -651,7 +652,12 @@ later re-claim reuses the hold row and clears its release columns (`status`, `re
 `releaseLookups` exactly as they do for a manual release. One further case belongs to this path: if
 the target answered but its lookup row could not be recorded, the row says
 `lookup record missing — the target was asked, the lookup row was not recorded` instead of claiming
-nobody asked, and the column carries `recorded: false`.
+nobody asked, and the column carries `recorded: false`. That flag is about **this** ask, not the
+history: when earlier readings are already on record, the count still reports them — it never counts
+the answer that went missing — and the prose gains one clause, `lookups: N asked (see
+releaseLookups; this ask was not recorded)`, so the copied items are read as earlier asks rather than
+as evidence of this one. An absent flag claims nothing either way; the release row never vouches for
+an answer it cannot point at.
 
 **The decision row keeps two clocks apart.** In a target-driven row's `detail`, the time inside
 `origin: target answered … at <queriedAt>` is when the status query was **issued** — it is stamped
@@ -725,7 +731,7 @@ reading and never moves the row — while freshness only filters and badges.
 东西证明这次写是否落库，写成 `released` 等于断言「确认未落库」。键仍被占住，故同一次调用会被 `claimWrite`
 拒绝，绝不会被静默重试。动作本身是一条带链 AI 审计行（`action=claim_release`），带说明与引用，**不**带
 任何结局词。该行同时陈述**询问说了什么**：散文写次数，不论几次都是 `lookups: N asked (see releaseLookups)`
-这一句；最近三次读数（`id`、`at`、`conclusion`、`reason`、`basis`、`lookedUpBy`）最近的在前，记在链外列
+这一句 —— 只有目标驱动路径记不下**这一次**自己的读数行时多带一句（见下文）；最近三次读数（`id`、`at`、`conclusion`、`reason`、`basis`、`lookedUpBy`）最近的在前，记在链外列
 里 —— 读数只记那一处，不在散文中复述。
 `basis`（R-1）取 `current_state` | `receipt` | `unknown`，说的是答案**基于什么** —— 当前状态读数
 确立不了「从未被接受」。两种种类都是本仓参考目标真的从线上给出的答案：一条端到端用例把 `receipt`
@@ -773,7 +779,10 @@ update / delete / 保留期（F-126）。若日后加了保留期，审计行点
 （`status`、`releaseReason`、`claimedAt`），故带链的那一行是这份决定唯一留得住的地方；读数与人工释放一样
 进 `releaseLookups`。这条路径还有一种情形：目标答过、但它的读数行没能记下时，行内写
 `lookup record missing — the target was asked, the lookup row was not recorded`，而不是声称没人问过；
-链外列带 `recorded: false`。
+链外列带 `recorded: false`。这个标志说的是**这一次**询问，不是历史：表里已有更早的读数时，次数照实报
+它们 —— 它从不把没记下的那个答案算进去 —— 散文另加一句 `lookups: N asked (see releaseLookups; this
+ask was not recorded)`，于是拷贝条目按「更早的问次」来读，而不是这一次的证据。不写这个标志，就什么也
+没断言；释放行绝不替一个它指不出来的答案背书。
 
 **决定行把两只时钟分开。** 目标驱动行的 `detail` 里，`origin: target answered … at <queriedAt>` 中的时刻
 是状态查询**发出**的时刻 —— 它在请求离开之前就打上。`releaseLookups` 里每条拷贝的 `at` 则是该

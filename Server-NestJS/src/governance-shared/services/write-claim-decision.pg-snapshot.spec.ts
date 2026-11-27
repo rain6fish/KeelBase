@@ -402,7 +402,11 @@ describePostgres('F-130/F-132：释放证据的计数与条目出自同一快照
         // hammer; it gets its own case below.
         // 自动路径（`recordTargetRelease`）才是询问在途时真正会跑的那条：可重复、写的是与人工释放相同的
         // `claim_release` 行，正是被测的读取。人工释放对每条占位只有一次，做不了锤子；它在下面单列一例。
-        auditIds.push(await service.recordTargetRelease(claim, trigger()));
+        // `true` stands in for the reconcile path after its insert landed — nothing is missing here,
+        // so this lane must not acquire the "this ask was not recorded" marker.
+        // `true` 代指的是插入已落库之后的对账路径 —— 这里什么都没缺，故这条 lane 不得带上「本次未
+        // 记录」的标记。
+        auditIds.push(await service.recordTargetRelease(claim, trigger(), true));
       }
     } finally {
       const { inserted, failure } = await writerLoop.stop();

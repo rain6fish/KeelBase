@@ -317,10 +317,18 @@ export class WriteClaimDecisionService {
   async recordTargetRelease(
     claim: ReleaseClaimRef,
     trigger: TargetReleaseTrigger,
+    /**
+     * R-6b residual: did **this** ask's lookup row land? Only the writer knows; a zero count alone
+     * cannot tell, because older readings outlive the row that went missing.
+     *
+     * R-6b 残留：**这一次**询问的读数行落库了吗？只有写方知道；只看计数分辨不出来 —— 旧读数会活得比
+     * 缺失的那一行久。
+     */
+    lookupRecorded: boolean,
   ): Promise<number> {
-    // The target answered, so a zero lookup count here is a **missing record**, not "never asked".
-    // The target answered ⇒ 这里读数为零意味着**记录缺失**，不是「从未问过」。
-    const evidence = await this._releaseEvidence(claim, { targetAnswered: true });
+    // The target answered, so a missing row here is a **missing record**, not "never asked".
+    // The target answered ⇒ 这里缺行意味着**记录缺失**，不是「从未问过」。
+    const evidence = await this._releaseEvidence(claim, { lookupRecorded });
     return this._writeReleaseRow(
       claim,
       { userId: trigger.byUserId, username: trigger.byUsername },
@@ -382,7 +390,16 @@ export class WriteClaimDecisionService {
    */
   private async _releaseEvidence(
     claim: Pick<AiWriteClaim, 'idempotencyKey' | 'toolName'>,
-    options?: { targetAnswered?: boolean },
+    options?: {
+      /**
+       * R-6b residual: whether **this** ask's lookup row landed. Its presence also says the row is
+       * target-driven — a release with no ask behind it passes no options at all.
+       *
+       * R-6b 残留：**这一次**询问的读数行有没有落库。给了这个值也就说明这一行是目标驱动的 ——
+       * 背后没有询问的释放根本不传 options。
+       */
+      lookupRecorded: boolean;
+    },
   ): Promise<ReleaseEvidence> {
     // F-127: one statement, not two. `count(...)` followed by `find({ take })` reads the table twice;
     // a concurrent automatic ask in between makes the row say "asked N" while listing N+1 readings.
@@ -414,22 +431,24 @@ export class WriteClaimDecisionService {
     // 同一读数、两种驱动：SQLite 给数字，Postgres 给 bigint 的字符串。
     const lookupCount = recentLookups.length ? Number(raw[0].total) : 0;
     const askable = this._askable(claim.toolName);
-    const targetAnswered = options?.targetAnswered ?? false;
+    // R-6b residual: the flag is about **this** ask, never about the history. `null` = the question
+    // does not arise, because no ask stands behind this release row.
+    // R-6b 残留：这个标志说的是**这一次**询问，而不是历史。`null` = 问题不成立 —— 这一行释放背后
+    // 没有询问。
+    const thisAskRecorded: boolean | null = options ? options.lookupRecorded : null;
     return {
       lookupCount,
       askable,
-      targetAnswered,
+      thisAskRecorded,
       releaseLookups: JSON.stringify({
         count: lookupCount,
         askable,
-        // Only a target-driven row can tell "asked but not recorded" apart from "never asked": the
-        // target answered, so a zero count is a missing row. Written only when the row is missing —
-        // `recorded: true` would also vouch for an answer that older readings could hide. Manual
-        // releases stay without this flag: there, zero really is "never queried".
-        // 只有目标驱动的行能分清「问过但没记录」与「从未问」：目标答过，计数为零即缺行。只在缺行时写
-        // 这个标志 —— `recorded: true` 还会替被旧读数遮住的答案背书。人工释放不带这个标志：那里零次
-        // 就是「从未问过」。
-        ...(targetAnswered && lookupCount === 0 ? { recorded: false } : {}),
+        // Written only when this ask's row is missing — `recorded: true` would also vouch for an
+        // answer that older readings could hide, and an absent flag says nothing was claimed.
+        // Manual releases stay without this flag: there, the question does not arise.
+        // 只在这一次询问的行缺失时写 —— `recorded: true` 还会替被旧读数遮住的答案背书，而不写这个
+        // 标志就等于什么都没断言。人工释放不带这个标志：那里问题不成立。
+        ...(thisAskRecorded === false ? { recorded: false } : {}),
         items: recentLookups.map((l) => ({
           // F-123/F-124: the reading row's own id — the copied values' way back to their source.
           // F-123/F-124：读数行自己的 id —— 所复制的值回到其源头的路。
@@ -645,12 +664,21 @@ export class WriteClaimDecisionService {
    *
    * R-6b：目标驱动的行上，计数为零意味着目标答过、而它的读数行缺失。此时「从未问过」会与同一行的
    * `origin: target answered …` 自相矛盾，故自成一言；人工路径（那里的零次确实就是「从未问过」）沿用原措辞。
+   *
+   * R-6b residual: a non-zero count is the table's history, not this ask's evidence. When the caller
+   * says this ask's row is missing, the count stays (it is true) and gains one clause so the older
+   * readings cannot be read as this answer's.
+   *
+   * R-6b 残留：非零计数是这张表的历史，不是这一次询问的证据。调用方说这一次的行缺失时，次数照写（那是
+   * 事实），再加一句 —— 旧读数便不会被读成这次答案的。
    */
   private _lookupPhrase(evidence: ReleaseEvidence): string {
     if (evidence.lookupCount > 0) {
-      return `lookups: ${evidence.lookupCount} asked (see releaseLookups)`;
+      return evidence.thisAskRecorded === false
+        ? `lookups: ${evidence.lookupCount} asked (see releaseLookups; this ask was not recorded)`
+        : `lookups: ${evidence.lookupCount} asked (see releaseLookups)`;
     }
-    if (evidence.targetAnswered) {
+    if (evidence.thisAskRecorded !== null) {
       return 'lookup record missing — the target was asked, the lookup row was not recorded';
     }
     return evidence.askable === false
@@ -678,13 +706,18 @@ interface ReleaseEvidence {
   lookupCount: number;
   askable: boolean | null;
   /**
-   * R-6b: true only on the target-driven path — the target did answer, so a zero count is a missing
-   * lookup row rather than a "nobody asked". Not in the prose or by itself; it decides the wording.
+   * R-6b: whether **this** ask's lookup row landed — `false` when it did not (whatever the count
+   * says), `true` when it did, `null` when no ask stands behind the row (manual path). It decides the
+   * `recorded: false` flag and, on a zero count, the "lookup record missing" wording — the zero count
+   * of a target-driven row is a missing row rather than a "nobody asked". The count itself stays a
+   * reading of the table, never of this one ask.
    *
-   * R-6b：只在目标驱动的路径上为真 —— 目标确实答过，故计数为零是缺了一条读数行，而不是「没人问」。
-   * 它不进散文、也不单独出现；它决定用哪句措辞。
+   * R-6b：**这一次**询问的读数行有没有落库 —— 没落为 `false`（不论计数是多少），落了为 `true`，
+   * 这一行背后没有询问（人工路径）时为 `null`。它决定 `recorded: false` 标志，并在计数为零时决定
+   * 「记录缺失」的措辞 —— 目标驱动的行计数为零是缺了一条读数行，而不是「没人问」。次数本身读的始终
+   * 是那张表，而不是这一次询问。
    */
-  targetAnswered: boolean;
+  thisAskRecorded: boolean | null;
   releaseLookups: string;
   /**
    * R-4: the newest reading's id — the key the reviewer's frozen view compares against. Not part of

@@ -460,6 +460,104 @@ describe('AW-17 目标状态对账（只读查询收敛 unknown）', () => {
         items: [],
       });
     });
+
+    /**
+     * R-6b residual: older readings can hide a missing one. When the target answers again and this
+     * ask's evidence row fails to land, the table still holds the earlier readings, so the count is
+     * non-zero and the zero-count case above never fires — yet the row's `N asked` would read as if
+     * this answer were among them. The fact that must survive is about **this** ask: its row is
+     * missing (`recorded: false`), and the prose says so beside the count. The copied items keep
+     * their meaning — readings of earlier asks, not evidence of this one.
+     *
+     * R-6b 残留：旧读数会遮住缺失的那一条。目标再次作答、而这次询问的证据行没落库时，表里仍有更早
+     * 的读数，计数非零，上面的零计数用例便不会触发 —— 但行内的「N asked」会读成这次答案也在其中。
+     * 必须留住的事实是关于**这一次**询问的：它的行缺失（`recorded: false`），散文在次数旁明说。
+     * 拷贝条目仍按本来的意思读 —— 更早那几次询问的读数，不是这一次的证据。
+     */
+    it('已有旧读数而本次读数行写失败（被吞）⇒ 标出本次未记录，不让旧读数冒充', async () => {
+      const real = lookups();
+      await real.save(
+        real.create({
+          idempotencyKey: KEY,
+          toolName: TOOL,
+          lookedUpBy: 'admin-1',
+          asUserId: 'u-alice',
+          queryMethod: 'GET',
+          queryPath: '/contracts/status/' + KEY,
+          conclusion: 'unknown',
+          reason: 'target-status-unavailable',
+          basis: null,
+        }),
+      );
+      // Reads go to the real table, where one older reading is visible; the insert throws — the
+      // post-swallow state with a history behind it.
+      // 读取走真表，那里看得见一条旧读数；插入抛错 —— 被吞之后、且背后有历史的样子。
+      const failingStore = {
+        create: (x: unknown) => real.create(x as never),
+        save: async () => {
+          throw new Error('lookup table down');
+        },
+        createQueryBuilder: (...args: unknown[]) => real.createQueryBuilder(...(args as [string])),
+      } as never;
+      build(true, failingStore);
+      const row = await seed();
+      probe.lookup.mockResolvedValue(
+        lookup({ conclusion: 'not_executed', reason: null, queriedAt: '2026-11-25T02:00:00.000Z' }),
+      );
+
+      const r = await effects.reconcileClaim(row.id, SYSTEM_SWEEP_LOOKUP_ACTOR);
+      expect(r.outcome).toBe('reconciled');
+
+      const [decision] = await releaseRows();
+      expect(decision.detail).toContain('origin: target answered not_executed');
+      expect(decision.detail).toContain(
+        'lookups: 1 asked (see releaseLookups; this ask was not recorded)',
+      );
+      expect(decision.detail).not.toContain('never queried');
+      const copy = JSON.parse(decision.releaseLookups!) as {
+        count: number;
+        recorded?: boolean;
+        items: { id: number }[];
+      };
+      // The count states what the table holds — one earlier ask — and `recorded: false` says this
+      // ask is not among it.
+      // 计数如实说表里有什么 —— 更早的一次询问；`recorded: false` 说这一次不在其中。
+      expect(copy.count).toBe(1);
+      expect(copy.recorded).toBe(false);
+      expect(copy.items).toHaveLength(1);
+    });
+
+    it('旧读数存在但本次读数行已落库 ⇒ 不加「本次未记录」标记（对照）', async () => {
+      const real = lookups();
+      await real.save(
+        real.create({
+          idempotencyKey: KEY,
+          toolName: TOOL,
+          lookedUpBy: 'admin-1',
+          asUserId: 'u-alice',
+          queryMethod: 'GET',
+          queryPath: '/contracts/status/' + KEY,
+          conclusion: 'unknown',
+          reason: 'target-status-unavailable',
+          basis: null,
+        }),
+      );
+      build(true, real);
+      const row = await seed();
+      probe.lookup.mockResolvedValue(
+        lookup({ conclusion: 'not_executed', reason: null, queriedAt: '2026-11-25T03:00:00.000Z' }),
+      );
+
+      const r = await effects.reconcileClaim(row.id, SYSTEM_SWEEP_LOOKUP_ACTOR);
+      expect(r.outcome).toBe('reconciled');
+
+      const [decision] = await releaseRows();
+      expect(decision.detail).toContain('lookups: 2 asked (see releaseLookups)');
+      expect(decision.detail).not.toContain('this ask was not recorded');
+      const copy = JSON.parse(decision.releaseLookups!) as { count: number; recorded?: boolean };
+      expect(copy.count).toBe(2);
+      expect(copy).not.toHaveProperty('recorded');
+    });
   });
 
   /**
