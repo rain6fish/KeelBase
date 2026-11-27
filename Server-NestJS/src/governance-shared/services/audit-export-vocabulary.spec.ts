@@ -2,6 +2,7 @@
 
 import {
   ANSWER_HEADERS,
+  AUTOMATION_SOURCE,
   objectTypeOptions,
   productActionLabel,
   productAuthorizationLabel,
@@ -168,6 +169,47 @@ describe('audit export vocabulary', () => {
     expect(productInitiatorLabel({ username: null, userId: '7', action: 'claim_release' })).toBe(
       'Not recorded',
     );
+  });
+
+  /**
+   * R-8: the hourly sweep's expiry row is written under the operator's id and name — that is what
+   * keeps it inside their own read scope (asserted on the read side in
+   * `test/audit-reader-scope.e2e-spec.ts`). The person did nothing, though: the channel column says
+   * the automation wrote it, and the cell must say so instead of turning the name snapshot into an
+   * initiator.
+   *
+   * R-8：整点清扫的到期行写在操作人的 id 与姓名之下 —— 那正是它留在本人读取范围内的原因（读侧由
+   * `test/audit-reader-scope.e2e-spec.ts` 钉住）。但这个人什么都没做：频道列说明是自动化写的，
+   * 该格据此作答，而不是把姓名快照读成发起人。
+   */
+  it('initiator: an automated row says «Automated» even when it carries the operator’s name', () => {
+    const automated = productInitiatorLabel({
+      username: 'alice',
+      userId: '7',
+      action: 'tool_confirmation',
+      source: AUTOMATION_SOURCE,
+    });
+    expect(automated).toBe('Automated');
+    expect(automated).not.toContain('alice');
+    expect(scanForInternalNames([automated])).toEqual([]);
+
+    // The channel is what decides, not the action or the name: the same row arriving through a
+    // request channel is still the person's act.
+    // 决定的是频道，不是动作或姓名：同一行若来自请求频道，仍是本人的动作。
+    expect(
+      productInitiatorLabel({
+        username: 'alice',
+        userId: '7',
+        action: 'tool_confirmation',
+        source: 'web',
+      }),
+    ).toBe('alice (through the AI assistant)');
+    // No channel at all keeps today's reading — «Automated» is a declaration, never an inference
+    // from what the row happens to lack.
+    // 完全没有频道时维持既有读法 —— 「自动」是一份声明，绝不从「这行碰巧缺什么」推断出来。
+    expect(
+      productInitiatorLabel({ username: 'alice', userId: '7', action: 'tool_confirmation' }),
+    ).toBe('alice (through the AI assistant)');
   });
 
   it('the picker and the CSV name the same object the same way', () => {

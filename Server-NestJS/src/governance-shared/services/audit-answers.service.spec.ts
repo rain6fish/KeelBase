@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { AuditAnswersService } from './audit-answers.service';
+import { AUTOMATION_SOURCE } from './audit-export-vocabulary';
 import type { AiAuditLogWithUser } from './audit-query.service';
 import { UserRole } from '../../common/entities/user.entity';
 import { scanForInternalNames } from '../../../test/answer-vocabulary-scan';
@@ -127,6 +128,47 @@ describe('AuditAnswersService', () => {
     expect(matrix.rows[0].slice(1, 3)).toEqual(['Write-hold release', 'Result unknown']);
     expect(matrix.rows[1].slice(1, 3)).toEqual(['Write-hold release', 'Rejected']);
     expect(matrix.rows[2][5]).toBe('Automated');
+    expect(scanForInternalNames(matrix.rows.flat())).toEqual([]);
+  });
+
+  /**
+   * R-8, the consistency half: one sweep writes both rows, so a reader must not get two different
+   * initiators for the same automated act. The expiry row keeps the operator's name and id (scope
+   * needs them); the release row carries a `system:` id. Both cells must read «Automated», and the
+   * operator's name must not resurface as the initiator of something they did not do.
+   *
+   * R-8 的一致性那一半：一次清扫写下两行，读者不能对同一件自动动作得到两个不同的发起人。到期行保留
+   * 操作人的姓名与 id（范围需要它们）；释放行带 `system:` 的 id。两格都必须读作「自动」，且操作人的
+   * 姓名不得作为一件他没做过的事的发起人再次出现。
+   */
+  it('one sweep, two rows: the expiry and the release name the same automated initiator', async () => {
+    const { service } = build([
+      {
+        id: 41,
+        action: 'tool_confirmation',
+        outcome: 'timeout',
+        isError: true,
+        tool: 'create_event',
+        username: 'alice',
+        userId: '7',
+        conversationId: 'conv-41',
+        source: AUTOMATION_SOURCE,
+      },
+      {
+        id: 42,
+        action: 'claim_release',
+        outcome: null,
+        tool: 'create_event',
+        username: null,
+        userId: 'system:sweep',
+        detail: 'release write claim #9 (create_event, as user 7) → released; origin: window closed',
+      },
+    ]);
+
+    const matrix = await service.export({ limit: 500 }, undefined, reader);
+
+    expect(matrix.rows.map((cells) => cells[5])).toEqual(['Automated', 'Automated']);
+    expect(matrix.rows[0][5]).not.toContain('alice');
     expect(scanForInternalNames(matrix.rows.flat())).toEqual([]);
   });
 

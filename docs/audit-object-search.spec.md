@@ -33,7 +33,7 @@ The minute (§7.1, the AI-simulated audit reader) names six, and this slice foll
 | 3 | **Result** | the single state already derived by `explainState()` |
 | 4 | **Object** | the side-effect row reached through the write claim: `result_type` → business noun, `result_id` → `#id` |
 | 5 | **Authorization** | the confirmation row reached through the claim's `authorizationRef`, as a sentence |
-| 6 | **Initiated by** | `username` snapshot + whether the action ran through the AI assistant |
+| 6 | **Initiated by** | a background task's channel (`source`) when it wrote the row; otherwise the `username` snapshot + whether the action ran through the AI assistant |
 
 The 2026-10-31 minute names a slightly different six (who / when / object / before-after /
 authorization / result). This slice follows **2026-11-07**, because that minute is the source of
@@ -42,14 +42,16 @@ R4 second-person approval). The difference is recorded here, not silently reconc
 values remain out of scope for the same reason the minute gives: the "after" value today is the
 host's current record, not a write-time snapshot.
 
-**Initiated by, when no request-level actor existed.** The cell reads the row's `username` snapshot.
-Work the system does on its own — the hourly sweep that re-asks a target — has no request behind it,
-so its `claim_release` row carries a `userId` (`system:sweep`) but no `username`, and the cell says
-**"Not recorded"**, which is what the row holds. That is not a claim that nobody initiated: the
-row's `userId` and its `detail` (`initiated by: system:sweep (automatic sweep)`) still name it, and
-both stay readable in the audit trail even though this column cannot carry them. Making the column
-itself say so would need a structured initiator source — the same deferred contract change the
-release kinds wait on.
+**Initiated by, when no request-level actor existed.** The cell reads the row's channel (`source`)
+first and its `username` snapshot after. Work the system does on its own — the hourly sweep that
+re-asks a target, or the one that closes an expired confirmation — has no request behind it. The
+release row it writes carries a `userId` in the `system:` namespace and no `username`, and the cell
+says **"Automated"**: the actor kind is known from the id, so calling it a gap would trade a fact for
+a hole. The expiry row cannot do that — its `userId` is what puts it inside the operator's own read
+scope (`audit-reader-scope.ts`), and a `system:` id would drop the row out of the very trail that
+person reads. So it keeps that id and their name snapshot and declares the **channel** (`source:
+automation`) instead; the cell reads the channel first and says **"Automated"** as well. The same
+sweep therefore renders the same initiator on both rows, and neither of them claims the person acted.
 
 ### 3. Search semantics
 
@@ -144,19 +146,20 @@ zero-internal-names property is testable without a browser.
 | 3 | **结果** | 复用 `explainState()` 已算出的那**一个**状态 |
 | 4 | **对象** | 经写占位行到达副作用行：`result_type` → 业务名词，`result_id` → `#id` |
 | 5 | **授权** | 经占位行 `authorizationRef` 到达确认行，写成句子 |
-| 6 | **发起人** | `username` 快照 + 这次动作是否经 AI 助手 |
+| 6 | **发起人** | 后台任务写下的行走频道（`source`）；其余用 `username` 快照 + 这次动作是否经 AI 助手 |
 
 2026-10-31 纪要点的是另一组六项（谁 / 何时 / 对象 / 改前改后 / 授权 / 结果）。本切片以
 **2026-11-07** 为准 —— 那一份才是 U1 的来源，且它的两个硬场景（被拦下的删除、R4 第二人批准）
 正好由这六项作答。这处出入**记在这里，不悄悄抹平**。改前/改后继续不做，理由与纪要保持一致：
 今天的「改后」是宿主**现在的记录**，不是写入时的快照。
 
-**没有请求级发起人时的「发起人」列。** 该列读的是行上的 `username` 快照。系统自行做的事 —— 整点清扫
-代系统再次询问目标 —— 背后没有请求，故它的 `claim_release` 行带 `userId`（`system:sweep`），却不带
-`username`；这一列于是写 **`Not recorded`**（导出词表是英文），那正是行里实际有的东西。这不是在说「没人发起」：行的 `userId`
-与其 `detail`（`initiated by: system:sweep (automatic sweep)`）仍点名了它，两者在审计轨迹里都读得到，
-尽管这一列载不动它们。要让这一列自己说出来，得有一个结构化的发起方来源 —— 与释放种类一样，那笔改动
-在等契约变更。
+**没有请求级发起人时的「发起人」列。** 这一列先读行上的频道（`source`），再读 `username` 快照。系统
+自行做的事 —— 整点清扫代系统再次询问目标，或把到期的确认关掉 —— 背后没有请求。它写下的释放行带
+`system:` 命名空间里的 `userId`、不带 `username`，这一列于是写 **`Automated`**（导出词表是英文）：
+主体的种类从 id 就知道，把它说成缺口等于拿一个事实换一个窟窿。到期行不能这么做 —— 它的 `userId` 正是
+把它放进操作人本人读取范围的东西（`audit-reader-scope.ts`），写成 `system:` 的 id 会把这行挪出那个人
+自己读的轨迹。故它保留那个 id 与姓名快照，改为声明**频道**（`source: automation`）；这一列先读频道，
+同样写 `Automated`。同一次清扫的两行因此给出同一个发起人，而两行都不再声称这个人动过手。
 
 ### 3. 检索语义
 

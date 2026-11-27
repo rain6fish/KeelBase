@@ -8,16 +8,21 @@
  *     organisation, and to the requested window. Admin keeps the full row and every organisation.
  *  ③ **aggregate surfaces** — `/audit/{stats,cost,coverage,action-report}` count only the reader's
  *     own organisation; admin still counts everything.
+ *  ④ **R-8** — the confirmation sweep's expiry row keeps the operator's id (so it stays in that
+ *     person's own scope) and declares its channel (`source: automation`), which is what the six
+ *     answers read instead of naming the person as the initiator.
  *
- * All three run as reverse pairs: the in-scope row **is** visible, the out-of-scope row **is not**.
+ * All of them run as reverse pairs: the in-scope row **is** visible, the out-of-scope row **is not**.
  *
  * AW-2 余下的两半，在真实 DI 容器与真实库上验证：
  *  ① **字段白名单** —— 审计读者的行由 `AUDIT_READER_ROW_FIELDS` 重建；清单外的列即使库里存在，
  *     也不出现在线上响应里。
  *  ② **组织 / 期间范围** —— 审计读者的行收窄到账号所属组织与请求窗口；管理员保留整行与全部组织。
  *  ③ **聚合面** —— `/audit/{stats,cost,coverage,action-report}` 只数读者自己的组织；管理员仍数全部。
+ *  ④ **R-8** —— 确认清扫的到期行保留操作人的 id（故留在这个人自己的范围里），并声明它来自哪个频道
+ *     （`source: automation`）；六问读的是这个频道，而不是把这个人读成发起人。
  *
- * 三条都成对跑反向断言：范围内的行**看得到**，范围外的行**看不到**。
+ * 以上都成对跑反向断言：范围内的行**看得到**，范围外的行**看不到**。
  */
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
@@ -67,6 +72,9 @@ describe('AW-2 audit reader: field whitelist + org/period scope', () => {
     userId: number;
     username: string;
     createdAt: Date;
+    /** Row-shape columns the case is about (e.g. the sweep's expiry row), spread over the defaults. */
+    /** 用例关心的行形状列（例如清扫的到期行），覆盖在默认值之上。 */
+    extra?: Record<string, unknown>;
   }): Promise<number> {
     const repo = ds.getRepository('ai_audit_logs');
     const saved = await repo.save({
@@ -81,6 +89,7 @@ describe('AW-2 audit reader: field whitelist + org/period scope', () => {
       guestId: `guest-${opts.username}`,
       deviceId: `device-${opts.username}`,
       conversationId: `conv-${opts.username}`,
+      ...opts.extra,
     });
     const id = (saved as unknown as { id: number }).id;
     await repo.update(id, { createdAt: opts.createdAt });
@@ -176,6 +185,59 @@ describe('AW-2 audit reader: field whitelist + org/period scope', () => {
 
     expect(ids(res.body)).not.toContain(inScopeId);
     expect(ids(res.body)).not.toContain(otherOrgId);
+  });
+
+  /**
+   * R-8: the hourly sweep's expiry row is written under the **operator's** id, which is what keeps
+   * it inside their own read scope; the channel column, not the absence of a name, is what tells a
+   * reader it was automated. Both halves are visible here — the person's own-scope read returns the
+   * row, a reader whose scope does not cover that person does not get it, and the wire row still
+   * carries the channel the export reads.
+   *
+   * R-8：整点清扫的到期行写在**操作人**的 id 之下，这正是它留在本人读取范围内的原因；告诉读者
+   * 「这是自动的」的是频道列，而不是「碰巧没有姓名」。两半在这里都看得见 —— 本人的范围读得到这一行，
+   * 范围不覆盖那个人的读者读不到，而线上行仍带着导出所读的频道。
+   */
+  it('an automated-expiry row stays inside the operator’s own scope (R-8)', async () => {
+    const expiryId = await insertAuditRow({
+      userId: outsiderAuditor.id,
+      username: 'aw2_auditor_noorg',
+      createdAt: IN_PERIOD,
+      extra: {
+        action: 'tool_confirmation',
+        outcome: 'timeout',
+        tool: 'create_event',
+        source: 'automation',
+        isError: true,
+      },
+    });
+
+    try {
+      const own = await request(app.getHttpServer())
+        .get('/api/v1/audit/logs')
+        .set(authHeader(outsiderAuditor.token))
+        .expect(200);
+      expect(ids(own.body)).toContain(expiryId);
+
+      // Reverse: a reader scoped to another organisation never gets that person's row.
+      // 反向：范围是另一个组织的读者拿不到那个人的行。
+      const other = await request(app.getHttpServer())
+        .get('/api/v1/audit/logs')
+        .set(authHeader(auditor.token))
+        .expect(200);
+      expect(ids(other.body)).not.toContain(expiryId);
+
+      const row = (own.body.data as Array<Record<string, unknown>>).find((r) => r.id === expiryId);
+      expect(row).toMatchObject({
+        action: 'tool_confirmation',
+        outcome: 'timeout',
+        source: 'automation',
+      });
+    } finally {
+      // The aggregate cases below count every row in the database; this one must not leak into them.
+      // 下面的聚合用例按库里的行数计数；这一行不得漏进去。
+      await ds.getRepository('ai_audit_logs').delete({ id: expiryId });
+    }
   });
 
   it('period: rows outside the requested window are not returned', async () => {
