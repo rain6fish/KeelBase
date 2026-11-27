@@ -5,13 +5,15 @@
  * A2 审计证据包离线机器验证（证据分层 L1 离线复核）：审计机构/第三方不装 KeelBase 即可独立验证证据包。
  *
  * 输入：
- *   - keelbase-audit-evidence/1、/2：GET /audit/action-report/export 导出（单链全量，report+compliance+chain）。
- *   - keelbase-audit-evidence/3（① 证据根 AUDIT-ID）：GET /ai/governance/evidence-root/:resultType/:resultId 导出——
- *     单条业务动作跨链证据根（chains.aiAudit + chains.operationAudit 子链行 + side-effect 锚 + root 根锚）。
+ *   - keelbase-audit-evidence/1、/2、/5：GET /audit/action-report/export 导出（单链全量，report+compliance+chain；
+ *     /5 另加**入签**的 releaseReadings 段）。
+ *   - keelbase-audit-evidence/3、/4、/6（① 证据根 AUDIT-ID）：GET /ai/governance/evidence-root/:resultType/:resultId 导出——
+ *     单条业务动作跨链证据根（chains.aiAudit + chains.operationAudit 子链行 + side-effect 锚 + root 根锚；
+ *     /4 加入签 coverage，/6 再加入签 targetStatusReadings）。
  *
  * 两种模式：
- *   - 无 --key：结构验证（/1 /2：seq 连续 / hash 64hex / prevHash 连续 / 首行 genesis；/3：action/effect 存在、
- *     anchors hash 64hex、root.digest 可复现自洽）。
+ *   - 无 --key：结构验证（包 /1 /2 /5：seq 连续 / hash 64hex / prevHash 连续 / 首行 genesis；证据根 /3 /4 /6：
+ *     action/effect 存在、anchors hash 64hex、root.digest 可复现自洽）。
  *   - --key <AUDIT_HMAC_KEY[,PREVIOUS...]>：全量重算每条 payload 的 hash（canonicalJSON + HMAC，
  *     对齐协议 §2.2/§2.3）+ 根锚 digest + 证据包签名验证。
  *
@@ -296,22 +298,38 @@ catch (e) { console.error(`✗ 无法读取证据包 JSON：${e.message}`); proc
 console.log('═══ A2 审计证据包离线验证（不依赖 KeelBase）═══\n');
 console.log(`证据包：${fileArg}`);
 
-const isV4 = ev.format === 'keelbase-audit-evidence/4';
-/** 证据根形状：/3 与 /4 **同形**，/4 多一个必填 `coverage`（二者走同一段校验）。
- *  Evidence-root shape: `/3` and `/4` are the same shape; `/4` adds a required `coverage`. */
+/**
+ * The format namespace is **shared**: `/1` `/2` `/5` are packages, `/3` `/4` `/6` are evidence
+ * roots. `/5` is the next package version (not `/3` — that number is the evidence root's) and `/6`
+ * the next evidence-root version. `/6` adds a required `targetStatusReadings` section to the signed
+ * canonical; `/3` and `/4` keep their historical bytes.
+ *
+ * 格式号是**共用**的：`/1` `/2` `/5` 是证据包，`/3` `/4` `/6` 是证据根。`/5` 是下一个包版本
+ * （不是 `/3` —— 那个号属于证据根），`/6` 是下一个证据根版本。`/6` 在签名 canonical 里加入必填的
+ * `targetStatusReadings` 段；`/3` 与 `/4` 保持其历史字节不变。
+ */
+const isV6 = ev.format === 'keelbase-audit-evidence/6';
+const isV4 = isV6 || ev.format === 'keelbase-audit-evidence/4';
+/** 证据根形状：/3 /4 /6 **同形**，/4 与 /6 各多一个必填段（coverage / targetStatusReadings）。
+ *  Evidence-root shape: `/3` `/4` `/6` are the same shape; `/4` and `/6` each add a required section. */
 const isV3 = isV4 || ev.format === 'keelbase-audit-evidence/3';
 if (
-  ['keelbase-audit-evidence/1', 'keelbase-audit-evidence/2', 'keelbase-audit-evidence/3', 'keelbase-audit-evidence/4'].includes(
-    ev.format,
-  )
+  [
+    'keelbase-audit-evidence/1',
+    'keelbase-audit-evidence/2',
+    'keelbase-audit-evidence/3',
+    'keelbase-audit-evidence/4',
+    'keelbase-audit-evidence/5',
+    'keelbase-audit-evidence/6',
+  ].includes(ev.format)
 ) {
   ok('格式版本', ev.format);
 } else {
   bad('格式版本', ev.format ?? '(缺失)');
 }
 
-// /4 的整段要点是「一份包**不能**省略它看不了什么」⇒ 缺了就不是一份 /4，在这里失败而不是放过。
-// A `/4` package exists to state what it cannot show; missing that section means it is not a `/4`.
+// /4 与 /6 的整段要点是「一份包**不能**省略它看不了什么」⇒ 缺了就不是那一档，在这里失败而不是放过。
+// `/4` and `/6` exist to state what they cannot show; missing that section means it is not that format.
 if (isV4) {
   const c = ev.coverage;
   if (!c || typeof c !== 'object') {
@@ -469,6 +487,7 @@ else {
     chains: ev.chains,
     root: ev.root,
     ...(isV4 ? { coverage: ev.coverage } : {}),
+    ...(isV6 ? { targetStatusReadings: ev.targetStatusReadings } : {}),
     exportedAt: ev.exportedAt,
     ...(ev.summary ? { summary: ev.summary } : {}),
     ...(ev.replay ? { replay: ev.replay } : {}),

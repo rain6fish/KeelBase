@@ -18,14 +18,14 @@ import { AuditService } from '../src/governance-shared/services/audit.service';
 import { buildAnchor } from '../src/ai/audit/evidence-anchor';
 
 /**
- * KB-3 证据根 v3 契约 e2e（docs/evidence-root.spec.md §7 验收：seed 一条 AI 写 → 导出 v3 → digest 复算 PASS → 撬链 FAIL）。
+ * KB-3 证据根契约 e2e（docs/evidence-root.spec.md §7 验收：seed 一条 AI 写 → 导出 /6 → digest 复算 PASS → 撬链 FAIL）。
  * 确定性（无 LLM）：REST 建客户 → CreateFollowupTaskTool 写任务 → AiToolEffectsService.record 登记副作用 →
  * **真实三源装配（1.0.8 review-deferred 1.1）**：REST 写同一 crm_task（operation_audit 链行）+ 真实 AuditService.log
  * 落同 conversationId 的 ai_audit_logs 行（chat + tool_call，真实哈希链）→ 导出三源锚齐（ai-audit/op-audit/side-effect）
  * → root.digest===sha256(anchors)（与 verify-evidence 同算法）；非本人 404；改锚 hash → digest 复算不匹配。
  * ④ verify-evidence --key 离线全量验证：真实 AI/op 链行按 AUDIT_HMAC_KEY（.env.test 显式配置）全量重算 PASS。
  */
-describe('证据根 v3 契约（KB-3）', () => {
+describe('证据根契约（KB-3，当前 /6）', () => {
   let app: INestApplication;
   let userA: { accessToken: string };
   let userB: { accessToken: string };
@@ -134,10 +134,10 @@ describe('证据根 v3 契约（KB-3）', () => {
       .set(authHeader(token))
       .expect(expectedStatus);
 
-  it('① 本人导出 v4：action/root.anchors 结构 + 真实三源锚齐 + coverage 段 + root.digest 可离线复算（PASS）', async () => {
+  it('① 本人导出 /6：action/root.anchors 结构 + 真实三源锚齐 + coverage 段 + root.digest 可离线复算（PASS）', async () => {
     const res = await exportRoot(userA.accessToken, 200);
     const pkg = res.body.data as any;
-    expect(pkg.format).toBe('keelbase-audit-evidence/4');
+    expect(pkg.format).toBe('keelbase-audit-evidence/6');
     // AW-3：/4 不允许有这句空口 —— 一份包必须交代它读了什么、看不了什么。
     expect(pkg.coverage).toBeDefined();
     expect(['complete', 'partial', 'unknown']).toContain(pkg.coverage.verdict);
@@ -325,11 +325,11 @@ describe('证据根 v3 契约（KB-3）', () => {
   });
 
   /**
-   * ⑦ R-10b：目标状态读数的种类以**链外附段**随 `/4` 包带走，不解析任何散文、也不进签名 canonical。
-   * ⑦ R-10b: the target-status reading kinds travel with the `/4` package as an off-chain attached
-   * section — no prose parsing, and no change to the signed canonical.
+   * ⑦ R-10b：目标状态读数的种类随 `/6` 包带走，且**进签名 canonical**——改一个种类即破签。
+   * ⑦ R-10b: the target-status reading kinds travel with the `/6` package and are **inside the
+   * signed canonical** — flipping one kind breaks the signature.
    */
-  it('⑦ 链外附段：/4 带走两次读数及其种类（current_state / receipt），离线验证仍 PASS', async () => {
+  it('⑦ 入签附段：/6 带走两次读数及其种类（current_state / receipt），改种类 ⇒ 验签 FAIL', async () => {
     expect(writeKey).toBeTruthy();
     const repo = app.get<Repository<TargetStatusLookupRow>>(getRepositoryToken(TargetStatusLookupRow));
     await repo.save([
@@ -362,17 +362,41 @@ describe('证据根 v3 契约（KB-3）', () => {
     // 两种读数的种类在包本身可区分；最近在前（后插入的行 id 更大）。
     expect(pkg.targetStatusReadings.map((r: any) => r.basis)).toEqual(['receipt', 'current_state']);
 
-    // The section is outside the signed canonical, so the standalone verifier still passes unchanged.
-    // 附段在签名 canonical 之外，故独立验证器原样通过。
+    const key = process.env.AUDIT_HMAC_KEY ?? '';
+    expect(key.length).toBe(64); // same config requirement as ④; a missing key must be a failure, not a skip
     const file = join(tmpdir(), `evroot-readings-${Date.now()}.json`);
     try {
       writeFileSync(file, JSON.stringify(pkg));
+      // PASS: the real verifier recomputes the `/6` canonical, which includes the section.
+      // PASS：真实验证器重算 `/6` canonical，而它含本段。
       const out = execFileSync(
         process.execPath,
-        [join(__dirname, '../scripts/verify-evidence.mjs'), file],
+        [join(__dirname, '../scripts/verify-evidence.mjs'), file, '--key', key],
         { encoding: 'utf8' },
       );
       expect(out).toContain('PASS');
+
+      // Non-vacuous: flip one `basis`; the signature must fail (the section is signed, not advisory).
+      // 非空证：改一个 `basis`，签名必须失败（本段入签，不是仅供参考）。
+      const tampered = {
+        ...pkg,
+        targetStatusReadings: pkg.targetStatusReadings.map((r: any, i: number) =>
+          i === 0 ? { ...r, basis: 'current_state' } : r,
+        ),
+      };
+      writeFileSync(file, JSON.stringify(tampered));
+      let status: number | undefined;
+      let stdout = '';
+      try {
+        execFileSync(process.execPath, [join(__dirname, '../scripts/verify-evidence.mjs'), file, '--key', key], {
+          encoding: 'utf8',
+        });
+      } catch (err) {
+        status = (err as { status?: number }).status;
+        stdout = String((err as { stdout?: string }).stdout ?? '');
+      }
+      expect(status).toBe(1);
+      expect(stdout).toContain('证据根签名');
     } finally {
       rmSync(file, { force: true });
     }

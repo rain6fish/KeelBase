@@ -443,6 +443,56 @@ if (javaSource.exists(javaEpRel)) {
   if (problem) schemaProblems.push(problem);
 }
 
+/**
+ * Explicit `/5` and `/6` assertions (v7): content equality alone would let every copy delete the
+ * signed sections together. `/5` must require `releaseReadings`; `/6` must require both `coverage`
+ * and `targetStatusReadings`.
+ *
+ * 显式断言 `/5` 与 `/6`（v7）：仅靠内容相等，各处一起删掉入签段也会放行。`/5` 必须要求
+ * `releaseReadings`；`/6` 必须同时要求 `coverage` 与 `targetStatusReadings`。
+ */
+const EP_SCHEMA_V7 = 'v7/evidence-package.schema.json';
+const assertEvidencePackageV5V6 = (side, text) => {
+  let schema;
+  try {
+    schema = parseJson(text);
+  } catch (e) {
+    return `${side} ${EP_SCHEMA_V7} 不是合法 JSON —— ${e.message}`;
+  }
+  const branches = schema.oneOf ?? [];
+  const v5 = branches.find((v) => v?.properties?.format?.const === 'keelbase-audit-evidence/5');
+  if (!v5) return `${side} ${EP_SCHEMA_V7}：找不到 format = keelbase-audit-evidence/5 的分支`;
+  if (!(v5.required ?? []).includes('releaseReadings')) {
+    return `${side} ${EP_SCHEMA_V7}：/5 分支的 required 缺 releaseReadings`;
+  }
+  if (!v5.properties?.releaseReadings) {
+    return `${side} ${EP_SCHEMA_V7}：/5 的 releaseReadings 属性缺失`;
+  }
+  const v6 = branches.find((v) => v?.properties?.format?.const === 'keelbase-audit-evidence/6');
+  if (!v6) return `${side} ${EP_SCHEMA_V7}：找不到 format = keelbase-audit-evidence/6 的分支`;
+  const req6 = v6.required ?? [];
+  for (const k of ['coverage', 'targetStatusReadings']) {
+    if (!req6.includes(k)) return `${side} ${EP_SCHEMA_V7}：/6 分支的 required 缺 ${k}`;
+  }
+  if (!v6.properties?.targetStatusReadings) {
+    return `${side} ${EP_SCHEMA_V7}：/6 的 targetStatusReadings 属性缺失`;
+  }
+  return null;
+};
+
+const mainEpV7Abs = join(MAIN_SCHEMAS_DIR, EP_SCHEMA_V7);
+const javaEpV7Rel = `schemas/${EP_SCHEMA_V7}`;
+if (!existsSync(mainEpV7Abs)) {
+  schemaProblems.push(`主仓 ${EP_SCHEMA_V7}：文件不存在`);
+} else {
+  const problem = assertEvidencePackageV5V6('主仓', readFileSync(mainEpV7Abs, 'utf8'));
+  if (problem) schemaProblems.push(problem);
+}
+if (javaSource.exists(javaEpV7Rel)) {
+  const problem = assertEvidencePackageV5V6('Java 快照', javaSource.read(javaEpV7Rel));
+  if (problem) schemaProblems.push(problem);
+}
+
 console.log('═══ 跨仓语料单源检查（主仓 specs/protocol ↔ Java conformance/vectors）═══');
 console.log(`  Java 来源：${JAVA_REPO}`);
 console.log(`  读取的 ref：${javaSource.label}`);

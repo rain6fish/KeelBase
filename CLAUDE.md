@@ -800,7 +800,7 @@ npm run migration:run
 | POST | /api/v1/audit/reviews | Yes | 管理员或审计读者 | AW-12 签复核回执：写入审计链（`action=audit_review`，`detail` 带 fromId/throughId/cadenceDays）；配置 `AUDIT_REVIEW_OWNER` 时只有该账号可签；区间不得超过链尾 |
 | GET | /api/v1/audit/cost | Yes (ADMIN) | — | AI 成本看板：按用户×模型×意图聚合 tokens（AI-21） |
 | GET | /api/v1/audit/action-report | Yes (ADMIN) | — | AI Action Report 合规证据包（§10 P1）：执行/批准/拒绝/阻断/被治理拒绝 + 副作用计数 + 按日趋势 byDay + 审计哈希链 verify（含表内行数），可按 userId/since/limit。R-10b: the report stays an aggregate and does not list individual release readings — its frozen schema is `additionalProperties: false`; the kinds travel with the evidence packages. R-10b：本报表仍是聚合，不列单次释放读数 —— 其冻结 schema 为 `additionalProperties: false`；读数种类随证据包带走。 |
-| GET | /api/v1/audit/action-report/export | Yes (ADMIN) | — | D4 审计证据包导出：ActionReport + 合规段 + 全量链行 + 签名（`keelbase-audit-evidence/2`，可提交审计机构、离线机器验证）。R-10b: each release decision in `chain` carries its reading kind in the off-chain `releaseReadings` section (not in the signed canonical; a copy of the off-chain `releaseLookups` column). R-10b：`chain` 中每次释放决定在链外 `releaseReadings` 附段带出读数种类（不入签名 canonical；是链外 `releaseLookups` 列的拷贝）。 |
+| GET | /api/v1/audit/action-report/export | Yes (ADMIN) | — | D4 审计证据包导出：ActionReport + 合规段 + 全量链行 + 签名（`keelbase-audit-evidence/5`，可提交审计机构、离线机器验证）。R-10b: each release decision in `chain` carries its reading kind in the **signed** `releaseReadings` section. R-10b：`chain` 中每次释放决定在**入签**的 `releaseReadings` 段带出读数种类。 |
 | POST | /api/v1/audit/feedback | Yes | 本人 | 对话反馈：对某次对话点赞/点踩 + 原因（AI-18） |
 | POST | /api/v1/feedback | Yes | 本人 | 应用内反馈：建议/问题/好评 → 通知管理员（G-1） |
 | GET | /api/v1/audit/operations/logs | Yes (ADMIN) | — | 操作审计日志（写操作，可按 userId 过滤） |
@@ -864,7 +864,7 @@ npm run migration:run
 | DELETE | /api/v1/ai/my/tool-effects?conversationId=\|=runId= | Yes | 本人 | 批量撤销本人在某会话（conversationId）或某次 run（runId）产生的全部 AI 副作用（G1，owner 过滤，逐条汇总；按补偿组折叠） |
 | GET | /api/v1/ai/governance/action/:resultType/:resultId | Yes | 本人或管理员 | B4 治理视图：从业务动作（如 crm_task:42）反查 AI 副作用 + 决策轨迹（决策轨迹/权限依据/确认/审计，§internal.10 B4）；effect 带 `compensationGroup`/`parentEffectId`/`cascadeSize`/`restored`（A-3 恢复态，服务端单一权威） |
 | GET | /api/v1/ai/my/tool-effects | Yes | 本人 | AI Action Center：本人 AI 写副作用清单（状态归一 executed/revoked + 目标富化，数据最小化） |
-| GET | /api/v1/ai/governance/evidence-root/:resultType/:resultId | Yes | 本人或管理员 | 证据根 v3：单动作跨链证据包 keelbase-audit-evidence/3（授权快照+Decision Evidence+审计链行+副作用行+跨链根锚，离线验）。R-10b: `/4` also carries the off-chain `targetStatusReadings` section (the recorded asks for this action's write key; not in the signed canonical). R-10b：`/4` 另带链外 `targetStatusReadings` 附段（这次动作写键上已记录的询问；不入签名 canonical）。 |
+| GET | /api/v1/ai/governance/evidence-root/:resultType/:resultId | Yes | 本人或管理员 | 证据根：单动作跨链证据包（当前 `keelbase-audit-evidence/6`：授权快照+Decision Evidence+审计链行+副作用行+跨链根锚+coverage+读数种类，离线验；`/3` `/4` 为历史版本）。R-10b: `/6` carries the **signed** `targetStatusReadings` section (the recorded asks for this action's write key). R-10b：`/6` 带**入签**的 `targetStatusReadings` 段（这次动作写键上已记录的询问）。 |
 | GET | /api/v1/ai/governance/policy/history | Yes (ADMIN) | — | 治理策略历史快照列表（P-③，跨版本回放决策可复现） |
 | GET | /api/v1/ai/governance/policy/history/:revision | Yes (ADMIN) | — | 按 revision 查询单条策略快照（P-③，跨版本回放决策可复现） |
 | GET | /api/v1/ai/security-showcase/scenarios | Yes (ADMIN) | — | 安全演示（A2 对抗性证明）：确定性对抗场景清单（注入/越权/R5/确认） |
