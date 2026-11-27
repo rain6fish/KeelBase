@@ -61,9 +61,14 @@
   本项涉及的文件**零命中**；以 `npm run build` 为准。
 - 根目录 `KEELBASE_JAVA_REPO=D:/Rain6fish/KeelBase4J npm run check:all`：**36/36**。
 
+## 合并与全量 e2e（2026-11-27 同日）
+
+- `b7640d14` 已由并发会话以合并 `3b89aa82` 并入 main；本会话把 worktree 追平到 main 同一棵树后跑全量 e2e。
+- **全量 e2e：4 分片、49 套件 / 475 例全绿**（分片 13/12/12/12 套，128/74/210/63 例；无崩溃重试，退出码 0）。
+
 ## 遗留 / 未做
 
-- 全量 e2e 未跑。
+- 无（全量 e2e 已补跑）。
 - 自动清扫的 `recorded` 事实经 `reconcileClaim` 一条路径传入；若将来新增第二条调用 `recordTargetRelease`
   的写方，必须同样说清「这一次」的落库事实（签名已设为必填，编译期会拦住遗漏）。
 - 契约仓的样例 / 向量都是人工释放形态（`closed_unknown`、count=2、无 `recorded`），本项不改也不影响它们；
