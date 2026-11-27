@@ -229,6 +229,31 @@ describe('AiAuditView', () => {
     wrapper.unmount()
   })
 
+  // A `claim_release` row records two endings under one action; the refusal must not be read as a
+  // release. Contract §6: a refusal's `detail` opens with `release refused`.
+  // `claim_release` 行把两种结局写在一个动作里；被拒不得被读成一次释放。契约 §6：拒绝行的 `detail`
+  // 以 `release refused` 开头。
+  it('claim_release：被拒行显示「释放被拒」，释放行保留原标签', async () => {
+    // First call is the list; the parallel error-query call gets an empty list (these rows are not errors).
+    // 第一次调用是列表；并行的那次错误查询拿到空列表（这两行不是错误）。
+    logsMock.mockResolvedValueOnce([
+      { id: 1, action: 'claim_release', actionKey: 'ai.claimRelease', actionLabel: 'AI · Release write claim', detail: 'release refused (stale_view): screen said awaiting_decision; ledger says closed_unknown', createdAt: '2026-11-25', isError: false },
+      { id: 2, action: 'claim_release', actionKey: 'ai.claimRelease', actionLabel: 'AI · Release write claim', detail: 'lookups: 2 asked (see releaseLookups)', createdAt: '2026-11-25', isError: false },
+    ]).mockResolvedValue([])
+    statsMock.mockResolvedValue({ totalTokens: 0 })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const text = wrapper.text()
+    const count = (s: string) => text.split(s).length - 1
+    // One of each: had the ending been ignored, both rows would carry the release label.
+    // 两种各一次：若忽略结局，两行都会带上释放标签。
+    expect(count(zh.action.claim_release_refused)).toBe(1)
+    expect(count(zh.feature['ai.claimRelease'])).toBe(1)
+    wrapper.unmount()
+  })
+
   // AW-4: the default reading is the business summary; the hash chain is evidence behind an expand.
   it('AW-4: the business summary comes first and hash-chain rows stay collapsed by default', async () => {
     logsMock.mockResolvedValue([])

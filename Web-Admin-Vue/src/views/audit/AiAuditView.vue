@@ -477,7 +477,7 @@ import { ApiError } from '@/api/client'
 import { adminApi } from '@/api/admin'
 import { downloadCsv } from '@/utils/csv'
 import { formatTime } from '@/utils/format'
-import { toolLabel, toolArgsSummary, errorLabel } from '@/utils/businessLabel'
+import { toolLabel, toolArgsSummary, errorLabel, isReleaseRefusedRow } from '@/utils/businessLabel'
 import type { AuditLog, UsageStats, ChainVerifyResult, AuditInterpretation, IdentityChain, CoverageStatement, ExplanationState, AuditReviewStatus, ToolResultBody } from '@/types/audit'
 import type { AiConversationMeta, AiConversationMessage } from '@/types/admin'
 
@@ -882,8 +882,18 @@ function hasStats(s: AuditInterpretation['summary']['stats']): boolean {
   return s.businessEvents.length > 0 || s.evidence.length > 0 || s.confirmations.approved > 0 || s.confirmations.declined > 0 || s.blocked > 0 || s.errors > 0
 }
 
-/** D2 人类语言审计标签：actionKey 查 i18n feature 容器（与操作审计 feature-map 同源），fallback 到后端 actionLabel/原始 action */
+/**
+ * D2 human-language audit label: `actionKey` is looked up in the i18n `feature` container (same
+ * source as the operation audit feature map), falling back to the back end's `actionLabel` / raw
+ * action. A `claim_release` row is the exception: the action alone cannot tell a release from a
+ * refusal, so the ending is read from the row (`isReleaseRefusedRow`) before the action label.
+ *
+ * D2 人类语言审计标签：actionKey 查 i18n feature 容器（与操作审计 feature-map 同源），fallback 到
+ * 后端 actionLabel/原始 action。`claim_release` 行是例外：只看动作分不出「释放」与「被拒」，故先按
+ * 行读结局（`isReleaseRefusedRow`），再取动作标签。
+ */
 function actionLabel(log: AuditLog): string {
+  if (isReleaseRefusedRow(log)) return t('action.claim_release_refused')
   if (log.actionKey) {
     const msg = messages.value[String(locale.value)] as { feature?: Record<string, string> } | undefined
     const localized = msg?.feature?.[log.actionKey]
