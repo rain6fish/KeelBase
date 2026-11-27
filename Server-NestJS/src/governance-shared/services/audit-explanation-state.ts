@@ -13,7 +13,7 @@
  * filed as if it did. So the viewer is handed one value, derived here, once.
  *
  * <p><b>The vocabulary is larger than the five the roadmap names.</b> The roadmap's row for this work
- * lists 失败 / 待确认 / 补偿中 / 补偿成功 / 结果未知 and calls them mutually exclusive and exhaustive.
+ * lists `失败 / 待确认 / 补偿中 / 补偿成功 / 结果未知` and calls them mutually exclusive and exhaustive.
  * They are mutually exclusive, but not exhaustive, and the data says so: `revoke_status` carries
  * `revoke_failed` (a compensation that ran and failed), and a great many actions simply executed, or
  * were refused before anything happened. Dropping those three would force them into a neighbouring

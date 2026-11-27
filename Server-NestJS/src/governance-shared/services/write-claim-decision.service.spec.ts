@@ -660,9 +660,10 @@ describe('AW-16 F-63/F-64：释放程序与过期策略', () => {
 
     it('F-123/F-124：每条拷贝带读数行 id，按 id 回查即那条源行；F-125：键集被白名单钉住', async () => {
       const claim = await seed();
-      // 一条记了种类、一条没记：源行真实的 `basis` 必须原样出现在它的拷贝里，不能一律写成 `unknown`。
       // One recorded kind and one not: the source's real `basis` must reach its copy, not be flattened
       // to `unknown` by the merged select.
+      //
+      // 一条记了种类、一条没记：源行真实的 `basis` 必须原样出现在它的拷贝里，不能一律写成 `unknown`。
       const first = await seedLookup(claim.idempotencyKey, new Date('2026-11-22T10:00:00Z'), {
         basis: 'receipt',
       });
@@ -883,10 +884,11 @@ describe('AW-16 F-63/F-64：释放程序与过期策略', () => {
 
     it('读数行缺失 ⇒ 不写「从未问过」，写明记录缺失；链外列 recorded=false', async () => {
       const claim = await seed();
-      // 读数表为空：count / find 都返回 0，正是插入被吞掉之后的样子。探针可问为 true，确保
-      // 「问过但记录缺失」优先于「可问但没问」，不会退回第二态。
       // The lookup table is empty, so `count` / `find` return 0 — what a swallowed insert leaves
       // behind. The probe says askable, so "asked but not recorded" must win over "askable, not asked".
+      //
+      // 读数表为空：count / find 都返回 0，正是插入被吞掉之后的样子。探针可问为 true，确保
+      // 「问过但记录缺失」优先于「可问但没问」，不会退回第二态。
       const auditRowId = await serviceWithProbe(true).recordTargetRelease(claim, trigger);
 
       const row = await auditRepo().findOneByOrFail({ id: auditRowId });
@@ -895,8 +897,9 @@ describe('AW-16 F-63/F-64：释放程序与过期策略', () => {
       expect(row.detail).toContain('lookup record missing');
       expect(row.detail).toContain('the target was asked, the lookup row was not recorded');
       expect(row.detail).not.toContain('never queried');
-      // 同一事实以字段落进链外列：读数行缺失是可读、可计数的，而不是只剩一句散文。
       // The same fact as data: a missing lookup row is readable and countable, not prose-only.
+      //
+      // 同一事实以字段落进链外列：读数行缺失是可读、可计数的，而不是只剩一句散文。
       expect(JSON.parse(row.releaseLookups!)).toEqual({
         count: 0,
         askable: true,
@@ -917,9 +920,10 @@ describe('AW-16 F-63/F-64：释放程序与过期策略', () => {
       const row = await auditRepo().findOneByOrFail({ action: 'claim_release' });
       expect(row.detail).toContain('lookups: none (never queried)');
       expect(row.detail).not.toContain('lookup record missing');
-      // 人工路径零次就是真的没人问 —— 链外列形状不变，三态仍可区分（无 recorded 字段）。
       // On the manual path zero really is "nobody asked"; the column is unchanged and the three
       // states stay distinguishable (no `recorded` field).
+      //
+      // 人工路径零次就是真的没人问 —— 链外列形状不变，三态仍可区分（无 recorded 字段）。
       expect(JSON.parse(row.releaseLookups!)).toEqual({ count: 0, askable: true, items: [] });
     });
   });
