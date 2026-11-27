@@ -435,10 +435,11 @@ describe('AW-16 在途 claim 只读查询面', () => {
 
       const res = await service.lookupsFor(row.id, { userId: 1, role: UserRole.ADMIN });
 
-      // 两条都是 unknown，成因字段却给出两个不同的值 —— 这正是本项要的：读者按字段分流，
-      // 不必去读哪句散文是哪一句。
       // Both are `unknown`, yet the cause field holds two distinct values — the reader can branch on
       // the field instead of parsing prose.
+      //
+      // 两条都是 unknown，成因字段却给出两个不同的值 —— 这正是本项要的：读者按字段分流，
+      // 不必去读哪句散文是哪一句。
       expect(res?.items.map((l) => [l.conclusion, l.reason])).toEqual([
         ['unknown', 'non_2xx'],
         ['unknown', 'not_permitted'],
