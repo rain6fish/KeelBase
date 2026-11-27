@@ -53,6 +53,14 @@ person reads. So it keeps that id and their name snapshot and declares the **cha
 automation`) instead; the cell reads the channel first and says **"Automated"** as well. The same
 sweep therefore renders the same initiator on both rows, and neither of them claims the person acted.
 
+**Rows written before this reading existed are not backfilled.** The channel travels inside the row's
+chained payload, so rewriting a stored row would break the chain. An expiry row written before this
+reading carries no `source`, and its Initiated-by cell still names the person
+(`<name> (through the AI assistant)`). To tell that such a row is an expired confirmation rather
+than something the person did, read `action` and `outcome` — `tool_confirmation` with `timeout` says
+the window closed with nobody deciding. That pair does not by itself say which writer produced the
+row; this export does not guess, and the stored history stays as written.
+
 **The Result cell says what a release's newest reading was based on.** A release row records a
 decision, so its Result word is the state (usually `Result unknown`, or `Rejected` for a refused
 release). Its evidence — the newest reading copied into the off-chain `releaseLookups` column — says
@@ -172,6 +180,12 @@ zero-internal-names property is testable without a browser.
 把它放进操作人本人读取范围的东西（`audit-reader-scope.ts`），写成 `system:` 的 id 会把这行挪出那个人
 自己读的轨迹。故它保留那个 id 与姓名快照，改为声明**频道**（`source: automation`）；这一列先读频道，
 同样写 `Automated`。同一次清扫的两行因此给出同一个发起人，而两行都不再声称这个人动过手。
+
+**本次读法出现之前写下的行，不回填。** 频道属于带链的行载荷，改写已存的行就会破链。早于本次读法
+写下的到期行没有 `source`，其「发起人」格仍写作姓名（`<name> (through the AI assistant)`）。要看出
+这一行是「确认到期」而非这个人做过什么，读 `action` 与 `outcome` —— `tool_confirmation` 配
+`timeout` 表示窗口关上了、无人裁决。这一对并不说明是哪一路写入方产出了该行；本导出不去猜，历史照
+原样留着。
 
 **「结果」列写出释放行最新读数基于什么。** 释放行记的是一次决定，故其结果词是状态（通常是
 `Result unknown`，被拒的释放是 `Rejected`）。它的证据 —— 拷进链外 `releaseLookups` 列的最新读数
