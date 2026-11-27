@@ -193,7 +193,7 @@ import { useSnackbarStore } from '@/stores/snackbar'
 import { auditApi } from '@/api/audit'
 import { aiToolsApi } from '@/api/aiTools'
 import { formatTime } from '@/utils/format'
-import { toolLabel, toolArgsSummary, errorLabel } from '@/utils/businessLabel'
+import { toolLabel, toolArgsSummary, errorLabel, isReleaseRefusedRow } from '@/utils/businessLabel'
 import type { AuditLog } from '@/types/audit'
 import type { GovernanceActionResponse, ToolEffect } from '@/types/admin'
 
@@ -350,6 +350,19 @@ const sessions = computed<Session[]>(() => {
   return arr
 })
 
+/**
+ * The word for a row's action. A `claim_release` row cannot be told apart by its action, so the
+ * refusal is read from the row first; every other action keeps its catalogue word, or the raw
+ * token when the catalogue has none.
+ *
+ * 行动作的产品词。`claim_release` 行只看动作分不出来，故先按行读「被拒」；其余动作沿用词表，
+ * 词表里没有就原样显示令牌。
+ */
+function actionWord(log: AuditLog): string {
+  if (isReleaseRefusedRow(log)) return t('action.claim_release_refused')
+  return t(`action.${log.action}`) !== `action.${log.action}` ? t(`action.${log.action}`) : log.action
+}
+
 function toEvent(log: AuditLog): TimelineEvent | null {
   const base = {
     key: `${log.id}-${log.action}-${log.createdAt}`,
@@ -416,7 +429,7 @@ function toEvent(log: AuditLog): TimelineEvent | null {
         icon: 'mdi-message-outline',
         color: 'grey',
         colorClass: '',
-        label: t(`action.${log.action}`) !== `action.${log.action}` ? t(`action.${log.action}`) : log.action,
+        label: actionWord(log),
       }
   }
 }

@@ -122,6 +122,24 @@ describe('AiTimelineView', () => {
     expect(successMock).toHaveBeenCalledWith('已下线')
   })
 
+  // Same ending rule as the audit list: a refusal's `detail` opens with `release refused`
+  // (contract §6) and must not be read as a release.
+  // 与审计列表同一条结局规则：拒绝行的 `detail` 以 `release refused` 开头（契约 §6），不得读成释放。
+  it('claim_release：被拒行显示「释放被拒」，释放行仍显示「释放写占位」', async () => {
+    logsMock.mockResolvedValue([
+      { id: 11, userId: 'u1', conversationId: 'c1', action: 'claim_release', detail: 'release refused (stale_view): screen said awaiting_decision; ledger says closed_unknown', isError: false, createdAt: '2026-11-25T10:00:00Z' },
+      { id: 12, userId: 'u1', conversationId: 'c1', action: 'claim_release', detail: 'lookups: 2 asked (see releaseLookups)', isError: false, createdAt: '2026-11-25T11:00:00Z' },
+    ])
+    effectsMock.mockResolvedValue({ total: 0, page: 1, limit: 100, items: [] })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain(zh.action.claim_release_refused)
+    expect(wrapper.text()).toContain(zh.action.claim_release)
+    wrapper.unmount()
+  })
+
   it('EB-2：proxy_call 副作用渲染「外部系统」标识', async () => {
     logsMock.mockResolvedValue([])
     effectsMock.mockResolvedValue({
