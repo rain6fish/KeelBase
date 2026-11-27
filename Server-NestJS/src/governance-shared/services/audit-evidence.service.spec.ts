@@ -63,7 +63,16 @@ const row = <T extends Record<string, any>>(r: T) => rows([r])[0];
 describe('AuditEvidenceService.getEvidenceRoot（① 证据根 v3）', () => {
   const AUDIT_HMAC_KEY = 'test-evidence-root-key';
 
-  function build(opts: { effect?: any | null; viewer?: string; isAdmin?: boolean; convRows?: any[]; governancePolicy?: any; claims?: any[] } = {}) {
+  function build(opts: {
+    effect?: any | null;
+    viewer?: string;
+    isAdmin?: boolean;
+    convRows?: any[];
+    governancePolicy?: any;
+    claims?: any[];
+    /** `undefined` = the store is absent (the degraded assembly); an array = present. */
+    lookupRows?: any[];
+  } = {}) {
     const logRepo = {
       find: jest.fn().mockResolvedValue(opts.convRows ?? []),
       // ACT-5：占位行指过来的那条审计行按 id 取（未给占位行时不会被调到）
@@ -96,6 +105,18 @@ describe('AuditEvidenceService.getEvidenceRoot（① 证据根 v3）', () => {
       ]),
     } as any;
     const governancePolicy = opts.governancePolicy ?? (undefined as any);
+    // AW-17：目标状态读数存储。`undefined` = 降级装配（治理台没有这张表），数组 = 在场。
+    // AW-17: the target-status reading store. `undefined` = degraded assembly (the governance
+    // runtime has no such table), an array = present.
+    const lookupsRepo = opts.lookupRows === undefined
+      ? undefined
+      : {
+          find: jest.fn().mockImplementation(async (arg?: { where?: { idempotencyKey?: string } }) =>
+            (opts.lookupRows ?? []).filter(
+              (r: any) => arg?.where?.idempotencyKey === undefined || r.idempotencyKey === arg.where.idempotencyKey,
+            ),
+          ),
+        };
     // 证据域已独立成服务（阶段 3 第三刀）：构造参数随之收敛
     const service = new AuditEvidenceService(
       logRepo as any,
@@ -108,6 +129,12 @@ describe('AuditEvidenceService.getEvidenceRoot（① 证据根 v3）', () => {
       operationAudit,
       governancePolicy,
       claimsRepo as any,
+      undefined, // confirmationsRepo
+      undefined, // dataSource
+      undefined, // orgService
+      undefined, // auditReview
+      undefined, // resultBodyStore
+      lookupsRepo as any, // AW-17：目标状态读数
     );
     return { service, logRepo, effectsRepo, operationAudit, governancePolicy, claimsRepo };
   }
@@ -137,6 +164,7 @@ describe('AuditEvidenceService.getEvidenceRoot（① 证据根 v3）', () => {
     id: 9281,
     userId: '42',
     conversationId: 'c1',
+    idempotencyKey: 'key-1',
     toolName: 'create_followup_task',
     resultType: 'crm_task',
     resultId: 7,
@@ -212,12 +240,64 @@ describe('AuditEvidenceService.getEvidenceRoot（① 证据根 v3）', () => {
     expect(out.signature?.sm2).toBeUndefined();
   });
 
+  it('R-10b：/4 附段带走读数的种类，不入 canonical；存储缺席与无记录可区分', async () => {
+    const lookups = [
+      {
+        id: 2, idempotencyKey: 'key-1', toolName: 'create_followup_task', lookedUpBy: 'admin',
+        asUserId: '42', queryMethod: 'GET', queryPath: '/records/key-1',
+        conclusion: 'not_executed', reason: null, basis: 'receipt',
+        at: new Date('2026-11-01T10:00:00Z'),
+      },
+      {
+        id: 1, idempotencyKey: 'key-1', toolName: 'create_followup_task', lookedUpBy: 'admin',
+        asUserId: '42', queryMethod: 'GET', queryPath: '/records/key-1',
+        conclusion: 'not_executed', reason: null, basis: 'current_state',
+        at: new Date('2026-11-01T09:00:00Z'),
+      },
+    ];
+    const { service } = build({ effect, viewer: '42', convRows: [convRow], lookupRows: lookups });
+    const out = await service.getEvidenceRoot('crm_task', 7, '42', false);
+
+    // 两种读数在包本身可区分；顺序最近在前（与查询读面一致）。
+    // The two kinds are distinguishable inside the package itself; newest first, like the lookups read face.
+    expect(out.targetStatusReadings?.map((r) => [r.id, r.basis])).toEqual([
+      [2, 'receipt'],
+      [1, 'current_state'],
+    ]);
+
+    // The attached section is **not** in the canonical: recomputing the original key set still
+    // matches the signature. If it had been signed, this would have to include it.
+    // 附段**不入 canonical**：按原键集复现的 HMAC 仍与签名一致。若它进了签名，这里就必须算上它。
+    const canonical = JSON.stringify({
+      action: out.action,
+      authorization: out.authorization ?? null,
+      decision: out.decision,
+      effect: out.effect,
+      chains: out.chains,
+      root: out.root,
+      coverage: out.coverage,
+      exportedAt: out.exportedAt,
+      ...(out.summary ? { summary: out.summary } : {}),
+      ...(out.replay ? { replay: out.replay } : {}),
+    });
+    expect(out.signature?.hmac).toBe(createHmac('sha256', AUDIT_HMAC_KEY).update(canonical).digest('hex'));
+
+    // Store present but empty ⇒ `[]`; store absent ⇒ `null` (cannot establish, not «none»).
+    // 存储在场但无记录 ⇒ `[]`；存储缺席 ⇒ `null`（无法确证，而不是「没有」）。
+    const empty = await build({ effect, viewer: '42', convRows: [convRow], lookupRows: [] }).service
+      .getEvidenceRoot('crm_task', 7, '42', false);
+    expect(empty.targetStatusReadings).toEqual([]);
+    const absent = await build({ effect, viewer: '42', convRows: [convRow] }).service
+      .getEvidenceRoot('crm_task', 7, '42', false);
+    expect(absent.targetStatusReadings).toBeNull();
+  });
+
   it('replay wire：授权快照 policy.revision → replayDecision 被调 + replay 段入包', async () => {
     const replayDecision = jest.fn().mockResolvedValue({
       mode: 'history', verifiable: true, reproducible: true, policyChanged: false, toolDecisionChanged: false,
       recordedRevision: 'ab12cd34ef56', currentRevision: 'ab12cd34ef56',
     });
-    const { service, governancePolicy } = build({
+    const { service } = build({
       effect,
       viewer: '42',
       convRows: [convRow],
@@ -695,12 +775,20 @@ describe('AuditEvidenceService（报表 / 链校验 / 证据装配）', () => {
         expect(out.chain[0].payload).toMatchObject({ userId: '42', action: 'tool_call', completionTokens: 5, feedback: null, businessEvent: null, evidence: null });
         expect(out.signature?.hmac).toMatch(/^[0-9a-f]{64}$/);
         // ② 绑定：证据包(/2)键集 == evidence-package v3 契约的 /2 分支
+        // The /2 branch allows additional top-level properties (`additionalProperties: true`). The
+        // off-chain `releaseReadings` section is exactly such an extension: named here as the only
+        // permitted extra key, so a contract key silently disappearing still reds this test.
+        // /2 分支允许额外的顶层属性（`additionalProperties: true`）。链外 `releaseReadings` 附段正是
+        // 这样一处扩展：这里把它列为唯一允许的额外键，故契约键若悄悄消失，本用例照样转红。
         const pkgSchema = JSON.parse(
           readFileSync(resolve(__dirname, '../../../specs/protocol/schemas/v3/evidence-package.schema.json'), 'utf8'),
         ) as { oneOf: Array<{ properties: Record<string, unknown> & { format?: { const: string } } }> };
         const branch = pkgSchema.oneOf.find((b) => b.properties.format?.const === 'keelbase-audit-evidence/2');
         expect(branch).toBeDefined();
-        expect(Object.keys(out).sort()).toEqual(Object.keys(branch!.properties).sort());
+        const offChain = ['releaseReadings'];
+        expect(Object.keys(out).filter((k) => !offChain.includes(k)).sort()).toEqual(
+          Object.keys(branch!.properties).sort(),
+        );
       } finally {
         if (prevKey === undefined) delete process.env.AUDIT_HMAC_KEY;
         else process.env.AUDIT_HMAC_KEY = prevKey;
@@ -728,6 +816,78 @@ describe('AuditEvidenceService（报表 / 链校验 / 证据装配）', () => {
         expect(out.compliance[0].businessEvent).toBe('CustomerRiskAssessed');
         expect(out.compliance[0].identityChain.human.username).toBe('alex');
         expect(out.compliance[0].identityChain.tool.toolName).toBe('analyze_customer_risk');
+      } finally {
+        if (prevKey === undefined) delete process.env.AUDIT_HMAC_KEY;
+        else process.env.AUDIT_HMAC_KEY = prevKey;
+      }
+    });
+
+    it('R-10b：释放读数种类随 /2 包带走（链外附段，不入 canonical；不解析散文）', async () => {
+      (service as any).getActionReport = jest.fn().mockResolvedValue({
+        summary: { executed: 0 },
+        hashChain: { valid: true, checked: 3, brokenIndex: null },
+        effectDiffs: [],
+        samples: [],
+      });
+      const prevKey = process.env.AUDIT_HMAC_KEY;
+      const KEY = 'cd'.repeat(32);
+      process.env.AUDIT_HMAC_KEY = KEY;
+      try {
+        logRepo.find.mockResolvedValue(rows([
+          {
+            id: 1, userId: '42', conversationId: null, action: 'claim_release',
+            // The prose deliberately says the opposite kind: the kind must come from the off-chain
+            // column, never from `detail`.
+            // 散文故意说反：种类必须从链外列读，绝不解析 `detail`。
+            detail: 'released write claim #7; basis=current_state',
+            releaseLookups: JSON.stringify({
+              count: 1, askable: true,
+              items: [{ id: 9, at: '2026-11-01T10:00:00.000Z', conclusion: 'not_executed', reason: null, basis: 'receipt', lookedUpBy: 'admin' }],
+            }),
+            prevHash: null, hash: 'a'.repeat(64),
+          },
+          {
+            id: 2, userId: '42', conversationId: null, action: 'claim_release',
+            detail: 'released write claim #8; basis=receipt',
+            releaseLookups: JSON.stringify({
+              count: 1, askable: true,
+              items: [{ id: 10, at: '2026-11-01T11:00:00.000Z', conclusion: 'not_executed', reason: null, basis: 'current_state', lookedUpBy: 'admin' }],
+            }),
+            prevHash: 'a'.repeat(64), hash: 'b'.repeat(64),
+          },
+          {
+            id: 3, userId: '42', conversationId: null, action: 'claim_release',
+            detail: 'release refused (stale_view): screens said open',
+            releaseLookups: null,
+            prevHash: 'b'.repeat(64), hash: 'c'.repeat(64),
+          },
+        ]));
+
+        const out = await service.getActionReportExport({});
+
+        // Two releases, two kinds, distinguishable inside the package; the refusal row carries no
+        // column and so has no entry.
+        // 两次释放、两种读数，包内可区分；拒绝行没有该列，故没有条目。
+        expect(out.releaseReadings.map((r) => [r.auditRowId, r.latest])).toEqual([
+          [1, 'receipt'],
+          [2, 'current_state'],
+        ]);
+        // No prose parsing: row 1's `detail` says current_state while its column says receipt.
+        // 不解析散文：第 1 行的 `detail` 说 current_state，列说 receipt —— 导出信列。
+        expect(out.releaseReadings[0].readings?.[0].basis).toBe('receipt');
+
+        // The attached section is outside the `/2` canonical: recomputing its six keys still
+        // matches the signature. A signed section would have to be inside this string.
+        // 附段在 `/2` canonical 之外：复现那六个键仍与签名一致。入了签的段就必须在这个串里。
+        const canonical = JSON.stringify({
+          summary: out.report.summary,
+          hashChain: out.report.hashChain,
+          effectDiffs: out.report.effectDiffs,
+          compliance: out.compliance,
+          chain: out.chain,
+          exportedAt: out.exportedAt,
+        });
+        expect(out.signature?.hmac).toBe(createHmac('sha256', KEY).update(canonical).digest('hex'));
       } finally {
         if (prevKey === undefined) delete process.env.AUDIT_HMAC_KEY;
         else process.env.AUDIT_HMAC_KEY = prevKey;

@@ -116,7 +116,11 @@ hash           = HMAC-SHA256( key, `${prevHash ?? 'genesis'}|${canonicalJSON(pay
 | `hash` | string | 本条 hash（64 hex，§2.2 算法） |
 | `payload` | object | 链 payload（canonical 输入，§2.3）——离线重算用，必须与写入侧一致 |
 
-**签名 / Signature**：`HMAC-SHA256( key, canonicalJSON({ summary, hashChain, effectDiffs, compliance, chain, exportedAt }) )`，`key = AUDIT_HMAC_KEY || ENCRYPTION_KEY`。签名覆盖证据包全部证据内容——导出后任何改动 → 验签失败。
+**签名 / Signature**：`HMAC-SHA256( key, canonicalJSON({ summary, hashChain, effectDiffs, compliance, chain, exportedAt }) )`，`key = AUDIT_HMAC_KEY || ENCRYPTION_KEY`。签名覆盖 canonical 列出的段（`/3` `/4` 是另一组键，见 §5）——这些段导出后任何改动 → 验签失败。
+
+**链外附段 / Off-chain attached sections**：`/2` packages carry `releaseReadings` (one entry per `claim_release` row in `chain`, with the copied readings behind each release decision), and `/4` packages carry `targetStatusReadings` (the recorded target-status asks for the action's write key). Both are copies of off-chain data (`releaseLookups` is excluded from `buildPayload`; `ai_target_status_lookups` is a separate table), and **neither is in the signed canonical**: the signature does not cover or vouch for them, so they have the same trust level as their source. The evidence-package schema allows additional top-level properties, so this needs no contract version bump and does not change offline recomputation; making them attested would be a new format version.
+
+**链外附段**：`/2` 包带 `releaseReadings`（`chain` 中每条 `claim_release` 行一条，附上该释放决定背后的拷贝读数），`/4` 包带 `targetStatusReadings`（该动作写键上已记录的目标状态询问）。两者都是链外数据的拷贝（`releaseLookups` 不进 `buildPayload`；`ai_target_status_lookups` 是独立表），**都不在签名 canonical 里**：签名既不覆盖也不为它们背书，故信任级别与来源相同。证据包 schema 允许额外的顶层属性，故这不需要契约版本升级，也不改离线重算；要让它可验签，是另一档格式。
 
 **离线验证 / Offline Verification**（独立实现，只依赖 §2 算法）：
 - **无密钥**：结构验证——`seq` 连续 / `hash` 64 hex / `prevHash` 连续 / 首行 genesis。能检测**删行、换序、断链**。

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { HttpStatus, INestApplication } from '@nestjs/common';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import request from 'supertest';
 import { createHash } from 'crypto';
 import { execFileSync } from 'child_process';
@@ -8,6 +10,7 @@ import { tmpdir } from 'os';
 import { writeFileSync, rmSync, mkdtempSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { createTestApp, registerUser, authHeader } from './helpers';
+import { TargetStatusLookupRow } from '../src/governance-shared/entities/target-status-lookup.entity';
 import { CrmService } from '../src/crm/crm.service';
 import { AiToolEffectsService } from '../src/governance-shared/services/ai-tool-effects.service';
 import { CreateFollowupTaskTool } from '../src/ai/tools/create-followup-task.tool';
@@ -30,6 +33,8 @@ describe('证据根 v3 契约（KB-3）', () => {
   let effectsService: AiToolEffectsService;
   let customerId: number;
   let taskId: number;
+  /** The write key shared by the claim and the target-status lookup table. / 占位行与读数表共用的写键。 */
+  let writeKey: string;
 
   const digestOf = (anchors: Array<{ hash: string }>): string =>
     createHash('sha256').update(JSON.stringify(anchors)).digest('hex');
@@ -72,7 +77,7 @@ describe('证据根 v3 契约（KB-3）', () => {
     taskId = (res.data as { id: number }).id;
     expect(taskId).toBeDefined();
 
-    await effectsService.record(
+    const effect = await effectsService.record(
       {
         userId: String(userAId),
         conversationId: 'evidence-root-e2e-1',
@@ -82,6 +87,7 @@ describe('证据根 v3 契约（KB-3）', () => {
       'crm_task',
       taskId,
     );
+    writeKey = effect.idempotencyKey;
 
     // 真实三源装配（1.0.8 review-deferred 1.1）：op 链 = REST 写同一 crm_task（operation_audit 行 targetId=taskId）；
     // ai 链 = 真实 AuditService.log 落 ai_audit_logs（真实哈希链、同 conversationId）——导出不再只有副作用单锚
@@ -220,7 +226,6 @@ describe('证据根 v3 契约（KB-3）', () => {
       return;
     }
 
-    const key = process.env.AUDIT_HMAC_KEY ?? '';
     const prevPriv = process.env.SM2_PRIVATE_KEY;
     const prevKeyId = process.env.SM2_KEY_ID;
     const file = join(tmpdir(), `evroot-sm2-${Date.now()}.json`);
@@ -316,6 +321,60 @@ describe('证据根 v3 契约（KB-3）', () => {
       rmSync(anchorFile, { force: true });
       if (prevPriv === undefined) delete process.env.SM2_PRIVATE_KEY;
       else process.env.SM2_PRIVATE_KEY = prevPriv;
+    }
+  });
+
+  /**
+   * ⑦ R-10b：目标状态读数的种类以**链外附段**随 `/4` 包带走，不解析任何散文、也不进签名 canonical。
+   * ⑦ R-10b: the target-status reading kinds travel with the `/4` package as an off-chain attached
+   * section — no prose parsing, and no change to the signed canonical.
+   */
+  it('⑦ 链外附段：/4 带走两次读数及其种类（current_state / receipt），离线验证仍 PASS', async () => {
+    expect(writeKey).toBeTruthy();
+    const repo = app.get<Repository<TargetStatusLookupRow>>(getRepositoryToken(TargetStatusLookupRow));
+    await repo.save([
+      repo.create({
+        idempotencyKey: writeKey,
+        toolName: 'create_followup_task',
+        lookedUpBy: 'admin',
+        asUserId: String(userAId),
+        queryMethod: 'GET',
+        queryPath: `/records/${writeKey}`,
+        conclusion: 'not_executed',
+        reason: null,
+        basis: 'current_state',
+      }),
+      repo.create({
+        idempotencyKey: writeKey,
+        toolName: 'create_followup_task',
+        lookedUpBy: 'admin',
+        asUserId: String(userAId),
+        queryMethod: 'GET',
+        queryPath: `/records/${writeKey}`,
+        conclusion: 'not_executed',
+        reason: null,
+        basis: 'receipt',
+      }),
+    ]);
+
+    const pkg = (await exportRoot(userA.accessToken, 200)).body.data as any;
+    // The two kinds are distinguishable inside the package; newest first (the later row's id is larger).
+    // 两种读数的种类在包本身可区分；最近在前（后插入的行 id 更大）。
+    expect(pkg.targetStatusReadings.map((r: any) => r.basis)).toEqual(['receipt', 'current_state']);
+
+    // The section is outside the signed canonical, so the standalone verifier still passes unchanged.
+    // 附段在签名 canonical 之外，故独立验证器原样通过。
+    const file = join(tmpdir(), `evroot-readings-${Date.now()}.json`);
+    try {
+      writeFileSync(file, JSON.stringify(pkg));
+      const out = execFileSync(
+        process.execPath,
+        [join(__dirname, '../scripts/verify-evidence.mjs'), file],
+        { encoding: 'utf8' },
+      );
+      expect(out).toContain('PASS');
+    } finally {
+      rmSync(file, { force: true });
     }
   });
 });

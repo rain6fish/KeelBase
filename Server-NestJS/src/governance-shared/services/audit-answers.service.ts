@@ -8,6 +8,7 @@ import { AiConfirmationRequest } from '../entities/ai-confirmation-request.entit
 import { AiToolSideEffect } from '../entities/ai-tool-side-effect.entity';
 import { AiWriteClaim } from '../entities/ai-write-claim.entity';
 import { revokeWindow } from '../../governance-core/revoke-staleness';
+import { parseReleaseReadings } from '../../governance-core/release-readings';
 import {
   AuditQueryService,
   type AiAuditLogWithUser,
@@ -362,22 +363,9 @@ function approverKey(conversationId: string, approverId: string): string {
  * 或一次拒绝）或读不出时为 `null`。本词表不认识的种类报 `unknown`，绝不原样回显。
  */
 function parseReadingKinds(raw: string | null | undefined): ReadingKindFacts | null {
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as { items?: unknown; recorded?: unknown };
-    if (!parsed || typeof parsed !== 'object') return null;
-    const items = Array.isArray(parsed.items) ? parsed.items : [];
-    const newest = items[0] as { basis?: unknown } | undefined;
-    const latest =
-      newest && typeof newest === 'object'
-        ? newest.basis === 'current_state' || newest.basis === 'receipt'
-          ? newest.basis
-          : 'unknown'
-        : null;
-    return { latest, askUnrecorded: parsed.recorded === false };
-  } catch {
-    return null;
-  }
+  const parsed = parseReleaseReadings(raw);
+  if (!parsed) return null;
+  return { latest: parsed.latest, askUnrecorded: parsed.askUnrecorded };
 }
 
 function parseAuthorizationShape(raw: string | null | undefined): 'denied' | 'allowed' | null {
