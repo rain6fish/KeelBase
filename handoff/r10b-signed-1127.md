@@ -1,6 +1,7 @@
 # R-10b 升级为可验签 —— 证据包 `/5` 与证据根 `/6`（2026-11-27）
 
 - 工作树：`.claude/worktrees/dreamy-mclaren-4ec708`，分支 `claude/dreamy-mclaren-4ec708`，基于本地 `main` `e30aa3c1`。
+- 本仓提交：**`b01c3abf`**（本地；记录 submodule pin `0ffd867`）。
 - 前序：`6aa324a1`（链外附段，未签阶段；记录见 `handoff/r10b-reports-basis-1127.md`）。
 - 契约：本地分支 `feat/evidence-package-v7`，提交 **`0ffd867`**（v7 schema + 样例 + registry + CHANGELOG；`6e11815` 为主提交，`0ffd867` 修样例 digest）。
 - Java 镜像：`KeelBase4J` 的 `main`，本地提交 **`30271f8`**（vendored v7 schema + 样例；`321b887` 为主提交）。
