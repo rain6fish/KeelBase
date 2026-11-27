@@ -81,6 +81,20 @@ export type TargetStatusBasis = (typeof TARGET_STATUS_BASIS)[keyof typeof TARGET
 export type TargetStatusLookupBasisView = TargetStatusBasis | 'unknown';
 
 /**
+ * Anything read off a stored row or copied into an off-chain column → the **read face** vocabulary.
+ * A value this vocabulary does not recognise is `unknown`, never echoed: an unrecognised word in a
+ * report would let a future basis appear as if it were already defined here.
+ *
+ * 凡从存储行读出、或复制进链外列的值 → **读面**词表。本词表不认识的取值一律 `unknown`，绝不原样
+ * 回显：报表里出现一个认不出的词，等于让未来的种类看起来像这里已经定义过。
+ */
+export function targetStatusBasisView(raw: unknown): TargetStatusLookupBasisView {
+  return raw === TARGET_STATUS_BASIS.CURRENT_STATE || raw === TARGET_STATUS_BASIS.RECEIPT
+    ? raw
+    : 'unknown';
+}
+
+/**
  * R-9: may a `not_executed` answer release the hold, so the same key can execute again?
  *
  * A **receipt** answers the question a retry asks: the target's own acceptance record says this action

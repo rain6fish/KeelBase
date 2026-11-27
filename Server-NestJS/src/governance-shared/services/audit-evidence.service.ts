@@ -22,11 +22,23 @@ import { ToolResultBodyStore } from './tool-result-body.store';
 import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-effect.entity';
 // ACT-5（消费者①）：占位行 —— 证据根据此把 effect 配到**它自己**那条触发行（无则退回保守规则）
 import { AiWriteClaim } from '../entities/ai-write-claim.entity';
+// AW-17：目标状态读数（链外表）—— `/4` 的附段从这张表按占位键读出，不解析任何散文。
+// AW-17: target-status readings (an off-chain table) — the `/4` attached section reads it by the
+// hold's key, never by parsing prose.
+import { TargetStatusLookupRow } from '../entities/target-status-lookup.entity';
 import { AiConfirmationRequest } from '../../governance-shared/entities/ai-confirmation-request.entity';
 // P0-20：单事件解释面。`revokeWindow` 复用 governance-core 的那一份，不再自己推一遍。
 // P0-20: the single-event explanation. `revokeWindow` is reused from governance-core rather than re-derived here.
 import { revokeWindow } from '../../governance-core/revoke-staleness';
 import { REVOKE_STATUS, type RevokeStatus } from '../../governance-core/revoke-status';
+import {
+  parseReleaseReadings,
+  type ReleaseReading,
+} from '../../governance-core/release-readings';
+import {
+  targetStatusBasisView,
+  type TargetStatusLookupBasisView,
+} from '../../governance-core/target-status';
 import { ExplanationState, explainState, releaseRowState } from './audit-explanation-state';
 import { AuditChainService, ChainVerification } from '../../common/audit-chain/audit-chain.service';
 import { CacheService } from '../../common/cache/cache.service';
@@ -155,6 +167,41 @@ export interface ActionReportExport {
   }>;
   /** A2：链上原始行全量（id/prevHash/hash + payload），供 verify-evidence.mjs 离线重算 */
   chain: EvidenceChainRow[];
+  /**
+   * The evidence behind each release decision in **`chain`**: one entry per `claim_release` row that
+   * carries the off-chain `releaseLookups` column, read as data (never from `detail`). A refusal row
+   * carries no column and has no entry; a release with no reading has an entry with `readings: []`
+   * and `latest: null`. Order follows the chain (oldest first), so an entry joins back by
+   * `auditRowId`.
+   *
+   * <p><b>An off-chain attached section.</b> It is not part of the signed canonical: the signature
+   * covers `summary/hashChain/effectDiffs/compliance/chain/exportedAt`, and `releaseLookups` is
+   * itself excluded from `buildPayload`. This copy therefore has the same trust level as its source
+   * — it is a reader's convenience, not an attested claim. Making it signed is a new format version.
+   * The chain half of this package is deliberately whole; this section matches it, not the scoped
+   * `report` half.
+   *
+   * 本包 `chain` 中每次释放决定的证据：凡带链外 `releaseLookups` 列的 `claim_release` 行各一条，按数据
+   * 读出（绝不解析 `detail`）。拒绝行没有该列，故没有条目；没有读数的释放有条目，`readings: []`、
+   * `latest: null`。顺序随链（最老在前），条目可按 `auditRowId` 连回链行。
+   *
+   * <p><b>链外附段。</b> 不在签名 canonical 里：签名覆盖的是 `summary/hashChain/effectDiffs/
+   * compliance/chain/exportedAt`，而 `releaseLookups` 本身就被排除在 `buildPayload` 之外。故这份拷贝
+   * 与来源的信任级别相同 —— 它是给读者的便利，不是一个被背书的断言。要让它可验签，是另一档格式。
+   * 本包的链那一半有意保持完整；本段与之对齐，而不与按范围收窄的 `report` 那一半对齐。
+   */
+  releaseReadings: Array<{
+    auditRowId: number;
+    /** Total asks recorded for this write; `null` when the column carried no number. */
+    count: number | null;
+    askable: boolean | null;
+    /** R-6b: this release's own ask left no row. `null` when the column was unreadable. */
+    askUnrecorded: boolean | null;
+    /** The newest copied reading's kind; `null` when no reading was copied (or unreadable). */
+    latest: TargetStatusLookupBasisView | null;
+    /** The copied readings, newest first; `null` when the column was present but unreadable. */
+    readings: ReleaseReading[] | null;
+  }>;
   /** 证据包签名（§3 / §11）：{hmac=HMAC-SHA256 应用内快验, sm2=非对称第三方独立验签}；未配任何密钥时为 null */
   signature: EvidenceSignature | null;
 }
@@ -180,6 +227,35 @@ export interface EvidenceRootExport {
     aiAudit: EvidenceChainRow[];
     operationAudit: EvidenceChainRow[];
   };
+  /**
+   * The target-status asks recorded for this action's write key, read from the off-chain
+   * `ai_target_status_lookups` table as data — newest first. This answers «what was the release
+   * based on» (a receipt versus a current-state snapshot) without parsing any prose: release rows
+   * carry no `conversationId` and no claim edge, so the hold's idempotency key is the precise key
+   * both sides share.
+   *
+   * <p>An **off-chain attached section**, like its source: it is not part of the signed canonical,
+   * so the signature neither covers nor vouches for it. `null` when the lookup store is unavailable
+   * (degraded assembly: cannot establish); `[]` when the store is available and nothing was recorded.
+   * A release whose own ask left no row leaves no entry here — the section lists recorded asks, not
+   * asks we know to have happened.
+   *
+   * 这次动作的写键上已记录的目标状态询问，按数据读自链外表 `ai_target_status_lookups`，最近在前。
+   * 它回答「释放基于什么」（收据还是当前状态快照），不解析任何散文：释放行不带 `conversationId`、
+   * 也没有占位行的边，故占位的幂等键是两侧唯一的精确共同键。
+   *
+   * <p>与来源一样是**链外附段**：不在签名 canonical 里，签名既不覆盖也不为它背书。查询存储缺席时
+   * （降级装配，无法确证）为 `null`；存储可用但没有任何记录时为 `[]`。这一次询问没留下读数行的释放，
+   * 在这里不留条目 —— 本段列的是已记录的询问，不是我们已知发生过的全部询问。
+   */
+  targetStatusReadings: Array<{
+    id: number;
+    at: string;
+    conclusion: string;
+    reason: string | null;
+    basis: TargetStatusLookupBasisView;
+    lookedUpBy: string;
+  }> | null;
   root: {
     algorithm: string;
     anchors: Array<{ kind: string; rowId: number; hash: string }>;
@@ -288,6 +364,17 @@ export class AuditEvidenceService {
      * 答案，绝不编造正文。
      */
     @Optional() private readonly resultBodyStore?: ToolResultBodyStore,
+    /**
+     * AW-17: the recorded target-status asks behind an action's write key. Optional like its
+     * neighbours — the standalone governance runtime has its own database and its own entity list;
+     * absent there, the `/4` attached section says `null` (cannot establish) rather than «none».
+     *
+     * AW-17：一条动作的写键背后已记录的目标状态询问。与邻居一样可选 —— 独立治理运行时有自己的库与
+     * 实体清单；那里缺席时，`/4` 的附段说 `null`（无法确证），而不是「没有」。
+     */
+    @Optional()
+    @InjectRepository(TargetStatusLookupRow)
+    private readonly lookupsRepo?: Repository<TargetStatusLookupRow>,
   ) {}
 
   /**
@@ -587,6 +674,26 @@ export class AuditEvidenceService {
         identityChain: await this._identityChainFromRow(row, agentCache),
       });
     }
+    // Off-chain attached section: the reading evidence behind each release decision in the **chain**
+    // (the chain half is whole on purpose; this section matches it). Built from a column that
+    // `buildPayload` excludes, and left **outside** the canonical below — the signature neither
+    // covers nor vouches for it, so a reader must not treat it as more attested than its source.
+    // 链外附段：`chain` 中每次释放决定背后的读数证据（链那一半有意保持完整，本段与之对齐）。它来自
+    // `buildPayload` 排除的列，且留在下面的 canonical **之外** —— 签名既不覆盖也不为它背书，故读者
+    // 不得把它当成比来源更有证明力的东西。
+    const releaseReadings = rows
+      .filter((r) => r.action === 'claim_release' && r.releaseLookups != null)
+      .map((r) => {
+        const parsed = parseReleaseReadings(r.releaseLookups);
+        return {
+          auditRowId: r.id,
+          count: parsed?.count ?? null,
+          askable: parsed?.askable ?? null,
+          askUnrecorded: parsed ? parsed.askUnrecorded : null,
+          latest: parsed ? parsed.latest : null,
+          readings: parsed ? parsed.readings : null,
+        };
+      });
     const canonical = JSON.stringify({
       summary: report.summary,
       hashChain: report.hashChain,
@@ -603,6 +710,7 @@ export class AuditEvidenceService {
       report,
       compliance,
       chain,
+      releaseReadings,
       signature,
     };
   }
@@ -656,8 +764,14 @@ export class AuditEvidenceService {
     // ACT-5（消费者①）：**先问执行身份**。副作用行与占位行由**同一个键**相连 —— 副作用行的
     // `compensationGroup ?? idempotencyKey` 构造上就等于占位行的 `idempotency_key`（两者都出自同一个
     // `buildKey`）—— 而占位行又记着这次调用写下的那条审计行，于是 effect 配到的是**它自己**的触发行。
+    // The effect's compensation group and its idempotency key are the same value when the former is
+    // absent; both come from `buildKey`, which is also the lookup table's key. Name it once so the
+    // claim lookup and the readings lookup cannot drift onto two different keys.
+    // 补偿组缺席时，副作用行的补偿组与幂等键是同一个值；两者都出自 `buildKey`，而 `buildKey` 也是
+    // 查询表的键。在这里命名一次，占位查询与读数查询便不会漂到两个不同的键上。
+    const writeKey = effect.compensationGroup ?? effect.idempotencyKey;
     const claim = await this.claimsRepo?.findOne({
-      where: { idempotencyKey: effect.compensationGroup ?? effect.idempotencyKey },
+      where: { idempotencyKey: writeKey },
     });
     let trigger: AiAuditLog | null;
     if (claim) {
@@ -672,6 +786,29 @@ export class AuditEvidenceService {
     }
     const agentCache = new Map<string, { name: string; trustLevel: string; purpose?: string | null } | null>();
     const identity = trigger ? await this._identityChainFromRow(trigger, agentCache) : null;
+
+    // AW-17 attached section: the recorded asks for this write key. Read as rows, never by parsing
+    // the release prose — release rows carry no conversation and no claim edge, so this key is the
+    // precise shared one. `null` when the store is absent (cannot establish); `[]` when it is present
+    // and nothing was recorded.
+    // AW-17 附段：这个写键上已记录的询问。按行读出，绝不解析释放散文 —— 释放行没有会话、也没有占位
+    // 边，故这个键是唯一精确的共同键。存储缺席（无法确证）时为 `null`；在场但没有记录时为 `[]`。
+    const lookupRows = this.lookupsRepo
+      ? await this.lookupsRepo.find({
+          where: { idempotencyKey: writeKey },
+          order: { at: 'DESC', id: 'DESC' },
+        })
+      : null;
+    const targetStatusReadings = lookupRows
+      ? lookupRows.map((r) => ({
+          id: r.id,
+          at: r.at.toISOString(),
+          conclusion: r.conclusion,
+          reason: r.reason ?? null,
+          basis: targetStatusBasisView(r.basis),
+          lookedUpBy: r.lookedUpBy,
+        }))
+      : null;
 
     const aiChain: EvidenceChainRow[] = convRows.map((row, i) => ({
       seq: i + 1,
@@ -847,6 +984,13 @@ export class AuditEvidenceService {
       decision,
       effect: effectProj,
       chains,
+      // Off-chain attached section: deliberately **outside** `canonicalObj`. Its source, the
+      // `releaseLookups` column, is off-chain too (not in `buildPayload`), so this copy has the same
+      // trust level as what it copies — not more. Putting it in canonical would be a new format.
+      // 链外附段：有意留在 `canonicalObj` **之外**。它的来源 `releaseLookups` 列同样是链外的
+      // （不进 `buildPayload`），故这份拷贝与它拷贝的东西信任级别相同，不会更高。放进 canonical
+      // 就是另一档格式。
+      targetStatusReadings,
       root,
       summary,
       replay,

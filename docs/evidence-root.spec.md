@@ -87,6 +87,16 @@
 - **复用既有算法原语**：`canonicalJSON`（顶层键排序、undefined 剔除、null 保留）与 `chainHash = HMAC-SHA256(key, \`${prevHash ?? 'genesis'}|${canonicalJSON(payload)}\`)`，与 `AuditChainService` / `verify-evidence.mjs` 一致（不新引入）。
 - **向后兼容**：`verify-evidence.mjs` 对 `/1` `/2` 分支不变；新增 `/3` 分支（structure 必查 `action`+`root.anchors`；`--key` full 再验 §5.2–5.4）。整包签名 canonical：v3 时在既有 v2 canonical 键集基础上加 `action/summary/authorization/decision/effect/root`（`chains` 行已随 `chain` 语义并入——见 §5.3 决定，保持两处一致）。
 
+### 3.1 链外附段 `targetStatusReadings`（`/4` 起，可选）/ 3.1 Off-chain attached section `targetStatusReadings` (from `/4`, optional)
+
+`/4` packages may also carry `targetStatusReadings`: the target-status asks recorded for this action's write key, newest first, read from `ai_target_status_lookups` by `effect.compensationGroup ?? effect.idempotencyKey` — the same key the claim row uses, never a prose parse. Each entry is `{id, at, conclusion, reason, basis, lookedUpBy}`; `basis` is the read face's vocabulary (`current_state` / `receipt` / `unknown`). `null` means the lookup store was unavailable (cannot establish); `[]` means it was available and nothing was recorded. A release whose own ask left no row leaves no entry here, because the section lists **recorded** asks, not asks known to have happened.
+
+**This section is not in the signed canonical.** It is a copy of an off-chain table: the signature neither covers nor vouches for it, so it has the same trust level as its source. The evidence-package schema's `/4` branch allows additional top-level properties, so adding it requires no contract version bump and does not change offline recomputation. Making it attested would be a new format version (`/5`), which is a separate decision.
+
+`/4` 包还可以携带 `targetStatusReadings`：这次动作写键上已记录的目标状态询问，最近在前，按 `effect.compensationGroup ?? effect.idempotencyKey` 从 `ai_target_status_lookups` 读出 —— 与占位行用的是同一个键，绝不解析散文。每条为 `{id, at, conclusion, reason, basis, lookedUpBy}`；`basis` 取读面词表（`current_state` / `receipt` / `unknown`）。`null` 表示查询存储不可用（无法确证）；`[]` 表示存储可用且没有任何记录。这次释放自己的询问没留下读数行时，这里不留条目 —— 本段列的是**已记录**的询问，不是我们已知发生过的全部询问。
+
+**本段不在签名 canonical 里。** 它是链外表的一份拷贝：签名既不覆盖也不为它背书，故信任级别与来源相同。证据包 schema 的 `/4` 分支允许额外的顶层属性，故加它不需要契约版本升级，也不改离线重算。要让它可验签，是另一档格式（`/5`），属另一个决定。
+
 ---
 
 ## 4. 数据装配（服务端）/ 4. Data Assembly (server)
