@@ -147,6 +147,20 @@ export function explainState(input: ExplanationStateInput): ExplanationState {
   // **失败**。`not_executed` 早已出于同一理由挪到兜底之前（超时行 `isError` 仍为真）；这里把同一条
   // 规则延到其余具名词上。
   if (input.outcome === 'not_executed') return 'not_executed';
+  // A confirmation window that closed with no decision is the same fact spelled differently: the
+  // hourly expiry sweep and both in-chat windows write `outcome: 'timeout'` on `tool_confirmation`
+  // rows, and every one of them means "nothing ran because nobody decided". Only confirmation rows
+  // carry that word — a `tool_call` whose confirmation timed out already writes `not_executed`
+  // (`tool-call-audit.ts`), and an execution that ran and broke writes `failed` — so this branch
+  // cannot relabel an attempt that happened. That is why the input needs no `action`: the outcome
+  // word alone is unambiguous.
+  //
+  // 确认窗口到期、无人裁决是同一件事的另一种写法：整点清扫与对话内两处窗口都在 `tool_confirmation`
+  // 行上写 `outcome: 'timeout'`，而每一行都表示「没人裁决，所以什么都没跑」。只有确认行带这个词 ——
+  // 确认超时的 `tool_call` 行已由 `tool-call-audit.ts` 写成 `not_executed`，跑过、坏了的动作写
+  // `failed` —— 故这条分支不会把真正发生过的尝试改写成「没发生」。这就是入参不需要 `action` 的原因：
+  // 这个词本身就无歧义。
+  if (input.outcome === 'timeout') return 'not_executed';
   if (input.outcome === 'failed') return 'failed';
   if (input.outcome && REJECTED_OUTCOMES.has(input.outcome)) return 'rejected';
   // Legacy rows only: no `outcome` column was written for them.

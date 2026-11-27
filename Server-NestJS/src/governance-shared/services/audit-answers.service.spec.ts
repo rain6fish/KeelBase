@@ -172,6 +172,42 @@ describe('AuditAnswersService', () => {
     expect(scanForInternalNames(matrix.rows.flat())).toEqual([]);
   });
 
+  it('an expiry row reads “Not executed”, while a real failure still reads “Failed”', async () => {
+    // R-8 follow-up: the hourly sweep writes `tool_confirmation` + `timeout` for a window that
+    // closed with nobody deciding. That is the `not_executed` shape — one fact per cell — and it
+    // must not fall through to the generic error word. A row that really ran and broke keeps its
+    // own word, so the two are not flattened into one.
+    // R-8 后续：整点清扫为「窗口到期、无人裁决」写 `tool_confirmation` + `timeout`，这正是
+    // `not_executed` 的形状 —— 一格一个问题 —— 不得落到通用错误词上。真正跑过、坏了的行保留
+    // 自己的词，两者不被压平成同一个。
+    const { service } = build([
+      {
+        id: 51,
+        action: 'tool_confirmation',
+        outcome: 'timeout',
+        isError: true,
+        tool: 'create_event',
+        username: 'alice',
+        source: AUTOMATION_SOURCE,
+        detail: 'create_event → timeout (offline window closed with no decision)',
+      },
+      {
+        id: 52,
+        action: 'tool_call',
+        outcome: 'failed',
+        isError: true,
+        tool: 'create_event',
+        username: 'alice',
+      },
+    ]);
+
+    const matrix = await service.export({ limit: 500 }, undefined, reader);
+
+    expect(matrix.rows[0][2]).toBe('Not executed');
+    expect(matrix.rows[1][2]).toBe('Failed');
+    expect(scanForInternalNames(matrix.rows.flat())).toEqual([]);
+  });
+
   it('a release says what its newest reading was based on — current state versus receipt', async () => {
     // R-10: the kind already reaches the list projection and the claims read face; the export must
     // carry it too, or a CSV taken away loses the difference between "not there now" and "never
