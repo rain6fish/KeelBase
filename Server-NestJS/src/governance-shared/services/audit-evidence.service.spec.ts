@@ -179,12 +179,12 @@ describe('AuditEvidenceService.getEvidenceRoot（① 证据根 v3）', () => {
     delete process.env.AUDIT_HMAC_KEY;
   });
 
-  it('装配 v4 证据根：action/authorization(policy.revision)/decision/副作用锚+根锚/coverage/签名', async () => {
+  it('装配 v6 证据根：action/authorization(policy.revision)/decision/副作用锚+根锚/coverage/targetStatusReadings/签名', async () => {
     const { service, operationAudit } = build({ effect, viewer: '42', convRows: [convRow] });
     const out = await service.getEvidenceRoot('crm_task', 7, '42', false);
 
-    expect(out.format).toBe('keelbase-audit-evidence/4');
-    // AW-3：/4 必带 coverage —— 缺了就不该说它是 /4（schema 的 required 也这么要求）。
+    expect(out.format).toBe('keelbase-audit-evidence/6');
+    // AW-3：/4 与 /6 必带 coverage —— 缺了就不该说它是那一档（schema 的 required 也这么要求）。
     expect(out.coverage).toMatchObject({ registryRevision: 'test-rev', verdict: 'unknown' });
     expect((out.coverage.scope as { kind: string }).kind).toBe('action');
     expect(out.action).toMatchObject({ id: 'crm_task:7', resultType: 'crm_task', resultId: 7, effectId: 9281, conversationId: 'c1' });
@@ -218,7 +218,7 @@ describe('AuditEvidenceService.getEvidenceRoot（① 证据根 v3）', () => {
     expect(out.summary?.stats).toBeDefined();
     // replay：无 governancePolicy 注入 → 省略（replayDecision 不调）
     expect(out.replay).toBeNull();
-    // 签名（v3 canonical 可复现：含 summary——存在才含，与导出同源）
+    // 签名（v6 canonical 可复现：含 summary——存在才含，与导出同源）
     const canonical = JSON.stringify({
       action: out.action,
       authorization: out.authorization ?? null,
@@ -231,6 +231,9 @@ describe('AuditEvidenceService.getEvidenceRoot（① 证据根 v3）', () => {
       // AW-3: `coverage` is part of the canonical — the statement has to be signed, or it could be
       // rewritten after the fact without breaking the signature and the section would be decoration.
       coverage: out.coverage,
+      // R-10b：`targetStatusReadings` 自 `/6` 起**进 canonical** —— 种类被改动会破签。
+      // R-10b: `targetStatusReadings` is part of the canonical since `/6` — a flipped kind breaks the signature.
+      targetStatusReadings: out.targetStatusReadings,
       exportedAt: out.exportedAt,
       ...(out.summary ? { summary: out.summary } : {}),
       ...(out.replay ? { replay: out.replay } : {}),
@@ -240,7 +243,7 @@ describe('AuditEvidenceService.getEvidenceRoot（① 证据根 v3）', () => {
     expect(out.signature?.sm2).toBeUndefined();
   });
 
-  it('R-10b：/4 附段带走读数的种类，不入 canonical；存储缺席与无记录可区分', async () => {
+  it('R-10b：/6 带走读数的种类（入 canonical）；存储缺席与无记录可区分', async () => {
     const lookups = [
       {
         id: 2, idempotencyKey: 'key-1', toolName: 'create_followup_task', lookedUpBy: 'admin',
@@ -265,10 +268,26 @@ describe('AuditEvidenceService.getEvidenceRoot（① 证据根 v3）', () => {
       [1, 'current_state'],
     ]);
 
-    // The attached section is **not** in the canonical: recomputing the original key set still
-    // matches the signature. If it had been signed, this would have to include it.
-    // 附段**不入 canonical**：按原键集复现的 HMAC 仍与签名一致。若它进了签名，这里就必须算上它。
+    // The section is **inside** the `/6` canonical: recomputing without it would not match, so
+    // including it is what proves the kind is signed.
+    // 本段在 `/6` 的 canonical **里面**：不带它复现就不会相等 —— 把它算进去，正是「种类已入签」的证明。
     const canonical = JSON.stringify({
+      action: out.action,
+      authorization: out.authorization ?? null,
+      decision: out.decision,
+      effect: out.effect,
+      chains: out.chains,
+      root: out.root,
+      coverage: out.coverage,
+      targetStatusReadings: out.targetStatusReadings,
+      exportedAt: out.exportedAt,
+      ...(out.summary ? { summary: out.summary } : {}),
+      ...(out.replay ? { replay: out.replay } : {}),
+    });
+    expect(out.signature?.hmac).toBe(createHmac('sha256', AUDIT_HMAC_KEY).update(canonical).digest('hex'));
+    // Non-vacuous: the same package without the section does not verify against this signature.
+    // 非空证：去掉该段后，同一份包与这个签名对不上。
+    const withoutSection = JSON.stringify({
       action: out.action,
       authorization: out.authorization ?? null,
       decision: out.decision,
@@ -280,7 +299,9 @@ describe('AuditEvidenceService.getEvidenceRoot（① 证据根 v3）', () => {
       ...(out.summary ? { summary: out.summary } : {}),
       ...(out.replay ? { replay: out.replay } : {}),
     });
-    expect(out.signature?.hmac).toBe(createHmac('sha256', AUDIT_HMAC_KEY).update(canonical).digest('hex'));
+    expect(out.signature?.hmac).not.toBe(
+      createHmac('sha256', AUDIT_HMAC_KEY).update(withoutSection).digest('hex'),
+    );
 
     // Store present but empty ⇒ `[]`; store absent ⇒ `null` (cannot establish, not «none»).
     // 存储在场但无记录 ⇒ `[]`；存储缺席 ⇒ `null`（无法确证，而不是「没有」）。
@@ -737,7 +758,7 @@ describe('AuditEvidenceService（报表 / 链校验 / 证据装配）', () => {
           { id: 2, userId: '42', conversationId: null, action: 'chat', detail: 'hello', model: null, provider: null, promptTokens: null, completionTokens: null, durationMs: null, isError: false, errorMessage: null, authorization: null, prevHash: 'a'.repeat(64), hash: 'b'.repeat(64) },
         ]));
         const out = await service.getActionReportExport({});
-        expect(out.format).toBe('keelbase-audit-evidence/2');
+        expect(out.format).toBe('keelbase-audit-evidence/5');
         expect(out.generator).toBe('keelbase-audit-export');
         expect(out.compliance).toEqual([]); // mock report 无 samples → 空合规段
         expect(out.chain).toHaveLength(2);
@@ -747,21 +768,16 @@ describe('AuditEvidenceService（报表 / 链校验 / 证据装配）', () => {
         // payload 与写入侧一致（feedback/businessEvent 恒 null，供离线重算）
         expect(out.chain[0].payload).toMatchObject({ userId: '42', action: 'tool_call', completionTokens: 5, feedback: null, businessEvent: null, evidence: null });
         expect(out.signature?.hmac).toMatch(/^[0-9a-f]{64}$/);
-        // ② 绑定：证据包(/2)键集 == evidence-package v3 契约的 /2 分支
-        // The /2 branch allows additional top-level properties (`additionalProperties: true`). The
-        // off-chain `releaseReadings` section is exactly such an extension: named here as the only
-        // permitted extra key, so a contract key silently disappearing still reds this test.
-        // /2 分支允许额外的顶层属性（`additionalProperties: true`）。链外 `releaseReadings` 附段正是
-        // 这样一处扩展：这里把它列为唯一允许的额外键，故契约键若悄悄消失，本用例照样转红。
+        // ② 绑定：证据包(/5)键集 == evidence-package v7 契约的 /5 分支
+        // The `/5` branch names every top-level key the export emits, `releaseReadings` included:
+        // exact equality is now the contract check (no off-chain exception).
+        // `/5` 分支逐一点名导出会发出的顶层键，含 `releaseReadings`：现在是精确相等（不再有链外例外）。
         const pkgSchema = JSON.parse(
-          readFileSync(resolve(__dirname, '../../../specs/protocol/schemas/v3/evidence-package.schema.json'), 'utf8'),
+          readFileSync(resolve(__dirname, '../../../specs/protocol/schemas/v7/evidence-package.schema.json'), 'utf8'),
         ) as { oneOf: Array<{ properties: Record<string, unknown> & { format?: { const: string } } }> };
-        const branch = pkgSchema.oneOf.find((b) => b.properties.format?.const === 'keelbase-audit-evidence/2');
+        const branch = pkgSchema.oneOf.find((b) => b.properties.format?.const === 'keelbase-audit-evidence/5');
         expect(branch).toBeDefined();
-        const offChain = ['releaseReadings'];
-        expect(Object.keys(out).filter((k) => !offChain.includes(k)).sort()).toEqual(
-          Object.keys(branch!.properties).sort(),
-        );
+        expect(Object.keys(out).sort()).toEqual(Object.keys(branch!.properties).sort());
       } finally {
         if (prevKey === undefined) delete process.env.AUDIT_HMAC_KEY;
         else process.env.AUDIT_HMAC_KEY = prevKey;
@@ -795,7 +811,7 @@ describe('AuditEvidenceService（报表 / 链校验 / 证据装配）', () => {
       }
     });
 
-    it('R-10b：释放读数种类随 /2 包带走（链外附段，不入 canonical；不解析散文）', async () => {
+    it('R-10b：释放读数种类随 /5 包带走（入 canonical；不解析散文）', async () => {
       (service as any).getActionReport = jest.fn().mockResolvedValue({
         summary: { executed: 0 },
         hashChain: { valid: true, checked: 3, brokenIndex: null },
@@ -849,10 +865,20 @@ describe('AuditEvidenceService（报表 / 链校验 / 证据装配）', () => {
         // 不解析散文：第 1 行的 `detail` 说 current_state，列说 receipt —— 导出信列。
         expect(out.releaseReadings[0].readings?.[0].basis).toBe('receipt');
 
-        // The attached section is outside the `/2` canonical: recomputing its six keys still
-        // matches the signature. A signed section would have to be inside this string.
-        // 附段在 `/2` canonical 之外：复现那六个键仍与签名一致。入了签的段就必须在这个串里。
+        // The section is **inside** the `/5` canonical: recomputing with it matches the signature;
+        // recomputing without it does not. That is the proof the kind is signed.
+        // 本段在 `/5` canonical **里面**：带上它复现与签名一致，去掉它对不上。这就是「种类已入签」的证明。
         const canonical = JSON.stringify({
+          summary: out.report.summary,
+          hashChain: out.report.hashChain,
+          effectDiffs: out.report.effectDiffs,
+          compliance: out.compliance,
+          chain: out.chain,
+          releaseReadings: out.releaseReadings,
+          exportedAt: out.exportedAt,
+        });
+        expect(out.signature?.hmac).toBe(createHmac('sha256', KEY).update(canonical).digest('hex'));
+        const withoutSection = JSON.stringify({
           summary: out.report.summary,
           hashChain: out.report.hashChain,
           effectDiffs: out.report.effectDiffs,
@@ -860,7 +886,9 @@ describe('AuditEvidenceService（报表 / 链校验 / 证据装配）', () => {
           chain: out.chain,
           exportedAt: out.exportedAt,
         });
-        expect(out.signature?.hmac).toBe(createHmac('sha256', KEY).update(canonical).digest('hex'));
+        expect(out.signature?.hmac).not.toBe(
+          createHmac('sha256', KEY).update(withoutSection).digest('hex'),
+        );
       } finally {
         if (prevKey === undefined) delete process.env.AUDIT_HMAC_KEY;
         else process.env.AUDIT_HMAC_KEY = prevKey;

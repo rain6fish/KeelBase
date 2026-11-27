@@ -91,7 +91,7 @@ hash           = HMAC-SHA256( key, `${prevHash ?? 'genesis'}|${canonicalJSON(pay
 
 **定位**：审计哈希链（§2）的**应用层导出**——把链数据 + 合规摘要打包成可提交审计机构的证据，**离线机器可验证**（不依赖 KeelBase）。参考实现：`GET /audit/action-report/export` + `Server-NestJS/scripts/verify-evidence.mjs`。
 
-**格式版本 / Format**：`keelbase-audit-evidence/1`（基础：summary + hashChain + effectDiffs + chain + signature）；`keelbase-audit-evidence/2`（A-6 合规段 `compliance`，签名覆盖）；`keelbase-audit-evidence/3`（§internal.17 ① 证据根 AUDIT-ID——单动作跨链证据包：授权快照含 policy.revision + Decision Evidence + 同会话 AI 审计链行 + operation_audit 链行 + 副作用行 + root 跨链根锚 + v3 canonical 整包 HMAC，经 `GET /ai/governance/evidence-root/:resultType/:resultId` 导出）；`keelbase-audit-evidence/4`（= /3 的键 + **必填** `coverage` 覆盖声明，且 coverage 进整包签名 canonical——覆盖声明不能事后改写而不破签；同一 evidence-root 端点现导出 /4）。`verify-evidence.mjs` 接受 v1/v2/v3/v4（v3/v4 为 `--key` 全量子链重算 + 副作用摘要 + 签名）向后兼容。
+**格式版本 / Format**：`keelbase-audit-evidence/1`（基础：summary + hashChain + effectDiffs + chain + signature）；`keelbase-audit-evidence/2`（A-6 合规段 `compliance`，签名覆盖）；`keelbase-audit-evidence/3`（§internal.17 ① 证据根 AUDIT-ID——单动作跨链证据包：授权快照含 policy.revision + Decision Evidence + 同会话 AI 审计链行 + operation_audit 链行 + 副作用行 + root 跨链根锚 + v3 canonical 整包 HMAC，经 `GET /ai/governance/evidence-root/:resultType/:resultId` 导出）；`keelbase-audit-evidence/4`（= /3 的键 + **必填** `coverage` 覆盖声明，且 coverage 进整包签名 canonical——覆盖声明不能事后改写而不破签）；`keelbase-audit-evidence/5`（= /2 的键 + **必填且入签**的 `releaseReadings` 读数种类段，经 `GET /audit/action-report/export` 导出）；`keelbase-audit-evidence/6`（= /4 的键 + **必填且入签**的 `targetStatusReadings` 读数种类段，同一 evidence-root 端点现导出 /6）。格式号与证据根**共用**：`/3` `/4` 已属证据根，故包是 `/5`、证据根是 `/6`。`verify-evidence.mjs` 接受 v1–v6（证据根为 `--key` 全量子链重算 + 副作用摘要 + 签名；包的 `/5` 全量重算含 `releaseReadings`）向后兼容。
 
 **结构 / Schema**：
 
@@ -116,11 +116,11 @@ hash           = HMAC-SHA256( key, `${prevHash ?? 'genesis'}|${canonicalJSON(pay
 | `hash` | string | 本条 hash（64 hex，§2.2 算法） |
 | `payload` | object | 链 payload（canonical 输入，§2.3）——离线重算用，必须与写入侧一致 |
 
-**签名 / Signature**：`HMAC-SHA256( key, canonicalJSON({ summary, hashChain, effectDiffs, compliance, chain, exportedAt }) )`，`key = AUDIT_HMAC_KEY || ENCRYPTION_KEY`。签名覆盖 canonical 列出的段（`/3` `/4` 是另一组键，见 §5）——这些段导出后任何改动 → 验签失败。
+**签名 / Signature**：`HMAC-SHA256( key, canonicalJSON({ summary, hashChain, effectDiffs, compliance, chain, exportedAt }) )`，`key = AUDIT_HMAC_KEY || ENCRYPTION_KEY`。签名覆盖 canonical 列出的段（`/5` 另含 `releaseReadings`；`/3` `/4` `/6` 是证据根的键集，见 §5）——这些段导出后任何改动 → 验签失败。
 
-**链外附段 / Off-chain attached sections**：`/2` packages carry `releaseReadings` (one entry per `claim_release` row in `chain`, with the copied readings behind each release decision), and `/4` packages carry `targetStatusReadings` (the recorded target-status asks for the action's write key). Both are copies of off-chain data (`releaseLookups` is excluded from `buildPayload`; `ai_target_status_lookups` is a separate table), and **neither is in the signed canonical**: the signature does not cover or vouch for them, so they have the same trust level as their source. The evidence-package schema allows additional top-level properties, so this needs no contract version bump and does not change offline recomputation; making them attested would be a new format version.
+**入签的读数种类段 / Signed reading-kind sections**：`/5` packages carry `releaseReadings` (one entry per release decision in `chain`, with the copied readings behind it), and `/6` evidence roots carry `targetStatusReadings` (the recorded target-status asks for the action's write key). Both sections are **inside the signed canonical**, so flipping a kind breaks the signature. Their sources remain off-chain (`releaseLookups` is excluded from `buildPayload`; `ai_target_status_lookups` is a separate table); what the signature attests is the exported copy. The format namespace is shared with the evidence root, where `/3` and `/4` were already taken, so the package is `/5` and the evidence root `/6`.
 
-**链外附段**：`/2` 包带 `releaseReadings`（`chain` 中每条 `claim_release` 行一条，附上该释放决定背后的拷贝读数），`/4` 包带 `targetStatusReadings`（该动作写键上已记录的目标状态询问）。两者都是链外数据的拷贝（`releaseLookups` 不进 `buildPayload`；`ai_target_status_lookups` 是独立表），**都不在签名 canonical 里**：签名既不覆盖也不为它们背书，故信任级别与来源相同。证据包 schema 允许额外的顶层属性，故这不需要契约版本升级，也不改离线重算；要让它可验签，是另一档格式。
+**入签的读数种类段**：`/5` 包带 `releaseReadings`（`chain` 中每条释放决定一条，附上它背后的拷贝读数），`/6` 证据根带 `targetStatusReadings`（该动作写键上已记录的目标状态询问）。两段都在**签名 canonical 里**，故改一个种类即破签。来源仍是链外的（`releaseLookups` 不进 `buildPayload`；`ai_target_status_lookups` 是独立表）；签名背书的是导出包里的这份拷贝。格式号与证据根共用，而 `/3` `/4` 已被占用，故包是 `/5`、证据根是 `/6`。
 
 **离线验证 / Offline Verification**（独立实现，只依赖 §2 算法）：
 - **无密钥**：结构验证——`seq` 连续 / `hash` 64 hex / `prevHash` 连续 / 首行 genesis。能检测**删行、换序、断链**。

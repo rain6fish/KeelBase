@@ -21,11 +21,11 @@ export interface ActionReportExport {
   }>
   chain: Array<{ seq: number; id: number; prevHash: string | null; hash: string; payload: Record<string, unknown> }>
   /**
-   * R-10b: the reading evidence behind each release decision in `chain`. An off-chain attached
-   * section — not covered by the package signature, so it is a convenience, not an attested claim.
+   * R-10b: the reading evidence behind each release decision in `chain`. Signed since
+   * `keelbase-audit-evidence/5` — a flipped kind breaks the package signature.
    *
-   * R-10b：`chain` 中每次释放决定背后的读数证据。链外附段 —— 不在证据包签名覆盖范围内，故它是便利，
-   * 不是被背书的断言。
+   * R-10b：`chain` 中每次释放决定背后的读数证据。自 `keelbase-audit-evidence/5` 起入签 ——
+   * 改一个种类即破签。
    */
   releaseReadings: Array<{
     auditRowId: number

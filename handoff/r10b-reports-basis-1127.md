@@ -4,6 +4,10 @@
 - 未推送、未打 tag；契约子模块 `Server-NestJS/specs/protocol` 只按 pin `015f474e` 初始化（未改、未提交）；
   私库 `KeelBase-Private`、Java 线 `KeelBase4J`、schema / 列 / 迁移均未动。
 
+> **2026-11-27 追加**：用户批准「升级可验签」后，本文件 §0 / §3 的「附段不入 canonical」已被
+> `handoff/r10b-signed-1127.md` 取代：包升 **`/5`**、证据根升 **`/6`**，两段入签；Action report
+> 的裁定不变。本文件保留未签阶段的决策记录。
+
 ## 0. 裁定表
 
 | 报表 | 带读数种类？ | 结论与理由 |

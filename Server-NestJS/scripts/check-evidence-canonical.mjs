@@ -4,8 +4,9 @@
 /**
  * Evidence-root package canonical key-order drift gate (1.0.8 review-deferred follow-up).
  *
- * The signed canonical of `keelbase-audit-evidence/4` is
- * action/authorization/decision/effect/chains/root/coverage/exportedAt (+summary/replay when present).
+ * The signed canonical of `keelbase-audit-evidence/6` is
+ * action/authorization/decision/effect/chains/root/coverage/targetStatusReadings/exportedAt
+ * (+summary/replay when present). `/4` keeps the same keys minus `targetStatusReadings`.
  * The key order is written by hand in three places: the export side
  * (`src/governance-shared/services/audit-evidence.service.ts`), the offline verifier (`scripts/verify-evidence.mjs`,
  * deliberately standalone — Node built-ins only, for third-party audit), and the signature self-check
@@ -126,19 +127,19 @@ function keysFromVerifier(src) {
   return directKeys(src.slice(open + anchor.length, end), 'verify-evidence.mjs');
 }
 
-/** `/1` / `/2` package canonical: the export-side literal (compliance is unconditional here). */
-/** `/1` / `/2` 整包 canonical：导出侧字面量（此处 compliance 无条件包含）。 */
+/** `/1` / `/2` / `/5` package canonical: the export-side literal (compliance is unconditional here). */
+/** `/1` / `/2` / `/5` 整包 canonical：导出侧字面量（此处 compliance 无条件包含）。 */
 function keysFromAuditPackage(src) {
   const anchor = 'const canonical = JSON.stringify({';
   const open = src.indexOf(anchor);
-  if (open < 0) throw new Error('audit-evidence.service.ts 未找到 /2 整包 canonical 字面量');
+  if (open < 0) throw new Error('audit-evidence.service.ts 未找到 /1|/2|/5 整包 canonical 字面量');
   const end = src.indexOf('});', open);
-  if (end < 0) throw new Error('audit-evidence.service.ts 的 /2 整包 canonical 字面量没有闭合');
-  return directKeys(src.slice(open + anchor.length, end), 'audit-evidence.service.ts（/2 整包）');
+  if (end < 0) throw new Error('audit-evidence.service.ts 的 /1|/2|/5 整包 canonical 字面量没有闭合');
+  return directKeys(src.slice(open + anchor.length, end), 'audit-evidence.service.ts（/1|/2|/5 整包）');
 }
 
-/** `/1` / `/2` package canonical: the scripts-side single source shared by verifier + period report. */
-/** `/1` / `/2` 整包 canonical：脚本侧单源，离线验证与期间报告共用。 */
+/** `/1` / `/2` / `/5` package canonical: the scripts-side single source shared by verifier + period report. */
+/** `/1` / `/2` / `/5` 整包 canonical：脚本侧单源，离线验证与期间报告共用。 */
 function keysFromPackageCanonical(src) {
   const anchor = 'return JSON.stringify({';
   const open = src.indexOf(anchor);
@@ -183,12 +184,23 @@ const sites = [
 const ref = auditKeys;
 const sameOrder = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
 
-// `/4` = `/3` + a **required** `coverage` in the signed canonical (docs/evidence-root.spec.md).
+// `/6` = `/4` + a **required** `targetStatusReadings` in the signed canonical (docs/evidence-root.spec.md).
 // The three copies can be "consistently" wrong (the same key deleted from all three would pass the
 // pairwise comparison), so the required sections are pinned here. summary/replay stay conditional.
-// `/4` = `/3` 加一个**必填**的 `coverage` 进签名 canonical（docs/evidence-root.spec.md）。三处可以
-// 「一致地」错（同一个键从三处一起删掉会通过两两比对），故必填段在这里钉死；summary/replay 仍按存在才含。
-const REQUIRED = ['action', 'authorization', 'decision', 'effect', 'chains', 'root', 'coverage', 'exportedAt'];
+// `/6` = `/4` 加一个**必填**的 `targetStatusReadings` 进签名 canonical（docs/evidence-root.spec.md）。
+// 三处可以「一致地」错（同一个键从三处一起删掉会通过两两比对），故必填段在这里钉死；summary/replay
+// 仍按存在才含。
+const REQUIRED = [
+  'action',
+  'authorization',
+  'decision',
+  'effect',
+  'chains',
+  'root',
+  'coverage',
+  'targetStatusReadings',
+  'exportedAt',
+];
 const missing = REQUIRED.filter((k) => ref.indexOf(k) < 0);
 // Only judge order once every required key is present — otherwise -1 would make the order check
 // fire alongside the missing-key message and say two things at once.
@@ -219,13 +231,13 @@ if (pass) {
     bad('自我判据失效：比较函数识别不出一次键序交换，本闸的绿灯不可信');
     failed = true;
   } else {
-    ok(`证据根 /4 canonical 键序三处一致（${ref.join(' → ')}）`);
+    ok(`证据根 /6 canonical 键序三处一致（${ref.join(' → ')}）`);
   }
 } else {
-  if (missing.length > 0) bad(`必填 canonical 段缺失：${missing.join(', ')}（/4 的 coverage 必须进签名）`);
+  if (missing.length > 0) bad(`必填 canonical 段缺失：${missing.join(', ')}（/6 的 coverage 与 targetStatusReadings 必须进签名）`);
   if (outOfOrder) bad(`必填 canonical 段顺序不对：应为 ${REQUIRED.join(' → ')}`);
   if (!sites.every(([, k]) => sameOrder(k, ref))) {
-    bad('证据根 /4 canonical 键序发散：三处（导出 / 离线验证 / 签名自证）未同键同序');
+    bad('证据根 /6 canonical 键序发散：三处（导出 / 离线验证 / 签名自证）未同键同序');
     for (const [label, k] of sites) console.error(`  ${label}: [${k.join(', ')}]`);
   }
   console.error('  修复：三处 canonical 保持同键同序（走 C1 语义变更清单）；或导出后先离线验证再发布。');
@@ -241,10 +253,10 @@ if (auditPackageKeys.length > 0 && sameOrder(packageCanonicalKeys, auditPackageK
     bad('自我判据失效：/2 整包键序比较识别不出一次交换，绿灯不可信');
     failed = true;
   } else {
-    ok(`证据包 /1|/2 canonical 键序两处一致（${auditPackageKeys.join(' → ')}）`);
+    ok(`证据包 /1|/2|/5 canonical 键序两处一致（${auditPackageKeys.join(' → ')}）`);
   }
 } else {
-  bad('证据包 /1|/2 canonical 键序发散：导出侧与 scripts/lib/evidence-package-canonical.mjs 未同键同序');
+  bad('证据包 /1|/2|/5 canonical 键序发散：导出侧与 scripts/lib/evidence-package-canonical.mjs 未同键同序');
   console.error(`  导出侧: [${auditPackageKeys.join(', ')}]`);
   console.error(`  脚本侧: [${packageCanonicalKeys.join(', ')}]`);
   failed = true;

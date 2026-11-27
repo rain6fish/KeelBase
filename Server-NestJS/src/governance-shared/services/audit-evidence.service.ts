@@ -174,20 +174,18 @@ export interface ActionReportExport {
    * and `latest: null`. Order follows the chain (oldest first), so an entry joins back by
    * `auditRowId`.
    *
-   * <p><b>An off-chain attached section.</b> It is not part of the signed canonical: the signature
-   * covers `summary/hashChain/effectDiffs/compliance/chain/exportedAt`, and `releaseLookups` is
-   * itself excluded from `buildPayload`. This copy therefore has the same trust level as its source
-   * — it is a reader's convenience, not an attested claim. Making it signed is a new format version.
-   * The chain half of this package is deliberately whole; this section matches it, not the scoped
-   * `report` half.
+   * <p><b>Signed since `/5`.</b> The section is inside the package canonical, so the kind cannot be
+   * flipped without breaking the signature. Its source, the off-chain `releaseLookups` column, is
+   * still excluded from `buildPayload`; what is attested here is this copy, exactly as `compliance`
+   * is. The chain half of this package is deliberately whole; this section matches it, not the
+   * scoped `report` half.
    *
    * 本包 `chain` 中每次释放决定的证据：凡带链外 `releaseLookups` 列的 `claim_release` 行各一条，按数据
    * 读出（绝不解析 `detail`）。拒绝行没有该列，故没有条目；没有读数的释放有条目，`readings: []`、
    * `latest: null`。顺序随链（最老在前），条目可按 `auditRowId` 连回链行。
    *
-   * <p><b>链外附段。</b> 不在签名 canonical 里：签名覆盖的是 `summary/hashChain/effectDiffs/
-   * compliance/chain/exportedAt`，而 `releaseLookups` 本身就被排除在 `buildPayload` 之外。故这份拷贝
-   * 与来源的信任级别相同 —— 它是给读者的便利，不是一个被背书的断言。要让它可验签，是另一档格式。
+   * <p><b>自 `/5` 起入签。</b> 本段在证据包 canonical 里，故种类被改动会破签。它的来源、链外的
+   * `releaseLookups` 列，仍不进 `buildPayload`；这里被背书的是这份拷贝，与 `compliance` 完全一样。
    * 本包的链那一半有意保持完整；本段与之对齐，而不与按范围收窄的 `report` 那一半对齐。
    */
   releaseReadings: Array<{
@@ -234,19 +232,19 @@ export interface EvidenceRootExport {
    * carry no `conversationId` and no claim edge, so the hold's idempotency key is the precise key
    * both sides share.
    *
-   * <p>An **off-chain attached section**, like its source: it is not part of the signed canonical,
-   * so the signature neither covers nor vouches for it. `null` when the lookup store is unavailable
-   * (degraded assembly: cannot establish); `[]` when the store is available and nothing was recorded.
-   * A release whose own ask left no row leaves no entry here — the section lists recorded asks, not
+   * <p>**Signed since `/6`.** The section is inside the evidence-root canonical, so the kind cannot
+   * be flipped without breaking the signature. `null` when the lookup store is unavailable (degraded
+   * assembly: cannot establish); `[]` when the store is available and nothing was recorded. A
+   * release whose own ask left no row leaves no entry here — the section lists recorded asks, not
    * asks we know to have happened.
    *
    * 这次动作的写键上已记录的目标状态询问，按数据读自链外表 `ai_target_status_lookups`，最近在前。
    * 它回答「释放基于什么」（收据还是当前状态快照），不解析任何散文：释放行不带 `conversationId`、
    * 也没有占位行的边，故占位的幂等键是两侧唯一的精确共同键。
    *
-   * <p>与来源一样是**链外附段**：不在签名 canonical 里，签名既不覆盖也不为它背书。查询存储缺席时
-   * （降级装配，无法确证）为 `null`；存储可用但没有任何记录时为 `[]`。这一次询问没留下读数行的释放，
-   * 在这里不留条目 —— 本段列的是已记录的询问，不是我们已知发生过的全部询问。
+   * <p>**自 `/6` 起入签。** 本段在证据根 canonical 里，故种类被改动会破签。查询存储缺席时（降级装配，
+   * 无法确证）为 `null`；存储可用但没有任何记录时为 `[]`。这一次询问没留下读数行的释放，在这里不留
+   * 条目 —— 本段列的是已记录的询问，不是我们已知发生过的全部询问。
    */
   targetStatusReadings: Array<{
     id: number;
@@ -674,13 +672,11 @@ export class AuditEvidenceService {
         identityChain: await this._identityChainFromRow(row, agentCache),
       });
     }
-    // Off-chain attached section: the reading evidence behind each release decision in the **chain**
-    // (the chain half is whole on purpose; this section matches it). Built from a column that
-    // `buildPayload` excludes, and left **outside** the canonical below — the signature neither
-    // covers nor vouches for it, so a reader must not treat it as more attested than its source.
-    // 链外附段：`chain` 中每次释放决定背后的读数证据（链那一半有意保持完整，本段与之对齐）。它来自
-    // `buildPayload` 排除的列，且留在下面的 canonical **之外** —— 签名既不覆盖也不为它背书，故读者
-    // 不得把它当成比来源更有证明力的东西。
+    // The reading evidence behind each release decision in the **chain** (the chain half is whole on
+    // purpose; this section matches it). Built from a column that `buildPayload` excludes, and
+    // **inside** the canonical below since `/5` — so the signature attests this copy, not the column.
+    // 链中每次释放决定背后的读数证据（链那一半有意保持完整，本段与之对齐）。它来自 `buildPayload`
+    // 排除的列，且自 `/5` 起在下面的 canonical **里面** —— 签名背书的是这份拷贝，不是那一列。
     const releaseReadings = rows
       .filter((r) => r.action === 'claim_release' && r.releaseLookups != null)
       .map((r) => {
@@ -700,13 +696,22 @@ export class AuditEvidenceService {
       effectDiffs: report.effectDiffs,
       compliance,
       chain,
+      // Signed since `/5`: the section is inside the canonical, so the kind cannot be flipped
+      // without breaking the signature. The source column stays off-chain, but this copy is now
+      // attested by the package signature the same way `compliance` is.
+      // 自 `/5` 起入签：本段在 canonical 里，故种类被改动会破签。来源列仍是链外的，但这份拷贝现在
+      // 与 `compliance` 一样被证据包签名背书。
+      releaseReadings,
       exportedAt,
     });
     const signature = this._buildSignature(canonical, signingKey);
     return {
       exportedAt,
       generator: 'keelbase-audit-export',
-      format: 'keelbase-audit-evidence/2',
+      // The format namespace is shared with the evidence root, where `/3` and `/4` are already
+      // taken. The next package version is therefore `/5`, not `/3`.
+      // 格式号与证据根共用，而 `/3` `/4` 已被证据根占用；故下一个包版本是 `/5`，不是 `/3`。
+      format: 'keelbase-audit-evidence/5',
       report,
       compliance,
       chain,
@@ -968,6 +973,10 @@ export class AuditEvidenceService {
       chains,
       root,
       coverage,
+      // Signed since `/6`: the section is inside the canonical, so a flipped kind breaks the
+      // signature. Its source is still an off-chain table; this copy is now attested.
+      // 自 `/6` 起入签：本段在 canonical 里，故种类被改动会破签。来源仍是链外表；这份拷贝现在被签名背书。
+      targetStatusReadings,
       exportedAt,
     };
     if (summary) canonicalObj.summary = summary;
@@ -977,19 +986,21 @@ export class AuditEvidenceService {
     return {
       exportedAt,
       generator: 'keelbase-audit-export',
-      format: 'keelbase-audit-evidence/4',
+      // `/6` = the `/4` shape + a signed `targetStatusReadings` section. The shared namespace's
+      // `/5` is the action-report package, so the evidence root's next version is `/6`.
+      // `/6` = `/4` 形状 + 入签的 `targetStatusReadings` 段。共用命名空间里的 `/5` 是 Action Report
+      // 证据包，故证据根的下一个版本是 `/6`。
+      format: 'keelbase-audit-evidence/6',
       coverage,
       action,
       authorization: identity?.authorization ?? null,
       decision,
       effect: effectProj,
       chains,
-      // Off-chain attached section: deliberately **outside** `canonicalObj`. Its source, the
-      // `releaseLookups` column, is off-chain too (not in `buildPayload`), so this copy has the same
-      // trust level as what it copies — not more. Putting it in canonical would be a new format.
-      // 链外附段：有意留在 `canonicalObj` **之外**。它的来源 `releaseLookups` 列同样是链外的
-      // （不进 `buildPayload`），故这份拷贝与它拷贝的东西信任级别相同，不会更高。放进 canonical
-      // 就是另一档格式。
+      // Signed since `/6`: the section is **inside** `canonicalObj`. Its source is still an off-chain
+      // table; this copy is attested by the package signature, like `coverage`.
+      // 自 `/6` 起入签：本段在 `canonicalObj` **里面**。来源仍是链外表；这份拷贝像 `coverage` 一样
+      // 被证据包签名背书。
       targetStatusReadings,
       root,
       summary,
