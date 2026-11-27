@@ -42,17 +42,19 @@ export const envValidationSchema = Joi.object({
   // 只用于**标出**「挂了多久 / 可能已陈旧」，真值仍在目标系统，不据此改写成功或失败。
   REVOKE_STALE_MINUTES: Joi.number().integer().min(1).default(60),
 
-  // F-79：陈旧写占位的**有界自动重问** —— 每小时清扫最多自动对账几次（默认 4）、每次之前等多久
-  // （默认 60,360,1440,4320，即 +1h/+6h/+24h/+72h）。次数按查询证据行计（人工对账也计入），档位数是次数上限。
   // Bounded automatic re-asking of a stuck write claim: how many hourly-sweep reconciles at most, and
   // the wait before each. Attempts count recorded lookup rows (manual ones included); the table length
   // caps the count.
+  //
+  // F-79：陈旧写占位的**有界自动重问** —— 每小时清扫最多自动对账几次（默认 4）、每次之前等多久
+  // （默认 60,360,1440,4320，即 +1h/+6h/+24h/+72h）。次数按查询证据行计（人工对账也计入），档位数是次数上限。
   CLAIM_RECONCILE_MAX_ATTEMPTS: Joi.number().integer().min(1).default(4),
   CLAIM_RECONCILE_BACKOFF_MINUTES: Joi.string().default('60,360,1440,4320'),
-  // 每趟（每小时）最多发出多少个询问（默认 25），跨所有占位行合计：次数上限界的是「一条行一辈子问几次」，
-  // 这一条界的是「一趟里同时打出去多少请求」。没轮到的行仍然到期，下一趟按最老的先问。
   // How many queries one hourly pass may send (default 25), across all claims — a burst bound, not a
   // per-row one. Rows left over stay due and are served next hour, oldest first.
+  //
+  // 每趟（每小时）最多发出多少个询问（默认 25），跨所有占位行合计：次数上限界的是「一条行一辈子问几次」，
+  // 这一条界的是「一趟里同时打出去多少请求」。没轮到的行仍然到期，下一趟按最老的先问。
   CLAIM_RECONCILE_MAX_PER_PASS: Joi.number().integer().min(1).default(25),
   // R-5: how long a hold may await a decision before the queue escalates it to a person (minutes,
   // default 1440 = one day). It is the second of two clocks: freshness only permits another ask,
