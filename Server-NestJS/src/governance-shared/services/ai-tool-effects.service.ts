@@ -754,11 +754,14 @@ export class AiToolEffectsService {
   }
 
   /**
-   * AW-17：把一次查询落成证据行。落库失败只告警 —— 账的移动由目标自己的回答支撑，不由这张表。
+   * AW-17: record one lookup as an evidence row. A failed insert only warns — the ledger moves on the
+   * target's own answer, not on this table.
    *
    * R-6b residual: the outcome is returned so the caller can say whether **this** ask was recorded.
    * Swallowing the failure here and leaving the fact only in a log is what let an older reading stand
    * in for a missing one on the release row.
+   *
+   * AW-17：把一次查询落成证据行。落库失败只告警 —— 账的移动由目标自己的回答支撑，不由这张表。
    *
    * R-6b 残留：结果要返回给调用方，好让它说得出**这一次**询问有没有记下。把失败吞在这里、只留在日志里，
    * 正是旧读数得以在释放行上冒充缺失那一条的原因。
