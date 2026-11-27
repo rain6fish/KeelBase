@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { AiAuditLog } from '../../governance-shared/entities/ai-audit-log.entity';
-import { resolveOutcome } from './audit-outcome';
+import { countsAsError, resolveOutcome } from './audit-outcome';
 
 /** B3/E-2 按 UTC 日聚合的趋势桶（6 段：执行/批准/拒绝/阻断/被治理拒绝/错误） */
 export interface AuditByDayBucket {
@@ -27,6 +27,10 @@ export interface AuditByDayBucket {
  * halves of one payload disagreed about the same row: a governance refusal was blocked here and merely
  * an error there, and a confirmation timeout went the other way. One payload may not hold two readings.
  *
+ * **An expired confirmation is not an error.** The `errors` segment counts a row only when
+ * `countsAsError` says so; a `tool_confirmation` + `timeout` row is `not_executed` — nobody decided —
+ * and joins no segment at all.
+ *
  * B3/E-2：按 UTC 日聚合六段趋势。
  *
  * 报表域（`getActionReport`）与统计域（`AuditStatsService`）共用同一份实现 —— 口径判断住在这里，
@@ -36,6 +40,9 @@ export interface AuditByDayBucket {
  * 这里此前读 `isError` 加 `errorMessage` 正则，而同一份响应里的 `summary` 早已改读 `outcome` 列 ——
  * 于是两半对同一行给出不同的答案：一次治理拒绝在 `byDay` 里是 blocked、在 `summary` 里只算 error，
  * 一次确认超时反过来。同一份载荷不许有两种口径。
+ *
+ * **到期确认不是错误。** `errors` 段只在 `countsAsError` 说是时才计一行；`tool_confirmation` +
+ * `timeout` 的行是 `not_executed` —— 没人裁决 —— 一段都不入。
  */
 export function byDayAggregation(logs: AiAuditLog[]): AuditByDayBucket[] {
   const byDay = new Map<string, AuditByDayBucket>();
@@ -50,7 +57,7 @@ export function byDayAggregation(logs: AiAuditLog[]): AuditByDayBucket[] {
   };
   for (const l of logs) {
     const b = bucket(l.createdAt);
-    if (l.isError) b.errors++;
+    if (countsAsError(l)) b.errors++;
     const outcome = resolveOutcome(l);
     if (l.action === 'tool_call') {
       if (outcome === 'executed') b.executed++;

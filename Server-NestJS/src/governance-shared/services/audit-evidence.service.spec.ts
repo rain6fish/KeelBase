@@ -575,6 +575,33 @@ describe('AuditEvidenceService（报表 / 链校验 / 证据装配）', () => {
       expect(report.byDay[0]).toMatchObject({ executed: 0, blocked: 0, refused: 1, errors: 1 });
     });
 
+    it('到期确认不计入 errors —— 与结果格的 not_executed 同一事实', async () => {
+      // The sweep's row carries the `outcome` column; a real failure keeps its own word and its own count.
+      // 清扫写的是 `outcome` 列；真失败保留自己的词，也保留自己的计数。
+      logRepo.find.mockResolvedValue([
+        {
+          id: 1, userId: '1', action: 'tool_confirmation', outcome: 'timeout',
+          detail: 'create_x() → timeout (offline window closed with no decision)', isError: true,
+          createdAt: new Date('2026-09-02T00:00:00Z'),
+        },
+        {
+          id: 2, userId: '1', action: 'tool_call', outcome: 'not_executed', detail: 'create_z()',
+          isError: true, createdAt: new Date('2026-09-02T00:30:00Z'),
+        },
+        {
+          id: 3, userId: '1', action: 'tool_call', outcome: 'failed', detail: 'create_y()', isError: true,
+          errorMessage: 'boom', createdAt: new Date('2026-09-02T01:00:00Z'),
+        },
+      ] as never);
+      effectsRepo.count.mockResolvedValue(0);
+      chain.verifyChain.mockReturnValue({ valid: true, checked: 3 });
+
+      const report = await service.getActionReport();
+
+      expect(report.summary).toMatchObject({ approved: 0, rejected: 0, errors: 1 });
+      expect(report.byDay[0]).toMatchObject({ approved: 0, rejected: 0, errors: 1 });
+    });
+
     // 反证用：把 `tableRows` 改回 `checked`，这条用例就红。
     it('verifyChain 的 tableRows 数全部行，checked 只数已入链的行', async () => {
       logRepo.find.mockResolvedValue([

@@ -106,6 +106,38 @@ export function resolveOutcome(row: BackfillRow & { outcome?: string | null }): 
 }
 
 /**
+ * The outcome words that say «the confirmation window closed with nobody deciding». On a tool call
+ * the word is `not_executed`; on a confirmation row it is `timeout` — contract v2 says they are the
+ * same fact. Both are the explanation state `not_executed`, and neither counts as an error.
+ *
+ * 「确认窗口到期、无人裁决」的结局词。工具调用行写作 `not_executed`，确认行写作 `timeout` ——
+ * 契约 v2 说两者是同一件事。两者在解释状态里都是 `not_executed`，也都不计入错误。
+ */
+export const NOT_EXECUTED_OUTCOMES: ReadonlySet<string> = new Set(['not_executed', 'timeout']);
+
+/**
+ * Whether a row counts in the technical error tallies.
+ *
+ * <p>A confirmation window that closed with nobody deciding is not an error: it is the
+ * `not_executed` shape — one fact per cell. The row still carries `isError: true` (the action did
+ * not complete), but counting it as an error reports «nobody decided» as «it broke», which is the
+ * confusion `not_executed` was added to stop. Every tally that answers "how many errors" goes
+ * through this predicate, so the report, the statistics and the interpreter cannot disagree.
+ *
+ * 一行是否计入「错误」的数值统计。
+ *
+ * <p>确认窗口到期、无人裁决不是错误：那是 `not_executed` 的形状，一格一个问题。该行仍带
+ * `isError: true`（这次动作没有完成），但把它计成错误，等于把「没人裁决」报成「它坏了」——
+ * 正是 `not_executed` 要消掉的那种混淆。凡是回答「有多少错误」的计数都经过这里，于是报表、
+ * 统计与解释器不会各说各的。
+ */
+export function countsAsError(row: BackfillRow & { outcome?: string | null }): boolean {
+  if (!row.isError) return false;
+  const outcome = resolveOutcome(row);
+  return outcome === null || !NOT_EXECUTED_OUTCOMES.has(outcome);
+}
+
+/**
  * The tool a historical row would have named, or `null` for a row that is not about one tool.
  *
  * A run-level confirmation covers several tools and the writer leaves `tool` empty for it, so the

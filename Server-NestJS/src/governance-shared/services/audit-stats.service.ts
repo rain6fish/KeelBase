@@ -15,6 +15,7 @@ import { Between, Repository } from 'typeorm';
 import { AiAuditLog } from '../../governance-shared/entities/ai-audit-log.entity';
 import { CacheService } from '../../common/cache/cache.service';
 import { AuditByDayBucket, byDayAggregation } from './by-day';
+import { countsAsError } from './audit-outcome';
 import { OrgService } from '../../org/org.service';
 import {
   applyAuditScopeToWhere,
@@ -60,7 +61,7 @@ export class AuditStatsService {
     for (const log of logs) {
       actionCounts.set(log.action, (actionCounts.get(log.action) ?? 0) + 1);
       totalTokens += (log.promptTokens ?? 0) + (log.completionTokens ?? 0);
-      if (log.isError) totalErrors++;
+      if (countsAsError(log)) totalErrors++;
     }
 
     return {
@@ -116,7 +117,7 @@ export class AuditStatsService {
     for (const log of logs) {
       actionCounts.set(log.action, (actionCounts.get(log.action) ?? 0) + 1);
       totalTokens += (log.promptTokens ?? 0) + (log.completionTokens ?? 0);
-      if (log.isError) totalErrors++;
+      if (countsAsError(log)) totalErrors++;
     }
 
     const result = {

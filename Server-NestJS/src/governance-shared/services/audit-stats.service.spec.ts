@@ -136,5 +136,25 @@ describe('AuditStatsService（从 AuditService 拆出的聚合域）', () => {
 
       expect(result.byDay[0]).toMatchObject({ blocked: 1, refused: 1, executed: 0, errors: 3 });
     });
+
+    it('到期确认不计入 errors；真失败仍计（getStats 与 getAllStats 同一口径）', async () => {
+      // The row still says `isError` (the action did not complete), but nobody decided — counting it
+      // as an error would report «nobody decided» as «it broke».
+      // 行仍带 `isError`（这次动作没有完成），但没人裁决 —— 计成错误等于把「没人裁决」报成「它坏了」。
+      logRepo.find.mockResolvedValue([
+        { action: 'tool_confirmation', outcome: 'timeout', isError: true, createdAt: new Date('2026-09-02T00:00:00Z') },
+        // The tool call's word for the same fact: nobody decided, nothing ran.
+        // 工具调用行对同一件事的说法：没人裁决、什么都没跑。
+        { action: 'tool_call', outcome: 'not_executed', isError: true, createdAt: new Date('2026-09-02T00:30:00Z') },
+        { action: 'tool_call', outcome: 'failed', isError: true, errorMessage: 'boom', createdAt: new Date('2026-09-02T01:00:00Z') },
+      ] as unknown as AiAuditLog[]);
+
+      const all = await service.getAllStats();
+      const mine = await service.getStats('1');
+
+      expect(all.totalErrors).toBe(1);
+      expect(mine.totalErrors).toBe(1);
+      expect(all.byDay[0]).toMatchObject({ errors: 1, approved: 0, rejected: 0 });
+    });
   });
 });
