@@ -21,6 +21,18 @@ export function actionLabel(
   return fallback || key || '-'
 }
 
+/**
+ * A `claim_release` row records two different endings under one action: the release itself, and a
+ * `stale_view` refusal. Contract §6 says a refusal's `detail` opens with `release refused`, so the
+ * ending is read from that prefix and nothing else is parsed.
+ *
+ * `claim_release` 行把两种结局写在一个动作里：一次释放本身，和一次 `stale_view` 拒绝。契约 §6 写明
+ * 拒绝行的 `detail` 以 `release refused` 开头，故只从该前缀读结局，不解析更多内容。
+ */
+export function isReleaseRefusedRow(row: { action?: string | null; detail?: string | null }): boolean {
+  return row.action === 'claim_release' && (row.detail ?? '').startsWith('release refused')
+}
+
 /** 后端英语技术错误文案 → 双语文案（识别已知错误，未命中保留原文供详情） */
 export function errorLabel(message: string | null | undefined, t: (k: string) => string): string {
   if (!message) return ''

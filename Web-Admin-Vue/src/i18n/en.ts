@@ -1096,6 +1096,10 @@ const en: ZhDict = {
     // Only actions named here get a product word; a missing key shows the raw action token.
     // 落在这张表里的动作才显示产品词；缺一个，时间线就把原始动作令牌显示出来。
     claim_release: 'Release write claim',
+    // The refusal is an ending of `claim_release`, read from `detail` (contract §6); it is not
+    // another action token.
+    // 拒绝是 `claim_release` 的一种结局，由 `detail` 前缀读出（契约 §6）——它不是另一个动作令牌。
+    claim_release_refused: 'Release refused',
     effect_revoke: 'Effect revoke',
     audit_review: 'Review receipt',
     content_blocked: 'Content blocked',

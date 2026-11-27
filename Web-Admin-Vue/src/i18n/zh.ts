@@ -1095,6 +1095,10 @@ const zh = {
     // 落在这张表里的动作才显示产品词；缺一个，时间线就把原始动作令牌显示出来。
     // Only actions named here get a product word; a missing key shows the raw action token.
     claim_release: '释放写占位',
+    // The refusal is an ending of `claim_release`, read from `detail` (contract §6); it is not
+    // another action token.
+    // 拒绝是 `claim_release` 的一种结局，由 `detail` 前缀读出（契约 §6）——它不是另一个动作令牌。
+    claim_release_refused: '释放被拒',
     effect_revoke: '撤销副作用',
     audit_review: '复核回执',
     content_blocked: '内容已拦截',
