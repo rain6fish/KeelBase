@@ -68,6 +68,8 @@
   `npx jest src/governance-shared src/ai`：203 套通过 / 1 套跳过（pg-snapshot 需活 PG）/ 2061 例。
 - `npx jest src/governance-core`：11 套、157 例通过（含 `purity.spec.ts`）。
 - e2e：`target-status-receipt` / `history` / `history-sweep` 19/19；`proxy-bridge` 10/10。
+- 全量 e2e（`npm run test:e2e`，4 分片，在并入 main 后的树 `e30aa3c1` 上跑）：**49 套全部通过**
+  （13 / 12 / 12 / 12 套），运行器判定「✓ e2e 全部通过（4 片）」，退出码 0；末片 12 套 / 63 例。
 - 改动文件严格 eslint 0 error；`Web-Admin-Vue` `vue-tsc --noEmit` 通过、eslint 0 error。
 - 根 `KEELBASE_JAVA_REPO=D:/Rain6fish/KeelBase4J npm run check:all`：**36/36 全过**（41.2s）。
 - 变异：把闸改成 `if (false && ...)` ⇒ 判据①用例转红（1 failed），已还原。
