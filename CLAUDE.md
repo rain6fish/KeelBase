@@ -794,7 +794,7 @@ npm run migration:run
 | GET | /api/v1/audit/verify | Yes (ADMIN) | — | AI 审计哈希链完整性校验（HS-11）：`checked` 只数已入链的行，`tableRows` 是表内行数（差额即从未参与校验的行） |
 | GET | /api/v1/audit/stats | Yes (ADMIN) | — | 全局 AI 用量统计 |
 | GET | /api/v1/audit/coverage | Yes | 管理员或审计读者 | 审计覆盖声明：口径 + 已知缺口（AW-3，默认最近 30 天；结论由服务按事实算出） |
-| GET | /api/v1/audit/answers | Yes | 管理员或审计读者 | U1 六问导出：对象 + 区间 → 六列产品词（`{headers, rows, match}`；「0 内部名」由服务端词表保证；无匹配给一句白话；对象索引不可用的进程答 503） |
+| GET | /api/v1/audit/answers | Yes | 管理员或审计读者 | U1 六问导出：对象 + 区间 → 六列产品词（`{headers, rows, match}`；「0 内部名」由服务端词表保证；无匹配给一句白话；对象索引不可用的进程答 503）。R-10: a release row's Result cell states the newest reading's kind, so a carried-away CSV keeps the current-state / receipt distinction without parsing prose (read as data from the off-chain `releaseLookups` column). R-10：释放行的结果列写出最新读数的种类，带走的一份 CSV 无需解析散文即可区分当前状态 / 收据（读自链外 `releaseLookups` 列的数据）。 |
 | GET | /api/v1/audit/object-types | Yes | 管理员或审计读者 | U1 业务对象类型清单（对象检索选择器，与导出词表同源） |
 | GET | /api/v1/audit/reviews | Yes | 管理员或审计读者 | AW-12 记录复核状态：复核人/频度配置 + 回执清单 + 已复核/未复核链位（由链算出） |
 | POST | /api/v1/audit/reviews | Yes | 管理员或审计读者 | AW-12 签复核回执：写入审计链（`action=audit_review`，`detail` 带 fromId/throughId/cadenceDays）；配置 `AUDIT_REVIEW_OWNER` 时只有该账号可签；区间不得超过链尾 |

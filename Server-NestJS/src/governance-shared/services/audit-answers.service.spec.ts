@@ -130,6 +130,94 @@ describe('AuditAnswersService', () => {
     expect(scanForInternalNames(matrix.rows.flat())).toEqual([]);
   });
 
+  it('a release says what its newest reading was based on — current state versus receipt', async () => {
+    // R-10: the kind already reaches the list projection and the claims read face; the export must
+    // carry it too, or a CSV taken away loses the difference between "not there now" and "never
+    // accepted". It is read from the off-chain column as data, never from `detail` prose.
+    // R-10：种类已经进了列表投影与 claims 读面；导出也必须带上，否则带走的一份 CSV 会丢掉「现在不在」
+    // 与「从未被接受」的差别。它读自链外列的数据，绝不解析 `detail` 散文。
+    const reading = (basis: string) =>
+      JSON.stringify({
+        count: 1,
+        askable: true,
+        items: [
+          {
+            id: 9,
+            at: '2026-11-05T10:00:00.000Z',
+            conclusion: 'not_executed',
+            reason: null,
+            basis,
+            lookedUpBy: 'admin',
+          },
+        ],
+      });
+    const { service } = build([
+      { id: 41, action: 'claim_release', outcome: null, releaseLookups: reading('current_state') },
+      { id: 42, action: 'claim_release', outcome: null, releaseLookups: reading('receipt') },
+      // A kind this vocabulary does not know is reported as unrecorded, never echoed.
+      // 本词表不认识的种类报「未记录」，绝不原样回显。
+      { id: 43, action: 'claim_release', outcome: null, releaseLookups: reading('event_log') },
+      {
+        id: 44,
+        action: 'claim_release',
+        outcome: null,
+        releaseLookups: '{"count":0,"askable":true,"recorded":false,"items":[]}',
+      },
+      {
+        id: 45,
+        action: 'claim_release',
+        outcome: null,
+        releaseLookups: JSON.stringify({
+          count: 2,
+          askable: true,
+          recorded: false,
+          items: [
+            {
+              id: 8,
+              at: '2026-11-05T09:00:00.000Z',
+              conclusion: 'unknown',
+              reason: 'timeout',
+              basis: 'receipt',
+              lookedUpBy: 'admin',
+            },
+          ],
+        }),
+      },
+      {
+        id: 46,
+        action: 'claim_release',
+        outcome: null,
+        releaseLookups: '{"count":0,"askable":true,"items":[]}',
+      },
+    ]);
+
+    const matrix = await service.export({ limit: 500 }, undefined, reader);
+
+    expect(matrix.rows[0][2]).toBe(
+      'Result unknown — the newest reading is a current-state reading',
+    );
+    expect(matrix.rows[1][2]).toBe('Result unknown — the newest reading is a receipt reading');
+    // The two readings are distinguishable inside the export itself, not by parsing prose.
+    // 两种读数在导出文件内部即可区分，不必解析散文。
+    expect(matrix.rows[0][2]).not.toBe(matrix.rows[1][2]);
+    expect(matrix.rows[2][2]).toBe(
+      "Result unknown — the newest reading's kind was not recorded",
+    );
+    expect(matrix.rows[3][2]).toBe(
+      'Result unknown — the target answered; the reading for this ask was not recorded',
+    );
+    // R-6b residual: the copied item is an earlier ask, so it must not stand in for this one.
+    // R-6b 残留：拷贝条目是更早的问次，不得顶替这一次。
+    expect(matrix.rows[4][2]).toBe(
+      'Result unknown — the newest recorded reading is a receipt reading; ' +
+        'the reading for this ask was not recorded',
+    );
+    // A manual release with no reading keeps the plain state word.
+    // 没有读数的人工释放保持纯状态词。
+    expect(matrix.rows[5][2]).toBe('Result unknown');
+    expect(scanForInternalNames(matrix.rows.flat())).toEqual([]);
+  });
+
   it('reads a zone-less database instant as UTC, not as the machine’s local time', async () => {
     // SQLite hands back TypeORM's UTC wall clock without a zone. Parsing it as local is how an
     // export ends up eight hours off on a +08 machine.

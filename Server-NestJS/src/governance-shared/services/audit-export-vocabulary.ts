@@ -26,6 +26,7 @@
 
 import { TOOL_METADATA } from './tool-metadata';
 import type { ExplanationState } from './audit-explanation-state';
+import type { TargetStatusLookupBasisView } from '../../governance-core/target-status';
 
 /**
  * `ai_tool_side_effects.result_type` → the business noun a reader uses. Ordered for the console's
@@ -169,6 +170,62 @@ const RESULT_LABELS: Readonly<Record<ExplanationState, string>> = {
 
 export function productResultLabel(state: ExplanationState): string {
   return RESULT_LABELS[state] ?? 'Result unknown';
+}
+
+/**
+ * What the evidence behind a release says about **how it knows**: the newest copied reading's kind.
+ * `latest` is `null` when the row carries no copied reading; `unknown` is a copied reading whose
+ * kind was not recorded (R-1: the target did not say, or the row predates the column).
+ * `askUnrecorded` is the R-6b case — the target answered, but this ask's reading row was not
+ * recorded, so the copied items are earlier asks and no kind describes this one.
+ *
+ * 释放证据说明**它是怎么知道的**：最新拷贝读数的种类。行上没有拷贝读数时 `latest` 为 `null`；
+ * `unknown` 表示有读数但种类未记录（R-1：目标没说，或该行早于本列）。`askUnrecorded` 是 R-6b 的
+ * 情形 —— 目标答过，但这一次询问的读数行没记下，故拷贝条目是更早的问次，没有种类能描述这一次。
+ */
+export interface ReadingKindFacts {
+  latest: TargetStatusLookupBasisView | null;
+  askUnrecorded: boolean;
+}
+
+/**
+ * The Result cell. The state word stays first and unchanged; a release row whose evidence carries a
+ * reading adds the kind after it, so two answers that differ only in what they were based on are
+ * distinguishable **inside the exported file** — "not there now" versus "never accepted", without
+ * parsing prose. It stays one column: the kind is a property of the result's evidence, not a
+ * seventh question. When this ask's reading is missing, the cell says so rather than letting an
+ * older reading stand in for it (R-6b).
+ *
+ * 结果列。状态词在前、原样不动；释放行的证据带读数时，在其后补上种类，于是两条仅「基于什么」不同的
+ * 答案**在导出文件内部**即可区分 ——「现在不在」与「从未被接受」，无需解析散文。它仍是一列：种类是
+ * 结果**证据**的性质，不是第七个问题。这一次询问的读数缺失时，那一格如实说出来，不让更早的读数顶替。
+ */
+export function productResultCell(
+  state: ExplanationState,
+  reading?: ReadingKindFacts | null,
+): string {
+  const word = productResultLabel(state);
+  if (!reading) return word;
+  const askMissing = reading.askUnrecorded ? '; the reading for this ask was not recorded' : '';
+  if (reading.latest === null) {
+    return reading.askUnrecorded
+      ? `${word} — the target answered${askMissing}`
+      : word;
+  }
+  const kind =
+    reading.latest === 'current_state'
+      ? 'a current-state reading'
+      : reading.latest === 'receipt'
+        ? 'a receipt reading'
+        : null;
+  if (kind === null) {
+    return reading.askUnrecorded
+      ? `${word} — the newest recorded reading's kind was not recorded${askMissing}`
+      : `${word} — the newest reading's kind was not recorded`;
+  }
+  return reading.askUnrecorded
+    ? `${word} — the newest recorded reading is ${kind}${askMissing}`
+    : `${word} — the newest reading is ${kind}`;
 }
 
 /**

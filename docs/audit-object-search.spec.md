@@ -51,6 +51,18 @@ both stay readable in the audit trail even though this column cannot carry them.
 itself say so would need a structured initiator source — the same deferred contract change the
 release kinds wait on.
 
+**The Result cell says what a release's newest reading was based on.** A release row records a
+decision, so its Result word is the state (usually `Result unknown`, or `Rejected` for a refused
+release). Its evidence — the newest reading copied into the off-chain `releaseLookups` column — says
+whether that answer came from the target's **current state** or from the target's **receipt** (R-1).
+The export appends that kind to the Result cell in product words (`… — the newest reading is a
+current-state reading` / `… — the newest reading is a receipt reading`), and says so when the kind
+was not recorded or when this ask's reading is missing. The distinction therefore travels **inside
+the file**: two rows whose answers differ only in what they were based on are not the same exported
+row. It stays one column on purpose — the kind is a property of the result's evidence, not a seventh
+question, and no new contract field is read. `basis` is read as data from the off-chain column;
+`detail` is still never parsed.
+
 ### 3. Search semantics
 
 **Object identity is the write claim.** An audit row carries no business object. The only
@@ -157,6 +169,15 @@ zero-internal-names property is testable without a browser.
 与其 `detail`（`initiated by: system:sweep (automatic sweep)`）仍点名了它，两者在审计轨迹里都读得到，
 尽管这一列载不动它们。要让这一列自己说出来，得有一个结构化的发起方来源 —— 与释放种类一样，那笔改动
 在等契约变更。
+
+**「结果」列写出释放行最新读数基于什么。** 释放行记的是一次决定，故其结果词是状态（通常是
+`Result unknown`，被拒的释放是 `Rejected`）。它的证据 —— 拷进链外 `releaseLookups` 列的最新读数
+—— 说明这个答案来自目标的**当前状态**还是目标的**收据**（R-1）。导出把这个种类以产品词接在结果列后
+（`… — the newest reading is a current-state reading` /
+`… — the newest reading is a receipt reading`），种类未记录、或这一次询问的读数缺失时也如实说出来。
+于是这个区分**随文件一起走**：两条仅
+「基于什么」不同的答案，导出后不是同一行。它有意仍是一列 —— 种类是结果**证据**的性质，不是第七个
+问题，也没有读入任何新的契约字段。`basis` 本身从链外列按数据读出；`detail` 仍然从不解析。
 
 ### 3. 检索语义
 
