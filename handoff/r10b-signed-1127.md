@@ -68,12 +68,17 @@
   只在本地的 `feat/evidence-package-v7` 分支上，尚未推到契约远端；这是**发布步骤**，
   在「不推送」的约束下无法变绿。其余 35 门全过。
 
-## 5. 发布顺序（留给用户）
+## 5. 发布（已完成 2026-11-27）
 
-1. 把契约分支 `feat/evidence-package-v7`（`0ffd867`）推到契约远端；按契约流程合并到 `main` 并
-   打 **v1.24.0** tag（契约 README 的版本行也要跟着更新）。
-2. 推送 `KeelBase4J` 的 `main`（`30271f8`，含 vendored v7 快照）。
-3. 再推本仓：submodule pin 已指向 `0ffd867`，`check:contract-release-gate` 的 C1 届时转绿。
+1. **契约仓**：分支 `feat/evidence-package-v7`（`0ffd867`）与附注 tag **`v1.24.0`** 已推送；分支合入
+   契约 `main`（合并提交 `0d45fa1`）并推送。tag 指向 `0ffd867`，满足 C3「pin 落在声称的版本线上」。
+2. **Java 仓**：`main`（`30271f8`，含 vendored v7 快照）已推送 GitHub 与 Gitee。
+3. **本仓**：README / README.zh-CN 兼容矩阵的 TypeScript 与 Java `main` 行改为 v1.24.0；`main`
+   提交 `be889060` 已推送 GitHub 与 Gitee。`check:contract-release-gate` **PASS**（C1–C5），
+   `check:all` **36/36**。
 
-未做：推送 / tag（明确约束）；Action report 仍不带单次读数（其冻结 schema
-`additionalProperties: false`，要带需契约 MINOR + 新聚合口径，见前一份 handoff §3.2）。
+推送在工作时段按用户明确指示执行，使用了钩子自带的 `SKIP_NONWORKING_PUSH_GUARD=1`；契约 pin 硬闸
+（`check-contract-pin.cjs`）未被豁免 —— C1 转绿即其证明。
+
+仍未做：Action report 不带单次读数（其冻结 schema `additionalProperties: false`，要带需契约 MINOR +
+新聚合口径，见前一份 handoff §3.2）。
