@@ -69,7 +69,7 @@
 - `npx jest src/governance-core`：11 套、157 例通过（含 `purity.spec.ts`）。
 - e2e：`target-status-receipt` / `history` / `history-sweep` 19/19；`proxy-bridge` 10/10。
 - 改动文件严格 eslint 0 error；`Web-Admin-Vue` `vue-tsc --noEmit` 通过、eslint 0 error。
-- 根 `KEELBASE_JAVA_REPO=D:/Rain6fish/KeelBase4J npm run check:all`：见提交前读数（本报告随提交落库）。
+- 根 `KEELBASE_JAVA_REPO=D:/Rain6fish/KeelBase4J npm run check:all`：**36/36 全过**（41.2s）。
 - 变异：把闸改成 `if (false && ...)` ⇒ 判据①用例转红（1 failed），已还原。
 
 ## 未做 / 遗留
