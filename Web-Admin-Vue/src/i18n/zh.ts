@@ -1092,8 +1092,9 @@ const zh = {
     knowledge: '知识库',
     delegate: '子代理',
     login: '登录',
-    // 落在这张表里的动作才显示产品词；缺一个，时间线就把原始动作令牌显示出来。
     // Only actions named here get a product word; a missing key shows the raw action token.
+    //
+    // 落在这张表里的动作才显示产品词；缺一个，时间线就把原始动作令牌显示出来。
     claim_release: '释放写占位',
     effect_revoke: '撤销副作用',
     audit_review: '复核回执',

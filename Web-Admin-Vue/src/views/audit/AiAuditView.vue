@@ -807,10 +807,6 @@ async function loadToolResult() {
 }
 
 /**
- * P0-20：解释面的状态词表。**不是** tool-effects 那套四值 —— 那套里 `revoke_failed` 说的是「撤销失败」，
- * 而这里要能说出「这次动作失败」「被拒」「等人的批准」「结果未知」这些。这些值与后端
- * `audit-explanation-state.ts` 同源，**两处必须一起改**。
- *
  * P0-20: the explanation surface's own vocabulary. Deliberately **not** the four values tool-effects
  * uses — `revoke_failed` there means "the revoke failed", whereas this surface has to be able to say
  * "the action failed", "it was refused", "it is still waiting for a person" and "nobody knows". These
@@ -819,6 +815,10 @@ async function loadToolResult() {
  * Both maps are typed against the union rather than `Record<string, string>`, so a value added on
  * the wire fails `vue-tsc` here instead of rendering the raw enum in the console (StatusChip falls back
  * to the raw value when a key is missing).
+ *
+ * P0-20：解释面的状态词表。**不是** tool-effects 那套四值 —— 那套里 `revoke_failed` 说的是「撤销失败」，
+ * 而这里要能说出「这次动作失败」「被拒」「等人的批准」「结果未知」这些。这些值与后端
+ * `audit-explanation-state.ts` 同源，**两处必须一起改**。
  *
  * 两张表都按联合类型声明、而不是 `Record<string, string>`：线上新增取值时，这里**编译不过**，
  * 而不是在管理台里把原始枚举值显示出来（`StatusChip` 在缺少键时回落到原值）。

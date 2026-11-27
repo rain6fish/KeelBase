@@ -39,13 +39,6 @@ export const aiToolsApi = {
     })
   },
   /**
-   * AW-16 F-63：释放滞留的写占位（管理员；须附说明）。服务端保持结论未知、键仍占住，
-   * 因而同一次调用不会被静默重试。拒绝按 `outcome` 分报（not_stale / not_claimable / not_found /
-   * already_closed / **stale_view**），调用方据此提示，不要压成一句「失败」。
-   *
-   * R-4：`view` 必填 —— 屏幕打开时冻结的读数（处置 + 最近一次读数 id）。账本此后若变动，服务端以
-   * `stale_view` 拒绝，并把拒绝本身记成一条审计行。
-   *
    * AW-16 F-63: release a stuck write hold (admin; a note is required). The server keeps the
    * conclusion unknown and the key occupied, so the same call is not silently retried. Refusals come
    * back by `outcome` and should be shown as such, not flattened into "failed".
@@ -53,6 +46,13 @@ export const aiToolsApi = {
    * R-4: `view` is required — the reading frozen when the screen opened (disposition + newest lookup
    * id). If the ledger moved since, the server refuses with `stale_view` and records the refusal as an
    * audit row.
+   *
+   * AW-16 F-63：释放滞留的写占位（管理员；须附说明）。服务端保持结论未知、键仍占住，
+   * 因而同一次调用不会被静默重试。拒绝按 `outcome` 分报（not_stale / not_claimable / not_found /
+   * already_closed / **stale_view**），调用方据此提示，不要压成一句「失败」。
+   *
+   * R-4：`view` 必填 —— 屏幕打开时冻结的读数（处置 + 最近一次读数 id）。账本此后若变动，服务端以
+   * `stale_view` 拒绝，并把拒绝本身记成一条审计行。
    */
   releaseClaim(
     id: number,
