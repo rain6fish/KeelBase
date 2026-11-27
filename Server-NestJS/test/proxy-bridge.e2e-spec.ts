@@ -516,23 +516,34 @@ describe('AI Bridge B 路径：ProxyTool × 模拟 Java 系统', () => {
       expect(listed.lastLookup).toMatchObject({ conclusion: 'not_executed', basis: 'receipt' });
     });
 
-    it('同一条占位的两次读数：查询历史与最新释放证据都把 receipt 与 current_state 分得开', async () => {
+    it('同一条占位的两次读数：receipt 释放、current_state 不释放；查询历史与决定行都把种类分得开', async () => {
       const toolName = uniqueTool('both');
       await registerStatusTool(toolName);
       const { ctx, key, claimId } = await takeStaleHold(toolName, 'f128-both');
 
-      // First ask: the target answers from its own acceptance record.
-      // 第一次询问：目标按自己的受理记录作答。
+      // First ask: the target answers from its own acceptance record — a receipt, so the hold opens.
+      // 第一次询问：目标按自己的受理记录作答 —— 一张收据，故占位被打开。
       targetStatus.set(key, { status: 'not_executed', basis: 'receipt' });
-      await reconcile(claimId).expect(200);
+      const first = await reconcile(claimId).expect(200);
+      expect(first.body.data).toMatchObject({
+        outcome: 'reconciled',
+        claimStatus: 'released',
+      });
 
       // Re-claim, move the hold back into the stale window, and ask again — this time the target
-      // answers from its live object store.
-      // 重占位、把占位时间拨回陈旧区间，再问一次 —— 这一次目标按当前对象存储作答。
+      // answers from its live object store. R-9: that reading is too weak to release, and this proxy
+      // tool declares no dedup, so the hold stays claimed.
+      // 重占位、把占位时间拨回陈旧区间，再问一次 —— 这一次目标按当前对象存储作答。R-9：这份读数太弱，
+      // 不能释放，而本代理工具没有声明去重，故占位保持 claimed。
       expect((await store().claimWrite(ctx)).won).toBe(true);
       await age(claimId);
       targetStatus.set(key, { status: 'not_executed', basis: 'current_state' });
-      await reconcile(claimId).expect(200);
+      const second = await reconcile(claimId).expect(200);
+      expect(second.body.data).toMatchObject({
+        outcome: 'not_released',
+        conclusion: 'not_executed',
+        claimStatus: 'claimed',
+      });
 
       // One key, two readings: the kind is a field, not prose — the two are told apart by value.
       // 同一个键、两条读数：种类是字段不是散文 —— 两者按取值分得开。
@@ -542,14 +553,30 @@ describe('AI Bridge B 路径：ProxyTool × 模拟 Java 系统', () => {
         'receipt',
       ]);
 
-      const evidence = await releaseEvidence(toolName, 1);
-      expect(evidence.items.map((i) => i.basis)).toEqual(['current_state', 'receipt']);
+      // The release decision still cites the receipt it was based on; the weak answer's decision is a
+      // refusal with no release-evidence column, naming both readings in its prose.
+      // 释放决定仍引用它所依据的收据；弱答案的决定是一条不带释放证据列的拒绝，散文点名两条读数。
+      const evidence = await releaseEvidence(toolName);
+      expect(evidence.items.map((i) => i.basis)).toEqual(['receipt']);
+      const decisions = (await auditRepo().find({
+        where: { action: 'claim_release', tool: toolName } as never,
+        order: { id: 'ASC' },
+      })) as unknown as Array<{ releaseLookups: string | null; detail: string }>;
+      expect(decisions).toHaveLength(2);
+      expect(decisions[1].releaseLookups ?? null).toBeNull();
+      expect(decisions[1].detail).toContain('release refused (weak_reading)');
+      expect(decisions[1].detail).toContain('readings (newest first)');
+      expect(decisions[1].detail).toContain('basis=current_state');
+      expect(decisions[1].detail).toContain('basis=receipt');
 
-      // One more re-claim: `lastLookup` takes the newest reading, so it now reads `current_state` —
-      // a different value from the `receipt` the same field carried after the first round.
-      // 再重占位一次：`lastLookup` 取最新那条读数，于是读作 `current_state` —— 与第一轮之后同一字段带的
-      // `receipt` 是两个取值。
-      expect((await store().claimWrite(ctx)).won).toBe(true);
+      // The hold is still claimed, so the same key is refused: the weak answer opened no retry.
+      // 占位仍是 claimed，故同一个键被拒：弱答案没有打开重试。
+      expect((await store().claimWrite(ctx)).won).toBe(false);
+
+      // `lastLookup` takes the newest reading, so it now reads `current_state` — a different value
+      // from the `receipt` the same field carried after the first round.
+      // `lastLookup` 取最新那条读数，于是读作 `current_state` —— 与第一轮之后同一字段带的 `receipt`
+      // 是两个取值。
       const listed = await listedClaim(toolName, claimId);
       expect(listed.lastLookup).toMatchObject({ conclusion: 'not_executed', basis: 'current_state' });
     });

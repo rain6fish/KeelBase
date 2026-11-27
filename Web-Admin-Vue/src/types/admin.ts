@@ -618,7 +618,7 @@ export interface ClaimLookupsResponse {
 }
 
 export interface ReconcileClaimResponse {
-  outcome: 'reconciled' | 'unresolved' | 'not_stale' | 'not_claimable' | 'not_found'
+  outcome: 'reconciled' | 'unresolved' | 'not_released' | 'not_stale' | 'not_claimable' | 'not_found'
   conclusion: 'executed' | 'not_executed' | 'unknown'
   claimStatus: string
   evidence: {

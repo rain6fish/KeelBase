@@ -902,6 +902,9 @@ function lookupCoverageText(c: ClaimLookupCoverage): string {
 }
 
 const RECONCILE_REFUSAL_KEYS: Record<string, string> = {
+  // R-9: a real answer that could not release the hold — not a guard refusal, and not a convergence.
+  // R-9：拿到了真答案却没能释放占位 —— 既不是守卫拒绝，也不是收敛。
+  not_released: 'reconcileNotReleased',
   not_stale: 'reconcileNotStale',
   not_claimable: 'reconcileNotClaimable',
   not_found: 'reconcileNotFound',
@@ -910,14 +913,16 @@ const RECONCILE_REFUSAL_KEYS: Record<string, string> = {
 /**
  * AW-17: perform the one-shot target-status query and report the outcome **by kind**.
  *
- * A refusal (`not_stale` / `not_claimable` / `not_found`) and an inconclusive answer (`unresolved`)
- * are not the same thing, and none of them is a success: the ledger only moves on a real answer.
- * The two `reconciled` cases name which answer landed, so the operator reads what actually happened.
+ * A refusal (`not_stale` / `not_claimable` / `not_found`), an inconclusive answer (`unresolved`) and
+ * a real answer too weak to release the hold (`not_released`, R-9) are four different things, and none
+ * of them is a success: the ledger only moves on an answer strong enough to license the release. The
+ * two `reconciled` cases name which answer landed, so the operator reads what actually happened.
  *
  * AW-17：执行一次目标状态查询，并按**种类**报出结果。
  *
- * 拒绝（`not_stale` / `not_claimable` / `not_found`）与无结论（`unresolved`）不是一回事，且都不是成功：
- * 只有真答案才让账动。两种 `reconciled` 各自写明落地的是哪个答案，操作者读到的是实际发生的事。
+ * 拒绝（`not_stale` / `not_claimable` / `not_found`）、无结论（`unresolved`）与「真答案但弱到不能
+ * 释放占位」（`not_released`，R-9）是四回事，且都不是成功：只有强到足以授权释放的答案才让账动。
+ * 两种 `reconciled` 各自写明落地的是哪个答案，操作者读到的是实际发生的事。
  */
 async function onReconcile(item: InFlightClaim) {
   reconcilingId.value = item.id

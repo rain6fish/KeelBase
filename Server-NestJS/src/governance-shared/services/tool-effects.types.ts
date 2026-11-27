@@ -396,6 +396,18 @@ export type ReconcileClaimOutcome =
   | 'reconciled'
   /** Asked, but the target did not answer in a shape we recognise; the ledger stays unknown. / 问了，但没有可用的答案。 */
   | 'unresolved'
+  /**
+   * R-9: the target answered `not_executed`, but on a reading too weak to license a retry — a
+   * current-state sample (or one with no declared basis) on an effect whose target does not guarantee
+   * dedup. The hold is **not** released: its key stays occupied, and the refusal is recorded as a
+   * `claim_release` row (`detail` opens `release refused (weak_reading)`) naming the reading that
+   * could not release it.
+   *
+   * R-9：目标答了 `not_executed`，但读数太弱、不能授权重试 —— 当前状态采样（或未声明种类），而效果
+   * 的目标又不保证去重。占位**不释放**：键仍被占住，拒绝记成一条 `claim_release` 行（`detail` 以
+   * `release refused (weak_reading)` 开头），点名那份没能放行的读数。
+   */
+  | 'not_released'
   /** Still within the staleness threshold — it may be running. / 还在阈值内，可能仍在执行。 */
   | 'not_stale'
   /** The claim is no longer `claimed`; its outcome is already recorded. / 已不是 `claimed`。 */
@@ -432,12 +444,21 @@ export interface ReconcileClaimResult {
 export interface ClaimAutoReconcileSummary {
   /** Holds in `awaiting_decision` this hour. / 本个整点处于 `awaiting_decision` 的占位。 */
   candidates: number;
-  /** Queries actually sent (converged + unresolved). / 真正发出的查询。 */
+  /** Queries actually sent (converged + unresolved + held). / 真正发出的查询（收敛 + 未答 + 弱读数留滞）。 */
   asked: number;
   /** Answers that moved the ledger. / 让账收敛的答案。 */
   converged: number;
   /** Asked, no usable answer; the ledger stays `claimed`. / 问了但没有可用答案，账仍是 claimed。 */
   unresolved: number;
+  /**
+   * R-9: a real `not_executed` answer whose basis was too weak to release the hold (current state, or
+   * undeclared, and the target guarantees no dedup). Counted as `asked` — the query was sent — and set
+   * apart from `converged` because the ledger did **not** move.
+   *
+   * R-9：真答 `not_executed`，但种类太弱不足以释放占位（当前状态或未声明，且目标不保证去重）。计入
+   * `asked`（查询确实发了），并区别于 `converged`，因为账**没有**移动。
+   */
+  held: number;
   /** Skipped: the tool declares no usable status path. / 跳过：工具没有可用的状态查询。 */
   skippedUnaskable: number;
   /** Skipped: the attempt budget is used up. / 跳过：次数预算已用尽。 */

@@ -1266,6 +1266,7 @@ const zh = {
   reconcileDoneExecuted: '目标说已执行 —— 该占位已落定',
   reconcileDoneNotExecuted: '目标说未执行 —— 该占位已释放',
   reconcileUnresolved: '查询没有结论（{reason}）—— 账保持未知',
+  reconcileNotReleased: '读数太弱，不能释放：当前状态（或未声明种类）的读数，且目标不保证去重 —— 占位保持 claimed，读数已记录',
   reconcileNotStale: '该行还未到陈旧阈值，暂不查询',
   reconcileNotClaimable: '该占位已不是「执行中」，查询改不了结局',
   reconcileNotFound: '该占位不存在',

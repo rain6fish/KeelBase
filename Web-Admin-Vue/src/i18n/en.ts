@@ -1269,6 +1269,7 @@ const en: ZhDict = {
   reconcileDoneExecuted: 'Target says executed — the claim is settled',
   reconcileDoneNotExecuted: 'Target says not executed — the claim is released',
   reconcileUnresolved: 'No conclusion ({reason}) — the ledger stays unknown',
+  reconcileNotReleased: 'Answer too weak to release: a current-state (or undeclared) reading, and the target guarantees no dedup — the hold stays claimed; the reading is on record',
   reconcileNotStale: 'Not past the staleness threshold yet — nothing to query',
   reconcileNotClaimable: 'The claim is no longer in flight; a query cannot change it',
   reconcileNotFound: 'No such claim',

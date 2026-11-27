@@ -7,7 +7,16 @@ import { AiToolSideEffect } from '../../governance-shared/entities/ai-tool-side-
 import { EffectComparability } from '../entities/effect-comparability.entity';
 import { AiWriteClaim, WRITE_CLAIM_DECISION_STATE, WRITE_CLAIM_STATUS } from '../entities/ai-write-claim.entity';
 import { TargetStatusLookupRow } from '../entities/target-status-lookup.entity';
-import { TARGET_STATUS, type TargetStatusLookup } from '../../governance-core/target-status';
+import {
+  TARGET_STATUS,
+  notExecutedReleasesHold,
+  type TargetStatusLookup,
+} from '../../governance-core/target-status';
+// R-9: the dedup declaration is resolved by the pure helper in governance-core — governance-shared
+// may not import `src/ai` at runtime (the import gate's strong criterion).
+// R-9：去重声明由 governance-core 的纯助手解析 —— governance-shared 在运行时不得 import `src/ai`
+//（import 门禁的强口径）。
+import { declaredDedup, type DedupDeclaration } from '../../governance-core/tool-dedup';
 import type { ExternalRevoker } from '../../ai/proxy/proxy-revoker.service';
 import { SIDE_EFFECT_REVOKER } from '../../governance-shared/services/side-effect-revoker';
 import type { SideEffectRevoker } from '../../governance-shared/services/side-effect-revoker';
@@ -403,6 +412,19 @@ export class AiToolEffectsService {
    * and that the effect stays unknown. A person's username travels beside the id as the row's
    * snapshot; the automatic pass has none, and the export reads its actor kind from the id.
    *
+   * **Only a reading strong enough to license a retry releases the hold (R-9).** A `not_executed` on a
+   * **receipt** settles the question a release asks: the target's own acceptance record says the key
+   * was never accepted, so re-sending cannot duplicate an effect that never happened. A
+   * **current-state** sample — or one with no declared basis — says only "not there now"; a record can
+   * be reversed or deleted later, so it cannot show that a non-idempotent effect never ran. Such a
+   * reading releases only when the tool declares `dedup: yes` (the target drops a repeated
+   * idempotency key); `no`, `unknown` and an absent declaration all read as "no guarantee", because
+   * silence cannot license a retry. Note `dedup` is about the **target honouring the key**, not about
+   * the effect being idempotent — no declaration says the latter, so it is never inferred. When the
+   * reading cannot release, the ledger stays `claimed`, a `claim_release` row opening
+   * `release refused (weak_reading)` names the reading (who asked, by what query, its conclusion and
+   * basis) and the history before it, and the result is `not_released`.
+   *
    * AW-17：对一条卡住的写占位做一次对账 —— 向目标**只问一次**、只读，问它到底跑了没有。
    *
    * 账上已经说了这笔写的结局未知（`claimed`）。此前缺的正是「能问」这一条路。它不重发写、不重试，
@@ -421,6 +443,15 @@ export class AiToolEffectsService {
    * 重占位覆盖，故这次释放同时写成一条带链的 `claim_release` 行 —— 与人工释放同一动作、同一构造器 ——
    * `detail` 写明谁发起（`system:sweep` 还是人）、目标答了什么、占位已释放且可重占位、效果仍未知。
    * 由人发起时，用户名与 id 一起作为行的快照；自动清扫没有名字，导出从 id 读出主体的种类。
+   *
+   * **只有强到足以授权重试的读数才释放占位（R-9）。** **收据**上的 `not_executed` 回答了释放要问的
+   * 问题：目标自己的受理记录说这个键从未被接受，故重发不可能重复一个从未发生的效果。**当前状态**
+   * 采样 —— 或没有声明种类的读数 —— 只说了「现在不在」；记录之后可能被撤销或删除，故它证明不了非幂等
+   * 效果从未落地。这种读数只有在工具声明 `dedup: yes`（目标会丢掉重复的幂等键）时才放行；`no`、
+   * `unknown` 与缺席声明一律读作「没有保证」，因为沉默不能授权重试。注意 `dedup` 说的是**目标遵守该
+   * 键**，不是效果幂等 —— 没有任何声明说后者，故绝不推断。读数不能放行时，账保持 `claimed`，一条以
+   * `release refused (weak_reading)` 开头的 `claim_release` 行点名那份读数（谁问的、按什么查的、结论
+   * 与种类）及其之前的读数历史，结果为 `not_released`。
    */
   async reconcileClaim(
     claimId: number,
@@ -490,6 +521,54 @@ export class AiToolEffectsService {
         claimStatus: claim.status,
         evidence,
       };
+    }
+
+    // R-9: a `not_executed` releases only when the reading can license a retry. A receipt is about
+    // "was this key ever accepted", which is the release question itself, so it releases any effect.
+    // A current-state sample (or a reading with no declared basis) only says "not there now"; it
+    // releases only when the target has declared it honours the idempotency key (`dedup: yes`), which
+    // is the one guarantee that makes re-sending the same key safe. `no` / `unknown` / no declaration
+    // all read as "no guarantee" — silence cannot license a retry — and no declaration anywhere says
+    // an effect is idempotent, so that is never inferred.
+    //
+    // The hold is **not** moved here: `status` stays `claimed`, so `claimWrite` keeps refusing the
+    // same key and nothing is silently retried. The refusal is still a decision, so it is recorded on
+    // the same chain/action a release uses, with `detail` opening `release refused (weak_reading)`.
+    //
+    // R-9：`not_executed` 只有在读数足以授权重试时才释放。收据回答的正是「这个键是否曾被接受」，
+    // 也就是释放本身要问的问题，故它对任何效果都放行。当前状态采样（或没有声明种类的读数）只说了
+    // 「现在不在」；只有目标声明遵守幂等键（`dedup: yes`）时才放行 —— 那是让重发同一个键安全的唯一
+    // 保证。`no` / `unknown` / 无声明一律读作「没有保证」—— 沉默不能授权重试 —— 而本仓没有任何声明
+    // 说某个效果幂等，故绝不推断。
+    //
+    // 这里**不**移动占位：`status` 仍是 `claimed`，故 `claimWrite` 继续拒绝同一个键，不会有任何静默
+    // 重试。但这份拒绝仍是一次决定，故与释放同一动作、同一条链记下来，`detail` 以
+    // `release refused (weak_reading)` 开头。
+    if (evidence.conclusion === TARGET_STATUS.NOT_EXECUTED) {
+      const dedup = this._dedupDeclaration(claim.toolName);
+      if (!notExecutedReleasesHold(evidence.basis, dedup)) {
+        await this.writeClaimDecision?.recordWeakReadingRefusal(
+          claim,
+          {
+            byUserId,
+            byUsername,
+            automatic: byUserId === SYSTEM_SWEEP_LOOKUP_ACTOR,
+            conclusion: evidence.conclusion,
+            queryMethod: evidence.queryMethod,
+            queryPath: evidence.queryPath,
+            queriedAt: evidence.queriedAt,
+            basis: evidence.basis,
+            dedup,
+          },
+          lookupRecorded,
+        );
+        return {
+          outcome: 'not_released',
+          conclusion: evidence.conclusion,
+          claimStatus: claim.status,
+          evidence,
+        };
+      }
     }
 
     const landed = await this.claims.reconcileClaim(claim, evidence.conclusion);
@@ -601,6 +680,7 @@ export class AiToolEffectsService {
       asked: 0,
       converged: 0,
       unresolved: 0,
+      held: 0,
       skippedUnaskable: 0,
       skippedExhausted: 0,
       skippedNotDue: 0,
@@ -702,6 +782,13 @@ export class AiToolEffectsService {
         } else if (result.outcome === 'unresolved') {
           summary.asked++;
           summary.unresolved++;
+        } else if (result.outcome === 'not_released') {
+          // R-9: a real answer we could not act on. The query was sent (`asked`), but the ledger
+          // stayed `claimed` — neither a convergence nor a silent guard refusal.
+          // R-9：拿到了真相却没能放行。查询确实发了（`asked`），但账仍是 `claimed` —— 既不是收敛，
+          // 也不是守卫静默拒绝。
+          summary.asked++;
+          summary.held++;
         } else {
           // A guard refused between our read and the query (someone settled or released it first).
           // 我们读到查询之间守卫拒了（有人先落了定或释放了它）。
@@ -718,7 +805,7 @@ export class AiToolEffectsService {
 
     if (summary.asked > 0 || summary.failed > 0) {
       this.logger.log(
-        `写占位自动对账：问 ${summary.asked} 条（收敛 ${summary.converged} / 未答 ${summary.unresolved}），` +
+        `写占位自动对账：问 ${summary.asked} 条（收敛 ${summary.converged} / 未答 ${summary.unresolved} / 弱读数留滞 ${summary.held}），` +
           `失败 ${summary.failed} 条，` +
           `上限 ${plan.maxAttempts} 次 / 每趟 ${perPassCap} 条；跳过：不可查 ${summary.skippedUnaskable} / ` +
           `已问满 ${summary.skippedExhausted} / 未到期 ${summary.skippedNotDue} / 因上限顺延 ${summary.deferredByPassCap}`,
@@ -795,6 +882,28 @@ export class AiToolEffectsService {
         `[AiToolEffects] AW-17 target-status lookup not recorded (${claim.idempotencyKey}): ${(err as Error).message}`,
       );
       return false;
+    }
+  }
+
+  /**
+   * R-9: the tool's `dedup` declaration, resolved to the shared three values. Absent tool registry
+   * (hand-built assembly, governance process) or an unregistered name answers `unknown` — the same
+   * reading as an undeclared tool, and the one that cannot license a retry.
+   *
+   * `yes` = the target honours the `Idempotency-Key` it receives, so a repeat of the same logical
+   * call would be dropped. `no` = it does not. `unknown` / absent = nobody told us.
+   *
+   * R-9：工具的 `dedup` 声明，解析成共享的三个取值。工具注册表缺席（手工装配、治理进程）或名字未注册
+   * 都答 `unknown` —— 与未声明同一个读数，也是不能授权重试的那一个。
+   *
+   * `yes` = 目标遵守收到的 `Idempotency-Key`，同一逻辑调用的重复会被丢掉。`no` = 不遵守。
+   * `unknown` / 缺席 = 没人告诉过我们。
+   */
+  private _dedupDeclaration(toolName: string): DedupDeclaration {
+    try {
+      return declaredDedup(this.toolRegistry?.getTool(toolName));
+    } catch {
+      return 'unknown';
     }
   }
 

@@ -81,6 +81,11 @@ describe('AW-17 目标状态对账（只读查询收敛 unknown）', () => {
     // R-6b: an override lets a case simulate a lookup insert that failed while the reads see nothing.
     // R-6b：允许覆写，以便模拟「插入失败、读出为空」的证据表。
     lookupStore: ReturnType<typeof lookups> = lookups(),
+    // R-9: the tool's capability declaration decides whether a weak reading may release. The default
+    // fake declares nothing, so `dedup` resolves to `unknown` — the fail-closed reading.
+    // R-9：工具的能力声明决定弱读数能否释放。默认替身什么都不声明，故 `dedup` 解析为 `unknown` ——
+    // 失败关闭的读法。
+    tool: { capabilities?: Record<string, string> } = { capabilities: {} },
   ): void => {
     probe = { available: jest.fn(() => true), canAsk: jest.fn(() => true), lookup: jest.fn() };
     // R-3: the release row's one builder is the decision service's — the reconcile path calls it, and
@@ -103,7 +108,7 @@ describe('AW-17 目标状态对账（只读查询收敛 unknown）', () => {
       undefined, // externalRevoker
       undefined, // reporter
       undefined, // auditChain
-      undefined, // toolRegistry
+      { getTool: () => tool } as never, // toolRegistry (R-9: dedup declaration)
       undefined, // dataSource
       undefined, // operationAudit
       undefined, // configService (defaults to the 60-minute threshold)
@@ -190,23 +195,180 @@ describe('AW-17 目标状态对账（只读查询收敛 unknown）', () => {
   });
 
   /**
-   * R-1: the basis is a **label**, not a gate. A `not_executed` whose basis was not recorded still
-   * releases the claim — the same behavior as before the column existed. Gating retries on a receipt
-   * would make every target without a receipt endpoint permanently unreleasable (F-84's objection).
+   * R-9: a weak reading is not a release. A `current_state` sample (or one with no declared basis)
+   * says only "not there now"; on an effect whose target guarantees no dedup it cannot show that the
+   * write never happened, so the hold stays claimed and the same key cannot execute again. The refusal
+   * is still a decision: one `claim_release` row opening `release refused (weak_reading)` names the
+   * reading that could not release it.
    *
-   * R-1：种类是**标签**，不是闸。种类未记录的 `not_executed` 照样释放占位 —— 与本列出现之前完全一致。
-   * 要求收据才放行，会让所有没有收据端点的目标永远无法释放（F-84 的反对意见）。
+   * R-9：弱读数不是释放。当前状态采样（或未声明种类的读数）只说了「现在不在」；在目标不保证去重的
+   * 效果上，它证明不了那次写没发生，故占位保持 claimed、同一个键不能再执行。拒绝仍是一次决定：一条以
+   * `release refused (weak_reading)` 开头的 `claim_release` 行点名那份没能放行的读数。
    */
-  it('R-1 反向：种类未记录（null）不得阻止收敛 —— 标签不是闸', async () => {
+  describe('R-9 弱读数不释放占位', () => {
+    it('判据①：current_state 的 not_executed + 无去重声明 ⇒ 不释放，决定行点名读数', async () => {
+      const row = await seed();
+      probe.lookup.mockResolvedValue(
+        lookup({
+          conclusion: 'not_executed',
+          reason: null,
+          basis: 'current_state',
+          queriedAt: '2026-11-27T01:00:00.000Z',
+        }),
+      );
+
+      const r = await effects.reconcileClaim(row.id, 'admin-1');
+
+      expect(r.outcome).toBe('not_released');
+      expect(r.conclusion).toBe('not_executed');
+      expect(r.claimStatus).toBe(WRITE_CLAIM_STATUS.CLAIMED);
+
+      // The ledger does not move: the key stays occupied, so a retry is refused by the arbitration
+      // point — a release would have opened it.
+      // 账不动：键仍被占住，重试会被仲裁点拒绝 —— 释放才会打开它。
+      const after = await claims().findOneByOrFail({ id: row.id });
+      expect(after.status).toBe(WRITE_CLAIM_STATUS.CLAIMED);
+      expect(after.releaseReason ?? null).toBeNull();
+
+      // The reading is on record — the refusal did not swallow the attempt.
+      // 读数照样留证 —— 拒绝没有把这次尝试吞掉。
+      const [evidence] = await lookups().find({ where: { idempotencyKey: KEY } });
+      expect(evidence).toMatchObject({ conclusion: 'not_executed', basis: 'current_state' });
+
+      const rows = await auditRepo().find({ where: { action: 'claim_release' } });
+      expect(rows).toHaveLength(1);
+      const [decision] = rows;
+      expect(decision.userId).toBe('admin-1');
+      // A refusal carries no release evidence column — that column belongs to a release.
+      // 拒绝不带释放证据列 —— 那一列属于释放。
+      expect(decision.releaseLookups ?? null).toBeNull();
+      const detail = decision.detail ?? '';
+      expect(detail.startsWith('release refused (weak_reading)')).toBe(true);
+      expect(detail).toContain(`write claim #${row.id}`);
+      expect(detail).toContain('a current-state reading');
+      expect(detail).toContain('dedup declaration is unknown');
+      expect(detail).toContain('the hold stays claimed and its key stays occupied');
+      // The reading is named: who asked, by which query, when, what it concluded and its basis.
+      // 点名读数：谁问的、按什么查的、何时、结论与种类。
+      expect(detail).toContain(`#${evidence.id} by admin-1`);
+      expect(detail).toContain(`GET /contracts/status/${KEY}`);
+      expect(detail).toContain('2026-11-27T01:00:00.000Z');
+      expect(detail).toContain('→ not_executed, basis=current_state');
+    });
+
+    it('判据②：receipt 的 not_executed 对任何效果都释放 —— 默认替身未声明去重也照样放行', async () => {
+      // The default fake declares no `dedup`; only the receipt licenses this release.
+      // 默认替身没有声明 `dedup`；放行只靠这张收据。
+      const row = await seed();
+      probe.lookup.mockResolvedValue(
+        lookup({ conclusion: 'not_executed', reason: null, basis: 'receipt' }),
+      );
+
+      const r = await effects.reconcileClaim(row.id, 'admin-1');
+
+      expect(r.outcome).toBe('reconciled');
+      expect(r.claimStatus).toBe(WRITE_CLAIM_STATUS.RELEASED);
+      expect((await claims().findOneByOrFail({ id: row.id })).status).toBe(
+        WRITE_CLAIM_STATUS.RELEASED,
+      );
+      // No refusal row is written: this answer was a release.
+      // 不写拒绝行：这个答案就是一次释放。
+      expect(await auditRepo().count({ where: { action: 'claim_release' } })).toBe(1);
+      const [release] = await auditRepo().find({ where: { action: 'claim_release' } });
+      expect(release.detail).toContain('→ released');
+    });
+
+    it('判据①对照：current_state + 目标声明 dedup: yes ⇒ 仍释放（重发同一键对目标安全）', async () => {
+      build(true, lookups(), { capabilities: { dedup: 'yes' } });
+      const row = await seed();
+      probe.lookup.mockResolvedValue(
+        lookup({ conclusion: 'not_executed', reason: null, basis: 'current_state' }),
+      );
+
+      const r = await effects.reconcileClaim(row.id, 'admin-1');
+
+      expect(r.outcome).toBe('reconciled');
+      expect(r.claimStatus).toBe(WRITE_CLAIM_STATUS.RELEASED);
+      expect((await claims().findOneByOrFail({ id: row.id })).status).toBe(
+        WRITE_CLAIM_STATUS.RELEASED,
+      );
+    });
+
+    it('判据③：第二次弱读数被拒时，决定行带上前一次读数（谁问的、问了什么、结论与种类）', async () => {
+      const row = await seed();
+      probe.lookup.mockResolvedValueOnce(
+        lookup({
+          conclusion: 'not_executed',
+          reason: null,
+          basis: 'current_state',
+          queriedAt: '2026-11-27T01:00:00.000Z',
+        }),
+      );
+      await effects.reconcileClaim(row.id, 'admin-1');
+      probe.lookup.mockResolvedValueOnce(
+        lookup({
+          conclusion: 'not_executed',
+          reason: null,
+          basis: 'current_state',
+          queriedAt: '2026-11-27T02:00:00.000Z',
+        }),
+      );
+
+      const second = await effects.reconcileClaim(row.id, SYSTEM_SWEEP_LOOKUP_ACTOR);
+      expect(second.outcome).toBe('not_released');
+
+      const decisions = await auditRepo().find({
+        where: { action: 'claim_release' },
+        order: { id: 'ASC' },
+      });
+      expect(decisions).toHaveLength(2);
+      const detail = decisions[1].detail ?? '';
+      const [firstReading, latestReading] = await lookups().find({
+        where: { idempotencyKey: KEY },
+        order: { id: 'ASC' },
+      });
+      // Both readings are named, newest first: the previous ask (a person) travels with this one
+      // (the sweep), each with its query, conclusion and basis.
+      // 两条读数都点名、最近在前：前一次（人发起）与这一次（清扫）各自带上查询、结论与种类。
+      expect(detail).toContain('readings (newest first)');
+      expect(detail).toContain(`#${latestReading.id} by ${SYSTEM_SWEEP_LOOKUP_ACTOR}`);
+      expect(detail).toContain(`#${firstReading.id} by admin-1`);
+      expect(detail).toContain(`GET /contracts/status/${KEY}`);
+      expect(detail).toContain('→ not_executed, basis=current_state');
+      // The failed release did not move the ledger between the two asks.
+      // 两次询问之间，那次失败的释放没有动过账。
+      expect((await claims().findOneByOrFail({ id: row.id })).status).toBe(
+        WRITE_CLAIM_STATUS.CLAIMED,
+      );
+    });
+  });
+
+  /**
+   * R-9 supersedes R-1's reverse criterion. R-1 could treat the basis as a label because nothing acted
+   * on it; R-9 makes it a gate for a weak reading on an effect whose target guarantees no dedup. An
+   * undeclared basis (`null`) is **not** a receipt: silence is not stronger than a current-state
+   * sample, and the hold stays claimed.
+   *
+   * R-9 取代 R-1 的反向判据。R-1 能把种类当标签，是因为没有消费者；R-9 让它成为一道闸 —— 当目标是
+   * 不保证去重的效果、而读数又弱时。未声明种类（`null`）**不是**收据：沉默并不比当前状态采样更强，
+   * 占位保持 claimed。
+   */
+  it('R-9：种类未记录（null）不是收据 —— 去重无保证时不释放，决定行点名这份弱读数', async () => {
     const row = await seed();
     probe.lookup.mockResolvedValue(lookup({ conclusion: 'not_executed', reason: null, basis: null }));
 
     const r = await effects.reconcileClaim(row.id, 'admin-1');
 
-    expect(r.outcome).toBe('reconciled');
-    expect(r.claimStatus).toBe(WRITE_CLAIM_STATUS.RELEASED);
+    expect(r.outcome).toBe('not_released');
+    expect(r.claimStatus).toBe(WRITE_CLAIM_STATUS.CLAIMED);
     const evidence = await lookups().find({ where: { idempotencyKey: KEY } });
     expect(evidence[0].basis ?? null).toBeNull();
+
+    const after = await claims().findOneByOrFail({ id: row.id });
+    expect(after.status).toBe(WRITE_CLAIM_STATUS.CLAIMED);
+    const [decision] = await auditRepo().find({ where: { action: 'claim_release' } });
+    expect(decision.detail).toContain('release refused (weak_reading)');
+    expect(decision.detail).toContain('a reading with no declared basis');
   });
 
   it('**反向对照**：目标不可查 ⇒ 账仍是 claimed（unknown），证据写明「问不到」', async () => {
@@ -318,7 +480,12 @@ describe('AW-17 目标状态对账（只读查询收敛 unknown）', () => {
     it('目标答 not_executed ⇒ 链上一行：读得出谁发起、目标答了什么、已释放可重占位、效果未知', async () => {
       const row = await seed();
       probe.lookup.mockResolvedValue(
-        lookup({ conclusion: 'not_executed', reason: null, queriedAt: '2026-11-24T02:00:00.000Z' }),
+        lookup({
+          conclusion: 'not_executed',
+          reason: null,
+          basis: 'receipt',
+          queriedAt: '2026-11-24T02:00:00.000Z',
+        }),
       );
 
       const r = await effects.reconcileClaim(row.id, SYSTEM_SWEEP_LOOKUP_ACTOR);
@@ -367,7 +534,7 @@ describe('AW-17 目标状态对账（只读查询收敛 unknown）', () => {
       // 目标说没跑，重占位才被允许；而它复用的正是那一行 —— 决定正因此不能只存在那里。
       const ctx = { userId: 'u-alice', conversationId: 'conv-1', toolName: TOOL, args: { to: 'a@b.c' } };
       const row = await claims().save(claims().create(staleClaim({ idempotencyKey: buildKey(ctx) })));
-      probe.lookup.mockResolvedValue(lookup({ conclusion: 'not_executed', reason: null }));
+      probe.lookup.mockResolvedValue(lookup({ conclusion: 'not_executed', reason: null, basis: 'receipt' }));
 
       await effects.reconcileClaim(row.id, 'admin-1');
       expect((await claims().findOneByOrFail({ id: row.id })).status).toBe(
@@ -401,7 +568,7 @@ describe('AW-17 目标状态对账（只读查询收敛 unknown）', () => {
 
     it('人工发起的对账 ⇒ detail 区分「人的动作」，不是自动清扫', async () => {
       const row = await seed();
-      probe.lookup.mockResolvedValue(lookup({ conclusion: 'not_executed', reason: null }));
+      probe.lookup.mockResolvedValue(lookup({ conclusion: 'not_executed', reason: null, basis: 'receipt' }));
 
       await effects.reconcileClaim(row.id, 'admin-7');
 
@@ -442,7 +609,12 @@ describe('AW-17 目标状态对账（只读查询收敛 unknown）', () => {
       build(true, failingStore);
       const row = await seed();
       probe.lookup.mockResolvedValue(
-        lookup({ conclusion: 'not_executed', reason: null, queriedAt: '2026-11-25T01:00:00.000Z' }),
+        lookup({
+          conclusion: 'not_executed',
+          reason: null,
+          basis: 'receipt',
+          queriedAt: '2026-11-25T01:00:00.000Z',
+        }),
       );
 
       const r = await effects.reconcileClaim(row.id, SYSTEM_SWEEP_LOOKUP_ACTOR);
@@ -502,7 +674,12 @@ describe('AW-17 目标状态对账（只读查询收敛 unknown）', () => {
       build(true, failingStore);
       const row = await seed();
       probe.lookup.mockResolvedValue(
-        lookup({ conclusion: 'not_executed', reason: null, queriedAt: '2026-11-25T02:00:00.000Z' }),
+        lookup({
+          conclusion: 'not_executed',
+          reason: null,
+          basis: 'receipt',
+          queriedAt: '2026-11-25T02:00:00.000Z',
+        }),
       );
 
       const r = await effects.reconcileClaim(row.id, SYSTEM_SWEEP_LOOKUP_ACTOR);
@@ -545,7 +722,12 @@ describe('AW-17 目标状态对账（只读查询收敛 unknown）', () => {
       build(true, real);
       const row = await seed();
       probe.lookup.mockResolvedValue(
-        lookup({ conclusion: 'not_executed', reason: null, queriedAt: '2026-11-25T03:00:00.000Z' }),
+        lookup({
+          conclusion: 'not_executed',
+          reason: null,
+          basis: 'receipt',
+          queriedAt: '2026-11-25T03:00:00.000Z',
+        }),
       );
 
       const r = await effects.reconcileClaim(row.id, SYSTEM_SWEEP_LOOKUP_ACTOR);
@@ -707,7 +889,7 @@ describe('AW-17 目标状态对账（只读查询收敛 unknown）', () => {
 
     it('目标答「没执行」⇒ 走既有路径收敛为 released', async () => {
       const row = await seedQueued();
-      probe.lookup.mockResolvedValue(lookup({ conclusion: 'not_executed', reason: null }));
+      probe.lookup.mockResolvedValue(lookup({ conclusion: 'not_executed', reason: null, basis: 'receipt' }));
 
       const r = await effects.reconcileDueClaims(base);
 
@@ -718,6 +900,29 @@ describe('AW-17 目标状态对账（只读查询收敛 unknown）', () => {
       expect(after?.releaseReason).toBe('target_status_not_executed');
     });
 
+    it('R-9：自动清扫拿到弱读数 ⇒ 计 held（查询已发）而非 converged，账保持 claimed，决定行记 system:sweep', async () => {
+      const row = await seedQueued();
+      probe.lookup.mockResolvedValue(
+        lookup({ conclusion: 'not_executed', reason: null, basis: 'current_state' }),
+      );
+
+      const r = await effects.reconcileDueClaims(base);
+
+      expect(r.asked).toBe(1);
+      expect(r.held).toBe(1);
+      expect(r.converged).toBe(0);
+      expect(r.unresolved).toBe(0);
+      // The row is not converged: the same key still cannot execute.
+      // 行没有收敛：同一个键仍不能执行。
+      expect((await claims().findOneByOrFail({ id: row.id })).status).toBe(
+        WRITE_CLAIM_STATUS.CLAIMED,
+      );
+      const [decision] = await auditRepo().find({ where: { action: 'claim_release' } });
+      expect(decision.userId).toBe(SYSTEM_SWEEP_LOOKUP_ACTOR);
+      expect(decision.detail).toContain('release refused (weak_reading)');
+      expect(decision.detail).toContain('initiated by: system:sweep (automatic sweep)');
+    });
+
     // B-3: one row's decision write failing must not spend the hour for the rest of the queue.
     // B-3：一行的决定行写失败，不得替队列里其余行花掉这个小时。
     it('B-3：决定行写失败 ⇒ 本趟继续问其余到期占位，失败计入 failed', async () => {
@@ -725,7 +930,12 @@ describe('AW-17 目标状态对账（只读查询收敛 unknown）', () => {
       const second = await seedQueued({ idempotencyKey: 'k-b3-2', userId: 'u-bob' });
       probe.lookup.mockImplementation((_tool: string, key: string) =>
         Promise.resolve(
-          lookup({ conclusion: 'not_executed', reason: null, queryPath: '/contracts/status/' + key }),
+          lookup({
+            conclusion: 'not_executed',
+            reason: null,
+            basis: 'receipt',
+            queryPath: '/contracts/status/' + key,
+          }),
         ),
       );
       (effects as any).writeClaimDecision = {

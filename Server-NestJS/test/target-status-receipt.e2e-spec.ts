@@ -18,8 +18,10 @@
  * What the case pins, in order: the probe sends exactly one read-only `GET` to the target; the answer's
  * `basis` reaches the reconcile result, the evidence row, the lookup read face, and the release
  * decision's off-chain evidence column — all as a **structured field**, so two `not_executed` answers
- * that differ in kind are distinguishable without parsing prose. The last case is the reverse: a target
- * that does not declare a basis is still released. The basis is a label, never a retry gate.
+ * that differ in kind are distinguishable without parsing prose. R-9 then makes the kind act: a
+ * `receipt` releases the hold on any effect, while a `current_state` (or undeclared) reading releases
+ * only when the target declares it honours the idempotency key. Neither proxy route declares `dedup`,
+ * so the weak readings keep the hold `claimed` and leave a `claim_release` refusal row naming them.
  *
  * Run it alone: `npx jest --config test/jest-e2e.json test/target-status-receipt.e2e-spec.ts`
  *
@@ -36,7 +38,9 @@
  *
  * 本用例按顺序钉住：探针对目标只发一次只读 `GET`；答案的 `basis` 依次到达对账结果、证据行、查询读面、
  * 释放决定的链外证据列 —— 全部是**结构化字段**，故两条结论同为 `not_executed`、种类不同的读数无需解析
- * 散文即可区分。最后一个用例是反向：不声明种类的目标照样被释放。种类是标签，永远不是重试闸。
+ * 散文即可区分。R-9 随后让种类起作用：`receipt` 对任何效果都释放，而 `current_state`（或未声明）的
+ * 读数只在目标声明遵守幂等键时才释放。两条代理路由都没声明 `dedup`，故弱读数让占位保持 `claimed`，
+ * 并留下一条点名它的 `claim_release` 拒绝行。
  *
  * 单独跑：`npx jest --config test/jest-e2e.json test/target-status-receipt.e2e-spec.ts`
  */
@@ -184,13 +188,16 @@ describe('F-128 the receipt basis, from the controlled target to the release evi
       .set(authHeader(admin.token));
 
   /**
-   * The `claim_release` row a given hold left behind. The cases share one database, so a tool name
-   * alone would collect other cases' rows too; the claim id in the detail is the exact key.
+   * The `claim_release` row a given hold left behind — a release or, since R-9, a weak-reading
+   * refusal. The cases share one database, so a tool name alone would collect other cases' rows too;
+   * the claim id in the detail is the exact key. `releaseLookups` being present is what separates the
+   * two endings (the contract says that column is absent on rows that are not releases).
    *
-   * 给定占位留下的那条 `claim_release` 行。用例共用一个库，光凭工具名会收进别的用例的行；`detail`
-   * 里的占位 id 才是精确键。
+   * 给定占位留下的那条 `claim_release` 行 —— 一次释放，或 R-9 起的弱读数拒绝。用例共用一个库，光凭
+   * 工具名会收进别的用例的行；`detail` 里的占位 id 才是精确键。`releaseLookups` 有无即区分两个结局
+   *（契约写明该列在非释放行上缺席）。
    */
-  async function releaseRowFor(claimId: number): Promise<{ detail: string; releaseLookups: string | null }> {
+  async function decisionRowFor(claimId: number): Promise<{ detail: string; releaseLookups: string | null }> {
     const rows = (await auditRepo().find({ where: { action: 'claim_release' } as never })) as unknown as Array<{
       detail: string;
       releaseLookups: string | null;
@@ -327,7 +334,7 @@ describe('F-128 the receipt basis, from the controlled target to the release evi
     expect(row).toMatchObject({ conclusion: 'not_executed', basis: 'receipt' });
 
     // Step 4 — the release decision's off-chain evidence column. / 第四步 —— 释放决定的链外证据列。
-    const release = await releaseRowFor(claimId);
+    const release = await decisionRowFor(claimId);
     expect(release.detail).toContain('origin: target answered not_executed');
     const evidence = JSON.parse(release.releaseLookups!) as {
       count: number;
@@ -349,19 +356,33 @@ describe('F-128 the receipt basis, from the controlled target to the release evi
   });
 
   /**
-   * R-1's own criterion: two `not_executed` answers that differ in kind — a receipt from the target's
-   * acceptance record versus a current-state read — are distinguishable **without parsing prose**. The
-   * assertions below touch only the structured `basis` field on each surface; the prose is never read.
+   * R-1's own criterion, now with R-9's consequence: two `not_executed` answers that differ in kind — a
+   * receipt from the target's acceptance record versus a current-state read — are distinguishable
+   * **without parsing prose**, and the distinction is not decorative. The receipt releases the hold;
+   * the current-state sample does not (neither route declares `dedup`), so its claim stays `claimed`
+   * and the act is recorded as a `claim_release` refusal naming the reading.
    *
-   * R-1 自己的判据：两条同为 `not_executed`、种类不同的答案 —— 一张来自目标受理记录的收据，一次当前
-   * 状态读数 —— 无需解析散文即可区分。下面的断言只碰每一面上的结构化 `basis` 字段，从不读散文。
+   * R-1 自己的判据，加上 R-9 的后果：两条同为 `not_executed`、种类不同的答案 —— 一张来自目标受理记录
+   * 的收据，一次当前状态读数 —— 无需解析散文即可区分，而且这个区分不是装饰。收据释放占位；当前状态
+   * 采样不释放（两条路由都没声明 `dedup`），故它的占位保持 `claimed`，动作记成一条点名该读数的
+   * `claim_release` 拒绝行。
    */
-  it('同为 not_executed：receipt 与 current_state 靠结构化字段可分辨（读面与释放证据皆然）', async () => {
+  it('同为 not_executed：receipt 释放，current_state 不释放；两者靠结构化字段可分辨', async () => {
     const receipt = await seedStaleClaim(TOOL_RECEIPT);
     const current = await seedStaleClaim(TOOL_CURRENT);
 
-    await reconcile(receipt.id).expect(200);
-    await reconcile(current.id).expect(200);
+    const receiptRes = await reconcile(receipt.id).expect(200);
+    const currentRes = await reconcile(current.id).expect(200);
+    expect(receiptRes.body.data).toMatchObject({
+      outcome: 'reconciled',
+      conclusion: 'not_executed',
+      claimStatus: 'released',
+    });
+    expect(currentRes.body.data).toMatchObject({
+      outcome: 'not_released',
+      conclusion: 'not_executed',
+      claimStatus: 'claimed',
+    });
 
     const receiptRead = (await readLookups(receipt.id).expect(200)).body.data as {
       items: Array<{ conclusion: string; basis: string }>;
@@ -376,38 +397,46 @@ describe('F-128 the receipt basis, from the controlled target to the release evi
     expect(receiptRead.items[0].basis).toBe('receipt');
     expect(currentRead.items[0].basis).toBe('current_state');
 
-    const evidenceFor = async (claimId: number) => {
-      const release = await releaseRowFor(claimId);
-      return (JSON.parse(release.releaseLookups!) as {
+    // The receipt's decision cites the reading as release evidence.
+    // 收据的决定把这份读数作为释放证据引用。
+    const receiptDecision = await decisionRowFor(receipt.id);
+    expect(receiptDecision.releaseLookups).not.toBeNull();
+    expect(
+      (JSON.parse(receiptDecision.releaseLookups!) as {
         items: Array<{ conclusion: string; basis: string }>;
-      }).items[0];
-    };
-    expect(await evidenceFor(receipt.id)).toMatchObject({
-      conclusion: 'not_executed',
-      basis: 'receipt',
-    });
-    expect(await evidenceFor(current.id)).toMatchObject({
-      conclusion: 'not_executed',
-      basis: 'current_state',
-    });
+      }).items[0],
+    ).toMatchObject({ conclusion: 'not_executed', basis: 'receipt' });
+
+    // The weak reading's decision is a refusal: no release-evidence column, and the prose names the
+    // reading and why it could not release. The claim itself never moved.
+    // 弱读数的决定是一条拒绝：不带释放证据列，散文点名该读数及它为何不能放行。占位本身没有移动。
+    const currentDecision = await decisionRowFor(current.id);
+    expect(currentDecision.releaseLookups ?? null).toBeNull();
+    expect(currentDecision.detail).toContain('release refused (weak_reading)');
+    expect(currentDecision.detail).toContain('a current-state reading');
+    const currentClaim = await claimsRepo().findOneByOrFail({ id: current.id });
+    expect(currentClaim.status).toBe('claimed');
+    expect(currentClaim.releaseReason ?? null).toBeNull();
   });
 
   /**
-   * The basis is a label, not a gate (R-1's reverse criterion, now on the real wire): a target that
-   * does not declare one still gets its `not_executed` believed, and the hold is released. Gating on a
-   * receipt would make every target without a receipt endpoint permanently unreleasable (F-84).
+   * R-9: an undeclared basis is **not** a receipt. R-1 could read it as a label because nothing acted
+   * on it; now the label is a gate for a weak reading on an effect whose target guarantees no dedup.
+   * The `not_executed` is still believed and the evidence is still recorded — but the hold stays
+   * `claimed`, and the refusal row says the basis was never declared.
    *
-   * 种类是标签，不是闸（R-1 的反向判据，现在走真实链路）：不声明种类的目标，其 `not_executed` 照样
-   * 被采信，占位照样被释放。要求收据才放行，会让所有没有收据端点的目标永远无法释放（F-84）。
+   * R-9：未声明种类**不是**收据。R-1 能把种类当标签，是因为当时没有消费者；现在标签成了闸 —— 当目标
+   * 不保证去重、而读数又弱时。`not_executed` 仍被采信、证据仍被记下 —— 但占位保持 `claimed`，拒绝行
+   * 写明种类从未被声明。
    */
-  it('反向：不声明种类的目标仍被释放 —— 种类不是重试闸', async () => {
+  it('R-9：不声明种类的目标不释放（去重无保证）；读数照记，拒绝行写明种类未声明', async () => {
     const { id: claimId, key } = await seedStaleClaim(TOOL_SILENT);
 
     const res = await reconcile(claimId).expect(200);
     expect(res.body.data).toMatchObject({
-      outcome: 'reconciled',
+      outcome: 'not_released',
       conclusion: 'not_executed',
-      claimStatus: 'released',
+      claimStatus: 'claimed',
     });
 
     const [lookup] = await lookupsRepo().find({ where: { idempotencyKey: key } });
@@ -419,9 +448,16 @@ describe('F-128 the receipt basis, from the controlled target to the release evi
     // 读面从不返回 `null`；未声明读作 `unknown`，绝不猜。
     expect((read.body.data as { items: Array<{ basis: string }> }).items[0].basis).toBe('unknown');
 
-    const release = await releaseRowFor(claimId);
-    expect(
-      (JSON.parse(release.releaseLookups!) as { items: Array<{ basis: string }> }).items[0].basis,
-    ).toBe('unknown');
+    const decision = await decisionRowFor(claimId);
+    // No release-evidence column: this row is not a release.
+    // 不带释放证据列：这一行不是释放。
+    expect(decision.releaseLookups ?? null).toBeNull();
+    expect(decision.detail).toContain('release refused (weak_reading)');
+    expect(decision.detail).toContain('a reading with no declared basis');
+    expect(decision.detail).toContain('basis=unknown');
+
+    const claim = await claimsRepo().findOneByOrFail({ id: claimId });
+    expect(claim.status).toBe('claimed');
+    expect(claim.releaseReason ?? null).toBeNull();
   });
 });

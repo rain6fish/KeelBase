@@ -292,7 +292,12 @@ export class WriteClaimStore {
    * side-effect row for it (the anchor is written only when the original call succeeded, and we do not
    * know the target's id — inventing one would point a future revoke at the wrong record).
    * `not_executed` → `released`, the same door a confirmed local failure uses: a retry is then
-   * allowed, because the target itself said nothing ran.
+   * allowed. R-9: the caller decides whether the answer may release at all — a current-state (or
+   * undeclared-basis) reading on a tool that guarantees no dedup never reaches this method. The store
+   * records an outcome; it does not judge whether that outcome is strong enough to open a retry.
+   *
+   * R-9：能否释放由调用方决定 —— 当前状态（或未声明种类）的读数、而工具又不保证去重时，根本到不了
+   * 本方法。store 只记录结局，不判断这个结局是否强到足以打开重试。
    *
    * @returns whether the row moved. `false` = someone else got there first (or the repository is absent).
    *

@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import type { DedupDeclaration } from './tool-dedup';
+
 /**
  * The vocabulary of a **one-shot, read-only** query against an external write target: "did you execute
  * this action key?" (AW-17).
@@ -77,6 +79,48 @@ export type TargetStatusBasis = (typeof TARGET_STATUS_BASIS)[keyof typeof TARGET
  * 保持 `null`（见实体），于是「问的时候我们还记不了种类」与「问了、目标没说」仍可区分。
  */
 export type TargetStatusLookupBasisView = TargetStatusBasis | 'unknown';
+
+/**
+ * R-9: may a `not_executed` answer release the hold, so the same key can execute again?
+ *
+ * A **receipt** answers the question a retry asks: the target's own acceptance record says this action
+ * key was never accepted, so re-sending it cannot duplicate an effect the target never took. It
+ * releases **any** effect.
+ *
+ * A **current-state** reading answers a different question: "this key is not there now". A record can
+ * be reversed or deleted later, so this reading cannot show that a non-idempotent effect never ran.
+ * A reading with no declared basis (`null`) is not stronger than a weak one — silence is not a
+ * receipt either.
+ *
+ * The one thing that still licenses a retry on a weak reading is the target's **dedup guarantee**
+ * (`dedup = yes` on the tool's capability declaration): an outbound write carries the ledger's
+ * idempotency key, and a target that honours that key drops a repeat of the same logical call. `dedup`
+ * is **not** a statement that the effect is idempotent — it is the target promising to drop duplicates
+ * by key. `no` says it does not honour the key; `unknown` (and an absent declaration, which resolves to
+ * `unknown`) says nobody told us, and is read exactly like `no`: silence cannot license a retry. No
+ * tool declaration says an effect is idempotent, so that cannot be consulted or inferred.
+ *
+ * R-9：`not_executed` 的答案能否释放占位，让同一个键再执行一次？
+ *
+ * **收据**回答的正是重试要问的问题：目标自己的受理记录说这个 action key 从未被接受，故重发它不可能
+ * 重复一个目标从未接受过的效果。它对**任何**效果都放行。
+ *
+ * **当前状态**读数回答的是另一个问题：「这个键现在不在」。记录之后可能被撤销或删除，故这份读数证明
+ * 不了非幂等效果从未落地。没有声明种类的读数（`null`）也不比弱读数更强 —— 沉默不是一张收据。
+ *
+ * 弱读数下仍能授权重试的只有目标的**去重保证**（工具能力声明里的 `dedup = yes`）：出站写携带账本的
+ * 幂等键，而遵守该键的目标会丢掉同一逻辑调用的重复。`dedup` **不是**「效果幂等」的声明 —— 它是目标
+ * 承诺按键去重。`no` 表示目标不遵守该键；`unknown`（以及缺席声明解析出的 `unknown`）表示没人告诉过
+ * 我们，按 `no` 一样读：沉默不能授权重试。没有任何工具声明说某个效果是幂等的，故那件事无从查询、
+ * 也不得推断。
+ */
+export function notExecutedReleasesHold(
+  basis: TargetStatusBasis | null,
+  dedup: DedupDeclaration,
+): boolean {
+  if (basis === TARGET_STATUS_BASIS.RECEIPT) return true;
+  return dedup === 'yes';
+}
 
 /**
  * Why a conclusion is `unknown`. Every one of these means "the target did not tell us", and none of

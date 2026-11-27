@@ -285,9 +285,12 @@ describe('AW-17 history mode: the automatic sweep, and channels that cannot be s
     await app.close();
   });
 
-  it('自动清扫经历史端点拿到 not_executed ⇒ 释放；决定行记 system:sweep 发起、历史路径为来源', async () => {
+  it('自动清扫经历史端点拿到 not_executed（收据）⇒ 释放；决定行记 system:sweep 发起、历史路径为来源', async () => {
     const { id: claimId, key } = await seedClaim(TOOL_SWEEP, 'auto', 'open');
-    target.answers.set(key, { status: 'not_executed' });
+    // R-9: a hold is released on a `not_executed` only when the reading is a receipt (or the target
+    // declares it honours the idempotency key). This target answers from its acceptance record.
+    // R-9：只有收据（或目标声明遵守幂等键）上的 `not_executed` 才释放占位。本目标读的是自己的受理记录。
+    target.answers.set(key, { status: 'not_executed', basis: 'receipt' });
 
     // The sweep's own entry: the hourly cron, not a hand-copied call to its inner pass.
     // 清扫自己的入口：每小时那个 cron，而不是手工抄一遍它内部的 pass。
