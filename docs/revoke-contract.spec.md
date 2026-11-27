@@ -590,7 +590,9 @@ column — the readings are recorded once there and are not restated in the pros
 current-state reading cannot establish "never accepted". Both kinds are answers this repository's own
 reference target gives over the wire: an end-to-end case carries a `receipt` reading from the probe
 through the stored row into this column, the lookup history and the in-flight `lastLookup`, and keeps
-`current_state` a different value on all three (F-128). A release with no asks behind it says so
+`current_state` a different value on all three (F-128). The six-answer export (U1) reads this column
+as data and states the newest reading's kind in the Result cell, so a CSV taken away keeps the same
+distinction without parsing prose (R-10). A release with no asks behind it says so
 outright rather than leaving a blank that would read as a default — and it says **which kind of
 none**: `lookups: none (never queried)` when the tool has a usable status query that nobody used,
 `lookups: none (not askable — this tool has no usable status query)` when there is no channel to ask
@@ -736,7 +738,8 @@ reading and never moves the row — while freshness only filters and badges.
 `basis`（R-1）取 `current_state` | `receipt` | `unknown`，说的是答案**基于什么** —— 当前状态读数
 确立不了「从未被接受」。两种种类都是本仓参考目标真的从线上给出的答案：一条端到端用例把 `receipt`
 读数从探针经落库的行带进这一列、查询历史与在途清单的 `lastLookup`，并让 `current_state` 在三处都保持
-另一个取值（F-128）。一次都没问过的释放会明写出来，而不是留空让人当默认值 —— 并且写明是
+另一个取值（F-128）。六问导出（U1）把这一列当数据读，并在「结果」列写出最新读数的种类 —— 于是一份被
+带走的 CSV 不必解析散文也保住了同一个区分（R-10）。一次都没问过的释放会明写出来，而不是留空让人当默认值 —— 并且写明是
 **哪一种「没有」**：工具有可用的状态查询却没人用过，写作 `lookups: none (never queried)`；根本没有
 可问的通道，写作 `lookups: none (not askable — this tool has no usable status query)`。链外列以
 `askable` 承载同一区分（`true` / `false` / 写入进程判断不了时的 `null`），于是「问过 N 次」「可问但

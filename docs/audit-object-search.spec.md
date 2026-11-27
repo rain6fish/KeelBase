@@ -53,6 +53,18 @@ person reads. So it keeps that id and their name snapshot and declares the **cha
 automation`) instead; the cell reads the channel first and says **"Automated"** as well. The same
 sweep therefore renders the same initiator on both rows, and neither of them claims the person acted.
 
+**The Result cell says what a release's newest reading was based on.** A release row records a
+decision, so its Result word is the state (usually `Result unknown`, or `Rejected` for a refused
+release). Its evidence — the newest reading copied into the off-chain `releaseLookups` column — says
+whether that answer came from the target's **current state** or from the target's **receipt** (R-1).
+The export appends that kind to the Result cell in product words (`… — the newest reading is a
+current-state reading` / `… — the newest reading is a receipt reading`), and says so when the kind
+was not recorded or when this ask's reading is missing. The distinction therefore travels **inside
+the file**: two rows whose answers differ only in what they were based on are not the same exported
+row. It stays one column on purpose — the kind is a property of the result's evidence, not a seventh
+question, and no new contract field is read. `basis` is read as data from the off-chain column;
+`detail` is still never parsed.
+
 ### 3. Search semantics
 
 **Object identity is the write claim.** An audit row carries no business object. The only
@@ -160,6 +172,15 @@ zero-internal-names property is testable without a browser.
 把它放进操作人本人读取范围的东西（`audit-reader-scope.ts`），写成 `system:` 的 id 会把这行挪出那个人
 自己读的轨迹。故它保留那个 id 与姓名快照，改为声明**频道**（`source: automation`）；这一列先读频道，
 同样写 `Automated`。同一次清扫的两行因此给出同一个发起人，而两行都不再声称这个人动过手。
+
+**「结果」列写出释放行最新读数基于什么。** 释放行记的是一次决定，故其结果词是状态（通常是
+`Result unknown`，被拒的释放是 `Rejected`）。它的证据 —— 拷进链外 `releaseLookups` 列的最新读数
+—— 说明这个答案来自目标的**当前状态**还是目标的**收据**（R-1）。导出把这个种类以产品词接在结果列后
+（`… — the newest reading is a current-state reading` /
+`… — the newest reading is a receipt reading`），种类未记录、或这一次询问的读数缺失时也如实说出来。
+于是这个区分**随文件一起走**：两条仅
+「基于什么」不同的答案，导出后不是同一行。它有意仍是一列 —— 种类是结果**证据**的性质，不是第七个
+问题，也没有读入任何新的契约字段。`basis` 本身从链外列按数据读出；`detail` 仍然从不解析。
 
 ### 3. 检索语义
 

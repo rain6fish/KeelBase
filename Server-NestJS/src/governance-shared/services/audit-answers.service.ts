@@ -21,7 +21,8 @@ import {
   productInitiatorLabel,
   productObjectCell,
   productObjectLabel,
-  productResultLabel,
+  productResultCell,
+  type ReadingKindFacts,
 } from './audit-export-vocabulary';
 
 export interface AnswerExportOptions {
@@ -60,7 +61,9 @@ export interface AnswerMatrix {
  * `username` snapshot; the effect reached through the claim; the confirmation reached through the
  * claim's `authorizationRef`. `detail` / `errorMessage` are never parsed — that parsing is what the
  * answer set exists to remove. The result cell reuses `explainState`, the same derivation the
- * single-event explanation shows, so the two views cannot disagree.
+ * single-event explanation shows, so the two views cannot disagree. A release row adds the newest
+ * reading's kind from the off-chain `releaseLookups` column, so a CSV taken away keeps the
+ * current-state / receipt distinction R-1 introduced.
  *
  * <p><b>Bulk by construction.</b> The single-event explanation resolves one row at a time. This
  * export resolves claims, effects and confirmations in three `IN` queries for the whole page, so a
@@ -71,7 +74,8 @@ export interface AnswerMatrix {
  * <p>每一格读的是一列，不是散文：审计行的 `createdAt` / `tool` / `outcome` / `username` 快照；经占位行
  * 到达的副作用行；经占位行 `authorizationRef` 到达的确认行。`detail` / `errorMessage` **从不解析**
  * —— 那正是本题集要消掉的解析。结果列复用 `explainState`，与单事件解释面同一处推导，故两个视图不会
- * 各说各的。
+ * 各说各的。释放行在结果列补上最新读数的种类（读自链外 `releaseLookups` 列），于是带走的一份 CSV
+ * 仍保留 R-1 引入的「当前状态 / 收据」之分。
  *
  * <p><b>按批装配。</b> 单事件解释一行一行地解析；本导出对整页用三条 `IN` 查询取回占位行、副作用行与
  * 确认行，故 500 行导出是五次查询，而不是 500 × 4 次。
@@ -263,11 +267,16 @@ export class AuditAnswersService {
       });
 
     const authorizationShape = parseAuthorizationShape(row.authorization);
+    // A release row's evidence says what its answer was based on; the Result cell carries that kind
+    // so the type travels with the file. Other actions have no copied reading.
+    // 释放行的证据说明答案基于什么；结果列带上这个种类，于是它随文件一起被带走。其余动作没有拷贝读数。
+    const reading =
+      row.action === 'claim_release' ? parseReadingKinds(row.releaseLookups) : null;
 
     return [
       formatUtc(row.createdAt),
       productActionLabel(row.tool, row.action),
-      productResultLabel(state),
+      productResultCell(state, reading),
       productObjectCell(effect ? { resultType: effect.resultType, resultId: effect.resultId } : null),
       productAuthorizationLabel({
         confirmation: confirmation
@@ -342,6 +351,33 @@ export class AuditAnswersService {
  */
 function approverKey(conversationId: string, approverId: string): string {
   return `${conversationId}\u0000${approverId}`;
+}
+
+/**
+ * The reading kinds a release row carries, read from the off-chain `releaseLookups` column as data —
+ * never from `detail`. `null` when the column is absent (not a release row, or a refusal) or cannot
+ * be read. A kind this vocabulary does not know is reported as `unknown`, never echoed.
+ *
+ * 释放行携带的读数种类，从链外 `releaseLookups` 列按数据读出 —— 绝不解析 `detail`。列缺席（非释放行，
+ * 或一次拒绝）或读不出时为 `null`。本词表不认识的种类报 `unknown`，绝不原样回显。
+ */
+function parseReadingKinds(raw: string | null | undefined): ReadingKindFacts | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as { items?: unknown; recorded?: unknown };
+    if (!parsed || typeof parsed !== 'object') return null;
+    const items = Array.isArray(parsed.items) ? parsed.items : [];
+    const newest = items[0] as { basis?: unknown } | undefined;
+    const latest =
+      newest && typeof newest === 'object'
+        ? newest.basis === 'current_state' || newest.basis === 'receipt'
+          ? newest.basis
+          : 'unknown'
+        : null;
+    return { latest, askUnrecorded: parsed.recorded === false };
+  } catch {
+    return null;
+  }
 }
 
 function parseAuthorizationShape(raw: string | null | undefined): 'denied' | 'allowed' | null {

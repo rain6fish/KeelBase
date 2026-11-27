@@ -9,6 +9,7 @@ import {
   productInitiatorLabel,
   productObjectCell,
   productObjectLabel,
+  productResultCell,
   productResultLabel,
 } from './audit-export-vocabulary';
 import { EXPLANATION_STATES } from './audit-explanation-state';
@@ -78,6 +79,29 @@ describe('audit export vocabulary', () => {
     }
     expect(productResultLabel('executed')).toBe('Executed');
     expect(productResultLabel('not_executed')).toBe('Not executed');
+  });
+
+  it('the Result cell carries a release reading’s kind in product words (R-10)', () => {
+    const currentState = productResultCell('result_unknown', {
+      latest: 'current_state',
+      askUnrecorded: false,
+    });
+    const receipt = productResultCell('result_unknown', {
+      latest: 'receipt',
+      askUnrecorded: false,
+    });
+    // The two readings differ inside the export itself, and neither leaks the stored token.
+    // 两种读数在导出内部即不同，且都没有漏出存储用的令牌。
+    expect(currentState).not.toBe(receipt);
+    expect(currentState).toContain('current-state reading');
+    expect(receipt).toContain('receipt reading');
+    expect(
+      productResultCell('result_unknown', { latest: 'unknown', askUnrecorded: false }),
+    ).toContain('kind was not recorded');
+    expect(productResultCell('executed', null)).toBe('Executed');
+    expect(
+      scanForInternalNames([currentState, receipt, productResultCell('executed', null)]),
+    ).toEqual([]);
   });
 
   it('authorization: names the second person when known, and never invents a name', () => {

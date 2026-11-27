@@ -83,11 +83,13 @@ describe('U1: search by business object + export the six answers', () => {
     username: string;
     createdAt: Date;
     tool: string;
-    outcome: string;
+    outcome: string | null;
     isError?: boolean;
     authorization?: string | null;
     action?: string;
     conversationId?: string;
+    detail?: string;
+    releaseLookups?: string | null;
   }): Promise<number> {
     const repo = ds.getRepository('ai_audit_logs');
     const saved = await repo.save({
@@ -96,7 +98,8 @@ describe('U1: search by business object + export the six answers', () => {
       action: opts.action ?? 'tool_call',
       tool: opts.tool,
       outcome: opts.outcome,
-      detail: `${opts.tool}({})`,
+      detail: opts.detail ?? `${opts.tool}({})`,
+      releaseLookups: opts.releaseLookups ?? null,
       isError: opts.isError ?? false,
       authorization: opts.authorization ?? null,
       conversationId: opts.conversationId ?? `conv-${opts.username}-${opts.tool}`,
@@ -322,6 +325,46 @@ describe('U1: search by business object + export the six answers', () => {
       isError: true,
       authorization: JSON.stringify([{ name: 'risk_policy', ok: false }]),
     });
+
+    // R-10: two releases whose newest readings differ only in kind. A CSV taken away must keep the
+    // current-state / receipt distinction, so the export reads the off-chain column as data.
+    // R-10：两次释放，最新读数仅种类不同。带走的一份 CSV 必须保住「当前状态 / 收据」之分，故导出
+    // 把链外列当数据读。
+    const reading = (basis: string, id: number) =>
+      JSON.stringify({
+        count: 1,
+        askable: true,
+        items: [
+          {
+            id,
+            at: '2026-11-05T10:12:00.000Z',
+            conclusion: 'not_executed',
+            reason: null,
+            basis,
+            lookedUpBy: 'u1_admin',
+          },
+        ],
+      });
+    await insertAuditRow({
+      userId: userA.id,
+      username: 'u1_user',
+      createdAt: new Date('2026-11-05T10:13:00Z'),
+      tool: 'create_event',
+      outcome: null,
+      action: 'claim_release',
+      detail: 'release write claim #7 (create_event, as user 3) → released; origin: target answered …',
+      releaseLookups: reading('current_state', 901),
+    });
+    await insertAuditRow({
+      userId: userA.id,
+      username: 'u1_user',
+      createdAt: new Date('2026-11-05T10:14:00Z'),
+      tool: 'create_event',
+      outcome: null,
+      action: 'claim_release',
+      detail: 'release write claim #8 (create_event, as user 3) → released; origin: target answered …',
+      releaseLookups: reading('receipt', 902),
+    });
   });
 
   afterAll(async () => {
@@ -430,6 +473,27 @@ describe('U1: search by business object + export the six answers', () => {
     expect(blocked![2]).toBe('Rejected');
     expect(blocked![3]).toBe('Not recorded');
     expect(blocked![4]).toBe('Refused (no approval recorded)');
+    expect(
+      scanForInternalNames(matrix.rows.flat(), { allowedHumanNames: ['u1_user', 'u1_admin'] }),
+    ).toEqual([]);
+  });
+
+  it('a release exports what its newest reading was based on — current state versus receipt', async () => {
+    const res = await request(app.getHttpServer())
+      .get(`/api/v1/audit/answers?since=${SINCE}&until=${UNTIL}`)
+      .set(authHeader(auditor.token))
+      .expect(200);
+    const matrix = res.body.data as AnswerMatrix;
+    const results = matrix.rows
+      .filter((r) => r[1] === 'Write-hold release')
+      .map((r) => r[2])
+      .sort();
+    // The two readings are distinguishable from the exported rows alone — no prose parsing.
+    // 两种读数仅凭导出的行即可区分 —— 不解析散文。
+    expect(results).toEqual([
+      'Result unknown — the newest reading is a current-state reading',
+      'Result unknown — the newest reading is a receipt reading',
+    ]);
     expect(
       scanForInternalNames(matrix.rows.flat(), { allowedHumanNames: ['u1_user', 'u1_admin'] }),
     ).toEqual([]);
