@@ -477,7 +477,11 @@ export class AiToolEffectsService {
           // R-1: no answer, so no basis. / R-1：没有答案，也就没有种类。
           basis: null,
         };
-    await this._recordLookup(claim, byUserId, evidence);
+    // R-6b residual: whether **this** ask's row landed is a fact only the writer knows. The release
+    // row must carry it, or older readings will read as evidence of an answer that was never recorded.
+    // R-6b 残留：**这一次**询问的行有没有落库，只有写方知道。释放行必须带上它，否则更早的读数会被
+    // 读成一次根本没记下的答案的证据。
+    const lookupRecorded = await this._recordLookup(claim, byUserId, evidence);
 
     if (evidence.conclusion === TARGET_STATUS.UNKNOWN) {
       return {
@@ -518,15 +522,19 @@ export class AiToolEffectsService {
     //
     // 只在这里写，且在条件更新报「已动」之后：先写的话，可能记下一次输给并发落定或人工释放的释放。
     if (evidence.conclusion === TARGET_STATUS.NOT_EXECUTED) {
-      await this.writeClaimDecision?.recordTargetRelease(claim, {
-        byUserId,
-        byUsername,
-        automatic: byUserId === SYSTEM_SWEEP_LOOKUP_ACTOR,
-        conclusion: evidence.conclusion,
-        queryMethod: evidence.queryMethod,
-        queryPath: evidence.queryPath,
-        queriedAt: evidence.queriedAt,
-      });
+      await this.writeClaimDecision?.recordTargetRelease(
+        claim,
+        {
+          byUserId,
+          byUsername,
+          automatic: byUserId === SYSTEM_SWEEP_LOOKUP_ACTOR,
+          conclusion: evidence.conclusion,
+          queryMethod: evidence.queryMethod,
+          queryPath: evidence.queryPath,
+          queriedAt: evidence.queriedAt,
+        },
+        lookupRecorded,
+      );
     }
 
     return {
@@ -745,14 +753,23 @@ export class AiToolEffectsService {
     return stats;
   }
 
-  /** AW-17：把一次查询落成证据行。落库失败只告警 —— 账的移动由目标自己的回答支撑，不由这张表。 */
+  /**
+   * AW-17：把一次查询落成证据行。落库失败只告警 —— 账的移动由目标自己的回答支撑，不由这张表。
+   *
+   * R-6b residual: the outcome is returned so the caller can say whether **this** ask was recorded.
+   * Swallowing the failure here and leaving the fact only in a log is what let an older reading stand
+   * in for a missing one on the release row.
+   *
+   * R-6b 残留：结果要返回给调用方，好让它说得出**这一次**询问有没有记下。把失败吞在这里、只留在日志里，
+   * 正是旧读数得以在释放行上冒充缺失那一条的原因。
+   */
   private async _recordLookup(
     claim: AiWriteClaim,
     byUserId: string,
     evidence: TargetStatusLookup,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const repo = this.lookupsRepo;
-    if (!repo) return;
+    if (!repo) return false;
     try {
       await repo.save(
         repo.create({
@@ -769,10 +786,12 @@ export class AiToolEffectsService {
           basis: evidence.basis,
         }),
       );
+      return true;
     } catch (err) {
       this.logger.warn(
         `[AiToolEffects] AW-17 target-status lookup not recorded (${claim.idempotencyKey}): ${(err as Error).message}`,
       );
+      return false;
     }
   }
 

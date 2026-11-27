@@ -887,7 +887,7 @@ describe('AW-16 F-63/F-64：释放程序与过期策略', () => {
       // 「问过但记录缺失」优先于「可问但没问」，不会退回第二态。
       // The lookup table is empty, so `count` / `find` return 0 — what a swallowed insert leaves
       // behind. The probe says askable, so "asked but not recorded" must win over "askable, not asked".
-      const auditRowId = await serviceWithProbe(true).recordTargetRelease(claim, trigger);
+      const auditRowId = await serviceWithProbe(true).recordTargetRelease(claim, trigger, false);
 
       const row = await auditRepo().findOneByOrFail({ id: auditRowId });
       expect(row.action).toBe('claim_release');
@@ -945,9 +945,12 @@ describe('AW-16 F-63/F-64：释放程序与过期策略', () => {
     });
 
     const manualClaim = await seed();
+    // No lookup rows here, so this ask's row is missing — the boolean states what the table shows.
+    // 这里没有读数行，故这一次的行缺失 —— 布尔值陈述的正是表里的样子。
     const manualId = await serviceWithProbe(true).recordTargetRelease(
       manualClaim,
       trigger('7', 'audit_admin'),
+      false,
     );
     const manualRow = await auditRepo().findOneByOrFail({ id: manualId });
     expect(manualRow.userId).toBe('7');
@@ -957,6 +960,7 @@ describe('AW-16 F-63/F-64：释放程序与过期策略', () => {
     const sweepId = await serviceWithProbe(true).recordTargetRelease(
       sweepClaim,
       trigger('system:sweep', undefined, true),
+      false,
     );
     const sweepRow = await auditRepo().findOneByOrFail({ id: sweepId });
     expect(sweepRow.userId).toBe('system:sweep');
