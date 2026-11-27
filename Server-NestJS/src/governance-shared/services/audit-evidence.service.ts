@@ -151,7 +151,13 @@ export interface ActionReportExport {
   exportedAt: string;
   /** 生成的工具（AUDIT_HMAC_KEY 或 ENCRYPTION_KEY，非空时） */
   generator: string;
-  /** A2：证据包格式版本（'keelbase-audit-evidence/2'——A-6 含 compliance 段） */
+  /**
+   * A2: the evidence-package format version (`keelbase-audit-evidence/5` — the A-6 compliance
+   * section plus the signed `releaseReadings` section; `/1`–`/4` are historical).
+   *
+   * A2：证据包格式版本（`keelbase-audit-evidence/5` —— A-6 的 compliance 段 + 入签的
+   * `releaseReadings` 段；`/1`–`/4` 为历史版本）。
+   */
   format: string;
   /** ActionReport 全量（含 hashChain verify） */
   report: ActionReport;
@@ -204,7 +210,13 @@ export interface ActionReportExport {
   signature: EvidenceSignature | null;
 }
 
-/** ① 证据根（§internal.17 ①，keelbase-audit-evidence/4）：单条 Business Action 跨链证据根（AUDIT-ID），离线整包验 */
+/**
+ * ① Evidence root (§internal.17 ①, current `keelbase-audit-evidence/6`): the cross-chain evidence
+ * root of one Business Action (AUDIT-ID), verified as a whole package offline.
+ *
+ * ① 证据根（§internal.17 ①，当前 `keelbase-audit-evidence/6`）：单条 Business Action 跨链证据根
+ * （AUDIT-ID），离线整包验。
+ */
 export interface EvidenceRootExport {
   exportedAt: string;
   generator: string;
@@ -721,8 +733,16 @@ export class AuditEvidenceService {
   }
 
   /**
-   * ① 证据根（§internal.17 ①，docs/evidence-root.spec.md）：单条 Business Action（resultType:resultId）→ keelbase-audit-evidence/4
-   * 跨链证据根——授权快照(含 policy.revision) + Decision Evidence + AI 审计链行 + 副作用行 + operation_audit 链行 + 跨链根锚。
+   * ① Evidence root (§internal.17 ①, docs/evidence-root.spec.md): one Business Action
+   * (resultType:resultId) → `keelbase-audit-evidence/6`, the cross-chain evidence root — the
+   * authorization snapshot (with policy.revision) + Decision Evidence + AI audit chain rows + the
+   * side-effect row + operation_audit chain rows + the cross-chain root anchors.
+   * Authorization: the owner (effect.userId === viewer) or an administrator; no side effect → 404,
+   * neither owner nor admin → 403.
+   *
+   * ① 证据根（§internal.17 ①，docs/evidence-root.spec.md）：单条 Business Action（resultType:resultId）→
+   * `keelbase-audit-evidence/6` 跨链证据根 —— 授权快照(含 policy.revision) + Decision Evidence +
+   * AI 审计链行 + 副作用行 + operation_audit 链行 + 跨链根锚。
    * 鉴权：本人（effect.userId===viewer）或管理员；无副作用 404、非本人非 admin 403。
    */
   async getEvidenceRoot(
