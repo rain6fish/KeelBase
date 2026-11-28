@@ -1051,7 +1051,7 @@ const zh = {
   techDetail: '技术详情',
   governanceWhy: '为何允许',
   exportEvidenceRoot: '导出证据根',
-  evidenceRootExported: '已导出证据根（keelbase-audit-evidence/4）。离线验证：node scripts/verify-evidence.mjs <文件> --key <AUDIT_HMAC_KEY>',
+  evidenceRootExported: '已导出证据根（keelbase-audit-evidence/6）。离线验证：node scripts/verify-evidence.mjs <文件> --key <AUDIT_HMAC_KEY>',
   evidenceRootExportFailed: '导出证据根失败',
   governanceResult: '结果',
   governanceIntegrity: '完整性',

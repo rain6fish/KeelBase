@@ -347,7 +347,7 @@ carries the standing ruling on `JV-64`: **乙**.
 - **Evidence path = 乙.** Under a Java-host deployment the complete evidence package is taken **from the
   TypeScript governance console**, not from the host:
   `GET /api/v1/ai/governance/evidence-root/<resultType>/<resultId>` returns
-  `format: keelbase-audit-evidence/4`, whose `coverage` section is mandatory, and
+  `format: keelbase-audit-evidence/6`, whose `coverage` section is mandatory, and
   `node Server-NestJS/scripts/verify-evidence.mjs <pkg.json>` checks it offline. The host runtime keeps
   only the verifiable audit chain (`GET /audit/verify`); it exports no evidence package and no evidence
   root. 甲 is allowed only when the delivery itself requires host-self-sufficient evidence — the form
@@ -375,7 +375,7 @@ registry and one producer, and these are the places to read it:
   host **page** that would render it is a host-side change: it is not in this checkout, and it is left to
   the host session.
 - **Evidence artifact:** the package from `/api/v1/ai/governance/evidence-root/...`
-  (`keelbase-audit-evidence/4`), verified offline by `Server-NestJS/scripts/verify-evidence.mjs`.
+  (`keelbase-audit-evidence/6`), verified offline by `Server-NestJS/scripts/verify-evidence.mjs`.
 
 #### 11.2 Blank form (copy this, fill every line)
 
@@ -396,7 +396,7 @@ evidence-path: [乙]
 evidence-path-basis (required when 甲):
 evidence-path-host-package (the host must answer 404): [404 / 200+code:404 / unreachable]
 evidence-path-host-chain (the host GET /audit/verify): [200 / 401 / 403 / other]
-evidence-path-ts-package (the TS governance console): [keelbase-audit-evidence/4 / unreachable]
+evidence-path-ts-package (the TS governance console): [keelbase-audit-evidence/6 / unreachable]
 evidence-path-ts-verify (verify-evidence.mjs): [no ✗ / has ✗ / not run]
 
 Coverage statement (W2.3 · AW-3)
@@ -729,7 +729,7 @@ grep -rl asset_loans Server-NestJS/public/admin/assets       # → 部署出的�
 
 - **取证路径 = 乙。** Java 宿主部署下，完整证据包**从 TypeScript 治理台取**，不从宿主取：
   `GET /api/v1/ai/governance/evidence-root/<resultType>/<resultId>` 返回
-  `format: keelbase-audit-evidence/4`，其 `coverage` 段为必填；
+  `format: keelbase-audit-evidence/6`，其 `coverage` 段为必填；
   `node Server-NestJS/scripts/verify-evidence.mjs <pkg.json>` 可离线核验。宿主运行时只保留可校验的审计链
   （`GET /audit/verify`），不导出证据包、也不导出证据根。只有**本次交付本身要求宿主自足取证**时才可写甲 ——
   那时单子上要写明该要求，以及提供证据包的宿主端点。
@@ -750,7 +750,7 @@ grep -rl asset_loans Server-NestJS/public/admin/assets       # → 部署出的�
   `Server-NestJS/src/governance-core/coverage-gaps.ts`。
 - **Java 宿主：** `GET /audit/coverage`（宿主运行时 v0.1.10 起），由镜像登记表 `conformance/coverage-gaps.json`
   组装，宿主事实在 `keelbase.coverage.*` 下声明。渲染它的宿主**页面**属于宿主侧改动：本检出里没有，留给宿主会话。
-- **证据产物：** 来自 `/api/v1/ai/governance/evidence-root/...` 的证据包（`keelbase-audit-evidence/4`），
+- **证据产物：** 来自 `/api/v1/ai/governance/evidence-root/...` 的证据包（`keelbase-audit-evidence/6`），
   离线用 `Server-NestJS/scripts/verify-evidence.mjs` 核验。
 
 #### 11.2 空白单（照抄，逐行填）
@@ -772,7 +772,7 @@ evidence-path: [乙]
 evidence-path-basis（选甲时必填）:
 evidence-path-host-package（宿主应回 404）: [404 / 200+code:404 / 不可达]
 evidence-path-host-chain（宿主 GET /audit/verify）: [200 / 401 / 403 / 其它]
-evidence-path-ts-package（TS 治理台）: [keelbase-audit-evidence/4 / 不可达]
+evidence-path-ts-package（TS 治理台）: [keelbase-audit-evidence/6 / 不可达]
 evidence-path-ts-verify（verify-evidence.mjs）: [无 ✗ / 有 ✗ / 未跑]
 
 覆盖声明（W2.3 · AW-3）

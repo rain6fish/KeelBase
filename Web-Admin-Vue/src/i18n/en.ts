@@ -1052,7 +1052,7 @@ const en: ZhDict = {
   techDetail: 'Technical details',
   governanceWhy: 'Why allowed',
   exportEvidenceRoot: 'Export evidence root',
-  evidenceRootExported: 'Exported evidence root (keelbase-audit-evidence/4). Verify offline: node scripts/verify-evidence.mjs <file> --key <AUDIT_HMAC_KEY>',
+  evidenceRootExported: 'Exported evidence root (keelbase-audit-evidence/6). Verify offline: node scripts/verify-evidence.mjs <file> --key <AUDIT_HMAC_KEY>',
   evidenceRootExportFailed: 'Failed to export evidence root',
   governanceResult: 'Result',
   governanceIntegrity: 'Integrity',

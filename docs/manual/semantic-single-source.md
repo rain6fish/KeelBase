@@ -22,7 +22,7 @@ KeelBase 的关键能力 = 同一 Application Semantic Layer 连 Build 与 Run�
 | `Server-NestJS/src/ai/audit/ai-business-event.ts` | 业务事件命名 |
 | `Server-NestJS/src/governance-shared/services/revoke-class.ts` | 撤销档位（KB-6 单源；`tool.interface.ts` 再导出） |
 | `Server-NestJS/src/governance-shared/services/audit.service.ts` | 审计 action/outcome 词表（由 `ai-audit-log-outcome-v1` 冻结）+ 链写入 |
-| `Server-NestJS/src/governance-shared/services/audit-evidence.service.ts` | 证据包 `/2` `/4` 格式与 Action Report（其 schema 点名本文件为来源） |
+| `Server-NestJS/src/governance-shared/services/audit-evidence.service.ts` | 证据包 `/5` 与证据根 `/6` 格式与 Action Report（其 schema 点名本文件为来源） |
 | `Server-NestJS/src/governance-shared/services/effect-chain.ts` | 副作用链 canonical 载荷：契约哈希覆盖哪些列 |
 | `Server-NestJS/src/governance-shared/services/effect-composition.ts` | 复合写声明的形状：`ToolResult.data.effects[]` 决定哪些行同属一个补偿组 |
 | `Server-NestJS/src/governance-shared/services/effect-projection.ts` | 对外可见的副作用 `status`（四值冻结）与 `revocable` |

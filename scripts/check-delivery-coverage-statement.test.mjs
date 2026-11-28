@@ -48,7 +48,7 @@ const filledForm = () =>
     ['evidence-path', '[乙]'],
     ['evidence-path-host-package', '[404]'],
     ['evidence-path-host-chain', '[200]'],
-    ['evidence-path-ts-package', '[keelbase-audit-evidence/4]'],
+    ['evidence-path-ts-package', '[keelbase-audit-evidence/6]'],
     ['evidence-path-ts-verify', '[no ✗]'],
     ['host-write-not-in-same-transaction', '[not-applicable] basis: the host writes nothing here'],
     ['host-ai-path-not-governed', '[not-applicable] basis: the host runs no AI path of its own'],

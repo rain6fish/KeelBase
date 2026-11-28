@@ -59,7 +59,7 @@ const SEMANTIC_SOURCES = [
   'Server-NestJS/src/ai/audit/ai-business-event.ts',   // 业务事件命名（语义）
   // governance-shared/services/ — swept 2026-10-25; contract-owning files only —
   // 2026-10-25 逐文件核过，只收拥有契约语义的文件。
-  'Server-NestJS/src/governance-shared/services/audit-evidence.service.ts', // audit-evidence/2 and /4 package formats + action report, whose schema names this file as its source — 证据包 /2 /4 格式与 Action Report（其 schema 点名本文件为来源）
+  'Server-NestJS/src/governance-shared/services/audit-evidence.service.ts', // audit-evidence/5 package and /6 evidence-root formats + action report, whose schema names this file as its source — 证据包 /5 与证据根 /6 格式与 Action Report（其 schema 点名本文件为来源）
   'Server-NestJS/src/governance-shared/services/audit.service.ts', // audit action/outcome vocabulary (frozen by ai-audit-log-outcome-v1) + chain write — 审计 action/outcome 词表（由 ai-audit-log-outcome-v1 冻结）与链写入
   'Server-NestJS/src/governance-shared/services/effect-chain.ts', // side-effect chain canonical payload: which columns the contract's hash covers — 副作用链 canonical 载荷：契约哈希覆盖哪些列
   'Server-NestJS/src/governance-shared/services/effect-composition.ts', // declared shape of a multi-table write: `ToolResult.data.effects[]` decides which rows share one compensation group — 复合写声明的形状：`ToolResult.data.effects[]` 决定哪些行同属一个补偿组
