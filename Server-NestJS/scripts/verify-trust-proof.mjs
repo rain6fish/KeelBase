@@ -9,7 +9,7 @@
  *   S2 越权拒绝：bob 访问 alex 数据 → 403（行级权限）
  *   S3 高风险动作：AI 尝试删除客户 → R5 BLOCKED（不可逆动作策略阻断）
  *   S4 人工确认：AI 写操作 → confirmation_request → approve → 落库
- *   S7 证据根（KB-3）：AI 写动作导出 v3 → verify-evidence.mjs 离线验 PASS → 篡改锚即 FAIL
+ *   S7 证据根（KB-3）：AI 写动作导出 /6 → verify-evidence.mjs 离线验 PASS → 篡改锚即 FAIL
  *   S5 撤销：本人撤销 AI 副作用 → 软删（可经回收站恢复）
  *   S6 Java 存量系统：引导到 java-starter 独立验证（verify-crm-e2e.mjs）
  *
@@ -264,8 +264,8 @@ async function main() {
     }
   }
 
-  // ── S7 证据根（KB-3）：单动作导出 v3 → 离线验证 PASS → 篡改即现形（回应"哈希链锚在哪"）──
-  console.log('\n[S7] 证据根（跨链锚定）：AI 写动作导出 v3 → 离线验证 PASS → 篡改检测 FAIL');
+  // ── S7 证据根（KB-3）：单动作导出 /6 → 离线验证 PASS → 篡改即现形（回应"哈希链锚在哪"）──
+  console.log('\n[S7] 证据根（跨链锚定）：AI 写动作导出 /6 → 离线验证 PASS → 篡改检测 FAIL');
   if (!approvedResultId) {
     bad('S7 证据根导出', '跳过：S4 未产生 AI 写动作（无 approvedResultId）');
   } else {
@@ -276,9 +276,9 @@ async function main() {
     } else {
       const exp = await api(`/ai/governance/evidence-root/crm_task/${approvedResultId}`, { token: alice.token });
       if (exp.status !== 200 || !exp.data) {
-        bad('导出证据根 v3', `GET /ai/governance/evidence-root/crm_task/${approvedResultId} status=${exp.status}`);
-      } else if (!String(exp.data?.format ?? '').includes('/3')) {
-        bad('证据根格式 v3', `format=${exp.data?.format ?? '(缺失)'}`);
+        bad('导出证据根 /6', `GET /ai/governance/evidence-root/crm_task/${approvedResultId} status=${exp.status}`);
+      } else if (exp.data?.format !== 'keelbase-audit-evidence/6') {
+        bad('证据根格式 /6', `format=${exp.data?.format ?? '(缺失)'}`);
       } else {
         const ts7 = new Date().toISOString().replace(/[:.]/g, '-');
         const benchDir = resolve(__dirname, '../docs/benchmark');
