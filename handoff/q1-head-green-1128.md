@@ -1,7 +1,7 @@
 # Q1 — HEAD back to green: the trust-proof corpus names the evidence root `/6` (2026-11-28)
 
 - Worktree `.claude/worktrees/festive-kepler-429e20` / branch `claude/great-khayyam-cc4177`, based on local `main` `638ef385`.
-- Fix commit `7cd5c6ae`, handoff `c69d4662`. The branch was pushed to GitHub (`github`) on 2026-11-28 at `c69d4662`, verified by `ls-remote`; Gitee was not pushed (only GitHub runs CI). No tag, no release; contract repo, private repo, Q2/Q3 files untouched.
+- Fix commit `7cd5c6ae`, handoff `c69d4662`. The branch was pushed to GitHub (`github`) on 2026-11-28; Gitee was not pushed (only GitHub runs CI). No tag, no release; contract repo, private repo, Q2/Q3 files untouched.
 
 ## What was red
 
@@ -52,9 +52,11 @@ gitlink is unchanged, and the submodule now matches HEAD (parent `git status` cl
 
 ## Not done
 
-- **No CI run exists for the new HEAD yet.** `ci.yml` triggers only on a push to `main` or a pull
-  request to `main`, so the branch push does not start it. Q1's acceptance (the `test` job on the new
-  HEAD) needs either a PR to main or landing `7cd5c6ae` on main.
+- **Q1's acceptance is met.** The fix reached `main` as `bcf3bb7e`; CI run `46106315422` (push,
+  `b9b61d08` — the first main head containing it) succeeded, with the **`test` job success** and the
+  other 38 jobs success (`https://github.com/rain6fish/KeelBase/actions/runs/46106315422`). The same
+  head's CodeQL run `46106315470` succeeded. `ci.yml` triggers only on a push to `main` or a pull
+  request to `main`, so a branch push alone starts no run.
 - Three outward documents still carry the old "v3" wording; left alone as outside Q1: `docs/evidence/README.md:116`,
   `docs/evidence-root.spec.md:189`, `docs/manual/security-showcase.md:43`. (`docs/manual/delivery-recipe.md`
   pins `/4` and is checked by `scripts/check-delivery-coverage-statement.mjs`; also untouched.)
@@ -65,7 +67,7 @@ gitlink is unchanged, and the submodule now matches HEAD (parent `git status` cl
 # Q1 —— HEAD 回绿：Trust 证明包改断证据根 `/6`（2026-11-28）
 
 - 工作树 `.claude/worktrees/festive-kepler-429e20` / 分支 `claude/great-khayyam-cc4177`，基于本地 `main` `638ef385`。
-- 修复提交 `7cd5c6ae`，交接 `c69d4662`。分支已于 2026-11-28 推到 GitHub（`github`），远端指向 `c69d4662`（`ls-remote` 核对）；Gitee 未推（CI 只在 GitHub 跑）。未打 tag、未发版；契约仓、私库、Q2/Q3 的文件均未动。
+- 修复提交 `7cd5c6ae`，交接 `c69d4662`。分支已于 2026-11-28 推到 GitHub（`github`）；Gitee 未推（CI 只在 GitHub 跑）。未打 tag、未发版；契约仓、私库、Q2/Q3 的文件均未动。
 
 ## 红在哪
 
@@ -113,8 +115,10 @@ NODE_ENV=test npx jest --config test/jest-e2e.json --runTestsByPath test/scenari
 
 ## 未做
 
-- **新 HEAD 上还没有 CI run。** `ci.yml` 只在 `main` 被推送或向 `main` 开 PR 时触发，分支推送
-  不会启动它。Q1 的验收（新 HEAD 上的 `test` 作业）需要向 main 开 PR，或把 `7cd5c6ae` 落到 main。
+- **Q1 的验收已满足。** 修复经 `bcf3bb7e` 落到 `main`；CI run `46106315422`（push，`b9b61d08` ——
+  含该修复的第一个 main HEAD）success，其中 **`test` 作业 success**，其余 38 个作业也是 success
+  （`https://github.com/rain6fish/KeelBase/actions/runs/46106315422`）。同一 HEAD 的 CodeQL run
+  `46106315470` success。`ci.yml` 只在推送 `main` 或向 `main` 开 PR 时触发，故只推分支不会启动它。
 - 三处对外文档仍带旧的「v3」措辞，按 Q1 范围未动：`docs/evidence/README.md:116`、
   `docs/evidence-root.spec.md:189`、`docs/manual/security-showcase.md:43`。（`docs/manual/delivery-recipe.md`
   仍写 `/4`，由 `scripts/check-delivery-coverage-statement.mjs` 校验；同样未动。）
