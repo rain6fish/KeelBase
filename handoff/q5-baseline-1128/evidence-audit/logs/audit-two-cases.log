@@ -1,0 +1,136 @@
+== 前置 ==
+  ok    host /actuator/health 200
+  ok    admin signs in
+  ok    the administrator id is known
+  ok    /ai/tools answers
+  ok    delete_project is declared R5 / blocked
+  ok    escalate_customer is declared R4 / approval
+  ok    the runtime sample tables exist (customers / follow_ups / confirmation_requests)
+  ok    the second administrator exists
+  ok    auditapprover signs in (a second administrator)
+  ok    m7audit signs in (audit_reader only)
+  ok    a fresh customer row exists for this run
+
+== ① 系统拒绝（闸门 BLOCK） ==
+  ok    the router proposed delete_project
+  ok    ① · exactly one audit row for the blocked call
+  ok    ① · its outcome is blocked
+  ok    ① · its tool is delete_project
+  ok    ① · its subject is the initiator
+  ok    ① · it is recorded as an error
+  ok    ① · the row records riskStrategy=block
+  ok    ① · the row records riskLevel=R5
+  ok    ① · no confirmation row was raised
+  ok    ① · no ledger row was written
+
+== ② 第二人批准（R4） ==
+  ok    ② · the router raised an approval row
+  ok    ② · it is pending
+  ok    ② · its operator is the initiator
+  ok    ② · it has no approver yet
+  ok    ② · the initiator cannot approve in-band (409)
+  ok    ② · the audit reader cannot approve (403)
+  ok    ② · the second administrator's approval executes the write
+  ok    ② · the confirmation row is approved
+  ok    ② · it records the approver
+  ok    ② · it records the written record
+  ok    ② · a pending row is recorded for the initiator
+  ok    ② · an approved decision row is recorded
+  ok    ② · the decision row's subject is the approver
+  ok    ② · an attempted row is recorded
+  ok    ② · an executed row is recorded
+  ok    ② · the executed row's subject is the initiator
+  ok    ② · the executed row records riskStrategy=human_approval
+  ok    ② · the executed row records riskLevel=R4
+  ok    ② · exactly one ledger row is written
+
+== 六问（读者） ==
+  ok    /audit/logs answers the reader
+  ok    /ai/tool-effects answers the reader
+  ok    /ai/confirmations answers the reader
+  ok    ① · the reader sees the blocked row
+  ok    ② · the reader sees the executed row
+  ok    the reader may resolve caller names
+  ok    both the initiator and the approver have names
+  -- ① block: 6/6
+     ✔ who           周敏（account #1）
+     ✔ when          2026-11-28 15:53:57 UTC+08:00
+     ✔ object        Project · #1
+     ✔ change        nothing was changed — no write happened
+     ✔ confirmation  no one can — this tool is held at a blocking risk level
+     ✔ result        Blocked · A risk policy stopped it before anyone was asked
+  -- ② approve: 6/6
+     ✔ who           周敏（account #1）
+     ✔ when          2026-11-28 15:53:59 UTC+08:00
+     ✔ object        Sample follow-up · #1 · E**** · still there
+     ✔ change        no before was recorded, and this write itself recorded no field values
+     ✔ confirmation  李静 approved it — a second person, not the operator
+     ✔ result        Executed · It really happened; the write is in the system
+  -- ② decision row: 6/6
+     ✔ who           李静（account #9901）
+     ✔ when          2026-11-28 15:53:59 UTC+08:00
+     ✔ object        Sample follow-up · #1 · E**** · still there
+     ✔ change        no before was recorded, and this write itself recorded no field values
+     ✔ confirmation  李静 approved this write (this row is the decision itself; the approver is the person under Who)
+     ✔ result        Approved · A person approved it; the write follows
+  ok    ① · the reader answers who
+  ok    ① · the reader answers when, with a zone
+  ok    ① · ③ is answered (the blocked call records the key it meant to touch)
+  ok    ① · ③ names the kind and the key the call meant to touch
+  ok    ① · ③ no longer says the call wrote no record
+  ok    ① · the reader answers what changed
+  ok    ① · the reader answers who confirmed
+  ok    ① · the fifth cell names the blocking gate
+  ok    ① · the reader answers the result
+  ok    ① · the result reads Blocked, with its meaning
+  ok    ① · six of six cells
+  ok    ① · no cell leaks an internal name
+  ok    ② · the reader answers who (the initiator, who ran it)
+  ok    ② · the reader answers when, with a zone
+  ok    ② · the reader answers which object
+  ok    ② · ③ names the kind of record, not just its key
+  ok    ② · the reader answers what changed
+  ok    ② · ⑤ is answered on the write row (the approver comes from the decision row)
+  ok    ② · the fifth cell names the second person who approved it
+  ok    ② · the fifth cell no longer says the row does not record who
+  ok    ② · the reader answers the result
+  ok    ② · the result reads Executed, with its meaning
+  ok    ② · six of six cells
+  ok    ② · no cell leaks an internal name
+  ok    ② · the decision row names the approver in ①
+  ok    ② · the decision row says what came of it
+  ok    YD-45 · the trace carries a decision step
+  ok    YD-45 · the trace join names the approver
+
+== 读数 ==
+READING block.cells 6/6
+READING block.unanswered (none)
+READING block.who 周敏（account #N）
+READING block.when UTC+08:00
+READING block.object Project · #N
+READING block.change nothing was changed — no write happened
+READING block.confirmation no one can — this tool is held at a blocking risk level
+READING block.result Blocked · A risk policy stopped it before anyone was asked
+READING approve.cells 6/6
+READING approve.unanswered (none)
+READING approve.who 周敏（account #N）
+READING approve.when UTC+08:00
+READING approve.object Sample follow-up · #N · E**** · still there
+READING approve.change no before was recorded, and this write itself recorded no field values
+READING approve.confirmation 李静 approved it — a second person, not the operator
+READING approve.result Executed · It really happened; the write is in the system
+READING decision.cells 6/6
+READING decision.unanswered (none)
+READING decision.who 李静（account #N）
+READING decision.when UTC+08:00
+READING decision.object Sample follow-up · #N · E**** · still there
+READING decision.change no before was recorded, and this write itself recorded no field values
+READING decision.confirmation 李静 approved this write (this row is the decision itself; the approver is the person under Who)
+READING decision.result Approved · A person approved it; the write follows
+
+== 收尾 ==
+  ok    this run's customer row is gone
+  ok    this run's follow-up rows are gone
+  ok    the audit rows are left alone
+
+78 ok / 0 failed

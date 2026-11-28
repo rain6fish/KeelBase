@@ -1,0 +1,18 @@
+dirty=0
+audit-pg: delivery-baseline-pg-bl1128075116
+audit-host-url: http://127.0.0.1:51351
+update-case-logins: initiator=ok reader=ok admin=ok approver=ok
+update-case-customer: 1
+update-case-conversation: 4bd9153b-cd47-4333-a305-45d132e132bf token: aeace844-ffd0-41b9-8625-c2a357492346
+update-case-execution: cb62198c-dfba-46d6-9ce6-6df744691e5a
+audit-acceptance-reading-exit: 0
+change-cells-two-cases:
+READING block.change nothing was changed — no write happened
+READING approve.change no before was recorded, and this write itself recorded no field values
+READING decision.change no before was recorded, and this write itself recorded no field values
+change-cell-two-cases-has-fields: 0
+change-cell-update-case-has-fields: 1
+audit-cells: READING block.cells 6/6;READING approve.cells 6/6;READING decision.cells 6/6;
+audit-twelve-cells-answered: 1
+audit-verify-valid: 1
+audit-second-entry-aligned: 1

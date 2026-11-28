@@ -1,0 +1,143 @@
+== 1) 确保库在（delivery_baseline @ delivery-baseline-pg-bl1128075116）==
+  已存在
+== 2) 向量扩展（知识层的语义路径要靠它）==
+CREATE EXTENSION
+  vector 0.8.7
+== 3) 导入上游 PG schema（1961917 字节）==
+NOTICE:  table "dual" does not exist, skipping
+NOTICE:  table "infra_api_access_log" does not exist, skipping
+NOTICE:  sequence "infra_api_access_log_seq" does not exist, skipping
+NOTICE:  table "infra_api_error_log" does not exist, skipping
+NOTICE:  sequence "infra_api_error_log_seq" does not exist, skipping
+NOTICE:  table "infra_codegen_column" does not exist, skipping
+NOTICE:  sequence "infra_codegen_column_seq" does not exist, skipping
+NOTICE:  table "infra_codegen_table" does not exist, skipping
+NOTICE:  sequence "infra_codegen_table_seq" does not exist, skipping
+NOTICE:  table "infra_config" does not exist, skipping
+NOTICE:  sequence "infra_config_seq" does not exist, skipping
+NOTICE:  table "infra_data_source_config" does not exist, skipping
+NOTICE:  sequence "infra_data_source_config_seq" does not exist, skipping
+NOTICE:  table "infra_file" does not exist, skipping
+NOTICE:  sequence "infra_file_seq" does not exist, skipping
+NOTICE:  table "infra_file_config" does not exist, skipping
+NOTICE:  sequence "infra_file_config_seq" does not exist, skipping
+NOTICE:  table "infra_file_content" does not exist, skipping
+NOTICE:  sequence "infra_file_content_seq" does not exist, skipping
+NOTICE:  table "infra_job" does not exist, skipping
+NOTICE:  sequence "infra_job_seq" does not exist, skipping
+NOTICE:  table "infra_job_log" does not exist, skipping
+NOTICE:  sequence "infra_job_log_seq" does not exist, skipping
+NOTICE:  table "system_dept" does not exist, skipping
+NOTICE:  sequence "system_dept_seq" does not exist, skipping
+NOTICE:  table "system_dict_data" does not exist, skipping
+NOTICE:  sequence "system_dict_data_seq" does not exist, skipping
+NOTICE:  table "system_dict_type" does not exist, skipping
+NOTICE:  sequence "system_dict_type_seq" does not exist, skipping
+NOTICE:  table "system_login_log" does not exist, skipping
+NOTICE:  sequence "system_login_log_seq" does not exist, skipping
+NOTICE:  table "system_mail_account" does not exist, skipping
+NOTICE:  sequence "system_mail_account_seq" does not exist, skipping
+NOTICE:  table "system_mail_log" does not exist, skipping
+NOTICE:  sequence "system_mail_log_seq" does not exist, skipping
+NOTICE:  table "system_mail_template" does not exist, skipping
+NOTICE:  sequence "system_mail_template_seq" does not exist, skipping
+NOTICE:  table "system_menu" does not exist, skipping
+NOTICE:  sequence "system_menu_seq" does not exist, skipping
+NOTICE:  table "system_notice" does not exist, skipping
+NOTICE:  sequence "system_notice_seq" does not exist, skipping
+NOTICE:  table "system_notify_message" does not exist, skipping
+NOTICE:  sequence "system_notify_message_seq" does not exist, skipping
+NOTICE:  table "system_notify_template" does not exist, skipping
+NOTICE:  sequence "system_notify_template_seq" does not exist, skipping
+NOTICE:  table "system_oauth2_access_token" does not exist, skipping
+NOTICE:  sequence "system_oauth2_access_token_seq" does not exist, skipping
+NOTICE:  table "system_oauth2_approve" does not exist, skipping
+NOTICE:  sequence "system_oauth2_approve_seq" does not exist, skipping
+NOTICE:  table "system_oauth2_client" does not exist, skipping
+NOTICE:  sequence "system_oauth2_client_seq" does not exist, skipping
+NOTICE:  table "system_oauth2_code" does not exist, skipping
+NOTICE:  sequence "system_oauth2_code_seq" does not exist, skipping
+NOTICE:  table "system_oauth2_refresh_token" does not exist, skipping
+NOTICE:  sequence "system_oauth2_refresh_token_seq" does not exist, skipping
+NOTICE:  table "system_operate_log" does not exist, skipping
+NOTICE:  sequence "system_operate_log_seq" does not exist, skipping
+NOTICE:  table "system_post" does not exist, skipping
+NOTICE:  sequence "system_post_seq" does not exist, skipping
+NOTICE:  table "system_role" does not exist, skipping
+NOTICE:  sequence "system_role_seq" does not exist, skipping
+NOTICE:  table "system_role_menu" does not exist, skipping
+NOTICE:  sequence "system_role_menu_seq" does not exist, skipping
+NOTICE:  table "system_sms_channel" does not exist, skipping
+NOTICE:  sequence "system_sms_channel_seq" does not exist, skipping
+NOTICE:  table "system_sms_code" does not exist, skipping
+NOTICE:  sequence "system_sms_code_seq" does not exist, skipping
+NOTICE:  table "system_sms_log" does not exist, skipping
+NOTICE:  sequence "system_sms_log_seq" does not exist, skipping
+NOTICE:  table "system_sms_template" does not exist, skipping
+NOTICE:  sequence "system_sms_template_seq" does not exist, skipping
+NOTICE:  table "system_social_client" does not exist, skipping
+NOTICE:  sequence "system_social_client_seq" does not exist, skipping
+NOTICE:  table "system_social_user" does not exist, skipping
+NOTICE:  sequence "system_social_user_seq" does not exist, skipping
+NOTICE:  table "system_social_user_bind" does not exist, skipping
+NOTICE:  sequence "system_social_user_bind_seq" does not exist, skipping
+NOTICE:  table "system_tenant" does not exist, skipping
+NOTICE:  sequence "system_tenant_seq" does not exist, skipping
+NOTICE:  table "system_tenant_package" does not exist, skipping
+NOTICE:  sequence "system_tenant_package_seq" does not exist, skipping
+NOTICE:  table "system_user_post" does not exist, skipping
+NOTICE:  sequence "system_user_post_seq" does not exist, skipping
+NOTICE:  table "system_user_role" does not exist, skipping
+NOTICE:  sequence "system_user_role_seq" does not exist, skipping
+NOTICE:  table "system_users" does not exist, skipping
+NOTICE:  sequence "system_users_seq" does not exist, skipping
+NOTICE:  table "yudao_demo01_contact" does not exist, skipping
+NOTICE:  sequence "yudao_demo01_contact_seq" does not exist, skipping
+NOTICE:  table "yudao_demo02_category" does not exist, skipping
+NOTICE:  sequence "yudao_demo02_category_seq" does not exist, skipping
+NOTICE:  table "yudao_demo03_course" does not exist, skipping
+NOTICE:  sequence "yudao_demo03_course_seq" does not exist, skipping
+NOTICE:  table "yudao_demo03_grade" does not exist, skipping
+NOTICE:  sequence "yudao_demo03_grade_seq" does not exist, skipping
+NOTICE:  table "yudao_demo03_student" does not exist, skipping
+NOTICE:  sequence "yudao_demo03_student_seq" does not exist, skipping
+== 4) 导入本线的增补（25 份，按序）==
+  keelbase-crm.sql
+  keelbase-products.sql
+  keelbase-member.sql
+  keelbase-oa.sql
+NOTICE:  column "content" of relation "oa_work_report" already exists, skipping
+  keelbase-ai1.sql
+  keelbase-assistant-agent.sql
+  keelbase-assistant-role-grants.sql
+  keelbase-assistant-menus.sql
+  keelbase-ai1-permissions.sql
+  keelbase-governance-menus.sql
+  keelbase-governance-menu-grants.sql
+  keelbase-boundary-menu.sql
+  keelbase-trace-menu.sql
+  keelbase-showcase-menu.sql
+  keelbase-tool-inventory-menu.sql
+  keelbase-operation-audit-menu.sql
+  keelbase-policy-menu.sql
+  keelbase-audit-reader.sql
+  keelbase-audit-reader-user.sql
+  keelbase-demo-accounts.sql
+  keelbase-m7-reader.sql
+  keelbase-brand-names.sql
+  keelbase-operate-log-nullable.sql
+  keelbase-bypass-audit.sql
+NOTICE:  column "body_length" of relation "keelbase_bypass_log" already exists, skipping
+NOTICE:  column "body_sha256" of relation "keelbase_bypass_log" already exists, skipping
+NOTICE:  column "body_fields" of relation "keelbase_bypass_log" already exists, skipping
+  keelbase-pms.sql
+NOTICE:  column "code" of relation "pms_project_template" already exists, skipping
+NOTICE:  column "work_item_type" of relation "pms_project_template" already exists, skipping
+== 4b) 把指向厂商文件服务器的行改掉（头像写成绝对 URL，故要传 origin）==
+== 5) 收掉本部署不跑的模块的菜单 ==
+== 6) 上传落到一个真能用的存储（master = 数据库存储，origin=http://127.0.0.1:51351）==
+== 7) 收尾 ==
+  表数 = 174
+  租户 1 = KeelBase
+NOTICE:  column "year_debit_amount" of relation "fms_initial_balance" already exists, skipping
+NOTICE:  column "year_debit_quantity" of relation "fms_initial_balance" already exists, skipping

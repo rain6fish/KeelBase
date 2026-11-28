@@ -1,0 +1,122 @@
+
+==== environment / 环境 ====
+date-utc: 2026-11-28T07:50:44Z
+host: MINGW64_NT-10.0-26300 3.6.7-fb42d713.x86_64 x86_64
+node: v24.22.2
+npm: 11.14.1
+java: openjdk version "17.0.20.1" 2026-08-18
+maven: Apache Maven 3.9.16 (2bdd9fddda4b155ebf8000e807eb73fd829a51d5)
+docker: Docker version 29.9.2, build a82e528
+flutter: Flutter 3.47.2 • channel stable • https://github.com/flutter/flutter.git
+git-bash: 5.3.9(1)-release
+
+==== checkouts / 检出 ====
+KeelBase: HEAD ef7419a7d47854f175695efc4204d6829ec77ea4
+  clean
+KeelBase4J: HEAD f6aacb5559b0ea1559716efa0fbbbe542874b093
+  clean
+KeelBase-Vue-Pro: HEAD 602e8be0c1faca39d65221c258cb91031d36fdbe
+  clean
+
+==== (d) machine audit-reader regression / 机器审计读者回归 ====
+starting PostgreSQL/Redis on 51349/51350
+seeding the database (bootstrap-db.sh + bpm/fms)
+building the host (Maven; this is the long step)
+starting the host on http://127.0.0.1:51351
+host is up
+running the two-cases gate (twelve cells)
+    ok    ② · the result reads Executed, with its meaning
+    ok    ② · six of six cells
+    ok    ② · no cell leaks an internal name
+    ok    ② · the decision row names the approver in ①
+    ok    ② · the decision row says what came of it
+    ok    YD-45 · the trace carries a decision step
+    ok    YD-45 · the trace join names the approver
+  
+  == 读数 ==
+  READING block.cells 6/6
+  READING block.unanswered (none)
+  READING block.who 周敏（account #N）
+  READING block.when UTC+08:00
+  READING block.object Project · #N
+  READING block.change nothing was changed — no write happened
+  READING block.confirmation no one can — this tool is held at a blocking risk level
+  READING block.result Blocked · A risk policy stopped it before anyone was asked
+  READING approve.cells 6/6
+  READING approve.unanswered (none)
+  READING approve.who 周敏（account #N）
+  READING approve.when UTC+08:00
+  READING approve.object Sample follow-up · #N · E**** · still there
+  READING approve.change no before was recorded, and this write itself recorded no field values
+  READING approve.confirmation 李静 approved it — a second person, not the operator
+  READING approve.result Executed · It really happened; the write is in the system
+  READING decision.cells 6/6
+  READING decision.unanswered (none)
+  READING decision.who 李静（account #N）
+  READING decision.when UTC+08:00
+  READING decision.object Sample follow-up · #N · E**** · still there
+  READING decision.change no before was recorded, and this write itself recorded no field values
+  READING decision.confirmation 李静 approved this write (this row is the decision itself; the approver is the person under Who)
+  READING decision.result Approved · A person approved it; the write follows
+  
+  == 收尾 ==
+    ok    this run's customer row is gone
+    ok    this run's follow-up rows are gone
+    ok    the audit rows are left alone
+  
+  78 ok / 0 failed
+two-cases gate exit=0 (logs/audit-two-cases.log)
+update case: approval policy for update_crm_customer
+  选区：execution=cb62198c-dfba-46d6-9ce6-6df744691e5a
+  扫描：审计行 9 · 台账 1 · 确认记录 2 · 工具清单 76
+  
+  -- 一次操作 ---------------------------------------------------------------
+    #9  已执行  update_crm_customer  2026-11-28 15:54:15 UTC+08:00  executionId=cb62198c-dfba-46d6-9ce6-6df744691e5a  hash=12d5a03c466bb1f9…
+    #8  试过  update_crm_customer  2026-11-28 15:54:14 UTC+08:00  executionId=cb62198c-dfba-46d6-9ce6-6df744691e5a  hash=91335a632d136ab7…
+    #7  已批准  update_crm_customer  2026-11-28 15:54:14 UTC+08:00  executionId=cb62198c-dfba-46d6-9ce6-6df744691e5a  hash=0e87fb2330d1f96f…
+  
+  R1   三行齐全（executed / attempted / approved） PASS   执行 #9 · 试过 #8 · 批准 #7
+  R1b  批准人具名且为第二人                         PASS   李静（账号 #9901）≠ 走查读者（账号 #9001）
+  R2   六问逐格有答且无内部名                        PASS   3 行 × 6 格
+  R3   /audit/verify valid=true           PASS   valid=true checked=9 · 3 行有哈希 · 9 个节点首尾相接
+  R4   第二入口对得上（对象 / 时间 / 谁）               PASS   对象 crm_customer#1 · 时间 2026-11-28 15:54:15 UTC+08:00 · 谁 #9001
+  R5   六列 CSV 与屏幕同源                       SKIP   未给 --csv
+  R6   八列核对 CSV                           SKIP   未给 --check-csv
+  R7   内部名拒绝（负向）                          PASS   两份 CSV 都抛 CsvLeak，错误里不回显那串名字
+  R8   证据文件哈希                             SKIP   未给 --sha256
+  
+  -- 六问逐格 ---------------------------------------------------------------
+    #9
+      谁              走查读者（账号 #9001）
+      何时（带时区）        2026-11-28 15:54:15 UTC+08:00
+      哪个业务对象         客户 · #1 · 修**** · 还在
+      改成什么（改前 → 改后）  改前: 客户名称 D**** · 客户等级 — · 客户来源 — · 已成交 ✗ · 已跟进 ✗; 改后: 客户名称 D**** → 修**** — 宿主现在的记录，不是写入那一刻的快照; 运行时没有记下的值，这里不替它补
+      谁确认            走查读者 确认了这次写（本人确认；客户端未记）
+      结果             已执行 · 真的执行了，写已经在系统里
+    #8
+      谁              走查读者（账号 #9001）
+      何时（带时区）        2026-11-28 15:54:14 UTC+08:00
+      哪个业务对象         客户 · #1 · 修**** · 还在
+      改成什么（改前 → 改后）  改前: 客户名称 D**** · 客户等级 — · 客户来源 — · 已成交 ✗ · 已跟进 ✗; 改后: 客户名称 D**** → 修**** — 宿主现在的记录，不是写入那一刻的快照; 运行时没有记下的值，这里不替它补
+      谁确认            走查读者 确认了这次写（本人确认；客户端未记）
+      结果             试过 · 只记「试过」—— 同一对象的「已执行」行通常是它的结局
+    #7
+      谁              李静（账号 #9901）
+      何时（带时区）        2026-11-28 15:54:14 UTC+08:00
+      哪个业务对象         客户 · #1 · 修**** · 还在
+      改成什么（改前 → 改后）  改前: 客户名称 D**** · 客户等级 — · 客户来源 — · 已成交 ✗ · 已跟进 ✗; 改后: 客户名称 D**** → 修**** — 宿主现在的记录，不是写入那一刻的快照; 运行时没有记下的值，这里不替它补
+      谁确认            李静 批准了这次写（这一行本身就是这次裁决；批准人见「谁」）
+      结果             已批准 · 有人批准了，接下来会执行
+  
+  -- 告诫 -------------------------------------------------------------------
+    · 执行行 #9 的 authorization 记的是 confirmation，第五格写「本人确认」；同 executionId 的批准行 #7 点名了第二人 李静（账号 #9901） —— 方案 B 的已知口径，场次记录须照抄
+  
+  EXIT 0  — 全部通过
+acceptance reading exit=0 (logs/audit-acceptance-reading.log)
+
+==== summary / 汇总 ====
+criterion / 判据     status      detail
+checkout:clean         PASS        all three checkouts are at a recorded HEAD and clean
+audit-reader           PASS        met via the update case — twelve cells 6/6; the machine reading's fourth question carries Before/After (update case); /audit/verify valid; second entry aligned. The named gate's own fourth cells carry no fields; if the criterion requires them inside the twelve, a product-approved boundary sentence or a gate extension is needed (see readings.txt)
+evidence               PASS        evidence directory: /d/Rain6fish/.delivery-baseline/q5-1128/evidence-audit
+summary written: /d/Rain6fish/.delivery-baseline/q5-1128/evidence-audit/SUMMARY.md
