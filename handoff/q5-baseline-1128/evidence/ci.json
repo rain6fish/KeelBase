@@ -1,0 +1,86 @@
+{
+  "takenAt": "2026-11-28T06:13:48.670Z",
+  "repos": [
+    {
+      "name": "KeelBase",
+      "repo": "rain6fish/KeelBase",
+      "sha": "96f8f2ad1d2e91a162d322a420f5f745dd51bd21",
+      "workflows": [
+        {
+          "workflow": "CI",
+          "status": "success",
+          "runId": 46113549417,
+          "url": "https://github.com/rain6fish/KeelBase/actions/runs/46113549417",
+          "event": "push",
+          "createdAt": "2026-11-28T05:45:40Z",
+          "headSha": "96f8f2ad1d2e91a162d322a420f5f745dd51bd21"
+        }
+      ],
+      "jdk25": []
+    },
+    {
+      "name": "KeelBase4J",
+      "repo": "rain6fish/KeelBase4J",
+      "sha": "f6aacb5559b0ea1559716efa0fbbbe542874b093",
+      "workflows": [
+        {
+          "workflow": "CI",
+          "status": "success",
+          "runId": 46112212580,
+          "url": "https://github.com/rain6fish/KeelBase4J/actions/runs/46112212580",
+          "event": "push",
+          "createdAt": "2026-11-28T05:27:46Z",
+          "headSha": "f6aacb5559b0ea1559716efa0fbbbe542874b093"
+        },
+        {
+          "workflow": "CI / The publish set builds the way a release would build it (JDK 17)",
+          "status": "success",
+          "runId": 46112212580
+        },
+        {
+          "workflow": "CI / Protocol conformance (JDK 17)",
+          "status": "success",
+          "runId": 46112212580
+        }
+      ],
+      "jdk25": [
+        {
+          "job": "The publish set builds the way a release would build it (JDK 25)",
+          "status": "success",
+          "runId": 46112212580
+        },
+        {
+          "job": "Protocol conformance (JDK 25)",
+          "status": "success",
+          "runId": 46112212580
+        }
+      ]
+    },
+    {
+      "name": "KeelBase-Vue-Pro",
+      "repo": "rain6fish/KeelBase-Vue-Pro",
+      "sha": "602e8be0c1faca39d65221c258cb91031d36fdbe",
+      "workflows": [
+        {
+          "workflow": "CI",
+          "status": "success",
+          "runId": 46112803988,
+          "url": "https://github.com/rain6fish/KeelBase-Vue-Pro/actions/runs/46112803988",
+          "event": "push",
+          "createdAt": "2026-11-28T05:35:33Z",
+          "headSha": "602e8be0c1faca39d65221c258cb91031d36fdbe"
+        },
+        {
+          "workflow": "Real-stack scenario gates",
+          "status": "success",
+          "runId": 46112804053,
+          "url": "https://github.com/rain6fish/KeelBase-Vue-Pro/actions/runs/46112804053",
+          "event": "push",
+          "createdAt": "2026-11-28T05:35:33Z",
+          "headSha": "602e8be0c1faca39d65221c258cb91031d36fdbe"
+        }
+      ],
+      "jdk25": []
+    }
+  ]
+}

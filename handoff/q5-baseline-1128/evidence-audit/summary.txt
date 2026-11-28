@@ -1,0 +1,4 @@
+criterion / 判据     status      detail
+checkout:clean         PASS        all three checkouts are at a recorded HEAD and clean
+audit-reader           PASS        met via the update case — twelve cells 6/6; the machine reading's fourth question carries Before/After (update case); /audit/verify valid; second entry aligned. The named gate's own fourth cells carry no fields; if the criterion requires them inside the twelve, a product-approved boundary sentence or a gate extension is needed (see readings.txt)
+evidence               PASS        evidence directory: /d/Rain6fish/.delivery-baseline/q5-1128/evidence-audit

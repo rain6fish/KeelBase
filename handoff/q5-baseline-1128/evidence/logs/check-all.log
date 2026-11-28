@@ -1,0 +1,93 @@
+
+> keelbase@1.5.0 check:all
+> node scripts/check-all.mjs
+
+── This runs the static gates only — it excludes unit tests, e2e tests and the Java test suites, which run in their own CI jobs ──
+   本命令只跑仓内静态门禁：不含单元测试 / e2e / Java 测试 —— 那些在各自的 CI job 里跑。
+
+▶ check:admin-pages            ✓  0.6s
+▶ check:app-model              ✓  0.6s
+▶ check:app-wiring             ✓  9.1s
+▶ check:audit-awaited          ✓  0.7s
+▶ check:audit-vocabulary       ✓  0.6s
+▶ check:audit-write-points     ✓  0.6s
+▶ check:boundary               ✓  0.9s
+▶ check:commit-order           ✓  0.9s
+▶ check:contract-matrix        ✓  1.1s
+▶ check:contract-release-gate  ✓  1.5s
+▶ check:coverage-gaps          ✓  0.6s
+▶ check:delivery-coverage      ✓  0.8s
+▶ check:entity-migrations      ✓  0.6s
+▶ check:env-example            ✓  0.6s
+▶ check:evidence-canonical     ✓  0.6s
+▶ check:family-block           ✓  0.6s
+▶ check:frontend-boundary      ✓  0.8s
+▶ check:gates-wired            ✓  0.7s
+▶ check:generated-samples      ✓  0.6s
+▶ check:governance-imports     ✓  0.6s
+▶ check:java-vectors           ✓  1.1s
+▶ check:keelbase-init          ✓  0.7s
+▶ check:mobile-preview         ✓  0.7s
+▶ check:navigation-parity      ✓  0.9s
+▶ check:pinned-images          ✓  0.7s
+▶ check:pinned-images-tests    ✓  2.3s
+▶ check:protocol-vectors       ✓  0.7s
+▶ check:readme-parity          ✓  0.8s
+▶ check:semantic-single-source ✓  0.9s
+▶ check:terminology            ✓  0.6s
+▶ check:test-types             ✓  11.8s
+▶ check:tool-labels            ✓  0.6s
+▶ check:trivyignore            ✓  0.6s
+▶ check:version-parity         ✓  0.6s
+▶ spec:check                   ✓  0.6s
+▶ Server-NestJS:conformance    ✓  0.6s
+
+── 本门未覆盖 / not covered by this gate ──
+  上面那张表**不跑**下面这些 —— 它全绿，不代表这些也过了。
+  The table above does **not** run these — a green table is not a pass for any of them.
+
+  ✗ cd Server-NestJS && npm test
+      也含 / also covers: test:wire-schema · test:protocol-corpus · test:failure-path · scenarios:check
+      整棵 jest 套件（含上面四道 jest 子集）。不在此门：跑一遍的耗时比本题全部静态门禁高一个量级；CI 的 `test` job 每次推送都跑它。
+      The whole jest suite (the four jest selections above are subsets of it). Not here: a run costs an order of magnitude more than every static gate in this table; CI's `test` job runs it on every push.
+
+  ✗ cd Server-NestJS && npm run test:cov
+      整棵套件 + 覆盖率门槛（statements/branches/functions/lines 与安全模块分档）。不在此门：跑的时间同上一项，且门槛是 CI 的 `test` job 在守。
+      The whole suite plus the coverage thresholds (statements/branches/functions/lines and the per-module security tiers). Not here: same cost as the entry above, and CI's `test` job enforces the thresholds.
+
+  ✗ cd Server-NestJS && npm run test:e2e
+      也含 / also covers: test:e2e:cov
+      端到端套件：分四片起真进程与真库（`NODE_ENV=test`），某片崩了还会重试。不在此门：它是本次推送前那道门的**下游**，不是它的补充；CI 的 `test` job 每次推送都跑。
+      The end-to-end suite: four shards, real processes and a real database (`NODE_ENV=test`), with a retry when a shard dies. Not here: it sits downstream of the pre-push gate rather than extending it; CI's `test` job runs it on every push.
+
+  ✗ npm run cli:test
+      `scripts/*.test.mjs` 的 node:test 套件，2026-11-12 本机实测**约 20 秒 / 394 例**（node:test 18.8 秒，挂钟 20.1 秒）。不在此门：本门只跑静态门禁，测试套件（单元 / e2e / 本套件）由 CI 各自的 job 在每次推送时跑，本模块的守卫测试也在其中。其中 `check-pinned-images.test.mjs` 的 17 例（1.2 秒）已单独由 `check:pinned-images-tests` 在本门跑。
+      The node:test suite for `scripts/*.test.mjs` — measured at **~20 s / 394 cases** (2026-11-12 on this machine; 18.8 s of node:test, 20.1 s wall). Not here: this gate runs static gates only; test suites (unit, e2e, this one) run in their own CI jobs on every push, and the guard test for this module is one of its cases. The 17 cases of `check-pinned-images.test.mjs` (1.2 s) now run here under `check:pinned-images-tests`.
+
+  ✗ node scripts/check-tag-lineage.mjs --tag <tag> --main <ref>
+      发布 tag 的谱系检查（tag 指向的提交在 main 上、且那条提交的 CI 是绿的）。不在此门：它只在 `v*` tag 推送时有意义 —— 由 `.github/workflows/tag-lineage.yml` 在 tag 推送时跑；在一笔普通提交上它只能回答「不是 tag」，把这种回答打印成绿色正是这张表绝不能做的事。
+      The release-tag lineage check (the tagged commit is on main and its CI run is green). Not here: it only means anything on a `v*` tag push, where `.github/workflows/tag-lineage.yml` runs it; on an ordinary commit it could only answer "not a tag", and printing that as green is the one thing this table must not do.
+
+  ✗ cd Server-NestJS && npm run lint
+      eslint，但本地的 `lint` 脚本带 `--fix` —— 它会**改写**被判的那棵树，回答不了「这棵树干净吗」。不在此门：CI 的 `lint` job 跑的是严格形态（不带 `--fix`），每次推送都跑；类型那一半由 `check:test-types` 与 `npm run build` 在本地守。
+      eslint — but the local `lint` script passes `--fix`, so it **rewrites** the tree it is judging and cannot answer "is this tree clean". Not here: CI's `lint` job runs the strict form (no `--fix`) on every push, and the type half is held locally by `check:test-types` and `npm run build`.
+
+  ✗ cd Server-NestJS && npm run migration:consistency:pg
+      需要**活的 PostgreSQL**（Docker 在时起临时容器，实测 31–45 秒）。不在此门：没有 Docker 的机器上它只会永远红，那会把本门的含义耗掉；表那一半由 `check:entity-migrations` 静态守住，pg 那一半在 CI 的 `migration-consistency-postgres` job 里每次推送都跑。要手动跑，前置写在 `docs/manual/delivery-recipe.md` §5。
+      Needs a **live PostgreSQL** (a throwaway container when Docker is up; measured at 31–45 s). Not here: on a machine without Docker it could only ever fail, which would cost this gate its meaning; the table half is held statically by `check:entity-migrations`, and the Postgres half runs on every push in CI's `migration-consistency-postgres` job. To run it by hand, the prerequisite is in `docs/manual/delivery-recipe.md` §5.
+
+  ✗ node Server-NestJS/scripts/verify-permission-denied.mjs  ·  node Server-NestJS/scripts/verify-trust-proof.mjs
+      也含 / also covers: verify:evidence · verify:evidence-root · verify:protocol-trust · verify:protocol-trust:crm · verify:full-profile · verify:chain-anchor
+      产品证明类验证（治理闭环、越权 403、信任证明、证据根、多系统）。不在此门：它们要**先起后端**（有的还要模型 key 或 Ollama），属于演示/评审时跑的实证，不是推送前的静态门。命令、前置与报告位置逐条见 `docs/manual/verification-index.md`。
+      Product-proof verifications (governance loop, unauthorized 403, trust proof, evidence root, multi-system). Not here: they need **a running backend** (some also a model key or Ollama) — they are evidence runs for a demo or a review, not a static pre-push gate. Command, prerequisite and report location for each are in `docs/manual/verification-index.md`.
+
+  ✗ ./scripts/benchmark/run-adversarial.sh
+      对抗实证：真实 LLM 驱动的 Run/Safety/攻击回归。不在此门：要真模型 key，**没有 key 时它会跳过而不报红** —— 这正是 2026-10-31 CTO 周会 §13 记下的那条风险。CI 的 `run-adversarial` job 是 `continue-on-error`（无 key 时同样跳过），故「CI 也没有红」同样**不代表**它跑过。
+      Adversarial proof: Run/Safety/attack regression driven by a real LLM. Not here: it needs a real model key, and **without one it skips without failing** — the risk recorded in the 2026-10-31 CTO weekly, §13. The CI `run-adversarial` job is `continue-on-error` (and also skips with no key), so "CI was not red either" does **not** mean it ran.
+
+  清单与原因的单源：scripts/gate-coverage.mjs（守卫测试 node --test scripts/gate-coverage.test.mjs）。
+  Single source for this list and its reasons: scripts/gate-coverage.mjs (guard test as above).
+
+[check-all] 36/36 全过（47.4s）
+(node:22452) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)

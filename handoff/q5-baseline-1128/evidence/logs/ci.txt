@@ -1,0 +1,11 @@
+KeelBase @ 96f8f2ad1d2e
+  CI: success · https://github.com/rain6fish/KeelBase/actions/runs/46113549417
+KeelBase4J @ f6aacb5559b0
+  CI: success · https://github.com/rain6fish/KeelBase4J/actions/runs/46112212580
+    JDK 25 leg "The publish set builds the way a release would build it (JDK 25)": success — reported, not counted as code green (Q4 ruling)
+    JDK 25 leg "Protocol conformance (JDK 25)": success — reported, not counted as code green (Q4 ruling)
+    17 leg "The publish set builds the way a release would build it (JDK 17)": success
+    17 leg "Protocol conformance (JDK 17)": success
+KeelBase-Vue-Pro @ 602e8be0c1fa
+  CI: success · https://github.com/rain6fish/KeelBase-Vue-Pro/actions/runs/46112803988
+  Real-stack scenario gates: success · https://github.com/rain6fish/KeelBase-Vue-Pro/actions/runs/46112804053

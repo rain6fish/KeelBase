@@ -1,0 +1,863 @@
+[INFO] Scanning for projects...
+[INFO] ------------------------------------------------------------------------
+[INFO] Reactor Build Order:
+[INFO] 
+[INFO] yudao                                                              [pom]
+[INFO] yudao-framework                                                    [pom]
+[INFO] yudao-common                                                       [jar]
+[INFO] yudao-spring-boot-starter-web                                      [jar]
+[INFO] yudao-spring-boot-starter-security                                 [jar]
+[INFO] yudao-spring-boot-starter-mybatis                                  [jar]
+[INFO] yudao-spring-boot-starter-redis                                    [jar]
+[INFO] yudao-spring-boot-starter-mq                                       [jar]
+[INFO] yudao-spring-boot-starter-job                                      [jar]
+[INFO] yudao-spring-boot-starter-test                                     [jar]
+[INFO] yudao-spring-boot-starter-biz-tenant                               [jar]
+[INFO] yudao-spring-boot-starter-websocket                                [jar]
+[INFO] yudao-spring-boot-starter-monitor                                  [jar]
+[INFO] yudao-spring-boot-starter-protection                               [jar]
+[INFO] yudao-spring-boot-starter-biz-ip                                   [jar]
+[INFO] yudao-spring-boot-starter-excel                                    [jar]
+[INFO] yudao-spring-boot-starter-biz-data-permission                      [jar]
+[INFO] yudao-module-infra                                                 [jar]
+[INFO] yudao-module-system                                                [jar]
+[INFO] yudao-module-member                                                [jar]
+[INFO] yudao-module-bpm                                                   [jar]
+[INFO] yudao-module-pay                                                   [jar]
+[INFO] yudao-module-crm                                                   [jar]
+[INFO] yudao-module-ai                                                    [jar]
+[INFO] yudao-module-ai1-springai                                          [jar]
+[INFO] yudao-module-fms                                                   [jar]
+[INFO] yudao-module-pms                                                   [jar]
+[INFO] yudao-module-oa                                                    [jar]
+[INFO] yudao-server                                                       [jar]
+[INFO] 
+[INFO] -----------------------< cn.iocoder.boot:yudao >------------------------
+[INFO] Building yudao 0.1.1                                              [1/29]
+[INFO]   from pom.xml
+[INFO] --------------------------------[ pom ]---------------------------------
+[INFO] 
+[INFO] --- jacoco:0.8.13:prepare-agent (jacoco-prepare-agent) @ yudao ---
+[INFO] argLine set to -javaagent:C:\\Users\\6fish\\.m2\\repository\\org\\jacoco\\org.jacoco.agent\\0.8.13\\org.jacoco.agent-0.8.13-runtime.jar=destfile=D:\\Rain6fish\\KeelBase-Vue-Pro\\target\\jacoco.exec
+[INFO] 
+[INFO] --- flatten:1.7.2:flatten (flatten) @ yudao ---
+[INFO] Generating flattened POM of project cn.iocoder.boot:yudao:pom:0.1.1...
+[INFO] 
+[INFO] ------------------< cn.iocoder.boot:yudao-framework >-------------------
+[INFO] Building yudao-framework 0.1.1                                    [2/29]
+[INFO]   from yudao-framework\pom.xml
+[INFO] --------------------------------[ pom ]---------------------------------
+[INFO] 
+[INFO] --- jacoco:0.8.13:prepare-agent (jacoco-prepare-agent) @ yudao-framework ---
+[INFO] argLine set to -javaagent:C:\\Users\\6fish\\.m2\\repository\\org\\jacoco\\org.jacoco.agent\\0.8.13\\org.jacoco.agent-0.8.13-runtime.jar=destfile=D:\\Rain6fish\\KeelBase-Vue-Pro\\yudao-framework\\target\\jacoco.exec
+[INFO] 
+[INFO] --- flatten:1.7.2:flatten (flatten) @ yudao-framework ---
+[INFO] Generating flattened POM of project cn.iocoder.boot:yudao-framework:pom:0.1.1...
+[INFO] 
+[INFO] --------------------< cn.iocoder.boot:yudao-common >--------------------
+[INFO] Building yudao-common 0.1.1                                       [3/29]
+[INFO]   from yudao-framework\yudao-common\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- jacoco:0.8.13:prepare-agent (jacoco-prepare-agent) @ yudao-common ---
+[INFO] argLine set to -javaagent:C:\\Users\\6fish\\.m2\\repository\\org\\jacoco\\org.jacoco.agent\\0.8.13\\org.jacoco.agent-0.8.13-runtime.jar=destfile=D:\\Rain6fish\\KeelBase-Vue-Pro\\yudao-framework\\yudao-common\\target\\jacoco.exec
+[INFO] 
+[INFO] --- resources:3.4.0:resources (default-resources) @ yudao-common ---
+[INFO] skip non existing resourceDirectory D:\Rain6fish\KeelBase-Vue-Pro\yudao-framework\yudao-common\src\main\resources
+[INFO] 
+[INFO] --- flatten:1.7.2:flatten (flatten) @ yudao-common ---
+[INFO] Generating flattened POM of project cn.iocoder.boot:yudao-common:jar:0.1.1...
+[INFO] 
+[INFO] --- compiler:3.14.0:compile (default-compile) @ yudao-common ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.4.0:testResources (default-testResources) @ yudao-common ---
+[INFO] skip non existing resourceDirectory D:\Rain6fish\KeelBase-Vue-Pro\yudao-framework\yudao-common\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.14.0:testCompile (default-testCompile) @ yudao-common ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- surefire:3.5.3:test (default-test) @ yudao-common ---
+[INFO] Tests are skipped.
+[INFO] 
+[INFO] --- jar:3.5.0:jar (default-jar) @ yudao-common ---
+[INFO] 
+[INFO] -----------< cn.iocoder.boot:yudao-spring-boot-starter-web >------------
+[INFO] Building yudao-spring-boot-starter-web 0.1.1                      [4/29]
+[INFO]   from yudao-framework\yudao-spring-boot-starter-web\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- jacoco:0.8.13:prepare-agent (jacoco-prepare-agent) @ yudao-spring-boot-starter-web ---
+[INFO] argLine set to -javaagent:C:\\Users\\6fish\\.m2\\repository\\org\\jacoco\\org.jacoco.agent\\0.8.13\\org.jacoco.agent-0.8.13-runtime.jar=destfile=D:\\Rain6fish\\KeelBase-Vue-Pro\\yudao-framework\\yudao-spring-boot-starter-web\\target\\jacoco.exec
+[INFO] 
+[INFO] --- resources:3.4.0:resources (default-resources) @ yudao-spring-boot-starter-web ---
+[INFO] Copying 2 resources from src\main\resources to target\classes
+[INFO] 
+[INFO] --- flatten:1.7.2:flatten (flatten) @ yudao-spring-boot-starter-web ---
+[INFO] Generating flattened POM of project cn.iocoder.boot:yudao-spring-boot-starter-web:jar:0.1.1...
+[INFO] 
+[INFO] --- compiler:3.14.0:compile (default-compile) @ yudao-spring-boot-starter-web ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.4.0:testResources (default-testResources) @ yudao-spring-boot-starter-web ---
+[INFO] skip non existing resourceDirectory D:\Rain6fish\KeelBase-Vue-Pro\yudao-framework\yudao-spring-boot-starter-web\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.14.0:testCompile (default-testCompile) @ yudao-spring-boot-starter-web ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- surefire:3.5.3:test (default-test) @ yudao-spring-boot-starter-web ---
+[INFO] Tests are skipped.
+[INFO] 
+[INFO] --- jar:3.5.0:jar (default-jar) @ yudao-spring-boot-starter-web ---
+[INFO] 
+[INFO] ---------< cn.iocoder.boot:yudao-spring-boot-starter-security >---------
+[INFO] Building yudao-spring-boot-starter-security 0.1.1                 [5/29]
+[INFO]   from yudao-framework\yudao-spring-boot-starter-security\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- jacoco:0.8.13:prepare-agent (jacoco-prepare-agent) @ yudao-spring-boot-starter-security ---
+[INFO] argLine set to -javaagent:C:\\Users\\6fish\\.m2\\repository\\org\\jacoco\\org.jacoco.agent\\0.8.13\\org.jacoco.agent-0.8.13-runtime.jar=destfile=D:\\Rain6fish\\KeelBase-Vue-Pro\\yudao-framework\\yudao-spring-boot-starter-security\\target\\jacoco.exec
+[INFO] 
+[INFO] --- resources:3.4.0:resources (default-resources) @ yudao-spring-boot-starter-security ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] 
+[INFO] --- flatten:1.7.2:flatten (flatten) @ yudao-spring-boot-starter-security ---
+[INFO] Generating flattened POM of project cn.iocoder.boot:yudao-spring-boot-starter-security:jar:0.1.1...
+[INFO] 
+[INFO] --- compiler:3.14.0:compile (default-compile) @ yudao-spring-boot-starter-security ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.4.0:testResources (default-testResources) @ yudao-spring-boot-starter-security ---
+[INFO] skip non existing resourceDirectory D:\Rain6fish\KeelBase-Vue-Pro\yudao-framework\yudao-spring-boot-starter-security\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.14.0:testCompile (default-testCompile) @ yudao-spring-boot-starter-security ---
+[INFO] No sources to compile
+[INFO] 
+[INFO] --- surefire:3.5.3:test (default-test) @ yudao-spring-boot-starter-security ---
+[INFO] Tests are skipped.
+[INFO] 
+[INFO] --- jar:3.5.0:jar (default-jar) @ yudao-spring-boot-starter-security ---
+[INFO] 
+[INFO] ---------< cn.iocoder.boot:yudao-spring-boot-starter-mybatis >----------
+[INFO] Building yudao-spring-boot-starter-mybatis 0.1.1                  [6/29]
+[INFO]   from yudao-framework\yudao-spring-boot-starter-mybatis\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- jacoco:0.8.13:prepare-agent (jacoco-prepare-agent) @ yudao-spring-boot-starter-mybatis ---
+[INFO] argLine set to -javaagent:C:\\Users\\6fish\\.m2\\repository\\org\\jacoco\\org.jacoco.agent\\0.8.13\\org.jacoco.agent-0.8.13-runtime.jar=destfile=D:\\Rain6fish\\KeelBase-Vue-Pro\\yudao-framework\\yudao-spring-boot-starter-mybatis\\target\\jacoco.exec
+[INFO] 
+[INFO] --- resources:3.4.0:resources (default-resources) @ yudao-spring-boot-starter-mybatis ---
+[INFO] Copying 2 resources from src\main\resources to target\classes
+[INFO] 
+[INFO] --- flatten:1.7.2:flatten (flatten) @ yudao-spring-boot-starter-mybatis ---
+[INFO] Generating flattened POM of project cn.iocoder.boot:yudao-spring-boot-starter-mybatis:jar:0.1.1...
+[INFO] 
+[INFO] --- compiler:3.14.0:compile (default-compile) @ yudao-spring-boot-starter-mybatis ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.4.0:testResources (default-testResources) @ yudao-spring-boot-starter-mybatis ---
+[INFO] skip non existing resourceDirectory D:\Rain6fish\KeelBase-Vue-Pro\yudao-framework\yudao-spring-boot-starter-mybatis\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.14.0:testCompile (default-testCompile) @ yudao-spring-boot-starter-mybatis ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- surefire:3.5.3:test (default-test) @ yudao-spring-boot-starter-mybatis ---
+[INFO] Tests are skipped.
+[INFO] 
+[INFO] --- jar:3.5.0:jar (default-jar) @ yudao-spring-boot-starter-mybatis ---
+[INFO] 
+[INFO] ----------< cn.iocoder.boot:yudao-spring-boot-starter-redis >-----------
+[INFO] Building yudao-spring-boot-starter-redis 0.1.1                    [7/29]
+[INFO]   from yudao-framework\yudao-spring-boot-starter-redis\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- jacoco:0.8.13:prepare-agent (jacoco-prepare-agent) @ yudao-spring-boot-starter-redis ---
+[INFO] argLine set to -javaagent:C:\\Users\\6fish\\.m2\\repository\\org\\jacoco\\org.jacoco.agent\\0.8.13\\org.jacoco.agent-0.8.13-runtime.jar=destfile=D:\\Rain6fish\\KeelBase-Vue-Pro\\yudao-framework\\yudao-spring-boot-starter-redis\\target\\jacoco.exec
+[INFO] 
+[INFO] --- resources:3.4.0:resources (default-resources) @ yudao-spring-boot-starter-redis ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] 
+[INFO] --- flatten:1.7.2:flatten (flatten) @ yudao-spring-boot-starter-redis ---
+[INFO] Generating flattened POM of project cn.iocoder.boot:yudao-spring-boot-starter-redis:jar:0.1.1...
+[INFO] 
+[INFO] --- compiler:3.14.0:compile (default-compile) @ yudao-spring-boot-starter-redis ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.4.0:testResources (default-testResources) @ yudao-spring-boot-starter-redis ---
+[INFO] skip non existing resourceDirectory D:\Rain6fish\KeelBase-Vue-Pro\yudao-framework\yudao-spring-boot-starter-redis\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.14.0:testCompile (default-testCompile) @ yudao-spring-boot-starter-redis ---
+[INFO] No sources to compile
+[INFO] 
+[INFO] --- surefire:3.5.3:test (default-test) @ yudao-spring-boot-starter-redis ---
+[INFO] Tests are skipped.
+[INFO] 
+[INFO] --- jar:3.5.0:jar (default-jar) @ yudao-spring-boot-starter-redis ---
+[INFO] 
+[INFO] ------------< cn.iocoder.boot:yudao-spring-boot-starter-mq >------------
+[INFO] Building yudao-spring-boot-starter-mq 0.1.1                       [8/29]
+[INFO]   from yudao-framework\yudao-spring-boot-starter-mq\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[WARNING] 1 problem was encountered while building the effective model for org.javassist:javassist:jar:3.21.0-GA during dependency collection step for project (use -X to see details)
+[INFO] 
+[INFO] --- jacoco:0.8.13:prepare-agent (jacoco-prepare-agent) @ yudao-spring-boot-starter-mq ---
+[INFO] argLine set to -javaagent:C:\\Users\\6fish\\.m2\\repository\\org\\jacoco\\org.jacoco.agent\\0.8.13\\org.jacoco.agent-0.8.13-runtime.jar=destfile=D:\\Rain6fish\\KeelBase-Vue-Pro\\yudao-framework\\yudao-spring-boot-starter-mq\\target\\jacoco.exec
+[INFO] 
+[INFO] --- resources:3.4.0:resources (default-resources) @ yudao-spring-boot-starter-mq ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] 
+[INFO] --- flatten:1.7.2:flatten (flatten) @ yudao-spring-boot-starter-mq ---
+[INFO] Generating flattened POM of project cn.iocoder.boot:yudao-spring-boot-starter-mq:jar:0.1.1...
+[INFO] 
+[INFO] --- compiler:3.14.0:compile (default-compile) @ yudao-spring-boot-starter-mq ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.4.0:testResources (default-testResources) @ yudao-spring-boot-starter-mq ---
+[INFO] skip non existing resourceDirectory D:\Rain6fish\KeelBase-Vue-Pro\yudao-framework\yudao-spring-boot-starter-mq\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.14.0:testCompile (default-testCompile) @ yudao-spring-boot-starter-mq ---
+[INFO] No sources to compile
+[INFO] 
+[INFO] --- surefire:3.5.3:test (default-test) @ yudao-spring-boot-starter-mq ---
+[INFO] Tests are skipped.
+[INFO] 
+[INFO] --- jar:3.5.0:jar (default-jar) @ yudao-spring-boot-starter-mq ---
+[INFO] 
+[INFO] -----------< cn.iocoder.boot:yudao-spring-boot-starter-job >------------
+[INFO] Building yudao-spring-boot-starter-job 0.1.1                      [9/29]
+[INFO]   from yudao-framework\yudao-spring-boot-starter-job\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- jacoco:0.8.13:prepare-agent (jacoco-prepare-agent) @ yudao-spring-boot-starter-job ---
+[INFO] argLine set to -javaagent:C:\\Users\\6fish\\.m2\\repository\\org\\jacoco\\org.jacoco.agent\\0.8.13\\org.jacoco.agent-0.8.13-runtime.jar=destfile=D:\\Rain6fish\\KeelBase-Vue-Pro\\yudao-framework\\yudao-spring-boot-starter-job\\target\\jacoco.exec
+[INFO] 
+[INFO] --- resources:3.4.0:resources (default-resources) @ yudao-spring-boot-starter-job ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] 
+[INFO] --- flatten:1.7.2:flatten (flatten) @ yudao-spring-boot-starter-job ---
+[INFO] Generating flattened POM of project cn.iocoder.boot:yudao-spring-boot-starter-job:jar:0.1.1...
+[INFO] 
+[INFO] --- compiler:3.14.0:compile (default-compile) @ yudao-spring-boot-starter-job ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.4.0:testResources (default-testResources) @ yudao-spring-boot-starter-job ---
+[INFO] skip non existing resourceDirectory D:\Rain6fish\KeelBase-Vue-Pro\yudao-framework\yudao-spring-boot-starter-job\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.14.0:testCompile (default-testCompile) @ yudao-spring-boot-starter-job ---
+[INFO] No sources to compile
+[INFO] 
+[INFO] --- surefire:3.5.3:test (default-test) @ yudao-spring-boot-starter-job ---
+[INFO] Tests are skipped.
+[INFO] 
+[INFO] --- jar:3.5.0:jar (default-jar) @ yudao-spring-boot-starter-job ---
+[INFO] 
+[INFO] -----------< cn.iocoder.boot:yudao-spring-boot-starter-test >-----------
+[INFO] Building yudao-spring-boot-starter-test 0.1.1                    [10/29]
+[INFO]   from yudao-framework\yudao-spring-boot-starter-test\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- jacoco:0.8.13:prepare-agent (jacoco-prepare-agent) @ yudao-spring-boot-starter-test ---
+[INFO] argLine set to -javaagent:C:\\Users\\6fish\\.m2\\repository\\org\\jacoco\\org.jacoco.agent\\0.8.13\\org.jacoco.agent-0.8.13-runtime.jar=destfile=D:\\Rain6fish\\KeelBase-Vue-Pro\\yudao-framework\\yudao-spring-boot-starter-test\\target\\jacoco.exec
+[INFO] 
+[INFO] --- resources:3.4.0:resources (default-resources) @ yudao-spring-boot-starter-test ---
+[INFO] skip non existing resourceDirectory D:\Rain6fish\KeelBase-Vue-Pro\yudao-framework\yudao-spring-boot-starter-test\src\main\resources
+[INFO] 
+[INFO] --- flatten:1.7.2:flatten (flatten) @ yudao-spring-boot-starter-test ---
+[INFO] Generating flattened POM of project cn.iocoder.boot:yudao-spring-boot-starter-test:jar:0.1.1...
+[INFO] 
+[INFO] --- compiler:3.14.0:compile (default-compile) @ yudao-spring-boot-starter-test ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.4.0:testResources (default-testResources) @ yudao-spring-boot-starter-test ---
+[INFO] skip non existing resourceDirectory D:\Rain6fish\KeelBase-Vue-Pro\yudao-framework\yudao-spring-boot-starter-test\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.14.0:testCompile (default-testCompile) @ yudao-spring-boot-starter-test ---
+[INFO] No sources to compile
+[INFO] 
+[INFO] --- surefire:3.5.3:test (default-test) @ yudao-spring-boot-starter-test ---
+[INFO] Tests are skipped.
+[INFO] 
+[INFO] --- jar:3.5.0:jar (default-jar) @ yudao-spring-boot-starter-test ---
+[INFO] 
+[INFO] --------< cn.iocoder.boot:yudao-spring-boot-starter-biz-tenant >--------
+[INFO] Building yudao-spring-boot-starter-biz-tenant 0.1.1              [11/29]
+[INFO]   from yudao-framework\yudao-spring-boot-starter-biz-tenant\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- jacoco:0.8.13:prepare-agent (jacoco-prepare-agent) @ yudao-spring-boot-starter-biz-tenant ---
+[INFO] argLine set to -javaagent:C:\\Users\\6fish\\.m2\\repository\\org\\jacoco\\org.jacoco.agent\\0.8.13\\org.jacoco.agent-0.8.13-runtime.jar=destfile=D:\\Rain6fish\\KeelBase-Vue-Pro\\yudao-framework\\yudao-spring-boot-starter-biz-tenant\\target\\jacoco.exec
+[INFO] 
+[INFO] --- resources:3.4.0:resources (default-resources) @ yudao-spring-boot-starter-biz-tenant ---
+[INFO] Copying 2 resources from src\main\resources to target\classes
+[INFO] 
+[INFO] --- flatten:1.7.2:flatten (flatten) @ yudao-spring-boot-starter-biz-tenant ---
+[INFO] Generating flattened POM of project cn.iocoder.boot:yudao-spring-boot-starter-biz-tenant:jar:0.1.1...
+[INFO] 
+[INFO] --- compiler:3.14.0:compile (default-compile) @ yudao-spring-boot-starter-biz-tenant ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.4.0:testResources (default-testResources) @ yudao-spring-boot-starter-biz-tenant ---
+[INFO] skip non existing resourceDirectory D:\Rain6fish\KeelBase-Vue-Pro\yudao-framework\yudao-spring-boot-starter-biz-tenant\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.14.0:testCompile (default-testCompile) @ yudao-spring-boot-starter-biz-tenant ---
+[INFO] No sources to compile
+[INFO] 
+[INFO] --- surefire:3.5.3:test (default-test) @ yudao-spring-boot-starter-biz-tenant ---
+[INFO] Tests are skipped.
+[INFO] 
+[INFO] --- jar:3.5.0:jar (default-jar) @ yudao-spring-boot-starter-biz-tenant ---
+[INFO] 
+[INFO] --------< cn.iocoder.boot:yudao-spring-boot-starter-websocket >---------
+[INFO] Building yudao-spring-boot-starter-websocket 0.1.1               [12/29]
+[INFO]   from yudao-framework\yudao-spring-boot-starter-websocket\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- jacoco:0.8.13:prepare-agent (jacoco-prepare-agent) @ yudao-spring-boot-starter-websocket ---
+[INFO] argLine set to -javaagent:C:\\Users\\6fish\\.m2\\repository\\org\\jacoco\\org.jacoco.agent\\0.8.13\\org.jacoco.agent-0.8.13-runtime.jar=destfile=D:\\Rain6fish\\KeelBase-Vue-Pro\\yudao-framework\\yudao-spring-boot-starter-websocket\\target\\jacoco.exec
+[INFO] 
+[INFO] --- resources:3.4.0:resources (default-resources) @ yudao-spring-boot-starter-websocket ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] 
+[INFO] --- flatten:1.7.2:flatten (flatten) @ yudao-spring-boot-starter-websocket ---
+[INFO] Generating flattened POM of project cn.iocoder.boot:yudao-spring-boot-starter-websocket:jar:0.1.1...
+[INFO] 
+[INFO] --- compiler:3.14.0:compile (default-compile) @ yudao-spring-boot-starter-websocket ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.4.0:testResources (default-testResources) @ yudao-spring-boot-starter-websocket ---
+[INFO] skip non existing resourceDirectory D:\Rain6fish\KeelBase-Vue-Pro\yudao-framework\yudao-spring-boot-starter-websocket\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.14.0:testCompile (default-testCompile) @ yudao-spring-boot-starter-websocket ---
+[INFO] No sources to compile
+[INFO] 
+[INFO] --- surefire:3.5.3:test (default-test) @ yudao-spring-boot-starter-websocket ---
+[INFO] Tests are skipped.
+[INFO] 
+[INFO] --- jar:3.5.0:jar (default-jar) @ yudao-spring-boot-starter-websocket ---
+[INFO] 
+[INFO] ---------< cn.iocoder.boot:yudao-spring-boot-starter-monitor >----------
+[INFO] Building yudao-spring-boot-starter-monitor 0.1.1                 [13/29]
+[INFO]   from yudao-framework\yudao-spring-boot-starter-monitor\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- jacoco:0.8.13:prepare-agent (jacoco-prepare-agent) @ yudao-spring-boot-starter-monitor ---
+[INFO] argLine set to -javaagent:C:\\Users\\6fish\\.m2\\repository\\org\\jacoco\\org.jacoco.agent\\0.8.13\\org.jacoco.agent-0.8.13-runtime.jar=destfile=D:\\Rain6fish\\KeelBase-Vue-Pro\\yudao-framework\\yudao-spring-boot-starter-monitor\\target\\jacoco.exec
+[INFO] 
+[INFO] --- resources:3.4.0:resources (default-resources) @ yudao-spring-boot-starter-monitor ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] 
+[INFO] --- flatten:1.7.2:flatten (flatten) @ yudao-spring-boot-starter-monitor ---
+[INFO] Generating flattened POM of project cn.iocoder.boot:yudao-spring-boot-starter-monitor:jar:0.1.1...
+[INFO] 
+[INFO] --- compiler:3.14.0:compile (default-compile) @ yudao-spring-boot-starter-monitor ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.4.0:testResources (default-testResources) @ yudao-spring-boot-starter-monitor ---
+[INFO] skip non existing resourceDirectory D:\Rain6fish\KeelBase-Vue-Pro\yudao-framework\yudao-spring-boot-starter-monitor\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.14.0:testCompile (default-testCompile) @ yudao-spring-boot-starter-monitor ---
+[INFO] No sources to compile
+[INFO] 
+[INFO] --- surefire:3.5.3:test (default-test) @ yudao-spring-boot-starter-monitor ---
+[INFO] Tests are skipped.
+[INFO] 
+[INFO] --- jar:3.5.0:jar (default-jar) @ yudao-spring-boot-starter-monitor ---
+[INFO] 
+[INFO] --------< cn.iocoder.boot:yudao-spring-boot-starter-protection >--------
+[INFO] Building yudao-spring-boot-starter-protection 0.1.1              [14/29]
+[INFO]   from yudao-framework\yudao-spring-boot-starter-protection\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- jacoco:0.8.13:prepare-agent (jacoco-prepare-agent) @ yudao-spring-boot-starter-protection ---
+[INFO] argLine set to -javaagent:C:\\Users\\6fish\\.m2\\repository\\org\\jacoco\\org.jacoco.agent\\0.8.13\\org.jacoco.agent-0.8.13-runtime.jar=destfile=D:\\Rain6fish\\KeelBase-Vue-Pro\\yudao-framework\\yudao-spring-boot-starter-protection\\target\\jacoco.exec
+[INFO] 
+[INFO] --- resources:3.4.0:resources (default-resources) @ yudao-spring-boot-starter-protection ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] 
+[INFO] --- flatten:1.7.2:flatten (flatten) @ yudao-spring-boot-starter-protection ---
+[INFO] Generating flattened POM of project cn.iocoder.boot:yudao-spring-boot-starter-protection:jar:0.1.1...
+[INFO] 
+[INFO] --- compiler:3.14.0:compile (default-compile) @ yudao-spring-boot-starter-protection ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.4.0:testResources (default-testResources) @ yudao-spring-boot-starter-protection ---
+[INFO] skip non existing resourceDirectory D:\Rain6fish\KeelBase-Vue-Pro\yudao-framework\yudao-spring-boot-starter-protection\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.14.0:testCompile (default-testCompile) @ yudao-spring-boot-starter-protection ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- surefire:3.5.3:test (default-test) @ yudao-spring-boot-starter-protection ---
+[INFO] Tests are skipped.
+[INFO] 
+[INFO] --- jar:3.5.0:jar (default-jar) @ yudao-spring-boot-starter-protection ---
+[INFO] 
+[INFO] ----------< cn.iocoder.boot:yudao-spring-boot-starter-biz-ip >----------
+[INFO] Building yudao-spring-boot-starter-biz-ip 0.1.1                  [15/29]
+[INFO]   from yudao-framework\yudao-spring-boot-starter-biz-ip\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- jacoco:0.8.13:prepare-agent (jacoco-prepare-agent) @ yudao-spring-boot-starter-biz-ip ---
+[INFO] argLine set to -javaagent:C:\\Users\\6fish\\.m2\\repository\\org\\jacoco\\org.jacoco.agent\\0.8.13\\org.jacoco.agent-0.8.13-runtime.jar=destfile=D:\\Rain6fish\\KeelBase-Vue-Pro\\yudao-framework\\yudao-spring-boot-starter-biz-ip\\target\\jacoco.exec
+[INFO] 
+[INFO] --- resources:3.4.0:resources (default-resources) @ yudao-spring-boot-starter-biz-ip ---
+[INFO] Copying 2 resources from src\main\resources to target\classes
+[INFO] 
+[INFO] --- flatten:1.7.2:flatten (flatten) @ yudao-spring-boot-starter-biz-ip ---
+[INFO] Generating flattened POM of project cn.iocoder.boot:yudao-spring-boot-starter-biz-ip:jar:0.1.1...
+[INFO] 
+[INFO] --- compiler:3.14.0:compile (default-compile) @ yudao-spring-boot-starter-biz-ip ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.4.0:testResources (default-testResources) @ yudao-spring-boot-starter-biz-ip ---
+[INFO] skip non existing resourceDirectory D:\Rain6fish\KeelBase-Vue-Pro\yudao-framework\yudao-spring-boot-starter-biz-ip\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.14.0:testCompile (default-testCompile) @ yudao-spring-boot-starter-biz-ip ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- surefire:3.5.3:test (default-test) @ yudao-spring-boot-starter-biz-ip ---
+[INFO] Tests are skipped.
+[INFO] 
+[INFO] --- jar:3.5.0:jar (default-jar) @ yudao-spring-boot-starter-biz-ip ---
+[INFO] 
+[INFO] ----------< cn.iocoder.boot:yudao-spring-boot-starter-excel >-----------
+[INFO] Building yudao-spring-boot-starter-excel 0.1.1                   [16/29]
+[INFO]   from yudao-framework\yudao-spring-boot-starter-excel\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- jacoco:0.8.13:prepare-agent (jacoco-prepare-agent) @ yudao-spring-boot-starter-excel ---
+[INFO] argLine set to -javaagent:C:\\Users\\6fish\\.m2\\repository\\org\\jacoco\\org.jacoco.agent\\0.8.13\\org.jacoco.agent-0.8.13-runtime.jar=destfile=D:\\Rain6fish\\KeelBase-Vue-Pro\\yudao-framework\\yudao-spring-boot-starter-excel\\target\\jacoco.exec
+[INFO] 
+[INFO] --- resources:3.4.0:resources (default-resources) @ yudao-spring-boot-starter-excel ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] 
+[INFO] --- flatten:1.7.2:flatten (flatten) @ yudao-spring-boot-starter-excel ---
+[INFO] Generating flattened POM of project cn.iocoder.boot:yudao-spring-boot-starter-excel:jar:0.1.1...
+[INFO] 
+[INFO] --- compiler:3.14.0:compile (default-compile) @ yudao-spring-boot-starter-excel ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.4.0:testResources (default-testResources) @ yudao-spring-boot-starter-excel ---
+[INFO] skip non existing resourceDirectory D:\Rain6fish\KeelBase-Vue-Pro\yudao-framework\yudao-spring-boot-starter-excel\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.14.0:testCompile (default-testCompile) @ yudao-spring-boot-starter-excel ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- surefire:3.5.3:test (default-test) @ yudao-spring-boot-starter-excel ---
+[INFO] Tests are skipped.
+[INFO] 
+[INFO] --- jar:3.5.0:jar (default-jar) @ yudao-spring-boot-starter-excel ---
+[INFO] 
+[INFO] ---< cn.iocoder.boot:yudao-spring-boot-starter-biz-data-permission >----
+[INFO] Building yudao-spring-boot-starter-biz-data-permission 0.1.1     [17/29]
+[INFO]   from yudao-framework\yudao-spring-boot-starter-biz-data-permission\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- jacoco:0.8.13:prepare-agent (jacoco-prepare-agent) @ yudao-spring-boot-starter-biz-data-permission ---
+[INFO] argLine set to -javaagent:C:\\Users\\6fish\\.m2\\repository\\org\\jacoco\\org.jacoco.agent\\0.8.13\\org.jacoco.agent-0.8.13-runtime.jar=destfile=D:\\Rain6fish\\KeelBase-Vue-Pro\\yudao-framework\\yudao-spring-boot-starter-biz-data-permission\\target\\jacoco.exec
+[INFO] 
+[INFO] --- resources:3.4.0:resources (default-resources) @ yudao-spring-boot-starter-biz-data-permission ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] 
+[INFO] --- flatten:1.7.2:flatten (flatten) @ yudao-spring-boot-starter-biz-data-permission ---
+[INFO] Generating flattened POM of project cn.iocoder.boot:yudao-spring-boot-starter-biz-data-permission:jar:0.1.1...
+[INFO] 
+[INFO] --- compiler:3.14.0:compile (default-compile) @ yudao-spring-boot-starter-biz-data-permission ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.4.0:testResources (default-testResources) @ yudao-spring-boot-starter-biz-data-permission ---
+[INFO] skip non existing resourceDirectory D:\Rain6fish\KeelBase-Vue-Pro\yudao-framework\yudao-spring-boot-starter-biz-data-permission\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.14.0:testCompile (default-testCompile) @ yudao-spring-boot-starter-biz-data-permission ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- surefire:3.5.3:test (default-test) @ yudao-spring-boot-starter-biz-data-permission ---
+[INFO] Tests are skipped.
+[INFO] 
+[INFO] --- jar:3.5.0:jar (default-jar) @ yudao-spring-boot-starter-biz-data-permission ---
+[INFO] 
+[INFO] -----------------< cn.iocoder.boot:yudao-module-infra >-----------------
+[INFO] Building yudao-module-infra 0.1.1                                [18/29]
+[INFO]   from yudao-module-infra\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- jacoco:0.8.13:prepare-agent (jacoco-prepare-agent) @ yudao-module-infra ---
+[INFO] argLine set to -javaagent:C:\\Users\\6fish\\.m2\\repository\\org\\jacoco\\org.jacoco.agent\\0.8.13\\org.jacoco.agent-0.8.13-runtime.jar=destfile=D:\\Rain6fish\\KeelBase-Vue-Pro\\yudao-module-infra\\target\\jacoco.exec
+[INFO] 
+[INFO] --- resources:3.4.0:resources (default-resources) @ yudao-module-infra ---
+[INFO] Copying 107 resources from src\main\resources to target\classes
+[INFO] 
+[INFO] --- flatten:1.7.2:flatten (flatten) @ yudao-module-infra ---
+[INFO] Generating flattened POM of project cn.iocoder.boot:yudao-module-infra:jar:0.1.1...
+[INFO] 
+[INFO] --- compiler:3.14.0:compile (default-compile) @ yudao-module-infra ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.4.0:testResources (default-testResources) @ yudao-module-infra ---
+[INFO] Copying 900 resources from src\test\resources to target\test-classes
+[INFO] 
+[INFO] --- compiler:3.14.0:testCompile (default-testCompile) @ yudao-module-infra ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- surefire:3.5.3:test (default-test) @ yudao-module-infra ---
+[INFO] Tests are skipped.
+[INFO] 
+[INFO] --- jar:3.5.0:jar (default-jar) @ yudao-module-infra ---
+[INFO] 
+[INFO] ----------------< cn.iocoder.boot:yudao-module-system >-----------------
+[INFO] Building yudao-module-system 0.1.1                               [19/29]
+[INFO]   from yudao-module-system\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- jacoco:0.8.13:prepare-agent (jacoco-prepare-agent) @ yudao-module-system ---
+[INFO] argLine set to -javaagent:C:\\Users\\6fish\\.m2\\repository\\org\\jacoco\\org.jacoco.agent\\0.8.13\\org.jacoco.agent-0.8.13-runtime.jar=destfile=D:\\Rain6fish\\KeelBase-Vue-Pro\\yudao-module-system\\target\\jacoco.exec
+[INFO] 
+[INFO] --- resources:3.4.0:resources (default-resources) @ yudao-module-system ---
+[INFO] Copying 37 resources from src\main\resources to target\classes
+[INFO] 
+[INFO] --- flatten:1.7.2:flatten (flatten) @ yudao-module-system ---
+[INFO] Generating flattened POM of project cn.iocoder.boot:yudao-module-system:jar:0.1.1...
+[INFO] 
+[INFO] --- compiler:3.14.0:compile (default-compile) @ yudao-module-system ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.4.0:testResources (default-testResources) @ yudao-module-system ---
+[INFO] Copying 4 resources from src\test\resources to target\test-classes
+[INFO] 
+[INFO] --- compiler:3.14.0:testCompile (default-testCompile) @ yudao-module-system ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- surefire:3.5.3:test (default-test) @ yudao-module-system ---
+[INFO] Tests are skipped.
+[INFO] 
+[INFO] --- jar:3.5.0:jar (default-jar) @ yudao-module-system ---
+[INFO] 
+[INFO] ----------------< cn.iocoder.boot:yudao-module-member >-----------------
+[INFO] Building yudao-module-member 0.1.1                               [20/29]
+[INFO]   from yudao-module-member\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- jacoco:0.8.13:prepare-agent (jacoco-prepare-agent) @ yudao-module-member ---
+[INFO] argLine set to -javaagent:C:\\Users\\6fish\\.m2\\repository\\org\\jacoco\\org.jacoco.agent\\0.8.13\\org.jacoco.agent-0.8.13-runtime.jar=destfile=D:\\Rain6fish\\KeelBase-Vue-Pro\\yudao-module-member\\target\\jacoco.exec
+[INFO] 
+[INFO] --- resources:3.4.0:resources (default-resources) @ yudao-module-member ---
+[INFO] skip non existing resourceDirectory D:\Rain6fish\KeelBase-Vue-Pro\yudao-module-member\src\main\resources
+[INFO] 
+[INFO] --- flatten:1.7.2:flatten (flatten) @ yudao-module-member ---
+[INFO] Generating flattened POM of project cn.iocoder.boot:yudao-module-member:jar:0.1.1...
+[INFO] 
+[INFO] --- compiler:3.14.0:compile (default-compile) @ yudao-module-member ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.4.0:testResources (default-testResources) @ yudao-module-member ---
+[INFO] Copying 4 resources from src\test\resources to target\test-classes
+[INFO] 
+[INFO] --- compiler:3.14.0:testCompile (default-testCompile) @ yudao-module-member ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- surefire:3.5.3:test (default-test) @ yudao-module-member ---
+[INFO] Tests are skipped.
+[INFO] 
+[INFO] --- jar:3.5.0:jar (default-jar) @ yudao-module-member ---
+[INFO] 
+[INFO] ------------------< cn.iocoder.boot:yudao-module-bpm >------------------
+[INFO] Building yudao-module-bpm 0.1.1                                  [21/29]
+[INFO]   from yudao-module-bpm\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- jacoco:0.8.13:prepare-agent (jacoco-prepare-agent) @ yudao-module-bpm ---
+[INFO] argLine set to -javaagent:C:\\Users\\6fish\\.m2\\repository\\org\\jacoco\\org.jacoco.agent\\0.8.13\\org.jacoco.agent-0.8.13-runtime.jar=destfile=D:\\Rain6fish\\KeelBase-Vue-Pro\\yudao-module-bpm\\target\\jacoco.exec
+[INFO] 
+[INFO] --- resources:3.4.0:resources (default-resources) @ yudao-module-bpm ---
+[INFO] skip non existing resourceDirectory D:\Rain6fish\KeelBase-Vue-Pro\yudao-module-bpm\src\main\resources
+[INFO] 
+[INFO] --- flatten:1.7.2:flatten (flatten) @ yudao-module-bpm ---
+[INFO] Generating flattened POM of project cn.iocoder.boot:yudao-module-bpm:jar:0.1.1...
+[INFO] 
+[INFO] --- compiler:3.14.0:compile (default-compile) @ yudao-module-bpm ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.4.0:testResources (default-testResources) @ yudao-module-bpm ---
+[INFO] Copying 4 resources from src\test\resources to target\test-classes
+[INFO] 
+[INFO] --- compiler:3.14.0:testCompile (default-testCompile) @ yudao-module-bpm ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- surefire:3.5.3:test (default-test) @ yudao-module-bpm ---
+[INFO] Tests are skipped.
+[INFO] 
+[INFO] --- jar:3.5.0:jar (default-jar) @ yudao-module-bpm ---
+[INFO] 
+[INFO] ------------------< cn.iocoder.boot:yudao-module-pay >------------------
+[INFO] Building yudao-module-pay 0.1.1                                  [22/29]
+[INFO]   from yudao-module-pay\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- jacoco:0.8.13:prepare-agent (jacoco-prepare-agent) @ yudao-module-pay ---
+[INFO] argLine set to -javaagent:C:\\Users\\6fish\\.m2\\repository\\org\\jacoco\\org.jacoco.agent\\0.8.13\\org.jacoco.agent-0.8.13-runtime.jar=destfile=D:\\Rain6fish\\KeelBase-Vue-Pro\\yudao-module-pay\\target\\jacoco.exec
+[INFO] 
+[INFO] --- resources:3.4.0:resources (default-resources) @ yudao-module-pay ---
+[INFO] skip non existing resourceDirectory D:\Rain6fish\KeelBase-Vue-Pro\yudao-module-pay\src\main\resources
+[INFO] 
+[INFO] --- flatten:1.7.2:flatten (flatten) @ yudao-module-pay ---
+[INFO] Generating flattened POM of project cn.iocoder.boot:yudao-module-pay:jar:0.1.1...
+[INFO] 
+[INFO] --- compiler:3.14.0:compile (default-compile) @ yudao-module-pay ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.4.0:testResources (default-testResources) @ yudao-module-pay ---
+[INFO] Copying 4 resources from src\test\resources to target\test-classes
+[INFO] 
+[INFO] --- compiler:3.14.0:testCompile (default-testCompile) @ yudao-module-pay ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- surefire:3.5.3:test (default-test) @ yudao-module-pay ---
+[INFO] Tests are skipped.
+[INFO] 
+[INFO] --- jar:3.5.0:jar (default-jar) @ yudao-module-pay ---
+[INFO] 
+[INFO] ------------------< cn.iocoder.boot:yudao-module-crm >------------------
+[INFO] Building yudao-module-crm 0.1.1                                  [23/29]
+[INFO]   from yudao-module-crm\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- jacoco:0.8.13:prepare-agent (jacoco-prepare-agent) @ yudao-module-crm ---
+[INFO] argLine set to -javaagent:C:\\Users\\6fish\\.m2\\repository\\org\\jacoco\\org.jacoco.agent\\0.8.13\\org.jacoco.agent-0.8.13-runtime.jar=destfile=D:\\Rain6fish\\KeelBase-Vue-Pro\\yudao-module-crm\\target\\jacoco.exec
+[INFO] 
+[INFO] --- resources:3.4.0:resources (default-resources) @ yudao-module-crm ---
+[INFO] Copying 8 resources from src\main\resources to target\classes
+[INFO] 
+[INFO] --- flatten:1.7.2:flatten (flatten) @ yudao-module-crm ---
+[INFO] Generating flattened POM of project cn.iocoder.boot:yudao-module-crm:jar:0.1.1...
+[INFO] 
+[INFO] --- compiler:3.14.0:compile (default-compile) @ yudao-module-crm ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.4.0:testResources (default-testResources) @ yudao-module-crm ---
+[INFO] Copying 2 resources from src\test\resources to target\test-classes
+[INFO] 
+[INFO] --- compiler:3.14.0:testCompile (default-testCompile) @ yudao-module-crm ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- surefire:3.5.3:test (default-test) @ yudao-module-crm ---
+[INFO] Tests are skipped.
+[INFO] 
+[INFO] --- jar:3.5.0:jar (default-jar) @ yudao-module-crm ---
+[INFO] 
+[INFO] ------------------< cn.iocoder.boot:yudao-module-ai >-------------------
+[INFO] Building yudao-module-ai 0.1.1                                   [24/29]
+[INFO]   from yudao-module-ai\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[WARNING] 2 problems were encountered while building the effective model for org.apache.yetus:audience-annotations:jar:0.5.0 during dependency collection step for project (use -X to see details)
+[INFO] 
+[INFO] --- jacoco:0.8.13:prepare-agent (jacoco-prepare-agent) @ yudao-module-ai ---
+[INFO] argLine set to -javaagent:C:\\Users\\6fish\\.m2\\repository\\org\\jacoco\\org.jacoco.agent\\0.8.13\\org.jacoco.agent-0.8.13-runtime.jar=destfile=D:\\Rain6fish\\KeelBase-Vue-Pro\\yudao-module-ai\\target\\jacoco.exec
+[INFO] 
+[INFO] --- resources:3.4.0:resources (default-resources) @ yudao-module-ai ---
+[INFO] skip non existing resourceDirectory D:\Rain6fish\KeelBase-Vue-Pro\yudao-module-ai\src\main\resources
+[INFO] 
+[INFO] --- flatten:1.7.2:flatten (flatten) @ yudao-module-ai ---
+[INFO] Generating flattened POM of project cn.iocoder.boot:yudao-module-ai:jar:0.1.1...
+[INFO] 
+[INFO] --- compiler:3.14.0:compile (default-compile) @ yudao-module-ai ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.4.0:testResources (default-testResources) @ yudao-module-ai ---
+[INFO] skip non existing resourceDirectory D:\Rain6fish\KeelBase-Vue-Pro\yudao-module-ai\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.14.0:testCompile (default-testCompile) @ yudao-module-ai ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- surefire:3.5.3:test (default-test) @ yudao-module-ai ---
+[INFO] Tests are skipped.
+[INFO] 
+[INFO] --- jar:3.5.0:jar (default-jar) @ yudao-module-ai ---
+[INFO] 
+[INFO] -------------< cn.iocoder.boot:yudao-module-ai1-springai >--------------
+[INFO] Building yudao-module-ai1-springai 0.1.1                         [25/29]
+[INFO]   from yudao-module-ai1-springai\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- jacoco:0.8.13:prepare-agent (jacoco-prepare-agent) @ yudao-module-ai1-springai ---
+[INFO] argLine set to -javaagent:C:\\Users\\6fish\\.m2\\repository\\org\\jacoco\\org.jacoco.agent\\0.8.13\\org.jacoco.agent-0.8.13-runtime.jar=destfile=D:\\Rain6fish\\KeelBase-Vue-Pro\\yudao-module-ai1-springai\\target\\jacoco.exec
+[INFO] 
+[INFO] --- resources:3.4.0:resources (default-resources) @ yudao-module-ai1-springai ---
+[INFO] skip non existing resourceDirectory D:\Rain6fish\KeelBase-Vue-Pro\yudao-module-ai1-springai\src\main\resources
+[INFO] 
+[INFO] --- flatten:1.7.2:flatten (flatten) @ yudao-module-ai1-springai ---
+[INFO] Generating flattened POM of project cn.iocoder.boot:yudao-module-ai1-springai:jar:0.1.1...
+[INFO] 
+[INFO] --- compiler:3.14.0:compile (default-compile) @ yudao-module-ai1-springai ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.4.0:testResources (default-testResources) @ yudao-module-ai1-springai ---
+[INFO] Copying 5 resources from src\test\resources to target\test-classes
+[INFO] 
+[INFO] --- compiler:3.14.0:testCompile (default-testCompile) @ yudao-module-ai1-springai ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- surefire:3.5.3:test (default-test) @ yudao-module-ai1-springai ---
+[INFO] Tests are skipped.
+[INFO] 
+[INFO] --- jar:3.5.0:jar (default-jar) @ yudao-module-ai1-springai ---
+[INFO] Building jar: D:\Rain6fish\KeelBase-Vue-Pro\yudao-module-ai1-springai\target\yudao-module-ai1-springai-0.1.1.jar
+[INFO] 
+[INFO] ------------------< cn.iocoder.boot:yudao-module-fms >------------------
+[INFO] Building yudao-module-fms 0.1.1                                  [26/29]
+[INFO]   from yudao-module-fms\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- jacoco:0.8.13:prepare-agent (jacoco-prepare-agent) @ yudao-module-fms ---
+[INFO] argLine set to -javaagent:C:\\Users\\6fish\\.m2\\repository\\org\\jacoco\\org.jacoco.agent\\0.8.13\\org.jacoco.agent-0.8.13-runtime.jar=destfile=D:\\Rain6fish\\KeelBase-Vue-Pro\\yudao-module-fms\\target\\jacoco.exec
+[INFO] 
+[INFO] --- resources:3.4.0:resources (default-resources) @ yudao-module-fms ---
+[INFO] Copying 3 resources from src\main\resources to target\classes
+[INFO] 
+[INFO] --- flatten:1.7.2:flatten (flatten) @ yudao-module-fms ---
+[INFO] Generating flattened POM of project cn.iocoder.boot:yudao-module-fms:jar:0.1.1...
+[INFO] 
+[INFO] --- compiler:3.14.0:compile (default-compile) @ yudao-module-fms ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.4.0:testResources (default-testResources) @ yudao-module-fms ---
+[INFO] Copying 4 resources from src\test\resources to target\test-classes
+[INFO] 
+[INFO] --- compiler:3.14.0:testCompile (default-testCompile) @ yudao-module-fms ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- surefire:3.5.3:test (default-test) @ yudao-module-fms ---
+[INFO] Tests are skipped.
+[INFO] 
+[INFO] --- jar:3.5.0:jar (default-jar) @ yudao-module-fms ---
+[INFO] 
+[INFO] ------------------< cn.iocoder.boot:yudao-module-pms >------------------
+[INFO] Building yudao-module-pms 0.1.1                                  [27/29]
+[INFO]   from yudao-module-pms\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- jacoco:0.8.13:prepare-agent (jacoco-prepare-agent) @ yudao-module-pms ---
+[INFO] argLine set to -javaagent:C:\\Users\\6fish\\.m2\\repository\\org\\jacoco\\org.jacoco.agent\\0.8.13\\org.jacoco.agent-0.8.13-runtime.jar=destfile=D:\\Rain6fish\\KeelBase-Vue-Pro\\yudao-module-pms\\target\\jacoco.exec
+[INFO] 
+[INFO] --- resources:3.4.0:resources (default-resources) @ yudao-module-pms ---
+[INFO] skip non existing resourceDirectory D:\Rain6fish\KeelBase-Vue-Pro\yudao-module-pms\src\main\resources
+[INFO] 
+[INFO] --- flatten:1.7.2:flatten (flatten) @ yudao-module-pms ---
+[INFO] Generating flattened POM of project cn.iocoder.boot:yudao-module-pms:jar:0.1.1...
+[INFO] 
+[INFO] --- compiler:3.14.0:compile (default-compile) @ yudao-module-pms ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.4.0:testResources (default-testResources) @ yudao-module-pms ---
+[INFO] Copying 3 resources from src\test\resources to target\test-classes
+[INFO] 
+[INFO] --- compiler:3.14.0:testCompile (default-testCompile) @ yudao-module-pms ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- surefire:3.5.3:test (default-test) @ yudao-module-pms ---
+[INFO] Tests are skipped.
+[INFO] 
+[INFO] --- jar:3.5.0:jar (default-jar) @ yudao-module-pms ---
+[INFO] 
+[INFO] ------------------< cn.iocoder.boot:yudao-module-oa >-------------------
+[INFO] Building yudao-module-oa 0.1.1                                   [28/29]
+[INFO]   from yudao-module-oa\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- jacoco:0.8.13:prepare-agent (jacoco-prepare-agent) @ yudao-module-oa ---
+[INFO] argLine set to -javaagent:C:\\Users\\6fish\\.m2\\repository\\org\\jacoco\\org.jacoco.agent\\0.8.13\\org.jacoco.agent-0.8.13-runtime.jar=destfile=D:\\Rain6fish\\KeelBase-Vue-Pro\\yudao-module-oa\\target\\jacoco.exec
+[INFO] 
+[INFO] --- resources:3.4.0:resources (default-resources) @ yudao-module-oa ---
+[INFO] Copying 14 resources from src\main\resources to target\classes
+[INFO] 
+[INFO] --- flatten:1.7.2:flatten (flatten) @ yudao-module-oa ---
+[INFO] Generating flattened POM of project cn.iocoder.boot:yudao-module-oa:jar:0.1.1...
+[INFO] 
+[INFO] --- compiler:3.14.0:compile (default-compile) @ yudao-module-oa ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.4.0:testResources (default-testResources) @ yudao-module-oa ---
+[INFO] Copying 3 resources from src\test\resources to target\test-classes
+[INFO] 
+[INFO] --- compiler:3.14.0:testCompile (default-testCompile) @ yudao-module-oa ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- surefire:3.5.3:test (default-test) @ yudao-module-oa ---
+[INFO] Tests are skipped.
+[INFO] 
+[INFO] --- jar:3.5.0:jar (default-jar) @ yudao-module-oa ---
+[INFO] 
+[INFO] --------------------< cn.iocoder.boot:yudao-server >--------------------
+[INFO] Building yudao-server 0.1.1                                      [29/29]
+[INFO]   from yudao-server\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- jacoco:0.8.13:prepare-agent (jacoco-prepare-agent) @ yudao-server ---
+[INFO] argLine set to -javaagent:C:\\Users\\6fish\\.m2\\repository\\org\\jacoco\\org.jacoco.agent\\0.8.13\\org.jacoco.agent-0.8.13-runtime.jar=destfile=D:\\Rain6fish\\KeelBase-Vue-Pro\\yudao-server\\target\\jacoco.exec
+[INFO] 
+[INFO] --- resources:3.4.0:resources (default-resources) @ yudao-server ---
+[INFO] Copying 6 resources from src\main\resources to target\classes
+[INFO] 
+[INFO] --- flatten:1.7.2:flatten (flatten) @ yudao-server ---
+[INFO] Generating flattened POM of project cn.iocoder.boot:yudao-server:jar:0.1.1...
+[INFO] 
+[INFO] --- compiler:3.14.0:compile (default-compile) @ yudao-server ---
+[INFO] Recompiling the module because of changed dependency.
+[INFO] Compiling 135 source files with javac [target 25] to target\classes
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by lombok.permit.Permit
+WARNING: Please consider reporting this to the maintainers of class lombok.permit.Permit
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+[INFO] 
+[INFO] --- resources:3.4.0:testResources (default-testResources) @ yudao-server ---
+[INFO] skip non existing resourceDirectory D:\Rain6fish\KeelBase-Vue-Pro\yudao-server\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.14.0:testCompile (default-testCompile) @ yudao-server ---
+[INFO] Recompiling the module because of changed dependency.
+[INFO] Compiling 88 source files with javac [target 25] to target\test-classes
+[INFO] 
+[INFO] --- surefire:3.5.3:test (default-test) @ yudao-server ---
+[INFO] Tests are skipped.
+[INFO] 
+[INFO] --- jar:3.5.0:jar (default-jar) @ yudao-server ---
+[INFO] Building jar: D:\Rain6fish\KeelBase-Vue-Pro\yudao-server\target\yudao-server.jar
+[INFO] 
+[INFO] --- spring-boot:4.1.0:repackage (default) @ yudao-server ---
+[INFO] Replacing main artifact D:\Rain6fish\KeelBase-Vue-Pro\yudao-server\target\yudao-server.jar with repackaged archive, adding nested dependencies in BOOT-INF/.
+[INFO] The original artifact has been renamed to D:\Rain6fish\KeelBase-Vue-Pro\yudao-server\target\yudao-server.jar.original
+[INFO] ------------------------------------------------------------------------
+[INFO] Reactor Summary for yudao 0.1.1:
+[INFO] 
+[INFO] yudao .............................................. SUCCESS [  0.443 s]
+[INFO] yudao-framework .................................... SUCCESS [  0.134 s]
+[INFO] yudao-common ....................................... SUCCESS [  1.390 s]
+[INFO] yudao-spring-boot-starter-web ...................... SUCCESS [  0.409 s]
+[INFO] yudao-spring-boot-starter-security ................. SUCCESS [  0.314 s]
+[INFO] yudao-spring-boot-starter-mybatis .................. SUCCESS [  1.424 s]
+[INFO] yudao-spring-boot-starter-redis .................... SUCCESS [  0.213 s]
+[INFO] yudao-spring-boot-starter-mq ....................... SUCCESS [  0.380 s]
+[INFO] yudao-spring-boot-starter-job ...................... SUCCESS [  0.140 s]
+[INFO] yudao-spring-boot-starter-test ..................... SUCCESS [  0.319 s]
+[INFO] yudao-spring-boot-starter-biz-tenant ............... SUCCESS [  0.414 s]
+[INFO] yudao-spring-boot-starter-websocket ................ SUCCESS [  0.369 s]
+[INFO] yudao-spring-boot-starter-monitor .................. SUCCESS [  0.220 s]
+[INFO] yudao-spring-boot-starter-protection ............... SUCCESS [  0.367 s]
+[INFO] yudao-spring-boot-starter-biz-ip ................... SUCCESS [  0.215 s]
+[INFO] yudao-spring-boot-starter-excel .................... SUCCESS [  0.320 s]
+[INFO] yudao-spring-boot-starter-biz-data-permission ...... SUCCESS [  0.311 s]
+[INFO] yudao-module-infra ................................. SUCCESS [  1.825 s]
+[INFO] yudao-module-system ................................ SUCCESS [  1.065 s]
+[INFO] yudao-module-member ................................ SUCCESS [  0.582 s]
+[INFO] yudao-module-bpm ................................... SUCCESS [  0.858 s]
+[INFO] yudao-module-pay ................................... SUCCESS [  0.619 s]
+[INFO] yudao-module-crm ................................... SUCCESS [  0.676 s]
+[INFO] yudao-module-ai .................................... SUCCESS [  2.404 s]
+[INFO] yudao-module-ai1-springai .......................... SUCCESS [  0.929 s]
+[INFO] yudao-module-fms ................................... SUCCESS [  0.615 s]
+[INFO] yudao-module-pms ................................... SUCCESS [  0.622 s]
+[INFO] yudao-module-oa .................................... SUCCESS [  0.886 s]
+[INFO] yudao-server ....................................... SUCCESS [ 17.247 s]
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  36.180 s
+[INFO] Finished at: 2026-11-28T15:52:50+08:00
+[INFO] ------------------------------------------------------------------------
