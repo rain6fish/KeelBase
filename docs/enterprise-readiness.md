@@ -5,6 +5,9 @@
 >
 > 状态日期：2026-08-18。**2026-10-10 全量复核**：逐条核了全部**非 ✅** 行，并抽查 ✅ 行的证据（引文 / 端点 / 页面）；更正处标「2026-10-10 核」，未标注者仍为 08-18 状态。
 > Status as of 2026-08-18. Re-checked in full on 2026-10-10: every non-✅ row was verified, and the ✅ rows' evidence (specs / endpoints / pages) was spot-checked; corrected rows are marked "re-checked 2026-10-10", and unmarked rows remain at their 2026-08-18 state.
+>
+> **Delivery status: demo-ready, not deliverable — E3, no E4. This page records capability status, not an acceptance verdict.**
+> **交付状态：演示可用、不可交付，E3，无 E4。本页记录的是能力现状，不是验收结论。**
 
 ---
 
