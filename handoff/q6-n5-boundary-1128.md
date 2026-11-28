@@ -35,14 +35,15 @@ The two pages under `docs/official-video/` carry no acceptance or deliverability
 - `KeelBase4J` (main checkout, `--exclude-dir=.claude`): zero N5 hits in `README*.md`, `CHANGELOG.md`, `docs/`. Its compatibility claim is "proven by reproducing the frozen vectors", which is not an acceptance claim. **No patch needed.** (The N5-looking hits under `KeelBase4J/.claude/worktrees/` belong to other sessions' worktrees, not the repository's outward surfaces.)
 - `KeelBase-App-X` (main checkout): zero N5 hits. `README.md` claims "M0–M6 已完成", a module-completion claim, not the N5 acceptance. **No patch needed.**
 
-**Private repository — exact places where "recorded as passed" still stands without the full boundary (list only).**
+**Private repository — patched on the user's instruction (private commits `99f388a4`, `a6d48c5a`; local only, nothing pushed).**
 
-1. `notes/审计读者/N5-场次记录-2026-11-25.md` — header（"2026-11-25 用户裁：最终状态按通过记入周计划…"）and §G final-status paragraph（"按用户裁定记为通过；…此前「演示可用、不可交付」只描述 11-24 那一次"）. The trailing clause now reads as if the 11-25 session were exempt from the boundary. Suggested patch: append "演示可用、不可交付，E3，无 E4" to both, and rephrase the clause so it no longer reads as an exemption.
-2. `notes/CTO每周例会/2026-11-21-下周开发计划.md` N5 row (`:84`, the 11-25 entries) — "按用户裁定记为通过" and the same "只描述 11-24 那一次" clause, with no E3/E4 in the cell. The later `↳ N5` 11-27 entry (`:85`) does carry "演示可用、不可交付；证据上限 E3". Suggested patch: append the full boundary to the 11-25 entries.
-3. `KeelBase4TS/KeelBase-execution-log.md` — heading "… N5 recorded passed at E3 …" and the Chinese body "用户裁定**记为通过**"; "not deliverable" is absent there. Suggested patch: append 演示可用、不可交付 to both bodies.
-4. `notes/会话认领约定.md` — the N5 claim row ("按通过写" / "最终状态：按用户裁定记为通过…") carries no boundary. Suggested patch: append the full boundary.
-5. `D:/Rain6fish/handoff/n5-closeout-1126.md`, `n5-verdict-1126.md` — both quote the two record-layer lines verbatim, including the "只描述 11-24 那一次" clause, but each page immediately states "证据上限 E3 / 不得写验收通过", so "recorded as passed" does not stand alone. Suggested (optional): mark the quote as the ledger's text, superseded for outward use by the 11-27 route.
-6. `notes/项目周例会/2026-11-28.md`, `notes/CTO每周例会/2026-11-28-项目周会上报.md`, `notes/CTO每周例会/2026-11-28.md` §十一 — already carry the full boundary; no change.
+1. `notes/审计读者/N5-场次记录-2026-11-25.md` — a boundary line added to the header, and a correction note after §G's final status: the "只描述 11-24 那一次" clause is no longer an exemption; both 11-24 and 11-25 sit under the same boundary. The original text is kept.
+2. `notes/CTO每周例会/2026-11-21-下周开发计划.md` — one bracket appended to each of the two N5 rows (EN/ZH): every earlier "recorded as passed" note is quoted only together with "demo-ready, not deliverable, E3, no E4".
+3. `KeelBase4TS/KeelBase-execution-log.md` — the 11-26 heading now reads "N5 recorded passed at E3 — demo-ready, not deliverable, no E4", and one Q6 sentence is appended to each body paragraph.
+4. `notes/会话认领约定.md` — the N5 record row carries the boundary; a Q6 claim row was added and closed in `a6d48c5a`.
+5. Not patched (marked optional before; unchanged): `D:/Rain6fish/handoff/n5-closeout-1126.md`, `n5-verdict-1126.md` — they quote the same clause but state the E3 ceiling and forbid "acceptance passed" wording on the same page.
+6. Left untouched: the uncommitted 11-27 verdict hunk in the week-plan file (another session's work) stays in the working tree; the two commits above carry only this pass's brackets.
+7. `notes/项目周例会/2026-11-28.md`, `notes/CTO每周例会/2026-11-28-项目周会上报.md`, `notes/CTO每周例会/2026-11-28.md` §十一 — already carried the full boundary; no change.
 
 **Gates run (this worktree).** `npm run check:readme-parity` ✓ (54 links per language, sets identical); `npm run check:family-block` ✓; `npm run check:terminology` ✓. No code, schema, contract or test file touched.
 
@@ -59,15 +60,16 @@ The two pages under `docs/official-video/` carry no acceptance or deliverability
 - `KeelBase4J`：主检出零 N5 命中；其主张是「复现冻结向量证明兼容」，不是验收主张 ⇒ 无需补丁。`.claude/worktrees/` 下的命中属其它会话的检出，不是该仓对外面。
 - `KeelBase-App-X`：主检出零 N5 命中；README 的「M0–M6 已完成」是模块完成度，不是 N5 ⇒ 无需补丁。
 
-**私库 —— 「记为通过」仍单独出现、需要补的位置（只列）。**
+**私库 —— 按用户指示已补（私库提交 `99f388a4`、`a6d48c5a`；仅本地，未推送）。**
 
-1. `notes/审计读者/N5-场次记录-2026-11-25.md` 抬头与 §G 末段：带「此前『演示可用、不可交付』只描述 11-24 那一次」，读起来像 11-25 已豁免于边界。建议两处都追加「演示可用、不可交付，E3，无 E4」，并改写该从句，使其不再读作豁免。
-2. `notes/CTO每周例会/2026-11-21-下周开发计划.md` N5 行（`:84` 的 11-25 条目）：只有「记为通过」，无 E3/E4；`↳ N5` 的 11-27 条目（`:85`）已带「演示可用、不可交付；证据上限 E3」。建议给 11-25 条目补全边界。
-3. `KeelBase4TS/KeelBase-execution-log.md`：标题「N5 recorded passed at E3」与中文正文「用户裁定**记为通过**」缺「不可交付」。建议两段正文都补。
-4. `notes/会话认领约定.md` 的 N5 认领行：无边界。建议补全。
-5. `D:/Rain6fish/handoff/n5-closeout-1126.md`、`n5-verdict-1126.md`：逐字引用了那两句记录层文字（含「只描述 11-24 那一次」），但同页已写「证据上限 E3 / 不得写验收通过」，故不构成「单独出现」。可选：给引文加一句「此为账本原文，对外以 11-27 路径为准」。
-6. `notes/项目周例会/2026-11-28.md`、`notes/CTO每周例会/2026-11-28-项目周会上报.md`、`notes/CTO每周例会/2026-11-28.md` §十一：已带完整边界，不改。
+1. `notes/审计读者/N5-场次记录-2026-11-25.md`：抬头加一行边界；§G 末段后加更正注——「只描述 11-24 那一次」不再作为豁免依据，11-24 与 11-25 同受一条边界约束；原文保留。
+2. `notes/CTO每周例会/2026-11-21-下周开发计划.md`：两个 N5 主行（中英各一）各追加一个方括号，写明「以上各条『记为通过』只能连同『演示可用、不可交付，E3，无 E4』一起引用」。
+3. `KeelBase4TS/KeelBase-execution-log.md`：11-26 标题改为「N5 recorded passed at E3 — demo-ready, not deliverable, no E4」；中英两段正文各追加一句 Q6 边界说明。
+4. `notes/会话认领约定.md`：N5 场次记录登记行补上边界；新增 Q6 认领行并在 `a6d48c5a` 注销。
+5. 未补（此前标为可选）：`D:/Rain6fish/handoff/n5-closeout-1126.md`、`n5-verdict-1126.md` —— 同页已写证据上限 E3 且禁用「验收通过」措辞。
+6. 未触碰：周计划文件里 11-27 判定那段属他会话的未提交改动，仍留在工作树；上述两笔提交只含本次方括号。
+7. `notes/项目周例会/2026-11-28.md`、`notes/CTO每周例会/2026-11-28-项目周会上报.md`、`notes/CTO每周例会/2026-11-28.md` §十一：本已带完整边界，不改。
 
-**门禁读数（本 worktree）。** `check:readme-parity` ✓（每语言 54 条链接、集合一致）；`check:family-block` ✓；`check:terminology` ✓。未动代码、schema、契约与测试。
+**门禁读数（本 worktree）。** `check:readme-parity` ✓（每语言 54 条链接、集合一致）；`check:family-block` ✓；`check:terminology` ✓。私库 `check-claim-closure.mjs` exit 0。未动代码、schema、契约与测试。
 
-**边界。** 只改 Q6 worktree；未推送；未跨仓编辑；未宣称任何验收通过；未碰兼容矩阵 README 行与 CHANGELOG 开口（属未合并的 Q3 分支）。
+**边界。** 本仓只改 Q6 worktree；私库改动按用户 2026-11-28 指示执行；两仓均只做本地提交、未推送；未宣称任何验收通过；未碰兼容矩阵 README 行与 CHANGELOG 开口（属未合并的 Q3 分支）。
