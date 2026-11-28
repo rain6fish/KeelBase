@@ -1,0 +1,231 @@
+# G5 ① — published-artifact contract version, advisory only.
+#
+# This workflow runs `scripts/check-artifact-contract.mjs` against the jars Maven Central actually
+# serves for the newest KeelBase4J release, and compares what each jar says about the contract version
+# it was built against with the pin the release tag was built from. It exists because the pre-publish
+# guard reads the workspace jars, and nothing else asks Central's bytes.
+#
+# It is ADVISORY and it is deliberately NOT a job in `ci.yml`:
+#
+#   * A post-publish check cannot prevent anything. Central rejects redeploying the same coordinates
+#     and a release cannot be un-sent; the guard that does prevent a bad publish is the pre-publish
+#     one in KeelBase4J. A red here means "a live release's published bytes declare a contract
+#     version other than the one it claims" — a follow-up signal, never a block.
+#   * It is not on the merge path either: a red is a reading a person has to read. That is the whole
+#     point of the advisory tier. Whether it is promoted to blocking is a separate decision.
+#
+# Decided 2026-11-27 (CTO weekly, decision sheet D8, option C): two steps — an advisory job now; the
+# blocking decision at the 12-05 review, on the readings of at least two releases. The ruling fixed
+# the direction only. The manifest-section, error-reporting and inflate-bound defects recorded against
+# the script must be fixed before any promotion to blocking. G5 is NOT counted complete on 11-29.
+#
+# Trigger: `workflow_dispatch` plus a daily schedule, not the release. GitHub reads a workflow file
+# from the tagged commit, so a `needs: publish` job landed in KeelBase4J would apply only to releases
+# tagged after it, and it would put the check back inside the publish run. A daily run needs no
+# coupling: it picks up the newest release by itself and accumulates one reading a day for 12-05.
+#
+# No secrets and no services. Maven Central is public read (anonymous); the peer repository
+# KeelBase4J is public and is read anonymously with `git ls-remote` / `git clone`. Central's indexing
+# lag is handled by polling the three jar URLs (3 attempts, 60 s apart — the runbook's standing
+# assumption), so a run fired right after a publish does not go red on a 404.
+#
+# ── 中文 ──
+# G5 ① —— 已发布产物的契约版本核对，只告警。
+#
+# 本 workflow 对 Maven Central **实际提供**的最新 KeelBase4J 发布 jar 跑
+# `scripts/check-artifact-contract.mjs`，把 jar 自述的契约版本与发布 tag 的构建 pin 相比对。它存在的理由：
+# 发布前守卫读的是工作区里的 jar，除此之外没有任何东西去问 Central 上的字节。
+#
+# 它是**告警档**，且**有意**不是 `ci.yml` 里的一个 job：
+#
+#   * 发布后的检查阻止不了任何事。Central 拒绝重发同一坐标、发布收不回；真正阻止坏发布的是 KeelBase4J
+#     里那道发布前守卫。这里的红意味着「一次已上线的发布，其已发布字节自述的契约版本与它所声称的不同」
+#     —— 跟进信号，永远不是拦截。
+#   * 它也不在合并路径上：红是要人去读的读数，这正是告警档存在的意义。是否升为阻塞档是之后另行决定的事。
+#
+# 2026-11-27 定（CTO 周会，决策单 D8，选 C）：拆两步 —— 先落告警作业；阻塞与否在 12-05 复核时凭至少
+# 两次发布的读数决定。裁定只定方向。升为阻塞档之前，必须修掉脚本记录在案的三条缺陷：清单段落、
+# 错误报告、解压上限。11-29 **不**把 G5 计入完成。
+#
+# 触发方式：`workflow_dispatch` 加每日定时，不挂发布。GitHub 从被打 tag 的提交读工作流文件，
+# 所以在 KeelBase4J 里加一个 `needs: publish` 的作业只会对之后才打的 tag 生效，并且把它塞回发布 run 里。
+# 每日跑不需要耦合：它自己取最新发布，每天积累一条读数，供 12-05 裁定。
+#
+# 不需要任何 secret、不需要任何服务。Maven Central 公开只读（匿名）；兄弟仓 KeelBase4J 公开，
+# 用 `git ls-remote` / `git clone` 匿名读取。Central 入索引延迟用轮询三个 jar 地址处理（3 次、间隔 60 秒
+# —— runbook 的既定假设），于是发布刚完成就触发的 run 不会因 404 变红。
+
+name: G5 artifact contract (advisory)
+
+on:
+  schedule:
+    # 05:43 Asia/Shanghai (21:43 UTC the previous day). Off the top of the hour on purpose: the :00
+    # mark is where every other scheduled job on the planet lands.
+    # 05:43（北京时间；UTC 前一天 21:43）。有意避开整点 —— 整点是全世界的定时任务一起挤的地方。
+    - cron: '43 21 * * *'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'KeelBase4J artifact version to read, without the v (default: the newest v* tag) / 要核对的构件版本，不带 v（默认取最新 v* tag）'
+        required: false
+        default: ''
+      expect:
+        description: 'Contract version to compare against (default: the pin in that release tag) / 用来比对的契约版本（默认取该发布 tag 内的 pin）'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: g5-artifact-contract
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '22'
+  REPO_4J: 'https://github.com/rain6fish/KeelBase4J.git'
+  GROUP_PATH: 'cn/com/keelbase'
+  CENTRAL: 'https://repo1.maven.org/maven2'
+  ARTIFACTS: 'keelbase4j-protocol keelbase4j-core keelbase4j-springai'
+
+jobs:
+  read-published-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # The expected value is never retyped: it is read from the release tag by the one script that
+      # reads the pin (`check-pin-lag.sh --print-pin`), the same reader the release workflow uses.
+      # An override exists for the negative control — a dispatch with a wrong `expect` must go red.
+      #
+      # 期望值从不手抄：由唯一读 pin 的脚本（`check-pin-lag.sh --print-pin`）从发布 tag 里读出，
+      # 与发布工作流用的是同一个读法。保留覆盖入口是为了做负向对照 —— 用错误 `expect` 的 dispatch 必须变红。
+      - name: 确定版本与期望 / resolve the version and the expected contract version
+        id: resolve
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_EXPECT: ${{ inputs.expect }}
+        run: |
+          set -euo pipefail
+          version="${INPUT_VERSION}"
+          if [ -z "$version" ]; then
+            version=$(git ls-remote --tags --refs "$REPO_4J" 'v*' \
+              | awk '{print $2}' | sed 's|^refs/tags/v||' | sort -V | tail -n 1)
+          fi
+          case "$version" in
+            [0-9]*) ;;
+            *) echo "::error title=G5 bad version::$version is not an artifact version"; exit 2 ;;
+          esac
+          expect="${INPUT_EXPECT}"
+          if [ -z "$expect" ]; then
+            if ! git ls-remote --tags --refs "$REPO_4J" "refs/tags/v${version}" | grep -q .; then
+              echo "::error title=G5 no such release::KeelBase4J has no tag v$version"
+              echo "::error title=G5 没有这次发布::KeelBase4J 没有 tag v$version"
+              exit 2
+            fi
+            git clone --depth 1 --branch "v${version}" "$REPO_4J" "$RUNNER_TEMP/keelbase4j"
+            expect=$(cd "$RUNNER_TEMP/keelbase4j" && bash scripts/check-pin-lag.sh --print-pin)
+          fi
+          if [ -z "$expect" ]; then
+            echo "::error title=G5 no expected version::no --expect was given and tag v$version yielded no pin"
+            echo "::error title=G5 没有期望版本::既未给 --expect，tag v$version 也没读出 pin"
+            exit 2
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "expect=$expect" >> "$GITHUB_OUTPUT"
+          echo "Release under test / 被测发布: $version — pin / 期望契约版本: $expect"
+
+      # Central's indexing lag is the one known flake: the runbook's standing assumption is 3 attempts
+      # 60 s apart. A jar still absent after that is recorded as unverified (exit 2 territory), not as
+      # a pass — the check cannot clear an artifact it could not read.
+      #
+      # Central 入索引延迟是已知的、唯一会抖的东西：runbook 的既定假设是 3 次、间隔 60 秒。三次后仍然
+      # 取不到的 jar 记为**未核验**（exit 2 那一类），不算通过 —— 读不到的构件，检查不能替它放行。
+      - name: 等 Central 入索引 / wait for Central to index the release
+        id: wait
+        env:
+          VERSION: ${{ steps.resolve.outputs.version }}
+        run: |
+          set -uo pipefail
+          missing=''
+          for artifact in $ARTIFACTS; do
+            url="$CENTRAL/$GROUP_PATH/$artifact/$VERSION/$artifact-$VERSION.jar"
+            code=''
+            for attempt in 1 2 3; do
+              code=$(curl -sS -o /dev/null -w '%{http_code}' -I "$url" || echo 000)
+              [ "$code" = '200' ] && break
+              [ "$attempt" -lt 3 ] && sleep 60
+            done
+            if [ "$code" = '200' ]; then
+              echo "· $artifact: 200"
+            else
+              echo "::warning title=G5 not on Central::$artifact $VERSION answered $code after 3 attempts; it will be reported unverified"
+              echo "::warning title=G5 取不到::$artifact $VERSION 三次尝试后应答 $code；将记为未核验"
+              missing="$missing $artifact"
+            fi
+          done
+          echo "missing=${missing# }" >> "$GITHUB_OUTPUT"
+
+      - name: 对 Central 的已发布字节跑核对 / check the published bytes against the pin
+        id: check
+        env:
+          VERSION: ${{ steps.resolve.outputs.version }}
+          EXPECT: ${{ steps.resolve.outputs.expect }}
+          MISSING: ${{ steps.wait.outputs.missing }}
+        run: |
+          set -uo pipefail
+          fail=0
+          report="$RUNNER_TEMP/g5-report.tsv"
+          : > "$report"
+          for artifact in $ARTIFACTS; do
+            case " $MISSING " in
+              *" $artifact "*)
+                echo "· $artifact: skipped (not indexed) / 跳过（未入索引）"
+                printf '%s\t2\tnot indexed on Central\n' "$artifact" >> "$report"
+                fail=1
+                continue
+                ;;
+            esac
+            echo "──── $artifact $VERSION ────"
+            node scripts/check-artifact-contract.mjs \
+              --version "$VERSION" --expect "$EXPECT" --artifact "$artifact"
+            code=$?
+            case "$code" in
+              0) verdict='match / 一致' ;;
+              1) verdict='MISMATCH / 不一致' ;;
+              2) verdict='UNDECLARED or unreadable / 未声明或读不到' ;;
+              *) verdict="tool exited $code" ;;
+            esac
+            printf '%s\t%s\t%s\n' "$artifact" "$code" "$verdict" >> "$report"
+            [ "$code" -eq 0 ] || fail=1
+          done
+          {
+            echo '| artifact | exit | reading |'
+            echo '|---|---|---|'
+            while IFS=$'\t' read -r name code verdict; do
+              echo "| \`$name\` | $code | $verdict |"
+            done < "$report"
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$fail"
+
+      # One annotation so the notification says what happened without anyone opening the log. It names
+      # the exit codes because 1 and 2 are different findings — and it repeats the advisory caveat:
+      # exit 2 may be a real "the artifact declares nothing" or the tool failing to read; the two
+      # collapse into one code until the error-reporting defect is fixed, which is why a red needs a
+      # person and why this tier is not yet a gate.
+      #
+      # 一条 annotation，让通知里就写着发生了什么，不必有人翻日志。它点名退出码，因为 1 与 2 是两条
+      # 不同的结论 —— 并复述告警档的限度：exit 2 可能真的是「构件什么都没说」，也可能是工具读不了；
+      # 在错误报告缺陷修好之前两者落进同一个码，所以红需要有人看，这一档也还不是闸。
+      - name: 失败时点名 / name the reading on the run page
+        if: failure()
+        env:
+          VERSION: ${{ steps.resolve.outputs.version }}
+          EXPECT: ${{ steps.resolve.outputs.expect }}
+        run: |
+          echo "::error title=G5 advisory red — published contract reading::KeelBase4J $VERSION was checked against pin $EXPECT and did not read match. Exit 1 = a declaration was found and differs (the observed value is printed in the step log). Exit 2 = no declaration was found, or the jar could not be downloaded/read — the step log says which. This job gates nothing; it is a reading for the 12-05 decision, not evidence that G5 is done."
+          echo "::error title=G5 告警红 —— 已发布的契约读数::KeelBase4J $VERSION 与 pin $EXPECT 比对未得「一致」。exit 1 = 找到声明但不一致（观测值打印在该步日志里）。exit 2 = 没有找到声明，或 jar 取不到 / 读不了 —— 是哪一种由该步日志说明。本作业不拦任何东西；它是给 12-05 裁定用的读数，不是 G5 已完成的证据。"
