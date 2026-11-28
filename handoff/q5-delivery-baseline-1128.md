@@ -15,13 +15,13 @@ the reason, not worked around.
 
 ## 1. Branch, commit, evidence / 分支、提交、证据
 
-- Branch `claude/nostalgic-cannon-fb36b2` (worktree `nostalgic-cannon-fb36b2`); commit **`<COMMIT>`** —
+- Branch `claude/nostalgic-cannon-fb36b2` (worktree `nostalgic-cannon-fb36b2`); commit **`3baf1b66`** —
   `scripts/delivery-baseline.sh`, `scripts/delivery-baseline-ci.mjs`, this note. Not pushed; no tag.
 - Evidence directory: **`D:/Rain6fish/.delivery-baseline/20261128/evidence`** (logs, `readings.txt`,
   `ci.json`, `SUMMARY.md`), plus the audit-only rerun `…/evidence-audit4` (logs copied into
   `evidence/logs/audit-final-*`). The checkout clones live beside them under
   `D:/Rain6fish/.delivery-baseline/20261128/{KeelBase,KeelBase4J,KeelBase-Vue-Pro}`.
-- 分支 `claude/nostalgic-cannon-fb36b2`（worktree `nostalgic-cannon-fb36b2`）；提交 **`<COMMIT>`** ——
+- 分支 `claude/nostalgic-cannon-fb36b2`（worktree `nostalgic-cannon-fb36b2`）；提交 **`3baf1b66`** ——
   `scripts/delivery-baseline.sh`、`scripts/delivery-baseline-ci.mjs`、本交接件。未推送、未打 tag。
 - 证据目录：**`D:/Rain6fish/.delivery-baseline/20261128/evidence`**（日志、`readings.txt`、`ci.json`、
   `SUMMARY.md`）。三份检出克隆在旁边的
