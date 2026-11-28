@@ -9,7 +9,7 @@
  * `host-write-not-in-same-transaction`, and `host-ai-path-not-governed` whenever a host-owned AI path is
  * in play. It also carries `JV-64`'s standing ruling — **乙** — under which the complete evidence package
  * is taken from the TypeScript governance console (`GET /api/v1/ai/governance/evidence-root/<type>/<id>`,
- * `keelbase-audit-evidence/4`, verified offline by `verify-evidence.mjs`) while the host keeps only its
+ * `keelbase-audit-evidence/6`, verified offline by `verify-evidence.mjs`) while the host keeps only its
  * audit chain. A rule nobody can check is a wish, so this gate parses the blank form in
  * `docs/manual/delivery-recipe.md` §11.2 by its field keys — never by matching the prose around it — and
  * fails when the coverage-statement section or a required field is missing, blank, left on its
@@ -23,7 +23,7 @@
  *
  * 计划件 `W2.3` 要求每张交付验收单都声明自己的覆盖：至少 `host-write-not-in-same-transaction`，涉及宿主自有
  * AI 路径时还要 `host-ai-path-not-governed`。它同时承载 `JV-64` 的常设裁定 **乙** —— 完整证据包从 TypeScript
- * 治理台取（`GET /api/v1/ai/governance/evidence-root/<type>/<id>`，`keelbase-audit-evidence/4`，
+ * 治理台取（`GET /api/v1/ai/governance/evidence-root/<type>/<id>`，`keelbase-audit-evidence/6`，
  * 由 `verify-evidence.mjs` 离线核验），宿主只保留审计链。没人能核的规则只是愿望，故本门按**字段键**解析
  * `docs/manual/delivery-recipe.md` §11.2 的空白单 —— 绝不匹配周围的散文 —— 并在覆盖声明节或任一必填项缺失、
  * 留空、停在占位、或取值不在该字段允许集合内时判红。
@@ -46,11 +46,11 @@ const LINE = /^\s*([a-z][a-z0-9-]+)(?:\s*[^:：]*)?[:：]\s*(.*)$/;
 
 /**
  * Required fields and the values they accept. `contains` switches a field from exact-segment matching to
- * substring matching — needed only where a value itself carries a separator (`keelbase-audit-evidence/4`)
+ * substring matching — needed only where a value itself carries a separator (`keelbase-audit-evidence/6`)
  * or a space (`no ✗`). `needsBasisWhen` names the choices that are only acceptable with a stated reason.
  *
  * 必填字段与其允许取值。`contains` 把字段从「按段精确匹配」切到「子串匹配」—— 只在取值本身带分隔符
- * （`keelbase-audit-evidence/4`）或空格（`no ✗`）时才需要。`needsBasisWhen` 列出必须写明理由才可用的选择。
+ * （`keelbase-audit-evidence/6`）或空格（`no ✗`）时才需要。`needsBasisWhen` 列出必须写明理由才可用的选择。
  */
 const FIELDS = [
   { key: 'evidence-path', values: ['乙', '甲'] },
@@ -58,7 +58,7 @@ const FIELDS = [
   { key: 'evidence-path-host-chain', values: ['200', '401', '403', 'other', '其它'] },
   {
     key: 'evidence-path-ts-package',
-    values: ['keelbase-audit-evidence/4', 'unreachable', '不可达'],
+    values: ['keelbase-audit-evidence/6', 'unreachable', '不可达'],
     contains: true,
   },
   {
