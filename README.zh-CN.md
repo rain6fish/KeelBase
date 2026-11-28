@@ -21,6 +21,8 @@
 > 或者**在线观看演示视频** → [官方中文演示（国内）](https://demo.keelbase.com.cn/demo/video-zh.html) · [GitHub Pages](https://rain6fish.github.io/KeelBase/video-zh.html)（约 4 分钟，含真实系统演示；下载：GitHub release）。
 >
 > 或者**读系列文章** → [Runtime over Prompt：为什么 System Prompt 不是安全边界](https://rain6fish.github.io/KeelBase/blog/runtime-over-prompt-zh.html) · [为什么 AI 写数据要先分级？R0-R5 工具风险模型](https://rain6fish.github.io/KeelBase/blog/why-ai-writes-need-risk-tiers-zh.html)。
+>
+> **交付状态：演示可用、不可交付，E3，无 E4。**
 
 只装 Docker，一条命令起完整应用（后端 + 工作台 + 管理台 + 移动预览），免构建：
 

@@ -38,6 +38,9 @@
 - **Trust**：每步审计、写操作确认、副作用可撤销、哈希链可验证
 - **三端**：同一后端；工作台 / 管理台 / 移动预览**三个入口均在线**（移动预览的渲染复测见「备注」）
 
+> **Delivery status: demo-ready, not deliverable — E3, no E4.**
+> **交付状态：演示可用、不可交付，E3，无 E4。**
+
 ## 备注 / Notes
 
 - 后端健康检查：`https://demo.keelbase.com.cn/api/v1/health`
