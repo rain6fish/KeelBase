@@ -4,6 +4,27 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 本文件记录 KeelBase 所有值得关注的变更。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+> Opens the section for the next release; entries are added as they land, and the section takes its
+> version and date when that release is cut.
+> 为下一版开段：条目随落地陆续补入，发版时定下版本号并补日期。
+
+### Changed
+
+- **The compatibility matrix's released Java row now reads `v0.1.21`.** KeelBase4J `v0.1.21`
+  (2026-11-26) answers contract `v1.23.0`; the row it replaces is kept as `v0.1.20`, superseded,
+  against `v1.22.0`. The English and Chinese tables move together — the Chinese table had still
+  named `v0.1.19`. KeelBase4J's next line, `0.1.22`, is not released: no artifact is published under
+  that number, and the matrix's `main` row keeps naming `v1.24.0` until it lands.
+
+### 变更
+
+- **兼容矩阵里已发布的 Java 行现在读 `v0.1.21`。** KeelBase4J `v0.1.21`（2026-11-26）应答契约
+  `v1.23.0`；被它取代的那行保留为 `v0.1.20`（已被取代），对应 `v1.22.0`。中英两表一同改动——
+  中文表此前仍写着 `v0.1.19`。KeelBase4J 的下一条线 `0.1.22` 尚未发布：该号下没有任何产物，
+  在它落地前，矩阵的 `main` 行仍写 `v1.24.0`。
+
 ## [1.5.0] - 2026-11-25
 
 **v1.5.0 — A lookup now says what its answer was based on and what it could not have seen, and a release keeps its own decision / 查询证据说清它基于什么、又看不到什么，释放也留下自己的决定**
