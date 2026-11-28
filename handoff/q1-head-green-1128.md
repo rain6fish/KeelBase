@@ -1,7 +1,7 @@
 # Q1 — HEAD back to green: the trust-proof corpus names the evidence root `/6` (2026-11-28)
 
 - Worktree `.claude/worktrees/festive-kepler-429e20` / branch `claude/great-khayyam-cc4177`, based on local `main` `638ef385`.
-- Fix commit `7cd5c6ae`. Local only: nothing pushed, no tag, no release; contract repo, private repo, Q2/Q3 files untouched.
+- Fix commit `7cd5c6ae`, handoff `c69d4662`. The branch was pushed to GitHub (`github`) on 2026-11-28 at `c69d4662`, verified by `ls-remote`; Gitee was not pushed (only GitHub runs CI). No tag, no release; contract repo, private repo, Q2/Q3 files untouched.
 
 ## What was red
 
@@ -52,8 +52,9 @@ gitlink is unchanged, and the submodule now matches HEAD (parent `git status` cl
 
 ## Not done
 
-- **Not pushed, so no CI run exists for the new HEAD.** Q1's acceptance is the `test` job on the new
-  HEAD; obtaining it requires a push of `claude/great-khayyam-cc4177` (or landing `7cd5c6ae` on main).
+- **No CI run exists for the new HEAD yet.** `ci.yml` triggers only on a push to `main` or a pull
+  request to `main`, so the branch push does not start it. Q1's acceptance (the `test` job on the new
+  HEAD) needs either a PR to main or landing `7cd5c6ae` on main.
 - Three outward documents still carry the old "v3" wording; left alone as outside Q1: `docs/evidence/README.md:116`,
   `docs/evidence-root.spec.md:189`, `docs/manual/security-showcase.md:43`. (`docs/manual/delivery-recipe.md`
   pins `/4` and is checked by `scripts/check-delivery-coverage-statement.mjs`; also untouched.)
@@ -64,7 +65,7 @@ gitlink is unchanged, and the submodule now matches HEAD (parent `git status` cl
 # Q1 —— HEAD 回绿：Trust 证明包改断证据根 `/6`（2026-11-28）
 
 - 工作树 `.claude/worktrees/festive-kepler-429e20` / 分支 `claude/great-khayyam-cc4177`，基于本地 `main` `638ef385`。
-- 修复提交 `7cd5c6ae`。只落本地：未推送、未打 tag、未发版；契约仓、私库、Q2/Q3 的文件均未动。
+- 修复提交 `7cd5c6ae`，交接 `c69d4662`。分支已于 2026-11-28 推到 GitHub（`github`），远端指向 `c69d4662`（`ls-remote` 核对）；Gitee 未推（CI 只在 GitHub 跑）。未打 tag、未发版；契约仓、私库、Q2/Q3 的文件均未动。
 
 ## 红在哪
 
@@ -112,8 +113,8 @@ NODE_ENV=test npx jest --config test/jest-e2e.json --runTestsByPath test/scenari
 
 ## 未做
 
-- **未推送，故新 HEAD 上没有 CI run。** Q1 的验收是新 HEAD 上的 `test` 作业；要拿到它，须推送
-  `claude/great-khayyam-cc4177`（或把 `7cd5c6ae` 落到 main）。
+- **新 HEAD 上还没有 CI run。** `ci.yml` 只在 `main` 被推送或向 `main` 开 PR 时触发，分支推送
+  不会启动它。Q1 的验收（新 HEAD 上的 `test` 作业）需要向 main 开 PR，或把 `7cd5c6ae` 落到 main。
 - 三处对外文档仍带旧的「v3」措辞，按 Q1 范围未动：`docs/evidence/README.md:116`、
   `docs/evidence-root.spec.md:189`、`docs/manual/security-showcase.md:43`。（`docs/manual/delivery-recipe.md`
   仍写 `/4`，由 `scripts/check-delivery-coverage-statement.mjs` 校验；同样未动。）
