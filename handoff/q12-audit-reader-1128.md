@@ -102,7 +102,7 @@ Reading: **R5 PASS** (BOM · CRLF · 6 columns · 3 rows identical to the select
 - **R4**: object `crm_customer#1` · time `2026-11-28 14:12:36 UTC+08:00` · who `#9001` — all three align
   with the host's operate-log row (`id=1, user_id=9001, CRM 客户 / 更新客户`).
 
-## 6. U-3 — confirmed live (not fixed) / U-3 —— 实测确认（未修）
+## 6. U-3 — confirmed live, Java half fixed / U-3 —— 实测确认，Java 半已修
 
 Read as admin against the same host:
 
@@ -111,19 +111,41 @@ GET /admin-api/system/operate-log/get?id=1  → { userId: 9001, userName: null, 
 GET /admin-api/system/operate-log/page      → [{ id: 1, userId: 9001, userName: "走查读者" }]
 ```
 
-The **detail** drops the operator name; the **list** has it. This matches the source-read diagnosis in
-`handoff/abc-a-path-fixes-1127.md` §2: `OperateLogController#getOperateLog` lacks `@TransMethodResult`
-while `/page` and `/export-excel` carry it. Suggested fix (not applied here — this task is read-only on
-product code): add the annotation to `/get`, and extend the `0008` patch to the detail component. U-3 is
-a human-facing gap only; it does not change any machine reading (R4 compares `userId`, not `userName`).
+The **detail** dropped the operator name; the **list** had it. This matched the source-read diagnosis in
+`handoff/abc-a-path-fixes-1127.md` §2: `OperateLogController#getOperateLog` lacked `@TransMethodResult`
+while `/page` and `/export-excel` carried it.
 
-**详情**丢名字、**列表**有名字，与 `abc-a-path-fixes-1127.md` §2 的源码诊断一致；建议修法（本次未改产品
-代码）：给 `/get` 加 `@TransMethodResult`，并把 `0008` 补丁扩到详情组件。U-3 只影响人读的详情，不改任何
-机器读数。
+**Fixed on 2026-11-28 at the user's instruction** (`KeelBase-Vue-Pro` branch
+`claude/u3-operate-log-detail-1128`, commit `1d734cedd4`, based on `origin/main` `602e8be0`): the
+annotation is added to `/get`. Verified on a rebuilt stack, same row `id=1`:
+
+```
+before: GET /admin-api/system/operate-log/get?id=1 → userName: null
+after : GET /admin-api/system/operate-log/get?id=1 → {"userId":9001,"userName":"走查读者","subType":"更新客户"}
+        GET /admin-api/system/operate-log/page     → unchanged, userName "走查读者"
+```
+
+The **UI half remains open**: the host's detail dialog component (`OperateLogDetail.vue`) is not in this
+repository — the admin UI is fetched at build time — so its rendering could not be patched or verified
+here. With `/get` now returning `userName`, a dialog that binds that field will show the name; that has
+not been observed. U-3 is a human-facing gap only; it does not change any machine reading (R4 compares
+`userId`, not `userName`).
+
+**详情**此前丢名字、**列表**有名字，与 `abc-a-path-fixes-1127.md` §2 的源码诊断一致。
+
+**2026-11-28 按用户指示已修**（`KeelBase-Vue-Pro` 分支 `claude/u3-operate-log-detail-1128`，提交
+`1d734cedd4`，基于 `origin/main` `602e8be0`）：给 `/get` 补上该注解。在重建的栈上、同一行 `id=1` 实测：
+修前 `userName: null`，修后 `"走查读者"`，`/page` 不变。
+
+**UI 半仍开着**：宿主详情弹窗组件（`OperateLogDetail.vue`）不在本仓（管理端 UI 构建时拉取），故其渲染
+未能在本处打补丁或实测。`/get` 现在回名字，绑定该字段的弹窗应能显示，但未亲眼观察到。U-3 只影响人读的
+详情，不改任何机器读数（R4 比 `userId`，不比 `userName`）。
 
 ## 7. Boundaries / 边界
 
-- No product code changed, no tag, nothing pushed to `main`. This file is on `claude/q12-audit-reader-1128`.
+- No product code changed in **this** repository, no tag, nothing pushed to `main`. This file is on
+  `claude/q12-audit-reader-1128`. The U-3 Java fix lives in `KeelBase-Vue-Pro` on its own branch
+  (`claude/u3-operate-log-detail-1128`, commit `1d734cedd4`), also unpushed.
 - Non-human machine run: evidence ceiling **E3**, no E4. It does not claim a real-person acceptance.
 - Reproducible in principle with Docker, JDK 25 (`scripts/jdk25.sh`), and network for the first Maven
   resolve; without a stack, the machine half cannot run and U-3 stays deferred (the Q12 stop condition).
@@ -131,5 +153,6 @@ a human-facing gap only; it does not change any machine reading (R4 compares `us
   and were both stopped before a clean single run; the readings above are from that single clean run
   (`readings.txt` timestamped 06:10Z, containers `bl1128061026`).
 
-未改产品代码、未打 tag、未推 `main`；本件在 `claude/q12-audit-reader-1128` 分支上。非真人机器运行，
-证据上限 **E3**、无 E4。
+本仓未改产品代码、未打 tag、未推 `main`；本件在 `claude/q12-audit-reader-1128` 分支上。U-3 的 Java
+修复在 `KeelBase-Vue-Pro` 自己的分支 `claude/u3-operate-log-detail-1128`（提交 `1d734cedd4`，同样未推）。
+非真人机器运行，证据上限 **E3**、无 E4。
