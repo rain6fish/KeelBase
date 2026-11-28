@@ -107,8 +107,16 @@ jobs:
       - name: 确定版本与期望 / resolve the version and the expected contract version
         id: resolve
         env:
-          INPUT_VERSION: ${{ inputs.version }}
-          INPUT_EXPECT: ${{ inputs.expect }}
+          # `github.event.inputs`, not `inputs`: the `inputs` context is only available to workflows
+          # triggered by `workflow_dispatch` / `workflow_call`, and this workflow also runs on
+          # `schedule` — where a reference to `inputs` can fail the run at start-up. The event payload
+          # form is simply empty for a scheduled run.
+          #
+          # 用 `github.event.inputs` 而不是 `inputs`：`inputs` 上下文只对 `workflow_dispatch` /
+          # `workflow_call` 触发的工作流可用，而本工作流同时由 `schedule` 触发 —— 在定时 run 里引用
+          # `inputs` 可能在启动阶段就报错。事件载荷形式在定时 run 里就是空值。
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          INPUT_EXPECT: ${{ github.event.inputs.expect }}
         run: |
           set -euo pipefail
           version="${INPUT_VERSION}"
