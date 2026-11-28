@@ -1,0 +1,7 @@
+criterion / 判据     status      detail
+checkout:clean         PASS        all three checkouts are at a recorded HEAD and clean
+ci                     PASS        every required workflow is success at each pinned commit; JDK 25 legs reported, not counted
+check:all              PASS        exit 0; summary: [check-all] 36/36 全过（47.4s）
+e2e                    PASS        exit 0 (logs/e2e.log)
+release-rehearsal      PASS        image built locally: keelbase:delivery-baseline-20261128061708 (sha256:dcdc3ef618e7c5b6305faa9998be27f7762f8376a2c5ece7e3fea2625830a570)
+evidence               PASS        evidence directory: /d/Rain6fish/.delivery-baseline/q5-1128/evidence

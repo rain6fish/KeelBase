@@ -1,0 +1,9 @@
+date-utc: 2026-11-28T06:13:27Z
+host: MINGW64_NT-10.0-26300 3.6.7-fb42d713.x86_64 x86_64
+node: v24.22.2
+npm: 11.14.1
+java: openjdk version "17.0.20.1" 2026-08-18
+maven: Apache Maven 3.9.16 (2bdd9fddda4b155ebf8000e807eb73fd829a51d5)
+docker: Docker version 29.9.2, build a82e528
+flutter: Flutter 3.47.2 • channel stable • https://github.com/flutter/flutter.git
+git-bash: 5.3.9(1)-release

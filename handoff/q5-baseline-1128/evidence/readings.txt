@@ -1,0 +1,7 @@
+dirty=0
+image: keelbase:delivery-baseline-20261128061708
+image-id: sha256:dcdc3ef618e7c5b6305faa9998be27f7762f8376a2c5ece7e3fea2625830a570
+size-bytes: 910748250
+pushed: no
+tagged: no
+image-remotes: https://gitee.com/rain6fish/KeelBase.git https://github.com/rain6fish/KeelBase.git 
