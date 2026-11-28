@@ -15,14 +15,16 @@ the reason, not worked around.
 
 ## 1. Branch, commit, evidence / 分支、提交、证据
 
-- Branch `claude/nostalgic-cannon-fb36b2` (worktree `nostalgic-cannon-fb36b2`); commit **`3baf1b66`** —
-  `scripts/delivery-baseline.sh`, `scripts/delivery-baseline-ci.mjs`, this note. Not pushed; no tag.
+- Branch `claude/nostalgic-cannon-fb36b2` (worktree `nostalgic-cannon-fb36b2`); commits **`3baf1b66`**
+  (the two scripts and this note), **`4174f557`** (the note's commit pointer), **`ef276e98`** (the
+  contract gitlink to v1.24.0 — see §4b). Not pushed; no tag.
 - Evidence directory: **`D:/Rain6fish/.delivery-baseline/20261128/evidence`** (logs, `readings.txt`,
   `ci.json`, `SUMMARY.md`), plus the audit-only rerun `…/evidence-audit4` (logs copied into
   `evidence/logs/audit-final-*`). The checkout clones live beside them under
   `D:/Rain6fish/.delivery-baseline/20261128/{KeelBase,KeelBase4J,KeelBase-Vue-Pro}`.
-- 分支 `claude/nostalgic-cannon-fb36b2`（worktree `nostalgic-cannon-fb36b2`）；提交 **`3baf1b66`** ——
-  `scripts/delivery-baseline.sh`、`scripts/delivery-baseline-ci.mjs`、本交接件。未推送、未打 tag。
+- 分支 `claude/nostalgic-cannon-fb36b2`（worktree `nostalgic-cannon-fb36b2`）；提交 **`3baf1b66`**
+  （两个脚本与本交接件）、**`4174f557`**（交接件的提交号）、**`ef276e98`**（契约 gitlink 抬到 v1.24.0 —— 见 §4b）。
+  未推送、未打 tag。
 - 证据目录：**`D:/Rain6fish/.delivery-baseline/20261128/evidence`**（日志、`readings.txt`、`ci.json`、
   `SUMMARY.md`）。三份检出克隆在旁边的
   `D:/Rain6fish/.delivery-baseline/20261128/{KeelBase,KeelBase4J,KeelBase-Vue-Pro}`。
@@ -153,20 +155,51 @@ Every reading above was taken in one run, on one machine, from checkouts pinned 
 each has its command, exit code and log path under `logs/`, and the summary is regenerated from the same
 data (`SUMMARY.md`, `readings.txt`). Criterion 5 is about the evidence's integrity, and it holds. The
 slice's own success condition is "all five criteria met"; criteria (1) and (2) do not, so **this slice
-is not achieved**, and the stop condition applies: the open items need either a repository fix (the
-submodule pin, outside this slice's boundary) or a product decision (the fourth question's boundary
-sentence), not a workaround here.
+is not achieved**, and the stop condition applies: the open items needed either a repository fix (the
+submodule pin — raised the same day in `ef276e98`, §4b) or a product decision (the fourth question's
+boundary sentence), not a workaround here.
 
 上面的每项读数都在同一次运行、同一台机器、§3 钉住的检出上取得；各自带命令、退出码与日志路径
 （`logs/`），汇总由同一份数据生成（`SUMMARY.md`、`readings.txt`）。判据 5 讲的是证据本身的完整性，
 这一条成立。本片的达成条件 = 五条全成立；判据（1）（2）不成立，故**本片未达成**，停止条件适用：
-未决项要么需要修仓（子模块 pin，超出本片边界），要么需要产品裁定（第 4 格的边界句），不在本片绕。
+未决项要么需要修仓（子模块 pin —— 同日已由 `ef276e98` 抬起，见 §4b），要么需要产品裁定（第 4 格的边界句），
+不在本片绕。
+
+## 4b. Postscript (same day): the contract pin was raised to v1.24.0 / 同日补记：契约 pin 抬到 v1.24.0
+
+Commit **`ef276e98`** moves the `Server-NestJS/specs/protocol` gitlink from `0ffd867` (v1.23.0-2) to
+**`0d45fa19`** — the commit under the annotated tag `v1.24.0` (tag object `076f2e5`). No source file
+changed; no contract-repository change; no tag; not pushed.
+
+| Check (on the branch tree, same clean checkout) | Command | Result |
+|---|---|---|
+| contract matrix | `npm run check:contract-matrix` | exit 0 — `main` row = pin's tag = v1.24.0 |
+| release gate | `npm run check:contract-release-gate` | exit 0, C1–C5 all pass. The first attempt read C1/C2 as UNVERIFIED — a transient `schannel` TLS handshake failure reading the GitHub remote; the immediate retry passed. The gate treats an unreadable remote as red by design. |
+| protocol vectors | `npm run check:protocol-vectors` | exit 0 — no drift |
+| full static gate | `npm run check:all` | **36/36, exit 0** (62.3 s); the same 36/36 on `c7f329ab` + this gitlink (59.5 s) |
+
+Criteria (1) and (2)'s shared cause is gone **on this branch**. What remains for (1) is the CI run, which
+needs a push — not done here (working-hours rule). Logs: `evidence/pin-v1.24.0/`.
+
+提交 **`ef276e98`** 把 `Server-NestJS/specs/protocol` 的 gitlink 从 `0ffd867`（v1.23.0-2）抬到
+**`0d45fa19`** —— 附注 tag `v1.24.0`（tag 对象 `076f2e5`）指向的提交。未改任何源码、未改契约仓、未打 tag、
+未推送。
+
+| 检查（分支树、同一干净检出） | 命令 | 结果 |
+|---|---|---|
+| 契约矩阵 | `npm run check:contract-matrix` | exit 0 —— `main` 行 = pin 的 tag = v1.24.0 |
+| 发版闸 | `npm run check:contract-release-gate` | exit 0，C1–C5 全过。第一次尝试把 C1/C2 读成「未核验」—— 读 GitHub 远端时一次瞬时的 `schannel` TLS 握手失败；紧接着重试即通过。该闸按设计把「读不到远端」判红。 |
+| 协议向量 | `npm run check:protocol-vectors` | exit 0 —— 无漂移 |
+| 全量静态门 | `npm run check:all` | **36/36、exit 0**（62.3 秒）；在 `c7f329ab` + 同一 gitlink 上同样 36/36（59.5 秒） |
+
+判据（1）（2）的共同原因在**本分支上**已消除；判据（1）剩下的只有 CI 运行，需推送后才能取，本次未推
+（工作时段规则）。日志：`evidence/pin-v1.24.0/`。
 
 ## 5. Defects this run found / 本次运行暴露的缺陷
 
 1. **KeelBase's contract gitlink lags the claimed contract release.** README says v1.24.0; the pin is
    v1.23.0+2. Two CI jobs and two `check:all` gates go red for this one cause, on every push, until the
-   gitlink moves to tag `076f2e5` (or the READMEs say v1.23.0). This is Q1/Q2 territory; this slice only
+   gitlink moves to tag `076f2e5` (or the READMEs say v1.23.0). **Fixed in `ef276e98` (see §4b).** This is Q1/Q2 territory; this slice only
    reports it.
 2. **The named audit gate's fourth question carries no before/after.** Both of its cases are either "no
    write happened" (blocked) or a write with no before snapshot (`escalate_customer` writes a new
