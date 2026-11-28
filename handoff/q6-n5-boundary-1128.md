@@ -41,7 +41,7 @@ The two pages under `docs/official-video/` carry no acceptance or deliverability
 2. `notes/CTO每周例会/2026-11-21-下周开发计划.md` — one bracket appended to each of the two N5 rows (EN/ZH): every earlier "recorded as passed" note is quoted only together with "demo-ready, not deliverable, E3, no E4".
 3. `KeelBase4TS/KeelBase-execution-log.md` — the 11-26 heading now reads "N5 recorded passed at E3 — demo-ready, not deliverable, no E4", and one Q6 sentence is appended to each body paragraph.
 4. `notes/会话认领约定.md` — the N5 record row carries the boundary; a Q6 claim row was added and closed in `a6d48c5a`.
-5. Not patched (marked optional before; unchanged): `D:/Rain6fish/handoff/n5-closeout-1126.md`, `n5-verdict-1126.md` — they quote the same clause but state the E3 ceiling and forbid "acceptance passed" wording on the same page.
+5. `D:/Rain6fish/handoff/n5-closeout-1126.md`, `n5-verdict-1126.md` — patched on the user's instruction: a citation note after each quoted record block says the quote stays verbatim, outward use follows the 2026-11-27 route, the boundary "demo-ready, not deliverable, E3, no E4" binds both sessions, and "only the 11-24 attempt" is no longer an exemption. The folder is not under version control, so this change has no commit.
 6. Left untouched: the uncommitted 11-27 verdict hunk in the week-plan file (another session's work) stays in the working tree; the two commits above carry only this pass's brackets.
 7. `notes/项目周例会/2026-11-28.md`, `notes/CTO每周例会/2026-11-28-项目周会上报.md`, `notes/CTO每周例会/2026-11-28.md` §十一 — already carried the full boundary; no change.
 
@@ -66,7 +66,7 @@ The two pages under `docs/official-video/` carry no acceptance or deliverability
 2. `notes/CTO每周例会/2026-11-21-下周开发计划.md`：两个 N5 主行（中英各一）各追加一个方括号，写明「以上各条『记为通过』只能连同『演示可用、不可交付，E3，无 E4』一起引用」。
 3. `KeelBase4TS/KeelBase-execution-log.md`：11-26 标题改为「N5 recorded passed at E3 — demo-ready, not deliverable, no E4」；中英两段正文各追加一句 Q6 边界说明。
 4. `notes/会话认领约定.md`：N5 场次记录登记行补上边界；新增 Q6 认领行并在 `a6d48c5a` 注销。
-5. 未补（此前标为可选）：`D:/Rain6fish/handoff/n5-closeout-1126.md`、`n5-verdict-1126.md` —— 同页已写证据上限 E3 且禁用「验收通过」措辞。
+5. `D:/Rain6fish/handoff/n5-closeout-1126.md`、`n5-verdict-1126.md`：按用户指示加「引文注」——原文照录不改，对外以 2026-11-27 路径为准，边界「演示可用、不可交付，E3，无 E4」同时约束两场，「只描述 11-24 那一次」不再作为豁免。该目录**不在版本控制下**，改动静默、无提交可查。
 6. 未触碰：周计划文件里 11-27 判定那段属他会话的未提交改动，仍留在工作树；上述两笔提交只含本次方括号。
 7. `notes/项目周例会/2026-11-28.md`、`notes/CTO每周例会/2026-11-28-项目周会上报.md`、`notes/CTO每周例会/2026-11-28.md` §十一：本已带完整边界，不改。
 
