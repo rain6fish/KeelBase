@@ -27,7 +27,8 @@
 # No secrets and no services. Maven Central is public read (anonymous); the peer repository
 # KeelBase4J is public and is read anonymously with `git ls-remote` / `git clone`. Central's indexing
 # lag is handled by polling the three jar URLs (3 attempts, 60 s apart — the runbook's standing
-# assumption), so a run fired right after a publish does not go red on a 404.
+# assumption), so a run fired right after a publish does not go red on a 404; a 429 (Central limits
+# by address, and runners share addresses) waits 120 s instead and is named as a rate limit.
 #
 # ── 中文 ──
 # G5 ① —— 已发布产物的契约版本核对，只告警。
@@ -147,57 +148,61 @@ jobs:
           echo "expect=$expect" >> "$GITHUB_OUTPUT"
           echo "Release under test / 被测发布: $version — pin / 期望契约版本: $expect"
 
-      # Central's indexing lag is the one known flake: the runbook's standing assumption is 3 attempts
-      # 60 s apart. A jar still absent after that is recorded as unverified (exit 2 territory), not as
-      # a pass — the check cannot clear an artifact it could not read.
+      # Central's indexing lag is one known flake: the runbook's standing assumption is 3 attempts
+      # 60 s apart. A 429 is a different one — GitHub-hosted runners share egress addresses and Central
+      # rate-limits by address, so a burst of runs can be answered 429 for a while; that is waited out
+      # longer and named as such, not reported as "not indexed". Every request is bounded by
+      # `--connect-timeout`/`--max-time`, because a stalled connection otherwise hangs until the job
+      # timeout. Whatever happens here, the check below still runs and reports the authority: its own
+      # exit code and the text Central gave it.
       #
-      # Central 入索引延迟是已知的、唯一会抖的东西：runbook 的既定假设是 3 次、间隔 60 秒。三次后仍然
-      # 取不到的 jar 记为**未核验**（exit 2 那一类），不算通过 —— 读不到的构件，检查不能替它放行。
+      # Central 入索引延迟是已知的抖动之一：runbook 的既定假设是 3 次、间隔 60 秒。429 是另一种 ——
+      # GitHub 托管的 runner 共用出口地址，Central 按地址限流，连着跑几次就可能被答 429；这种等得更久、
+      # 并如实点名，不报成「未入索引」。每个请求都受 `--connect-timeout` / `--max-time` 约束，否则
+      # 连接一停就会挂到作业超时。无论这一步结果如何，下面的核对照跑，以它自己的退出码和 Central 给出的
+      # 原文为准。
       - name: 等 Central 入索引 / wait for Central to index the release
         id: wait
         env:
           VERSION: ${{ steps.resolve.outputs.version }}
         run: |
           set -uo pipefail
-          missing=''
           for artifact in $ARTIFACTS; do
             url="$CENTRAL/$GROUP_PATH/$artifact/$VERSION/$artifact-$VERSION.jar"
             code=''
             for attempt in 1 2 3; do
-              code=$(curl -sS -o /dev/null -w '%{http_code}' -I "$url" || echo 000)
+              code=$(curl -sS -o /dev/null -w '%{http_code}' \
+                --connect-timeout 10 --max-time 30 -I "$url" || echo 000)
               [ "$code" = '200' ] && break
-              [ "$attempt" -lt 3 ] && sleep 60
+              [ "$attempt" -lt 3 ] || break
+              if [ "$code" = '429' ]; then pause=120; else pause=60; fi
+              echo "· $artifact: $code — retrying in ${pause}s / ${pause} 秒后重试"
+              sleep "$pause"
             done
-            if [ "$code" = '200' ]; then
-              echo "· $artifact: 200"
-            else
-              echo "::warning title=G5 not on Central::$artifact $VERSION answered $code after 3 attempts; it will be reported unverified"
-              echo "::warning title=G5 取不到::$artifact $VERSION 三次尝试后应答 $code；将记为未核验"
-              missing="$missing $artifact"
-            fi
+            case "$code" in
+              200) echo "· $artifact: 200" ;;
+              429)
+                echo "::warning title=G5 rate limited::Central answered 429 for $artifact $VERSION after 3 attempts; the check below will report the jar unverified"
+                echo "::warning title=G5 被限流::Central 对 $artifact $VERSION 三次尝试后返回 429；下面的核对会把它记为未核验"
+                ;;
+              *)
+                echo "::warning title=G5 not on Central::$artifact $VERSION answered $code after 3 attempts; the check below will report the jar unverified"
+                echo "::warning title=G5 取不到::$artifact $VERSION 三次尝试后应答 $code；下面的核对会把它记为未核验"
+                ;;
+            esac
           done
-          echo "missing=${missing# }" >> "$GITHUB_OUTPUT"
 
       - name: 对 Central 的已发布字节跑核对 / check the published bytes against the pin
         id: check
         env:
           VERSION: ${{ steps.resolve.outputs.version }}
           EXPECT: ${{ steps.resolve.outputs.expect }}
-          MISSING: ${{ steps.wait.outputs.missing }}
         run: |
           set -uo pipefail
           fail=0
           report="$RUNNER_TEMP/g5-report.tsv"
           : > "$report"
           for artifact in $ARTIFACTS; do
-            case " $MISSING " in
-              *" $artifact "*)
-                echo "· $artifact: skipped (not indexed) / 跳过（未入索引）"
-                printf '%s\t2\tnot indexed on Central\n' "$artifact" >> "$report"
-                fail=1
-                continue
-                ;;
-            esac
             echo "──── $artifact $VERSION ────"
             node scripts/check-artifact-contract.mjs \
               --version "$VERSION" --expect "$EXPECT" --artifact "$artifact"
@@ -235,5 +240,5 @@ jobs:
           VERSION: ${{ steps.resolve.outputs.version }}
           EXPECT: ${{ steps.resolve.outputs.expect }}
         run: |
-          echo "::error title=G5 advisory red — published contract reading::KeelBase4J $VERSION was checked against pin $EXPECT and did not read match. Exit 1 = a declaration was found and differs (the observed value is printed in the step log). Exit 2 = no declaration was found, or the jar could not be downloaded/read — the step log says which. This job gates nothing; it is a reading for the 12-05 decision, not evidence that G5 is done."
-          echo "::error title=G5 告警红 —— 已发布的契约读数::KeelBase4J $VERSION 与 pin $EXPECT 比对未得「一致」。exit 1 = 找到声明但不一致（观测值打印在该步日志里）。exit 2 = 没有找到声明，或 jar 取不到 / 读不了 —— 是哪一种由该步日志说明。本作业不拦任何东西；它是给 12-05 裁定用的读数，不是 G5 已完成的证据。"
+          echo "::error title=G5 advisory red — published contract reading::KeelBase4J $VERSION was checked against pin $EXPECT and did not read match. Exit 1 = a declaration was found and differs (the observed value is printed in the step log). Exit 2 = no declaration was found, or the jar could not be downloaded/read (a 404, a 429 rate limit, and so on — the step log says which). This job gates nothing; it is a reading for the 12-05 decision, not evidence that G5 is done."
+          echo "::error title=G5 告警红 —— 已发布的契约读数::KeelBase4J $VERSION 与 pin $EXPECT 比对未得「一致」。exit 1 = 找到声明但不一致（观测值打印在该步日志里）。exit 2 = 没有找到声明，或 jar 取不到 / 读不了（404、429 限流等 —— 是哪一种由该步日志说明）。本作业不拦任何东西；它是给 12-05 裁定用的读数，不是 G5 已完成的证据。"
