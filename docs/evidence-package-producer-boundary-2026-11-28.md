@@ -206,7 +206,7 @@ The boundary is violated if any of the following is true. Each is checkable with
 
 | ID | Violation | How to check |
 |---|---|---|
-| V1 | Any tracked text calls Java a producer of evidence packages, or places it "at" a package level (`/4`, `/5`, `/6`) | `git grep -nE 'Java.*(emit\|produce\|export\|support\|at)\|evidence.?package' -- docs README.md README.zh-CN.md` in `KeelBase4J`, plus the same check over `KeelBase` docs; any hit implying Java output fails |
+| V1 | Any tracked text calls Java a producer of evidence packages, or places it "at" a package level (`/4`, `/5`, `/6`) | Run the `git grep` below over `KeelBase4J` docs/READMEs, plus the same check over `KeelBase` docs; any hit implying Java output fails |
 | V2 | The 4J replay turns green while `evidence_root` is no longer in `TRUST_UNSERVABLE`, and no endpoint returns a schema-valid `/6` package | Read `ScenarioReplayTest.java`; diff the constant. Green without a producer is a violation, not progress |
 | V3 | The vendored `evidence_root` expectation is changed from `/4` to `/5` or `/6` without a Java producer | `git diff` on `conformance/vectors/scenarios/trust-proof-v1.json:74`; a format bump here must ship with V2's endpoint test |
 | V4 | A release note, review, or differential-verification report counts 4J's green conformance as evidence-package parity, or claims "TS/Java both produce `/5` `/6`" | Read the report against §0.2–0.3; the claim itself is the violation, no runtime check needed |
@@ -218,11 +218,17 @@ The boundary is violated if any of the following is true. Each is checkable with
 
 | 编号 | 违反 | 怎么查 |
 |---|---|---|
-| V1 | 任何受版本控制的文字把 Java 说成证据包生产者，或把它放在某个包格式「某一代」（`/4`、`/5`、`/6`） | 在 `KeelBase4J` 对 `docs`、`README.md`、`README.zh-CN.md` 跑 `git grep -nE 'Java.*(emit\|produce\|export\|support\|at)\|evidence.?package'`，并在 `KeelBase` 文档上做同样检查；任何暗示 Java 有产出的命中即失败 |
+| V1 | 任何受版本控制的文字把 Java 说成证据包生产者，或把它放在某个包格式「某一代」（`/4`、`/5`、`/6`） | 在 `KeelBase4J` 对 `docs`、`README.md`、`README.zh-CN.md` 跑下表给出的 `git grep`，并在 `KeelBase` 文档上做同样检查；任何暗示 Java 有产出的命中即失败 |
 | V2 | 4J 重放转绿时 `evidence_root` 已不在 `TRUST_UNSERVABLE`，且没有任何端点返回 schema 合法的 `/6` 包 | 读 `ScenarioReplayTest.java` 并与常量比对。没有生产者却绿，是违反而不是进展 |
 | V3 | 没有 Java 生产者，却把 vendored `evidence_root` 的期望从 `/4` 改成 `/5` 或 `/6` | 对 `conformance/vectors/scenarios/trust-proof-v1.json:74` 跑 `git diff`；此处抬格式必须与 V2 的端点测试同批落地 |
 | V4 | 发布说明、评审或差分验证报告把 4J 的绿 conformance 算作证据包同源，或声称「TS/Java 都产 `/5` `/6`」 | 按 §0.2–0.3 读报告；主张本身即违反，无需运行时检查 |
 | V5 | Java 出现证据导出端点（任何格式），而本注记仍声明非生产者 | 对 `src/main` 跑 `grep -rn 'evidence-package\|evidence-root' --include=*.java`；命中即须先以新决定取代本注记 |
+
+V1's command / V1 的检查命令：
+
+```bash
+git grep -nE 'Java.*(emit|produce|export|support|at)|evidence.?package' -- docs README.md README.zh-CN.md
+```
 
 ---
 
