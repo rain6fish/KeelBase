@@ -1,0 +1,12 @@
+
+> keelbase@1.5.0 prereqs
+> node scripts/prereqs.mjs
+
+prereqs — everything `npm run check:all` needs, in one idempotent command.
+prereqs —— `npm run check:all` 所需的前提，一条幂等命令补齐。
+  root: D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128
+
+✓ Nothing to do — every gate prerequisite is already in place.
+✓ 无需动作 —— 每道门禁的前提都已就位。
+
+  Next / 下一步: npm run check:all

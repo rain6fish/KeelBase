@@ -1,0 +1,111 @@
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile.single
+#1 transferring dockerfile: 8.57kB done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/node:22-alpine@sha256:0e1754758c2df4cfa3e68d59e2e1b7374bb7fd9ea6328eaaacf15cc934af8202
+#2 DONE 2.3s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 443B done
+#3 DONE 0.0s
+
+#4 [admin-build 1/6] FROM docker.io/library/node:22-alpine@sha256:0e1754758c2df4cfa3e68d59e2e1b7374bb7fd9ea6328eaaacf15cc934af8202
+#4 resolve docker.io/library/node:22-alpine@sha256:0e1754758c2df4cfa3e68d59e2e1b7374bb7fd9ea6328eaaacf15cc934af8202 0.0s done
+#4 DONE 0.0s
+
+#5 [internal] load build context
+#5 transferring context: 201.11kB 0.1s done
+#5 DONE 0.1s
+
+#6 [server-build 4/9] COPY Server-NestJS/package*.json ./
+#6 CACHED
+
+#7 [server-build 2/9] WORKDIR /app/server
+#7 CACHED
+
+#8 [server-build 3/9] RUN apk add --no-cache python3 make g++
+#8 CACHED
+
+#9 [server-build 5/9] RUN npm ci --include=dev
+#9 CACHED
+
+#10 [server-build 6/9] COPY Server-NestJS/ .
+#10 DONE 0.4s
+
+#11 [server-build 7/9] RUN npm run build
+#11 0.396 
+#11 0.396 > front-server-nodejs@1.5.0 build
+#11 0.396 > nest build
+#11 0.396 
+#11 DONE 12.8s
+
+#12 [server-build 8/9] RUN npx tsc scripts/seed-demo.ts --outDir build-seed --rootDir . --module commonjs --target es2020 --esModuleInterop --skipLibCheck --experimentalDecorators --emitDecoratorMetadata --moduleResolution node
+#12 DONE 3.1s
+
+#13 [server-build 9/9] RUN npm prune --omit=dev
+#13 3.878 
+#13 3.878 up to date in 4s
+#13 3.878 
+#13 3.878 99 packages are looking for funding
+#13 3.878   run `npm fund` for details
+#13 DONE 3.9s
+
+#14 [single  5/11] RUN addgroup -S keelbase && adduser -S keelbase -G keelbase &&     mkdir -p /app/server/uploads /app/server/data /app/server/public/admin &&     chown -R keelbase:keelbase /app/server
+#14 CACHED
+
+#15 [admin-build 6/6] RUN npm run build
+#15 CACHED
+
+#16 [admin-build 4/6] RUN npm ci
+#16 CACHED
+
+#17 [single  4/11] RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
+#17 CACHED
+
+#18 [admin-build 5/6] COPY Web-Admin-Vue/ .
+#18 CACHED
+
+#19 [single  3/11] RUN apk add --no-cache wget
+#19 CACHED
+
+#20 [admin-build 2/6] WORKDIR /app/admin
+#20 CACHED
+
+#21 [single  6/11] COPY --from=server-build /app/server/dist ./dist
+#21 CACHED
+
+#22 [single  8/11] COPY --from=server-build /app/server/node_modules ./node_modules
+#22 CACHED
+
+#23 [single  9/11] COPY --from=server-build /app/server/package*.json ./
+#23 CACHED
+
+#24 [admin-build 3/6] COPY Web-Admin-Vue/package*.json ./
+#24 CACHED
+
+#25 [single 10/11] COPY --from=flutter-build /build/web ./public/mobile
+#25 CACHED
+
+#26 [single  7/11] COPY --from=server-build /app/server/build-seed ./build-seed
+#26 CACHED
+
+#27 [flutter-build 1/1] COPY Front-Flutter/build/web /build/web
+#27 CACHED
+
+#28 [single 11/11] COPY --from=admin-build /app/admin/dist ./public
+#28 CACHED
+
+#29 exporting to image
+#29 exporting layers done
+#29 exporting manifest sha256:6e33c1249e870d66bfde5af6c15b10a6e694ead2fefcbe54a28e361b4af845db done
+#29 exporting config sha256:e5f4f02b24db606131e1a6b58edb1b5cd1d2441a94ad4e1750a02086d76ce7a3 done
+#29 exporting attestation manifest sha256:2a129e21bbad50b032418246d8289c6c435e8da84814f4f39f248445de10b7f8 0.0s done
+#29 exporting manifest list sha256:dcdc3ef618e7c5b6305faa9998be27f7762f8376a2c5ece7e3fea2625830a570 done
+#29 naming to docker.io/library/keelbase:delivery-baseline-20261128061708 done
+#29 unpacking to docker.io/library/keelbase:delivery-baseline-20261128061708 done
+#29 DONE 0.1s
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/flgjwgz8s12w63vrd242cg17p
+✔ 镜像 keelbase:delivery-baseline-20261128061708 构建完成

@@ -1,0 +1,100 @@
+
+==== environment / 环境 ====
+date-utc: 2026-11-28T06:13:27Z
+host: MINGW64_NT-10.0-26300 3.6.7-fb42d713.x86_64 x86_64
+node: v24.22.2
+npm: 11.14.1
+java: openjdk version "17.0.20.1" 2026-08-18
+maven: Apache Maven 3.9.16 (2bdd9fddda4b155ebf8000e807eb73fd829a51d5)
+docker: Docker version 29.9.2, build a82e528
+flutter: Flutter 3.47.2 • channel stable • https://github.com/flutter/flutter.git
+git-bash: 5.3.9(1)-release
+
+==== checkouts / 检出 ====
+KeelBase: HEAD 96f8f2ad1d2e91a162d322a420f5f745dd51bd21
+  clean
+KeelBase4J: HEAD f6aacb5559b0ea1559716efa0fbbbe542874b093
+  clean
+KeelBase-Vue-Pro: HEAD 602e8be0c1faca39d65221c258cb91031d36fdbe
+  clean
+
+==== (a) CI at the pinned commits / 钉住提交上的 CI ====
+KeelBase @ 96f8f2ad1d2e
+  CI: success · https://github.com/rain6fish/KeelBase/actions/runs/46113549417
+KeelBase4J @ f6aacb5559b0
+  CI: success · https://github.com/rain6fish/KeelBase4J/actions/runs/46112212580
+    JDK 25 leg "The publish set builds the way a release would build it (JDK 25)": success — reported, not counted as code green (Q4 ruling)
+    JDK 25 leg "Protocol conformance (JDK 25)": success — reported, not counted as code green (Q4 ruling)
+    17 leg "The publish set builds the way a release would build it (JDK 17)": success
+    17 leg "Protocol conformance (JDK 17)": success
+KeelBase-Vue-Pro @ 602e8be0c1fa
+  CI: success · https://github.com/rain6fish/KeelBase-Vue-Pro/actions/runs/46112803988
+  Real-stack scenario gates: success · https://github.com/rain6fish/KeelBase-Vue-Pro/actions/runs/46112804053
+
+==== (b1) check:all / check:all ====
+prereqs exit=0 (logs/prereqs.log)
+        Product-proof verifications (governance loop, unauthorized 403, trust proof, evidence root, multi-system). Not here: they need **a running backend** (some also a model key or Ollama) — they are evidence runs for a demo or a review, not a static pre-push gate. Command, prerequisite and report location for each are in `docs/manual/verification-index.md`.
+  
+    ✗ ./scripts/benchmark/run-adversarial.sh
+        对抗实证：真实 LLM 驱动的 Run/Safety/攻击回归。不在此门：要真模型 key，**没有 key 时它会跳过而不报红** —— 这正是 2026-10-31 CTO 周会 §13 记下的那条风险。CI 的 `run-adversarial` job 是 `continue-on-error`（无 key 时同样跳过），故「CI 也没有红」同样**不代表**它跑过。
+        Adversarial proof: Run/Safety/attack regression driven by a real LLM. Not here: it needs a real model key, and **without one it skips without failing** — the risk recorded in the 2026-10-31 CTO weekly, §13. The CI `run-adversarial` job is `continue-on-error` (and also skips with no key), so "CI was not red either" does **not** mean it ran.
+  
+    清单与原因的单源：scripts/gate-coverage.mjs（守卫测试 node --test scripts/gate-coverage.test.mjs）。
+    Single source for this list and its reasons: scripts/gate-coverage.mjs (guard test as above).
+  
+  [check-all] 36/36 全过（47.4s）
+  (node:22452) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+  (Use `node --trace-deprecation ...` to show where the warning was created)
+check:all exit=0 (logs/check-all.log)
+
+==== (b2) e2e, run on its own / e2e 单列跑 ====
+      at allFailed (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:110:18)
+      at attempt (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:183:28)
+      at JwtStrategy.strategy.fail (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:314:9)
+      at JwtStrategy.Object.<anonymous>.JwtStrategy.authenticate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport-jwt\lib\strategy.js:96:21)
+      at attempt (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:378:16)
+      at authenticate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:379:7)
+      at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:88:3
+      at new Promise (<anonymous>)
+      at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:80:83
+      at JwtAuthGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:44:32)
+  [31m[Nest] 45228  - [39m2026/11/28 14:17:05 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/pm/projects/3 - 403: 无权访问此项目[39m
+  ForbiddenException: 无权访问此项目
+      at PmService.getProject (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\pm\pm.service.ts:138:13)
+      at PmService.getProjectDetail (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\pm\pm.service.ts:165:21)
+  PASS test/pm.e2e-spec.ts
+  PASS test/ws-realtime.e2e-spec.ts
+  
+  Test Suites: 12 passed, 12 total
+  Tests:       63 passed, 63 total
+  Snapshots:   0 total
+  Time:        25.397 s, estimated 31 s
+  Ran all test suites.
+  Force exiting Jest: Have you considered using `--detectOpenHandles` to detect async operations that kept running after all tests finished?
+  
+  ✓ e2e 全部通过（4 片）
+e2e exit=0 (logs/e2e.log)
+
+==== (c) release rehearsal from HEAD / 从 HEAD 出发布彩排产物 ====
+  #29 exporting manifest sha256:6e33c1249e870d66bfde5af6c15b10a6e694ead2fefcbe54a28e361b4af845db done
+  #29 exporting config sha256:e5f4f02b24db606131e1a6b58edb1b5cd1d2441a94ad4e1750a02086d76ce7a3 done
+  #29 exporting attestation manifest sha256:2a129e21bbad50b032418246d8289c6c435e8da84814f4f39f248445de10b7f8 0.0s done
+  #29 exporting manifest list sha256:dcdc3ef618e7c5b6305faa9998be27f7762f8376a2c5ece7e3fea2625830a570 done
+  #29 naming to docker.io/library/keelbase:delivery-baseline-20261128061708 done
+  #29 unpacking to docker.io/library/keelbase:delivery-baseline-20261128061708 done
+  #29 DONE 0.1s
+  
+  View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/flgjwgz8s12w63vrd242cg17p
+  ✔ 镜像 keelbase:delivery-baseline-20261128061708 构建完成
+rehearsal exit=0 image=keelbase:delivery-baseline-20261128061708 (logs/rehearsal.log)
+  image id: sha256:dcdc3ef618e7c5b6305faa9998be27f7762f8376a2c5ece7e3fea2625830a570; size: 910748250
+
+==== summary / 汇总 ====
+criterion / 判据     status      detail
+checkout:clean         PASS        all three checkouts are at a recorded HEAD and clean
+ci                     PASS        every required workflow is success at each pinned commit; JDK 25 legs reported, not counted
+check:all              PASS        exit 0; summary: [check-all] 36/36 全过（47.4s）
+e2e                    PASS        exit 0 (logs/e2e.log)
+release-rehearsal      PASS        image built locally: keelbase:delivery-baseline-20261128061708 (sha256:dcdc3ef618e7c5b6305faa9998be27f7762f8376a2c5ece7e3fea2625830a570)
+evidence               PASS        evidence directory: /d/Rain6fish/.delivery-baseline/q5-1128/evidence
+summary written: /d/Rain6fish/.delivery-baseline/q5-1128/evidence/SUMMARY.md

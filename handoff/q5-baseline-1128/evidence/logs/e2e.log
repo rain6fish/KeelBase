@@ -1,0 +1,1334 @@
+
+> front-server-nodejs@1.5.0 test:e2e
+> node scripts/run-e2e-shards.mjs
+
+
+── e2e 分片 1/4 ──
+[31m[Nest] 44020  - [39m2026/11/28 14:15:03 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/audit/logs/2/interpretation - 404: 审计记录不存在[39m
+NotFoundException: 审计记录不存在
+    at AuditEvidenceService._findRowInReaderScope (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\governance-shared\services\audit-evidence.service.ts:1306:11)
+    at AuditEvidenceService.getInterpretation (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\governance-shared\services\audit-evidence.service.ts:1118:17)
+    at AuditController.interpretation (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\governance-shared\controllers\audit.controller.ts:282:20)
+[31m[Nest] 44020  - [39m2026/11/28 14:15:03 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/ai/tool-effects/claims - 403: Forbidden resource[39m
+ForbiddenException: Forbidden resource
+    at PoliciesGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\common\casl\policies.guard.ts:50:13)
+    at GuardsConsumer.tryActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\guards\guards-consumer.js:15:34)
+    at canActivateFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:146:33)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:43:31
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-proxy.js:9:17
+[31m[Nest] 44020  - [39m2026/11/28 14:15:03 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/ai/tool-effects/claims/4/release - 403: Forbidden resource[39m
+ForbiddenException: Forbidden resource
+    at PoliciesGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\common\casl\policies.guard.ts:50:13)
+    at GuardsConsumer.tryActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\guards\guards-consumer.js:15:34)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at canActivateFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:146:33)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:43:31
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-proxy.js:9:17
+[31m[Nest] 44020  - [39m2026/11/28 14:15:03 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/ai/tool-effects/claims/4/release - 403: Forbidden resource[39m
+ForbiddenException: Forbidden resource
+    at PoliciesGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\common\casl\policies.guard.ts:50:13)
+    at GuardsConsumer.tryActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\guards\guards-consumer.js:15:34)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at canActivateFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:146:33)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:43:31
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-proxy.js:9:17
+[31m[Nest] 44020  - [39m2026/11/28 14:15:03 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/ai/tool-effects/claims/4/release - 400: note must be longer than or equal to 8 characters[39m
+BadRequestException: Bad Request Exception
+    at ValidationPipe.exceptionFactory (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\common\pipes\validation.pipe.js:111:20)
+    at ValidationPipe.transform (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\common\pipes\validation.pipe.js:78:30)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\pipes\pipes-consumer.js:15:25
+    at resolveParamValue (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:159:23)
+    at async Promise.all (index 1)
+    at pipesFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:162:13)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:38:30
+[31m[Nest] 44020  - [39m2026/11/28 14:15:03 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/ai/tool-effects/claims/5/lookups - 403: Forbidden resource[39m
+ForbiddenException: Forbidden resource
+    at PoliciesGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\common\casl\policies.guard.ts:50:13)
+    at GuardsConsumer.tryActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\guards\guards-consumer.js:15:34)
+    at canActivateFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:146:33)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:43:31
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-proxy.js:9:17
+[31m[Nest] 44020  - [39m2026/11/28 14:15:03 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/ai/tool-effects/claims/6/lookups - 404: claim not found[39m
+NotFoundException: claim not found
+    at AiController.listClaimLookups (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\ai\ai.controller.ts:696:25)
+PASS test/audit-reader-scope.e2e-spec.ts (6.182 s)
+[31m[Nest] 44020  - [39m2026/11/28 14:15:05 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/auth/login - 401: Two-factor code required[39m
+BusinessException: Business Exception
+    at BusinessException.of (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\common\errors\business.exception.ts:30:12)
+    at AuthService.login (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\auth\auth.service.ts:389:33)
+[31m[Nest] 44020  - [39m2026/11/28 14:15:07 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/auth/change-password - 401: Invalid credentials[39m
+BusinessException: Business Exception
+    at BusinessException.of (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\common\errors\business.exception.ts:30:12)
+    at AuthService.changePassword (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\auth\auth.service.ts:533:31)
+PASS test/auth-mfa.e2e-spec.ts
+PASS test/agent-delegation-attribution.e2e-spec.ts
+  ● Console
+
+    console.log
+      OBSERVE-② 委托路径审计： {"审计行数":3,"actions":["tool_call","tool_call","delegate"],"工具行数":2}
+
+      at Object.<anonymous> (test/agent-delegation-attribution.e2e-spec.ts:141:13)
+
+    console.log
+      OBSERVE-③ parentActionId： {"抽样行数":4,"非null行数":3,"样例值":"70e6aad5-5f7d-43c6-882c-cdff87402ecf"}
+
+      at Object.<anonymous> (test/agent-delegation-attribution.e2e-spec.ts:172:13)
+
+[31m[Nest] 44020  - [39m2026/11/28 14:15:14 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/admin/import/users - 400: 请上传 CSV 文件[39m
+BadRequestException: 请上传 CSV 文件
+    at DataImportController.importUsers (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\data-import\data-import.controller.ts:24:22)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:39:29
+[31m[Nest] 44020  - [39m2026/11/28 14:15:14 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/admin/import/users - 400: CSV 内容为空[39m
+BadRequestException: CSV 内容为空
+    at DataImportService.parseCsv (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\data-import\data-import.service.ts:40:13)
+    at DataImportService.toObjects (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\data-import\data-import.service.ts:81:23)
+    at DataImportService.importUsers (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\data-import\data-import.service.ts:95:26)
+    at DataImportController.importUsers (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\data-import\data-import.controller.ts:25:28)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:39:29
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[Nest] 44020  - [39m2026/11/28 14:15:14 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/admin/import/users - 403: Forbidden resource[39m
+ForbiddenException: Forbidden resource
+    at PoliciesGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\common\casl\policies.guard.ts:50:13)
+    at GuardsConsumer.tryActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\guards\guards-consumer.js:15:34)
+    at canActivateFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:146:33)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:43:31
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-proxy.js:9:17
+PASS test/data-import.e2e-spec.ts
+  ● Console
+
+    console.log
+      query failed: INSERT INTO "events"("id", "title", "description", "startTime", "endTime", "location", "colorRole", "isCancelled", "isRecurring", "reminder_minutes", "userId", "org_id", "dept_id", "createdAt", "updatedAt", "deleted_at") VALUES (NULL, ?, NULL, ?, ?, NULL, 0, 0, 0, NULL, 99999, NULL, NULL, datetime('now'), datetime('now'), NULL) -- PARAMETERS: ["无主事件","2026-11-28 06:15:14.548","2026-11-28 06:15:14.548"]
+
+      at PlatformTools.logError (src/platform/PlatformTools.ts:214:17)
+
+    console.log
+      error: SqliteError: FOREIGN KEY constraint failed
+
+      at PlatformTools.logError (src/platform/PlatformTools.ts:214:17)
+
+[31m[Nest] 44020  - [39m2026/11/28 14:15:16 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/forms/event-registration - 401: Unauthorized[39m
+UnauthorizedException: Unauthorized
+    at JwtAuthGuard.handleRequest (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:60:30)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:44:124
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:83:24
+    at allFailed (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:110:18)
+    at attempt (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:183:28)
+    at JwtStrategy.strategy.fail (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:314:9)
+    at JwtStrategy.Object.<anonymous>.JwtStrategy.authenticate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport-jwt\lib\strategy.js:96:21)
+    at attempt (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:378:16)
+    at authenticate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:379:7)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:88:3
+    at new Promise (<anonymous>)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:80:83
+    at JwtAuthGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:44:32)
+[31m[Nest] 44020  - [39m2026/11/28 14:15:16 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/admin/forms - 403: Forbidden resource[39m
+ForbiddenException: Forbidden resource
+    at PoliciesGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\common\casl\policies.guard.ts:50:13)
+    at GuardsConsumer.tryActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\guards\guards-consumer.js:15:34)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at canActivateFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:146:33)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:43:31
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-proxy.js:9:17
+[31m[Nest] 44020  - [39m2026/11/28 14:15:16 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/forms/no-such-slug - 404: 表单不存在[39m
+NotFoundException: 表单不存在
+    at FormBuilderService.getSchemaBySlug (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\form-builder\form-builder.service.ts:90:37)
+[31m[Nest] 44020  - [39m2026/11/28 14:15:16 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/forms/event-registration/submit - 400: 表单校验失败[39m
+BadRequestException: 表单校验失败
+    at FormBuilderService.submit (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\form-builder\form-builder.service.ts:104:13)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[Nest] 44020  - [39m2026/11/28 14:15:16 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/forms/event-registration/submit - 400: 表单校验失败[39m
+BadRequestException: 表单校验失败
+    at FormBuilderService.submit (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\form-builder\form-builder.service.ts:104:13)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[Nest] 44020  - [39m2026/11/28 14:15:16 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/forms/event-registration - 404: 表单不存在[39m
+NotFoundException: 表单不存在
+    at FormBuilderService.getSchemaBySlug (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\form-builder\form-builder.service.ts:90:37)
+[31m[Nest] 44020  - [39m2026/11/28 14:15:16 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/points/checkin - 409: 今天已签到[39m
+ConflictException: 今天已签到
+    at PointsService.checkIn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\points\points.service.ts:54:37)
+[31m[Nest] 44020  - [39m2026/11/28 14:15:16 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/webhooks - 400: url must be a URL address[39m
+BadRequestException: Bad Request Exception
+    at ValidationPipe.exceptionFactory (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\common\pipes\validation.pipe.js:111:20)
+    at ValidationPipe.transform (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\common\pipes\validation.pipe.js:78:30)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\pipes\pipes-consumer.js:15:25
+    at resolveParamValue (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:159:23)
+    at async Promise.all (index 0)
+    at pipesFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:162:13)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:38:30
+[31m[Nest] 44020  - [39m2026/11/28 14:15:16 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/feedback - 400: type must be one of the following values: suggestion, bug, praise[39m
+BadRequestException: Bad Request Exception
+    at ValidationPipe.exceptionFactory (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\common\pipes\validation.pipe.js:111:20)
+    at ValidationPipe.transform (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\common\pipes\validation.pipe.js:78:30)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\pipes\pipes-consumer.js:15:25
+    at resolveParamValue (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:159:23)
+    at async Promise.all (index 0)
+    at pipesFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:162:13)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:38:30
+PASS test/forms-points-webhooks.e2e-spec.ts
+[31m[Nest] 44020  - [39m2026/11/28 14:15:19 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/ai/conversations/f2a744fa-2202-453c-a68d-e7a20c780bf7/meta - 403: 无权访问此对话[39m
+ForbiddenException: 无权访问此对话
+    at ConversationService.getConversationMeta (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\ai\conversation\conversation.service.ts:113:13)
+[31m[Nest] 44020  - [39m2026/11/28 14:15:19 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/ai/conversations/f2a744fa-2202-453c-a68d-e7a20c780bf7 - 403: 无权访问此对话[39m
+ForbiddenException: 无权访问此对话
+    at ConversationService.getConversation (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\ai\conversation\conversation.service.ts:91:13)
+[31m[Nest] 44020  - [39m2026/11/28 14:15:19 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/ai/conversations/f2a744fa-2202-453c-a68d-e7a20c780bf7/meta - 401: Unauthorized[39m
+UnauthorizedException: Unauthorized
+    at JwtAuthGuard.handleRequest (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:60:30)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:44:124
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:83:24
+    at allFailed (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:110:18)
+    at attempt (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:183:28)
+    at JwtStrategy.strategy.fail (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:314:9)
+    at JwtStrategy.Object.<anonymous>.JwtStrategy.authenticate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport-jwt\lib\strategy.js:96:21)
+    at attempt (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:378:16)
+    at authenticate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:379:7)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:88:3
+    at new Promise (<anonymous>)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:80:83
+    at JwtAuthGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:44:32)
+PASS test/audit-conversation-drilldown.e2e-spec.ts
+PASS test/upload-sign-stage-c.e2e-spec.ts
+PASS test/audit-guest-id.e2e-spec.ts
+[31m[Nest] 44020  - [39m2026/11/28 14:15:25 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/pm/projects/1/milestones - 404: 项目不存在或无权访问[39m
+NotFoundException: 项目不存在或无权访问
+    at PmService._assertProjectOwner (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\pm\pm.service.ts:179:25)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at PmService.createMilestone (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\pm\pm.service.ts:206:5)
+[31m[Nest] 44020  - [39m2026/11/28 14:15:25 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/pm/tasks - 404: 项目不存在或无权访问[39m
+NotFoundException: 项目不存在或无权访问
+    at PmService._assertProjectOwner (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\pm\pm.service.ts:179:25)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at PmService.createTask (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\pm\pm.service.ts:233:5)
+[31m[Nest] 44020  - [39m2026/11/28 14:15:25 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/pm/projects/1/risks - 404: 项目不存在或无权访问[39m
+NotFoundException: 项目不存在或无权访问
+    at PmService._assertProjectOwner (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\pm\pm.service.ts:179:25)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at PmService.createRisk (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\pm\pm.service.ts:256:5)
+[31m[Nest] 44020  - [39m2026/11/28 14:15:25 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/pm/projects/1/members - 404: 项目不存在或无权访问[39m
+NotFoundException: 项目不存在或无权访问
+    at PmService._assertProjectOwner (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\pm\pm.service.ts:179:25)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at PmService.addMember (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\pm\pm.service.ts:189:5)
+[31m[Nest] 44020  - [39m2026/11/28 14:15:25 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPATCH /api/v1/pm/projects/2 - 403: 无权访问此项目[39m
+ForbiddenException: 无权访问此项目
+    at PmService.getProject (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\pm\pm.service.ts:138:13)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at PmService.updateProject (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\pm\pm.service.ts:144:20)
+[31m[Nest] 44020  - [39m2026/11/28 14:15:25 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mDELETE /api/v1/pm/projects/2 - 403: 无权访问此项目[39m
+ForbiddenException: 无权访问此项目
+    at PmService.getProject (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\pm\pm.service.ts:138:13)
+    at PmService.removeProject (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\pm\pm.service.ts:150:20)
+    at PmController.removeProject (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\pm\pm.controller.ts:91:5)
+PASS test/pm-trust-failure-path.e2e-spec.ts
+  ● Console
+
+    console.log
+      query failed: INSERT INTO "ai_tool_side_effects"("id", "idempotency_key", "user_id", "conversation_id", "run_id", "tool_name", "args_hash", "result_type", "result_id", "before_snapshot", "after_snapshot", "prev_hash", "hash", "revoke_class", "revoke_status", "compensation_group", "parent_effect_id", "revoke_dispute", "revoke_requested_at", "revoke_acknowledged_at", "identity_incomplete", "identity_incomplete_reason", "revoke_claimed_by", "revoke_claimed_at", "agent_id", "undeclared_writes", "revoke_comparability", "possible_duplicate", "created_at") VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, 4, ?, ?, ?, ?, ?, NULL, ?, ?, NULL, NULL, NULL, 0, NULL, NULL, NULL, ?, ?, NULL, ?, datetime('now')) -- PARAMETERS: ["130e79ffd016ae4a7bdfaccb50bbee483ad010c87a510508e7690a0775b0cb6d","1","a2-pm-idem",null,"create_project_task","62996a4185739b01","pm_task",null,null,"dbeedd688178534a530fd3213a055efb496078888bb199e50aebb0b0ed920d28","7186a27709b2ddf3c15fc6c1870f06b0ec9eb72f4a16a3c234294d688c58eda3","local_compensate",null,null,null,null,null]
+
+      at PlatformTools.logError (src/platform/PlatformTools.ts:214:17)
+
+    console.log
+      error: SqliteError: UNIQUE constraint failed: ai_tool_side_effects.idempotency_key
+
+      at PlatformTools.logError (src/platform/PlatformTools.ts:214:17)
+
+PASS test/role-config.e2e-spec.ts
+[31m[Nest] 44020  - [39m2026/11/28 14:15:29 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/audit/reviews - 400: 复核区间越过链尾：throughId=55，当前最大 id=5 / review range is ahead of the chain[39m
+BadRequestException: 复核区间越过链尾：throughId=55，当前最大 id=5 / review range is ahead of the chain
+    at AuditReviewService.record (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\governance-shared\services\audit-review.service.ts:236:13)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+PASS test/audit-record-review.e2e-spec.ts
+PASS test/ai-tool-metadata.e2e-spec.ts
+PASS test/governance-plane.e2e-spec.ts
+  ● Console
+
+    console.log
+      ◇ injected env (27) from .env // tip: ⌘ suppress logs { quiet: true }
+
+      at _log (node_modules/dotenv/lib/main.js:131:11)
+
+
+Test Suites: 13 passed, 13 total
+Tests:       129 passed, 129 total
+Snapshots:   0 total
+Time:        33.796 s, estimated 50 s
+Ran all test suites.
+Force exiting Jest: Have you considered using `--detectOpenHandles` to detect async operations that kept running after all tests finished?
+
+── e2e 分片 2/4 ──
+PASS test/target-status-history.e2e-spec.ts
+[31m[Nest] 36048  - [39m2026/11/28 14:15:38 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/ai/governance/evidence-root/crm_task/1 - 404: AI 副作用记录不存在[39m
+NotFoundException: AI 副作用记录不存在
+    at AuditEvidenceService.getEvidenceRoot (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\governance-shared\services\audit-evidence.service.ts:769:24)
+PASS test/evidence-root.e2e-spec.ts
+[31m[Nest] 36048  - [39m2026/11/28 14:15:42 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/audit/answers?objectType=crm_customer&objectId=9005&since=2026-11-05T10:00:00Z&until=2026-11-05T11:00:00Z - 403: Forbidden resource[39m
+ForbiddenException: Forbidden resource
+    at PoliciesGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\common\casl\policies.guard.ts:50:13)
+    at GuardsConsumer.tryActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\guards\guards-consumer.js:15:34)
+    at canActivateFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:146:33)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:43:31
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-proxy.js:9:17
+[31m[Nest] 36048  - [39m2026/11/28 14:15:42 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/audit/logs?objectType=crm_customer - 400: objectType and objectId must be given together[39m
+BadRequestException: objectType and objectId must be given together
+    at AuditController._objectRowIds (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\governance-shared\controllers\audit.controller.ts:196:13)
+    at AuditController.getLogs (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\governance-shared\controllers\audit.controller.ts:105:28)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:39:29
+[31m[Nest] 36048  - [39m2026/11/28 14:15:42 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/audit/object-types - 403: Forbidden resource[39m
+ForbiddenException: Forbidden resource
+    at PoliciesGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\common\casl\policies.guard.ts:50:13)
+    at GuardsConsumer.tryActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\guards\guards-consumer.js:15:34)
+    at canActivateFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:146:33)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:43:31
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-proxy.js:9:17
+PASS test/audit-six-answers.e2e-spec.ts
+[31m[Nest] 36048  - [39m2026/11/28 14:15:43 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/crm/customers/1/orders - 404: 客户不存在或无权访问[39m
+NotFoundException: 客户不存在或无权访问
+    at assertCustomerOwner (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\crm\customer-ownership.ts:21:24)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at CrmService.createOrder (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\crm\crm.service.ts:194:5)
+[31m[Nest] 36048  - [39m2026/11/28 14:15:43 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/crm/customers/1/activities - 404: 客户不存在或无权访问[39m
+NotFoundException: 客户不存在或无权访问
+    at assertCustomerOwner (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\crm\customer-ownership.ts:21:24)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at CrmService.createActivity (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\crm\crm.service.ts:302:5)
+[31m[Nest] 36048  - [39m2026/11/28 14:15:43 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/crm/tasks - 404: 客户不存在或无权访问[39m
+NotFoundException: 客户不存在或无权访问
+    at assertCustomerOwner (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\crm\customer-ownership.ts:21:24)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at CrmService.createTask (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\crm\crm.service.ts:334:7)
+[31m[Nest] 36048  - [39m2026/11/28 14:15:43 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/crm/customers/1/risks - 404: 客户不存在或无权访问[39m
+NotFoundException: 客户不存在或无权访问
+    at assertCustomerOwner (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\crm\customer-ownership.ts:21:24)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at CrmService.createRisk (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\crm\crm.service.ts:362:5)
+[31m[Nest] 36048  - [39m2026/11/28 14:15:43 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/crm/customers/1/opportunities - 404: 客户不存在或无权访问[39m
+NotFoundException: 客户不存在或无权访问
+    at assertCustomerOwner (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\crm\customer-ownership.ts:21:24)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at CrmService.createOpportunity (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\crm\crm.service.ts:218:5)
+[31m[Nest] 36048  - [39m2026/11/28 14:15:43 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/crm/customers/1/contacts - 404: 客户不存在或无权访问[39m
+NotFoundException: 客户不存在或无权访问
+    at assertCustomerOwner (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\crm\customer-ownership.ts:21:24)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at CrmService.createContact (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\crm\crm.service.ts:268:5)
+[31m[Nest] 36048  - [39m2026/11/28 14:15:43 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPATCH /api/v1/crm/customers/2 - 403: 无权访问此客户[39m
+ForbiddenException: 无权访问此客户
+    at CrmService.getCustomer (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\crm\crm.service.ts:107:13)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at CrmService.updateCustomer (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\crm\crm.service.ts:117:20)
+[31m[Nest] 36048  - [39m2026/11/28 14:15:43 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mDELETE /api/v1/crm/customers/2 - 403: 无权访问此客户[39m
+ForbiddenException: 无权访问此客户
+    at CrmService.getCustomer (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\crm\crm.service.ts:107:13)
+    at CrmService.removeCustomer (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\crm\crm.service.ts:123:20)
+    at CrmController.removeCustomer (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\crm\crm.controller.ts:97:5)
+PASS test/crm-trust-failure-path.e2e-spec.ts
+  ● Console
+
+    console.log
+      query failed: INSERT INTO "ai_tool_side_effects"("id", "idempotency_key", "user_id", "conversation_id", "run_id", "tool_name", "args_hash", "result_type", "result_id", "before_snapshot", "after_snapshot", "prev_hash", "hash", "revoke_class", "revoke_status", "compensation_group", "parent_effect_id", "revoke_dispute", "revoke_requested_at", "revoke_acknowledged_at", "identity_incomplete", "identity_incomplete_reason", "revoke_claimed_by", "revoke_claimed_at", "agent_id", "undeclared_writes", "revoke_comparability", "possible_duplicate", "created_at") VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, 2, ?, ?, ?, ?, ?, NULL, ?, ?, NULL, NULL, NULL, 0, NULL, NULL, NULL, ?, ?, NULL, ?, datetime('now')) -- PARAMETERS: ["530e61a592d3bf60284116d84c60d47c5f549c65553922701a5ae527ef8ef05d","1","a2-crm-idem",null,"create_followup_task","134360f456bba364","crm_task",null,null,"4d1210a9cdceedf8b36d86ed283539c5e1d3c6e42961f226fe599e2e38c5504c","5150cf2cad0da6bd266aef778c27c0b075bd3fe86a02ad719dc9c26bf2b3c76d","local_compensate",null,null,null,null,null]
+
+      at PlatformTools.logError (src/platform/PlatformTools.ts:214:17)
+
+    console.log
+      error: SqliteError: UNIQUE constraint failed: ai_tool_side_effects.idempotency_key
+
+      at PlatformTools.logError (src/platform/PlatformTools.ts:214:17)
+
+PASS test/cascade-compensation.e2e-spec.ts
+[31m[Nest] 36048  - [39m2026/11/28 14:15:47 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/events/1 - 404: Event not found[39m
+NotFoundException: Event not found
+    at EventsService.findOne (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\events\events.service.ts:303:13)
+[31m[Nest] 36048  - [39m2026/11/28 14:15:48 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mDELETE /api/v1/ai/my/tool-effects/2 - 404: 副作用记录不存在[39m
+NotFoundException: 副作用记录不存在
+    at AiController.revokeMyToolEffect (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\ai\ai.controller.ts:1005:24)
+PASS test/revoke-acceptance.e2e-spec.ts
+[31m[Nest] 36048  - [39m2026/11/28 14:15:50 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mDELETE /api/v1/ai/my/tool-effects/2 - 404: 副作用记录不存在[39m
+NotFoundException: 副作用记录不存在
+    at AiController.revokeMyToolEffect (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\ai\ai.controller.ts:1005:24)
+[31m[Nest] 36048  - [39m2026/11/28 14:15:50 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/ai/governance/action/crm_task/2 - 404: AI 副作用记录不存在[39m
+NotFoundException: AI 副作用记录不存在
+    at AiController.governanceAction (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\ai\ai.controller.ts:747:24)
+PASS test/golden-application.e2e-spec.ts
+PASS test/r4-second-approver-audit.e2e-spec.ts
+[31m[Nest] 36048  - [39m2026/11/28 14:15:54 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/crm/customers - 401: Unauthorized[39m
+UnauthorizedException: Unauthorized
+    at JwtAuthGuard.handleRequest (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:60:30)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:44:124
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:83:24
+    at allFailed (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:110:18)
+    at attempt (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:183:28)
+    at JwtStrategy.strategy.fail (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:314:9)
+    at JwtStrategy.Object.<anonymous>.JwtStrategy.authenticate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport-jwt\lib\strategy.js:96:21)
+    at attempt (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:378:16)
+    at authenticate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:379:7)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:88:3
+    at new Promise (<anonymous>)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:80:83
+    at JwtAuthGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:44:32)
+[31m[Nest] 36048  - [39m2026/11/28 14:15:54 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/crm/customers/3 - 403: 无权访问此客户[39m
+ForbiddenException: 无权访问此客户
+    at CrmService.getCustomer (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\crm\crm.service.ts:107:13)
+    at CrmService.getCustomerDetail (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\crm\crm.service.ts:140:22)
+PASS test/crm.e2e-spec.ts
+[31m[Nest] 36048  - [39m2026/11/28 14:15:56 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/ai/tool-effects/claims/3/release - 400: view should not be null or undefined[39m
+BadRequestException: Bad Request Exception
+    at ValidationPipe.exceptionFactory (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\common\pipes\validation.pipe.js:111:20)
+    at ValidationPipe.transform (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\common\pipes\validation.pipe.js:78:30)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\pipes\pipes-consumer.js:15:25
+    at resolveParamValue (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:159:23)
+    at async Promise.all (index 1)
+    at pipesFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:162:13)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:38:30
+[31m[Nest] 36048  - [39m2026/11/28 14:15:56 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/ai/tool-effects/claims/4/release - 400: note must be longer than or equal to 8 characters; view.lastLookupId must be an integer number[39m
+BadRequestException: Bad Request Exception
+    at ValidationPipe.exceptionFactory (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\common\pipes\validation.pipe.js:111:20)
+    at ValidationPipe.transform (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\common\pipes\validation.pipe.js:78:30)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\pipes\pipes-consumer.js:15:25
+    at resolveParamValue (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:159:23)
+    at async Promise.all (index 1)
+    at pipesFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:162:13)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:38:30
+PASS test/stale-view-release.e2e-spec.ts
+PASS test/notifications.e2e-spec.ts
+PASS test/trust-behavior-matrix.e2e-spec.ts
+  ● Console
+
+    console.log
+      query failed: INSERT INTO "ai_tool_side_effects"("id", "idempotency_key", "user_id", "conversation_id", "run_id", "tool_name", "args_hash", "result_type", "result_id", "before_snapshot", "after_snapshot", "prev_hash", "hash", "revoke_class", "revoke_status", "compensation_group", "parent_effect_id", "revoke_dispute", "revoke_requested_at", "revoke_acknowledged_at", "identity_incomplete", "identity_incomplete_reason", "revoke_claimed_by", "revoke_claimed_at", "agent_id", "undeclared_writes", "revoke_comparability", "possible_duplicate", "created_at") VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, NULL, ?, ?, NULL, NULL, NULL, 0, NULL, NULL, NULL, ?, ?, NULL, ?, datetime('now')) -- PARAMETERS: ["92b227ac8f474d0f0a34f2df9ac54d72eef261d51e4c8ee3fcbb5202cb6f131a","1","conv-idem",null,"create_event","e290b5a6c114279f","event",null,null,"237477f2a0b3ab8f022be071b5f113076502df7b8d283d2615888144a5937806","0a743f13d48cb6fc89e075d4e85dd87fa9696b64f9739bf16f50718674950e61","local_compensate",null,null,null,null,null]
+
+      at PlatformTools.logError (src/platform/PlatformTools.ts:214:17)
+
+    console.log
+      error: SqliteError: UNIQUE constraint failed: ai_tool_side_effects.idempotency_key
+
+      at PlatformTools.logError (src/platform/PlatformTools.ts:214:17)
+
+    console.log
+      query failed: INSERT INTO "ai_tool_side_effects"("id", "idempotency_key", "user_id", "conversation_id", "run_id", "tool_name", "args_hash", "result_type", "result_id", "before_snapshot", "after_snapshot", "prev_hash", "hash", "revoke_class", "revoke_status", "compensation_group", "parent_effect_id", "revoke_dispute", "revoke_requested_at", "revoke_acknowledged_at", "identity_incomplete", "identity_incomplete_reason", "revoke_claimed_by", "revoke_claimed_at", "agent_id", "undeclared_writes", "revoke_comparability", "possible_duplicate", "created_at") VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, 2, ?, ?, ?, ?, ?, NULL, ?, ?, NULL, NULL, NULL, 0, NULL, NULL, NULL, ?, ?, NULL, ?, datetime('now')) -- PARAMETERS: ["62384044e3dfb401519a9ea19c54e096c150b5a860f3371cdb78f4d0f828cb10","1","conv-conc",null,"create_event","dcb49a0def580ce9","event",null,null,"94209f287f36636e23b5bddeb3bb866af0f3721b3dcee0986f340d5a33c96682","dbe935fd2f39479091dd3cd34068c3a849995621ddbde28852378992ea36c1e3","local_compensate",null,null,null,null,null]
+
+      at PlatformTools.logError (src/platform/PlatformTools.ts:214:17)
+
+    console.log
+      error: SqliteError: UNIQUE constraint failed: ai_tool_side_effects.idempotency_key
+
+      at PlatformTools.logError (src/platform/PlatformTools.ts:214:17)
+
+    console.log
+      query failed: INSERT INTO "ai_tool_side_effects"("id", "idempotency_key", "user_id", "conversation_id", "run_id", "tool_name", "args_hash", "result_type", "result_id", "before_snapshot", "after_snapshot", "prev_hash", "hash", "revoke_class", "revoke_status", "compensation_group", "parent_effect_id", "revoke_dispute", "revoke_requested_at", "revoke_acknowledged_at", "identity_incomplete", "identity_incomplete_reason", "revoke_claimed_by", "revoke_claimed_at", "agent_id", "undeclared_writes", "revoke_comparability", "possible_duplicate", "created_at") VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, 2, ?, ?, ?, ?, ?, NULL, ?, ?, NULL, NULL, NULL, 0, NULL, NULL, NULL, ?, ?, NULL, ?, datetime('now')) -- PARAMETERS: ["62384044e3dfb401519a9ea19c54e096c150b5a860f3371cdb78f4d0f828cb10","1","conv-conc",null,"create_event","dcb49a0def580ce9","event",null,null,"94209f287f36636e23b5bddeb3bb866af0f3721b3dcee0986f340d5a33c96682","dbe935fd2f39479091dd3cd34068c3a849995621ddbde28852378992ea36c1e3","local_compensate",null,null,null,null,null]
+
+      at PlatformTools.logError (src/platform/PlatformTools.ts:214:17)
+
+    console.log
+      error: SqliteError: UNIQUE constraint failed: ai_tool_side_effects.idempotency_key
+
+      at PlatformTools.logError (src/platform/PlatformTools.ts:214:17)
+
+    console.log
+      query failed: INSERT INTO "ai_tool_side_effects"("id", "idempotency_key", "user_id", "conversation_id", "run_id", "tool_name", "args_hash", "result_type", "result_id", "before_snapshot", "after_snapshot", "prev_hash", "hash", "revoke_class", "revoke_status", "compensation_group", "parent_effect_id", "revoke_dispute", "revoke_requested_at", "revoke_acknowledged_at", "identity_incomplete", "identity_incomplete_reason", "revoke_claimed_by", "revoke_claimed_at", "agent_id", "undeclared_writes", "revoke_comparability", "possible_duplicate", "created_at") VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, 2, ?, ?, ?, ?, ?, NULL, ?, ?, NULL, NULL, NULL, 0, NULL, NULL, NULL, ?, ?, NULL, ?, datetime('now')) -- PARAMETERS: ["62384044e3dfb401519a9ea19c54e096c150b5a860f3371cdb78f4d0f828cb10","1","conv-conc",null,"create_event","dcb49a0def580ce9","event",null,null,"94209f287f36636e23b5bddeb3bb866af0f3721b3dcee0986f340d5a33c96682","dbe935fd2f39479091dd3cd34068c3a849995621ddbde28852378992ea36c1e3","local_compensate",null,null,null,null,null]
+
+      at PlatformTools.logError (src/platform/PlatformTools.ts:214:17)
+
+    console.log
+      error: SqliteError: UNIQUE constraint failed: ai_tool_side_effects.idempotency_key
+
+      at PlatformTools.logError (src/platform/PlatformTools.ts:214:17)
+
+    console.log
+      query failed: INSERT INTO "ai_tool_side_effects"("id", "idempotency_key", "user_id", "conversation_id", "run_id", "tool_name", "args_hash", "result_type", "result_id", "before_snapshot", "after_snapshot", "prev_hash", "hash", "revoke_class", "revoke_status", "compensation_group", "parent_effect_id", "revoke_dispute", "revoke_requested_at", "revoke_acknowledged_at", "identity_incomplete", "identity_incomplete_reason", "revoke_claimed_by", "revoke_claimed_at", "agent_id", "undeclared_writes", "revoke_comparability", "possible_duplicate", "created_at") VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, 2, ?, ?, ?, ?, ?, NULL, ?, ?, NULL, NULL, NULL, 0, NULL, NULL, NULL, ?, ?, NULL, ?, datetime('now')) -- PARAMETERS: ["62384044e3dfb401519a9ea19c54e096c150b5a860f3371cdb78f4d0f828cb10","1","conv-conc",null,"create_event","dcb49a0def580ce9","event",null,null,"94209f287f36636e23b5bddeb3bb866af0f3721b3dcee0986f340d5a33c96682","dbe935fd2f39479091dd3cd34068c3a849995621ddbde28852378992ea36c1e3","local_compensate",null,null,null,null,null]
+
+      at PlatformTools.logError (src/platform/PlatformTools.ts:214:17)
+
+    console.log
+      error: SqliteError: UNIQUE constraint failed: ai_tool_side_effects.idempotency_key
+
+      at PlatformTools.logError (src/platform/PlatformTools.ts:214:17)
+
+
+Test Suites: 12 passed, 12 total
+Tests:       76 passed, 76 total
+Snapshots:   0 total
+Time:        27.76 s, estimated 36 s
+Ran all test suites.
+Force exiting Jest: Have you considered using `--detectOpenHandles` to detect async operations that kept running after all tests finished?
+
+── e2e 分片 3/4 ──
+[31m[Nest] 47288  - [39m2026/11/28 14:16:04 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/auth/register - 401: Username or email already exists[39m
+UnauthorizedException: Username or email already exists
+    at AuthService.register (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\auth\auth.service.ts:119:13)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:04 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/auth/register - 400: 密码必须包含字母和数字; password must be longer than or equal to 8 characters[39m
+BadRequestException: Bad Request Exception
+    at ValidationPipe.exceptionFactory (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\common\pipes\validation.pipe.js:111:20)
+    at ValidationPipe.transform (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\common\pipes\validation.pipe.js:78:30)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\pipes\pipes-consumer.js:15:25
+    at resolveParamValue (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:159:23)
+    at async Promise.all (index 2)
+    at pipesFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:162:13)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:38:30
+[31m[Nest] 47288  - [39m2026/11/28 14:16:04 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/auth/me - 401: Unauthorized[39m
+UnauthorizedException: Unauthorized
+    at JwtAuthGuard.handleRequest (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:60:30)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:44:124
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:83:24
+    at allFailed (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:110:18)
+    at attempt (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:183:28)
+    at JwtStrategy.strategy.fail (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:314:9)
+    at JwtStrategy.Object.<anonymous>.JwtStrategy.authenticate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport-jwt\lib\strategy.js:96:21)
+    at attempt (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:378:16)
+    at authenticate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:379:7)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:88:3
+    at new Promise (<anonymous>)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:80:83
+    at JwtAuthGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:44:32)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:04 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/auth/refresh - 401: Token rejected[39m
+UnauthorizedException: Token rejected
+    at AuthService.refreshToken (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\auth\auth.service.ts:602:13)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:04 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/auth/refresh - 401: Token rejected[39m
+UnauthorizedException: Token rejected
+    at AuthService.refreshToken (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\auth\auth.service.ts:602:13)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:04 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/auth/refresh - 401: Token rejected[39m
+UnauthorizedException: Token rejected
+    at AuthService.refreshToken (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\auth\auth.service.ts:602:13)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:05 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/auth/login - 401: Invalid credentials[39m
+BusinessException: Business Exception
+    at BusinessException.of (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\common\errors\business.exception.ts:30:12)
+    at AuthService.login (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\auth\auth.service.ts:359:31)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:05 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/auth/login - 401: Invalid credentials[39m
+BusinessException: Business Exception
+    at BusinessException.of (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\common\errors\business.exception.ts:30:12)
+    at AuthService.login (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\auth\auth.service.ts:323:31)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:06 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/auth/reset-password - 401: Invalid or expired reset token[39m
+UnauthorizedException: Invalid or expired reset token
+    at AuthService.resetPassword (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\auth\auth.service.ts:221:13)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:06 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/auth/verify-email - 401: Invalid or expired verification code[39m
+UnauthorizedException: Invalid or expired verification code
+    at AuthService.verifyEmail (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\auth\auth.service.ts:247:13)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:07 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mDELETE /api/v1/auth/sessions/7 - 401: Session not found[39m
+BusinessException: Business Exception
+    at BusinessException.of (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\common\errors\business.exception.ts:30:12)
+    at AuthService.revokeSession (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\auth\auth.service.ts:687:31)
+    at AuthController.revokeSession (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\auth\auth.controller.ts:431:5)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:07 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/users/7 - 403: 无权访问其他用户信息[39m
+ForbiddenException: 无权访问其他用户信息
+    at UsersController.findOne (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\users\users.controller.ts:88:13)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:39:29
+[31m[Nest] 47288  - [39m2026/11/28 14:16:07 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPUT /api/v1/users/7 - 403: 无权修改其他用户信息[39m
+ForbiddenException: 无权修改其他用户信息
+    at UsersController.update (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\users\users.controller.ts:103:13)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:39:29
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:07 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mDELETE /api/v1/users/7 - 403: 无权删除其他用户[39m
+ForbiddenException: 无权删除其他用户
+    at UsersController.remove (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\users\users.controller.ts:149:13)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:39:29
+[31m[Nest] 47288  - [39m2026/11/28 14:16:08 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/events - 401: Unauthorized[39m
+UnauthorizedException: Unauthorized
+    at JwtAuthGuard.handleRequest (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:60:30)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:44:124
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:83:24
+    at allFailed (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:110:18)
+    at attempt (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:183:28)
+    at JwtStrategy.strategy.fail (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:314:9)
+    at JwtStrategy.Object.<anonymous>.JwtStrategy.authenticate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport-jwt\lib\strategy.js:96:21)
+    at attempt (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:378:16)
+    at authenticate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:379:7)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:88:3
+    at new Promise (<anonymous>)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:80:83
+    at JwtAuthGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:44:32)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:08 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/events - 401: Unauthorized[39m
+UnauthorizedException: Unauthorized
+    at JwtAuthGuard.handleRequest (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:60:30)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:44:124
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:83:24
+    at allFailed (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:110:18)
+    at attempt (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:183:28)
+    at JwtStrategy.strategy.fail (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:314:9)
+    at JwtStrategy.Object.<anonymous>.JwtStrategy.authenticate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport-jwt\lib\strategy.js:96:21)
+    at attempt (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:378:16)
+    at authenticate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:379:7)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:88:3
+    at new Promise (<anonymous>)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:80:83
+    at JwtAuthGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:44:32)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:08 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/events/1 - 403: 无权访问此事件[39m
+ForbiddenException: 无权访问此事件
+    at EventsService.findOne (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\events\events.service.ts:306:13)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:08 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPUT /api/v1/events/1 - 403: 无权访问此事件[39m
+ForbiddenException: 无权访问此事件
+    at EventsService.findOne (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\events\events.service.ts:306:13)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at EventsService.update (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\events\events.service.ts:338:19)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:08 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mDELETE /api/v1/events/1 - 403: 无权访问此事件[39m
+ForbiddenException: 无权访问此事件
+    at EventsService.findOne (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\events\events.service.ts:306:13)
+    at EventsService.remove (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\events\events.service.ts:351:19)
+    at EventsController.remove (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\events\events.controller.ts:144:5)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:08 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/events/1 - 404: Event not found[39m
+NotFoundException: Event not found
+    at EventsService.findOne (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\events\events.service.ts:303:13)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:08 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/events - 400: title must be longer than or equal to 1 characters; startTime must be a valid ISO 8601 date string; endTime must be a valid ISO 8601 date string[39m
+BadRequestException: Bad Request Exception
+    at ValidationPipe.exceptionFactory (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\common\pipes\validation.pipe.js:111:20)
+    at ValidationPipe.transform (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\common\pipes\validation.pipe.js:78:30)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\pipes\pipes-consumer.js:15:25
+    at resolveParamValue (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:159:23)
+    at async Promise.all (index 1)
+    at pipesFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:162:13)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:38:30
+[31m[Nest] 47288  - [39m2026/11/28 14:16:08 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/users - 403: Forbidden resource[39m
+ForbiddenException: Forbidden resource
+    at PoliciesGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\common\casl\policies.guard.ts:50:13)
+    at GuardsConsumer.tryActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\guards\guards-consumer.js:15:34)
+    at canActivateFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:146:33)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:43:31
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-proxy.js:9:17
+[31m[Nest] 47288  - [39m2026/11/28 14:16:08 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/users - 403: Forbidden resource[39m
+ForbiddenException: Forbidden resource
+    at PoliciesGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\common\casl\policies.guard.ts:50:13)
+    at GuardsConsumer.tryActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\guards\guards-consumer.js:15:34)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at canActivateFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:146:33)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:43:31
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-proxy.js:9:17
+[31m[Nest] 47288  - [39m2026/11/28 14:16:08 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/users - 401: Unauthorized[39m
+UnauthorizedException: Unauthorized
+    at JwtAuthGuard.handleRequest (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:60:30)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:44:124
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:83:24
+    at allFailed (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:110:18)
+    at attempt (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:183:28)
+    at JwtStrategy.strategy.fail (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:314:9)
+    at JwtStrategy.Object.<anonymous>.JwtStrategy.authenticate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport-jwt\lib\strategy.js:96:21)
+    at attempt (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:378:16)
+    at authenticate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:379:7)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:88:3
+    at new Promise (<anonymous>)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:80:83
+    at JwtAuthGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:44:32)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:08 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPATCH /api/v1/users/11/role - 403: Forbidden resource[39m
+ForbiddenException: Forbidden resource
+    at PoliciesGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\common\casl\policies.guard.ts:50:13)
+    at GuardsConsumer.tryActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\guards\guards-consumer.js:15:34)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at canActivateFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:146:33)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:43:31
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-proxy.js:9:17
+[31m[Nest] 47288  - [39m2026/11/28 14:16:09 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/events/admin/all - 403: Forbidden resource[39m
+ForbiddenException: Forbidden resource
+    at PoliciesGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\common\casl\policies.guard.ts:50:13)
+    at GuardsConsumer.tryActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\guards\guards-consumer.js:15:34)
+    at canActivateFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:146:33)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:43:31
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-proxy.js:9:17
+[31m[Nest] 47288  - [39m2026/11/28 14:16:09 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/events/3 - 404: Event not found[39m
+NotFoundException: Event not found
+    at EventsService.findOne (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\events\events.service.ts:303:13)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:10 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/admin/monitor/summary - 403: Forbidden resource[39m
+ForbiddenException: Forbidden resource
+    at PoliciesGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\common\casl\policies.guard.ts:50:13)
+    at GuardsConsumer.tryActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\guards\guards-consumer.js:15:34)
+    at canActivateFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:146:33)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:43:31
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-proxy.js:9:17
+[31m[Nest] 47288  - [39m2026/11/28 14:16:10 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/admin/overview - 403: Forbidden resource[39m
+ForbiddenException: Forbidden resource
+    at PoliciesGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\common\casl\policies.guard.ts:50:13)
+    at GuardsConsumer.tryActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\guards\guards-consumer.js:15:34)
+    at canActivateFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:146:33)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:43:31
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-proxy.js:9:17
+[31m[Nest] 47288  - [39m2026/11/28 14:16:10 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/admin/sessions - 403: Forbidden resource[39m
+ForbiddenException: Forbidden resource
+    at PoliciesGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\common\casl\policies.guard.ts:50:13)
+    at GuardsConsumer.tryActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\guards\guards-consumer.js:15:34)
+    at canActivateFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:146:33)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:43:31
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-proxy.js:9:17
+[31m[Nest] 47288  - [39m2026/11/28 14:16:10 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/admin/notifications/broadcast - 403: Forbidden resource[39m
+ForbiddenException: Forbidden resource
+    at PoliciesGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\common\casl\policies.guard.ts:50:13)
+    at GuardsConsumer.tryActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\guards\guards-consumer.js:15:34)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at canActivateFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:146:33)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:43:31
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-proxy.js:9:17
+[31m[Nest] 47288  - [39m2026/11/28 14:16:10 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/events/admin/all?keyword=x%27%20OR%20%271%27%3D%271 - 403: Forbidden resource[39m
+ForbiddenException: Forbidden resource
+    at PoliciesGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\common\casl\policies.guard.ts:50:13)
+    at GuardsConsumer.tryActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\guards\guards-consumer.js:15:34)
+    at canActivateFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:146:33)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:43:31
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-proxy.js:9:17
+[31m[Nest] 47288  - [39m2026/11/28 14:16:10 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/users?sort=id%3B%20DROP%20TABLE%20users%3B%20-- - 403: Forbidden resource[39m
+ForbiddenException: Forbidden resource
+    at PoliciesGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\common\casl\policies.guard.ts:50:13)
+    at GuardsConsumer.tryActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\guards\guards-consumer.js:15:34)
+    at canActivateFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:146:33)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:43:31
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-proxy.js:9:17
+[31m[Nest] 47288  - [39m2026/11/28 14:16:11 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/events - 400: property role should not exist[39m
+BadRequestException: Bad Request Exception
+    at ValidationPipe.exceptionFactory (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\common\pipes\validation.pipe.js:111:20)
+    at ValidationPipe.transform (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\common\pipes\validation.pipe.js:78:30)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\pipes\pipes-consumer.js:15:25
+    at resolveParamValue (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:159:23)
+    at async Promise.all (index 1)
+    at pipesFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:162:13)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:38:30
+[31m[Nest] 47288  - [39m2026/11/28 14:16:11 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/auth/register - 400: 用户名只能包含字母、数字和下划线; username must be shorter than or equal to 32 characters; username must be longer than or equal to 3 characters; username should not be empty; username must be a string; email should not be empty; email must be an email; 密码必须包含字母和数字; password must be shorter than or equal to 128 characters; password must be longer than or equal to 8 characters; password must be a string; nickname must be shorter than or equal to 64 characters; nickname should not be empty; nickname must be a string[39m
+BadRequestException: Bad Request Exception
+    at ValidationPipe.exceptionFactory (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\common\pipes\validation.pipe.js:111:20)
+    at ValidationPipe.transform (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\common\pipes\validation.pipe.js:78:30)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\pipes\pipes-consumer.js:15:25
+    at resolveParamValue (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:159:23)
+    at async Promise.all (index 2)
+    at pipesFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:162:13)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:38:30
+[31m[Nest] 47288  - [39m2026/11/28 14:16:11 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/auth/login - 400: username should not be empty; username must be a string; password must be longer than or equal to 1 characters; password must be a string[39m
+BadRequestException: Bad Request Exception
+    at ValidationPipe.exceptionFactory (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\common\pipes\validation.pipe.js:111:20)
+    at ValidationPipe.transform (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\common\pipes\validation.pipe.js:78:30)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\pipes\pipes-consumer.js:15:25
+    at resolveParamValue (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:159:23)
+    at async Promise.all (index 2)
+    at pipesFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:162:13)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:38:30
+[31m[Nest] 47288  - [39m2026/11/28 14:16:11 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/users/abc - 401: Unauthorized[39m
+UnauthorizedException: Unauthorized
+    at JwtAuthGuard.handleRequest (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:60:30)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:44:124
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:83:24
+    at allFailed (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:110:18)
+    at attempt (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:183:28)
+    at JwtStrategy.strategy.fail (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:314:9)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport-jwt\lib\strategy.js:106:33
+    at Object.<anonymous>.module.exports [as verify] (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\jsonwebtoken\verify.js:70:12)
+    at JwtStrategy.Object.<anonymous>.module.exports [as JwtVerifier] (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport-jwt\lib\verify_jwt.js:4:16)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport-jwt\lib\strategy.js:104:25
+    at JwtStrategy._secretOrKeyProvider (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport-jwt\lib\strategy.js:40:13)
+    at JwtStrategy.Object.<anonymous>.JwtStrategy.authenticate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport-jwt\lib\strategy.js:99:10)
+    at attempt (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:378:16)
+    at authenticate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:379:7)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:88:3
+    at new Promise (<anonymous>)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:80:83
+    at JwtAuthGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:44:32)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:11 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/ai/chat - 401: Unauthorized[39m
+UnauthorizedException: Unauthorized
+    at JwtAuthGuard.handleRequest (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:60:30)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:44:124
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:83:24
+    at allFailed (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:110:18)
+    at attempt (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:183:28)
+    at JwtStrategy.strategy.fail (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:314:9)
+    at JwtStrategy.Object.<anonymous>.JwtStrategy.authenticate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport-jwt\lib\strategy.js:96:21)
+    at attempt (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:378:16)
+    at authenticate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:379:7)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:88:3
+    at new Promise (<anonymous>)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:80:83
+    at JwtAuthGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:44:32)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:11 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mDELETE /api/v1/ai/conversations/e2e-conv-1 - 403: 无权访问此对话[39m
+ForbiddenException: 无权访问此对话
+    at ConversationService.deleteConversation (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\ai\conversation\conversation.service.ts:213:13)
+    at AiController.deleteConversation (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\ai\ai.controller.ts:416:5)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:12 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/ai/knowledge - 403: Forbidden resource[39m
+ForbiddenException: Forbidden resource
+    at PoliciesGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\common\casl\policies.guard.ts:50:13)
+    at GuardsConsumer.tryActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\guards\guards-consumer.js:15:34)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at canActivateFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:146:33)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:43:31
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-proxy.js:9:17
+[31m[Nest] 47288  - [39m2026/11/28 14:16:12 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/ai/knowledge/1 - 404: 知识条目不存在[39m
+NotFoundException: 知识条目不存在
+    at KnowledgeService.findOne (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\ai\rag\knowledge.service.ts:160:13)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:12 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/search?q=GlobalSearch - 401: Unauthorized[39m
+UnauthorizedException: Unauthorized
+    at JwtAuthGuard.handleRequest (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:60:30)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:44:124
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:83:24
+    at allFailed (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:110:18)
+    at attempt (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:183:28)
+    at JwtStrategy.strategy.fail (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:314:9)
+    at JwtStrategy.Object.<anonymous>.JwtStrategy.authenticate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport-jwt\lib\strategy.js:96:21)
+    at attempt (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:378:16)
+    at authenticate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:379:7)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:88:3
+    at new Promise (<anonymous>)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:80:83
+    at JwtAuthGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:44:32)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:13 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/audit/operations/logs - 403: Forbidden resource[39m
+ForbiddenException: Forbidden resource
+    at PoliciesGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\common\casl\policies.guard.ts:50:13)
+    at GuardsConsumer.tryActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\guards\guards-consumer.js:15:34)
+    at canActivateFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:146:33)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:43:31
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-proxy.js:9:17
+[31m[Nest] 47288  - [39m2026/11/28 14:16:13 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/upload - 400: 文件类型校验失败：声明为 image/png，但文件头部特征不匹配[39m
+BadRequestException: 文件类型校验失败：声明为 image/png，但文件头部特征不匹配
+    at validateMagicBytes (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\common\utils\file-validator.ts:95:11)
+    at UploadController.uploadFile (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\upload\upload.controller.ts:96:25)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:39:29
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:14 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/events - 403: Please verify your email first[39m
+BusinessException: Business Exception
+    at BusinessException.of (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\common\errors\business.exception.ts:30:12)
+    at EmailVerificationGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\auth\guards\email-verification.guard.ts:51:31)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at GuardsConsumer.tryActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\guards\guards-consumer.js:22:17)
+    at canActivateFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:146:33)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:43:31
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-proxy.js:9:17
+[31m[Nest] 47288  - [39m2026/11/28 14:16:15 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mDELETE /api/v1/todos/3 - 403: 无权访问此待办[39m
+ForbiddenException: 无权访问此待办
+    at TodosService.findOne (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\todos\todos.service.ts:77:13)
+    at TodosService.remove (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\todos\todos.service.ts:96:18)
+    at TodosController.remove (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\todos\todos.controller.ts:69:5)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:15 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/todos - 401: Unauthorized[39m
+UnauthorizedException: Unauthorized
+    at JwtAuthGuard.handleRequest (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:60:30)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:44:124
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:83:24
+    at allFailed (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:110:18)
+    at attempt (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:183:28)
+    at JwtStrategy.strategy.fail (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:314:9)
+    at JwtStrategy.Object.<anonymous>.JwtStrategy.authenticate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport-jwt\lib\strategy.js:96:21)
+    at attempt (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:378:16)
+    at authenticate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:379:7)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:88:3
+    at new Promise (<anonymous>)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:80:83
+    at JwtAuthGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:44:32)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:15 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPATCH /api/v1/todos/4 - 403: 无权访问此待办[39m
+ForbiddenException: 无权访问此待办
+    at TodosService.findOne (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\todos\todos.service.ts:77:13)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at TodosService.update (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\todos\todos.service.ts:88:18)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:15 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPATCH /api/v1/todos/5/complete - 403: 无权访问此待办[39m
+ForbiddenException: 无权访问此待办
+    at TodosService.findOne (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\todos\todos.service.ts:77:13)
+    at TodosController.toggleComplete (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\todos\todos.controller.ts:52:18)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:15 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/auth/bind-phone - 400: Invalid or expired verification code[39m
+BusinessException: Business Exception
+    at BusinessException.of (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\common\errors\business.exception.ts:30:12)
+    at AuthService._verifyPhoneCode (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\auth\auth.service.ts:1033:31)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at AuthService.bindPhone (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\auth\auth.service.ts:974:5)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:15 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/auth/login-phone - 400: Invalid or expired verification code[39m
+BusinessException: Business Exception
+    at BusinessException.of (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\common\errors\business.exception.ts:30:12)
+    at AuthService._verifyPhoneCode (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\auth\auth.service.ts:1033:31)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at AuthService.loginPhone (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\auth\auth.service.ts:996:5)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:16 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/auth/me - 401: User not found[39m
+BusinessException: Business Exception
+    at BusinessException.of (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\common\errors\business.exception.ts:30:12)
+    at AuthService.getProfile (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\auth\auth.service.ts:739:31)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:17 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/auth/deactivate - 401: Invalid credentials[39m
+BusinessException: Business Exception
+    at BusinessException.of (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\common\errors\business.exception.ts:30:12)
+    at AuthService.deactivateAccount (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\auth\auth.service.ts:1059:31)
+    at runNextTicks (node:internal/process/task_queues:65:5)
+    at processTimers (node:internal/timers:615:9)
+    at AuthController.deactivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\auth\auth.controller.ts:245:5)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:17 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/ai/confirmations/6ff43fec-bfb5-438a-b64a-0bd60d30ba68 - 404: Confirmation request not found or expired[39m
+NotFoundException: Confirmation request not found or expired
+    at AiController.confirm (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\ai\ai.controller.ts:233:13)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:17 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/ai/confirmations/unknown-token - 404: Confirmation request not found or expired[39m
+NotFoundException: Confirmation request not found or expired
+    at AiController.confirm (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\ai\ai.controller.ts:233:13)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:18 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/ai/tool-effects - 403: Forbidden resource[39m
+ForbiddenException: Forbidden resource
+    at PoliciesGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\common\casl\policies.guard.ts:50:13)
+    at GuardsConsumer.tryActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\guards\guards-consumer.js:15:34)
+    at canActivateFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:146:33)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:43:31
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-proxy.js:9:17
+[31m[Nest] 47288  - [39m2026/11/28 14:16:18 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/ai/my/tool-effects - 401: Unauthorized[39m
+UnauthorizedException: Unauthorized
+    at JwtAuthGuard.handleRequest (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:60:30)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:44:124
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:83:24
+    at allFailed (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:110:18)
+    at attempt (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:183:28)
+    at JwtStrategy.strategy.fail (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:314:9)
+    at JwtStrategy.Object.<anonymous>.JwtStrategy.authenticate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport-jwt\lib\strategy.js:96:21)
+    at attempt (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:378:16)
+    at authenticate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:379:7)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:88:3
+    at new Promise (<anonymous>)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:80:83
+    at JwtAuthGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:44:32)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:19 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/ai/conversations/trace-e2e-1/trace - 403: 无权访问此对话[39m
+ForbiddenException: 无权访问此对话
+    at ConversationService.getConversation (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\ai\conversation\conversation.service.ts:91:13)
+    at DecisionTraceService.getConversationTrace (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\ai\trace\decision-trace.service.ts:111:18)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:19 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mDELETE /api/v1/ai/my/tool-effects/4 - 404: 副作用记录不存在[39m
+NotFoundException: 副作用记录不存在
+    at AiController.revokeMyToolEffect (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\ai\ai.controller.ts:1005:24)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:19 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/headless/chat - 401: 缺少 API Key[39m
+UnauthorizedException: 缺少 API Key
+    at HeadlessGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\headless\headless.guard.ts:27:13)
+    at GuardsConsumer.tryActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\guards\guards-consumer.js:15:34)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at canActivateFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:146:33)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:43:31
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-proxy.js:9:17
+[31m[Nest] 47288  - [39m2026/11/28 14:16:19 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/headless/chat - 401: headless API 未启用[39m
+UnauthorizedException: headless API 未启用
+    at HeadlessGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\headless\headless.guard.ts:32:13)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at GuardsConsumer.tryActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\guards\guards-consumer.js:22:17)
+    at canActivateFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:146:33)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:43:31
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-proxy.js:9:17
+PASS test/app.e2e-spec.ts (19.137 s)
+  ● Console
+
+    console.log
+      query failed: INSERT INTO "ai_tool_side_effects"("id", "idempotency_key", "user_id", "conversation_id", "run_id", "tool_name", "args_hash", "result_type", "result_id", "before_snapshot", "after_snapshot", "prev_hash", "hash", "revoke_class", "revoke_status", "compensation_group", "parent_effect_id", "revoke_dispute", "revoke_requested_at", "revoke_acknowledged_at", "identity_incomplete", "identity_incomplete_reason", "revoke_claimed_by", "revoke_claimed_at", "agent_id", "undeclared_writes", "revoke_comparability", "possible_duplicate", "created_at") VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, 9, ?, ?, ?, ?, ?, NULL, ?, ?, NULL, NULL, NULL, 0, NULL, NULL, NULL, ?, ?, NULL, ?, datetime('now')) -- PARAMETERS: ["3093b6bae5b07c9ead27ead37557ece5ce65e2590979b2ba608ad9361c831d9d","36","conv-t7-1",null,"create_event","1c32ed168b178abd","event",null,null,"40a1607f82cfd0301ca5167b76893005a6be86aea00432c99b796e3ed2cc151a","bdf36d0ef70ebe2371463e1fe4eefc14decf75fae6388590c332a74396233bfa","local_compensate",null,null,null,null,null]
+
+      at PlatformTools.logError (src/platform/PlatformTools.ts:214:17)
+
+    console.log
+      error: SqliteError: UNIQUE constraint failed: ai_tool_side_effects.idempotency_key
+
+      at PlatformTools.logError (src/platform/PlatformTools.ts:214:17)
+
+[31m[Nest] 47288  - [39m2026/11/28 14:16:21 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/ai/governance/action/proxy_call/272897358491263 - 404: AI 副作用记录不存在[39m
+NotFoundException: AI 副作用记录不存在
+    at AiController.governanceAction (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\ai\ai.controller.ts:747:24)
+PASS test/proxy-bridge.e2e-spec.ts
+  ● Console
+
+    console.log
+      query failed: INSERT INTO "ai_write_claims"("id", "idempotency_key", "operation_key", "user_id", "conversation_id", "run_id", "tool_name", "args_hash", "agent_id", "status", "claimed_at", "settled_at", "effect_id", "release_reason", "decision_state", "attempts", "audit_row_id", "authorization_ref", "decided_role", "policy_revision") VALUES (NULL, ?, ?, ?, ?, NULL, ?, ?, NULL, ?, ?, NULL, NULL, NULL, 'open', 1, NULL, NULL, ?, ?) -- PARAMETERS: ["8221580f9d9494674ad1c191abed5ca0f6a7d46aaf0e7ad82e277f6d3680223a","82fce3b7b16c564ec27c98e745a68d715f4a7e48669e40302778793455f49c83","1","f128-release","proxy_f128_release_1795846581899_2","ec7f170b253fd629","claimed","2026-11-28 06:16:21.982",null,null]
+
+      at PlatformTools.logError (src/platform/PlatformTools.ts:214:17)
+
+    console.log
+      error: SqliteError: UNIQUE constraint failed: ai_write_claims.idempotency_key
+
+      at PlatformTools.logError (src/platform/PlatformTools.ts:214:17)
+
+    console.log
+      query failed: INSERT INTO "ai_write_claims"("id", "idempotency_key", "operation_key", "user_id", "conversation_id", "run_id", "tool_name", "args_hash", "agent_id", "status", "claimed_at", "settled_at", "effect_id", "release_reason", "decision_state", "attempts", "audit_row_id", "authorization_ref", "decided_role", "policy_revision") VALUES (NULL, ?, ?, ?, ?, NULL, ?, ?, NULL, ?, ?, NULL, NULL, NULL, 'open', 1, NULL, NULL, ?, ?) -- PARAMETERS: ["46504588207dd793705edb0f2f8a2d243150b134d91da93723ee3cca53620c4a","9389c94c1ad3d1726862cf66bbb45f2a03f15120fa0548d02f0c390d590ba871","1","f128-both","proxy_f128_both_1795846582000_3","4e884f408bbc3115","claimed","2026-11-28 06:16:22.091",null,null]
+
+      at PlatformTools.logError (src/platform/PlatformTools.ts:214:17)
+
+    console.log
+      error: SqliteError: UNIQUE constraint failed: ai_write_claims.idempotency_key
+
+      at PlatformTools.logError (src/platform/PlatformTools.ts:214:17)
+
+    console.log
+      query failed: INSERT INTO "ai_write_claims"("id", "idempotency_key", "operation_key", "user_id", "conversation_id", "run_id", "tool_name", "args_hash", "agent_id", "status", "claimed_at", "settled_at", "effect_id", "release_reason", "decision_state", "attempts", "audit_row_id", "authorization_ref", "decided_role", "policy_revision") VALUES (NULL, ?, ?, ?, ?, NULL, ?, ?, NULL, ?, ?, NULL, NULL, NULL, 'open', 1, NULL, NULL, ?, ?) -- PARAMETERS: ["46504588207dd793705edb0f2f8a2d243150b134d91da93723ee3cca53620c4a","9389c94c1ad3d1726862cf66bbb45f2a03f15120fa0548d02f0c390d590ba871","1","f128-both","proxy_f128_both_1795846582000_3","4e884f408bbc3115","claimed","2026-11-28 06:16:22.119",null,null]
+
+      at PlatformTools.logError (src/platform/PlatformTools.ts:214:17)
+
+    console.log
+      error: SqliteError: UNIQUE constraint failed: ai_write_claims.operation_key
+
+      at PlatformTools.logError (src/platform/PlatformTools.ts:214:17)
+
+[31m[Nest] 47288  - [39m2026/11/28 14:16:24 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mDELETE /api/v1/ai/my/tool-effects/1 - 404: 副作用记录不存在[39m
+NotFoundException: 副作用记录不存在
+    at AiController.revokeMyToolEffect (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\ai\ai.controller.ts:1005:24)
+PASS test/scenario-replay.e2e-spec.ts
+[31m[Nest] 47288  - [39m2026/11/28 14:16:27 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/audit/logs/2/tool-result - 403: Forbidden resource[39m
+ForbiddenException: Forbidden resource
+    at PoliciesGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\common\casl\policies.guard.ts:50:13)
+    at GuardsConsumer.tryActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\guards\guards-consumer.js:15:34)
+    at canActivateFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:146:33)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:43:31
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-proxy.js:9:17
+[31m[Nest] 47288  - [39m2026/11/28 14:16:27 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/audit/logs/4/tool-result - 404: 审计记录不存在[39m
+NotFoundException: 审计记录不存在
+    at AuditEvidenceService._findRowInReaderScope (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\governance-shared\services\audit-evidence.service.ts:1291:13)
+    at AuditEvidenceService.getToolResultBody (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\governance-shared\services\audit-evidence.service.ts:420:17)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:27 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/audit/logs/6/tool-result - 404: 该调用未留存工具结果正文[39m
+NotFoundException: 该调用未留存工具结果正文
+    at AuditEvidenceService.getToolResultBody (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\governance-shared\services\audit-evidence.service.ts:426:13)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:27 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/audit/logs/7/tool-result - 404: 该行不是工具调用[39m
+NotFoundException: 该行不是工具调用
+    at AuditEvidenceService.getToolResultBody (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\governance-shared\services\audit-evidence.service.ts:422:13)
+PASS test/tool-result-retention.e2e-spec.ts
+[31m[Nest] 47288  - [39m2026/11/28 14:16:28 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/events/1 - 403: 无权访问此事件[39m
+ForbiddenException: 无权访问此事件
+    at EventsService.findOne (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\events\events.service.ts:306:13)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:28 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPUT /api/v1/events/1 - 403: 无权访问此事件[39m
+ForbiddenException: 无权访问此事件
+    at EventsService.findOne (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\events\events.service.ts:306:13)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at EventsService.update (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\events\events.service.ts:338:19)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:28 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mDELETE /api/v1/events/1 - 403: 无权访问此事件[39m
+ForbiddenException: 无权访问此事件
+    at EventsService.findOne (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\events\events.service.ts:306:13)
+    at EventsService.remove (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\events\events.service.ts:351:19)
+    at EventsController.remove (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\events\events.controller.ts:144:5)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:28 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPATCH /api/v1/todos/1 - 403: 无权访问此待办[39m
+ForbiddenException: 无权访问此待办
+    at TodosService.findOne (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\todos\todos.service.ts:77:13)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at TodosService.update (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\todos\todos.service.ts:88:18)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:28 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mDELETE /api/v1/todos/1 - 403: 无权访问此待办[39m
+ForbiddenException: 无权访问此待办
+    at TodosService.findOne (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\todos\todos.service.ts:77:13)
+    at TodosService.remove (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\todos\todos.service.ts:96:18)
+    at TodosController.remove (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\todos\todos.controller.ts:69:5)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:28 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/crm/customers/1 - 403: 无权访问此客户[39m
+ForbiddenException: 无权访问此客户
+    at CrmService.getCustomer (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\crm\crm.service.ts:107:13)
+    at CrmService.getCustomerDetail (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\crm\crm.service.ts:140:22)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:28 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPATCH /api/v1/crm/customers/1 - 403: 无权访问此客户[39m
+ForbiddenException: 无权访问此客户
+    at CrmService.getCustomer (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\crm\crm.service.ts:107:13)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at CrmService.updateCustomer (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\crm\crm.service.ts:117:20)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:28 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mDELETE /api/v1/crm/customers/1 - 403: 无权访问此客户[39m
+ForbiddenException: 无权访问此客户
+    at CrmService.getCustomer (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\crm\crm.service.ts:107:13)
+    at CrmService.removeCustomer (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\crm\crm.service.ts:123:20)
+    at CrmController.removeCustomer (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\crm\crm.controller.ts:97:5)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:29 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/pm/projects/1 - 403: 无权访问此项目[39m
+ForbiddenException: 无权访问此项目
+    at PmService.getProject (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\pm\pm.service.ts:138:13)
+    at PmService.getProjectDetail (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\pm\pm.service.ts:165:21)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:29 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPATCH /api/v1/pm/projects/1 - 403: 无权访问此项目[39m
+ForbiddenException: 无权访问此项目
+    at PmService.getProject (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\pm\pm.service.ts:138:13)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at PmService.updateProject (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\pm\pm.service.ts:144:20)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:29 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mDELETE /api/v1/pm/projects/1 - 403: 无权访问此项目[39m
+ForbiddenException: 无权访问此项目
+    at PmService.getProject (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\pm\pm.service.ts:138:13)
+    at PmService.removeProject (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\pm\pm.service.ts:150:20)
+    at PmController.removeProject (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\pm\pm.controller.ts:91:5)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:29 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/approval/requests/1 - 403: 无权访问此审批请求[39m
+ForbiddenException: 无权访问此审批请求
+    at ApprovalService.getRequest (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\approval\approval.service.ts:75:13)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:29 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mDELETE /api/v1/approval/requests/1 - 403: 无权访问此审批请求[39m
+ForbiddenException: 无权访问此审批请求
+    at ApprovalService.getRequest (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\approval\approval.service.ts:75:13)
+    at ApprovalService.removeRequest (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\approval\approval.service.ts:90:20)
+    at ApprovalController.removeRequest (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\approval\approval.controller.ts:88:5)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:29 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPATCH /api/v1/suppliers/1 - 403: 无权访问此供应商[39m
+ForbiddenException: 无权访问此供应商
+    at SuppliersService.findOne (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\suppliers\suppliers.service.ts:59:13)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at SuppliersService.update (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\suppliers\suppliers.service.ts:65:20)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:29 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mDELETE /api/v1/suppliers/1 - 403: 无权访问此供应商[39m
+ForbiddenException: 无权访问此供应商
+    at SuppliersService.findOne (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\suppliers\suppliers.service.ts:59:13)
+    at SuppliersService.remove (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\suppliers\suppliers.service.ts:89:20)
+    at SuppliersController.remove (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\suppliers\suppliers.controller.ts:71:5)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:29 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPATCH /api/v1/contracts/1 - 403: 无权访问此合同[39m
+ForbiddenException: 无权访问此合同
+    at ContractsService.findOne (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\contracts\contracts.service.ts:59:13)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at ContractsService.update (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\contracts\contracts.service.ts:65:20)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:29 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mDELETE /api/v1/contracts/1 - 403: 无权访问此合同[39m
+ForbiddenException: 无权访问此合同
+    at ContractsService.findOne (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\contracts\contracts.service.ts:59:13)
+    at ContractsService.remove (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\contracts\contracts.service.ts:89:20)
+    at ContractsController.remove (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\contracts\contracts.controller.ts:71:5)
+[31m[Nest] 47288  - [39m2026/11/28 14:16:29 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/users - 403: Forbidden resource[39m
+ForbiddenException: Forbidden resource
+    at PoliciesGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\common\casl\policies.guard.ts:50:13)
+    at GuardsConsumer.tryActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\guards\guards-consumer.js:15:34)
+    at canActivateFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:146:33)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:43:31
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-proxy.js:9:17
+[31m[Nest] 47288  - [39m2026/11/28 14:16:29 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/audit/logs - 403: Forbidden resource[39m
+ForbiddenException: Forbidden resource
+    at PoliciesGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\common\casl\policies.guard.ts:50:13)
+    at GuardsConsumer.tryActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\guards\guards-consumer.js:15:34)
+    at canActivateFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:146:33)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:43:31
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-proxy.js:9:17
+[31m[Nest] 47288  - [39m2026/11/28 14:16:29 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/headless/chat - 401: 缺少 API Key[39m
+UnauthorizedException: 缺少 API Key
+    at HeadlessGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\headless\headless.guard.ts:27:13)
+    at GuardsConsumer.tryActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\guards\guards-consumer.js:15:34)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at canActivateFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:146:33)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:43:31
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-proxy.js:9:17
+[31m[Nest] 47288  - [39m2026/11/28 14:16:29 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/headless/chat - 401: headless API 未启用[39m
+UnauthorizedException: headless API 未启用
+    at HeadlessGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\headless\headless.guard.ts:32:13)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at GuardsConsumer.tryActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\guards\guards-consumer.js:22:17)
+    at canActivateFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:146:33)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:43:31
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-proxy.js:9:17
+[31m[Nest] 47288  - [39m2026/11/28 14:16:29 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mDELETE /api/v1/ai/my/tool-effects/1 - 404: 副作用记录不存在[39m
+NotFoundException: 副作用记录不存在
+    at AiController.revokeMyToolEffect (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\ai\ai.controller.ts:1005:24)
+PASS test/authorization.e2e-spec.ts
+PASS test/cross-entry-consistency.e2e-spec.ts
+[31m[Nest] 47288  - [39m2026/11/28 14:16:33 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/auth/permissions/explain/target - 403: Forbidden resource[39m
+ForbiddenException: Forbidden resource
+    at PoliciesGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\common\casl\policies.guard.ts:50:13)
+    at GuardsConsumer.tryActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\guards\guards-consumer.js:15:34)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at canActivateFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:146:33)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:43:31
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-proxy.js:9:17
+PASS test/explainable-authz.e2e-spec.ts
+PASS test/failure-path.e2e-spec.ts
+[31m[Nest] 47288  - [39m2026/11/28 14:16:36 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/search?q=ZephyrSearchable - 401: Unauthorized[39m
+UnauthorizedException: Unauthorized
+    at JwtAuthGuard.handleRequest (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:60:30)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:44:124
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:83:24
+    at allFailed (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:110:18)
+    at attempt (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:183:28)
+    at JwtStrategy.strategy.fail (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:314:9)
+    at JwtStrategy.Object.<anonymous>.JwtStrategy.authenticate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport-jwt\lib\strategy.js:96:21)
+    at attempt (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:378:16)
+    at authenticate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:379:7)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:88:3
+    at new Promise (<anonymous>)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:80:83
+    at JwtAuthGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:44:32)
+PASS test/searchable-generated-modules.e2e-spec.ts
+[31m[Nest] 47288  - [39m2026/11/28 14:16:38 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/ai/my/confirmations/e5af32bc-f7e7-408e-9997-b6f61360a37a/decide - 400: property args should not exist; property toolName should not exist[39m
+BadRequestException: Bad Request Exception
+    at ValidationPipe.exceptionFactory (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\common\pipes\validation.pipe.js:111:20)
+    at ValidationPipe.transform (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\common\pipes\validation.pipe.js:78:30)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\pipes\pipes-consumer.js:15:25
+    at resolveParamValue (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:159:23)
+    at async Promise.all (index 2)
+    at pipesFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:162:13)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:38:30
+[31m[Nest] 47288  - [39m2026/11/28 14:16:38 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/ai/my/confirmations/ed5c63c8-a611-4cd0-9b4f-98d0ea121ec1/decide - 400: property args should not exist; property toolName should not exist[39m
+BadRequestException: Bad Request Exception
+    at ValidationPipe.exceptionFactory (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\common\pipes\validation.pipe.js:111:20)
+    at ValidationPipe.transform (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\common\pipes\validation.pipe.js:78:30)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\pipes\pipes-consumer.js:15:25
+    at resolveParamValue (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:159:23)
+    at async Promise.all (index 2)
+    at pipesFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:162:13)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:38:30
+[31m[Nest] 47288  - [39m2026/11/28 14:16:38 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/ai/my/confirmations/9c29a9cc-91bb-4d90-a22e-0a70bd929b43/decide - 404: Confirmation request not found, already decided, or not decidable offline[39m
+NotFoundException: Confirmation request not found, already decided, or not decidable offline
+    at AiController.decideMyConfirmation (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\ai\ai.controller.ts:983:13)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+PASS test/confirmation-artifact-binding.e2e-spec.ts
+PASS test/ai-behavior-baseline.e2e-spec.ts
+PASS test/app-capabilities.e2e-spec.ts
+
+Test Suites: 12 passed, 12 total
+Tests:       210 passed, 210 total
+Snapshots:   0 total
+Time:        40.785 s, estimated 48 s
+Ran all test suites.
+Force exiting Jest: Have you considered using `--detectOpenHandles` to detect async operations that kept running after all tests finished?
+
+── e2e 分片 4/4 ──
+PASS test/target-status-receipt.e2e-spec.ts
+[31m[Nest] 45228  - [39m2026/11/28 14:16:47 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/suppliers - 401: Unauthorized[39m
+UnauthorizedException: Unauthorized
+    at JwtAuthGuard.handleRequest (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:60:30)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:44:124
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:83:24
+    at allFailed (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:110:18)
+    at attempt (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:183:28)
+    at JwtStrategy.strategy.fail (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:314:9)
+    at JwtStrategy.Object.<anonymous>.JwtStrategy.authenticate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport-jwt\lib\strategy.js:96:21)
+    at attempt (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:378:16)
+    at authenticate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:379:7)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:88:3
+    at new Promise (<anonymous>)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:80:83
+    at JwtAuthGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:44:32)
+[31m[Nest] 45228  - [39m2026/11/28 14:16:47 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/suppliers/admin/all - 403: Forbidden resource[39m
+ForbiddenException: Forbidden resource
+    at PoliciesGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\common\casl\policies.guard.ts:50:13)
+    at GuardsConsumer.tryActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\guards\guards-consumer.js:15:34)
+    at canActivateFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:146:33)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:43:31
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-proxy.js:9:17
+[31m[Nest] 45228  - [39m2026/11/28 14:16:47 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mDELETE /api/v1/suppliers/admin/2 - 403: Forbidden resource[39m
+ForbiddenException: Forbidden resource
+    at PoliciesGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\common\casl\policies.guard.ts:50:13)
+    at GuardsConsumer.tryActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\guards\guards-consumer.js:15:34)
+    at canActivateFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:146:33)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:43:31
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-proxy.js:9:17
+[31m[Nest] 45228  - [39m2026/11/28 14:16:47 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/contracts - 400: status must be one of the following values: draft, reviewing, active, expired, terminated[39m
+BadRequestException: Bad Request Exception
+    at ValidationPipe.exceptionFactory (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\common\pipes\validation.pipe.js:111:20)
+    at ValidationPipe.transform (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\common\pipes\validation.pipe.js:78:30)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\pipes\pipes-consumer.js:15:25
+    at resolveParamValue (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:159:23)
+    at async Promise.all (index 1)
+    at pipesFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:162:13)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:38:30
+[31m[Nest] 45228  - [39m2026/11/28 14:16:48 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPATCH /api/v1/contracts/2 - 403: 无权访问此合同[39m
+ForbiddenException: 无权访问此合同
+    at ContractsService.findOne (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\contracts\contracts.service.ts:59:13)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at ContractsService.update (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\contracts\contracts.service.ts:65:20)
+[31m[Nest] 45228  - [39m2026/11/28 14:16:48 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mDELETE /api/v1/contracts/2 - 403: 无权访问此合同[39m
+ForbiddenException: 无权访问此合同
+    at ContractsService.findOne (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\contracts\contracts.service.ts:59:13)
+    at ContractsService.remove (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\contracts\contracts.service.ts:89:20)
+    at ContractsController.remove (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\contracts\contracts.controller.ts:71:5)
+[31m[Nest] 45228  - [39m2026/11/28 14:16:48 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/contracts/admin/all - 403: Forbidden resource[39m
+ForbiddenException: Forbidden resource
+    at PoliciesGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\common\casl\policies.guard.ts:50:13)
+    at GuardsConsumer.tryActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\guards\guards-consumer.js:15:34)
+    at canActivateFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:146:33)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:43:31
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-proxy.js:9:17
+[31m[Nest] 45228  - [39m2026/11/28 14:16:48 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/books - 400: status must be one of the following values: unread, reading, finished[39m
+BadRequestException: Bad Request Exception
+    at ValidationPipe.exceptionFactory (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\common\pipes\validation.pipe.js:111:20)
+    at ValidationPipe.transform (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\common\pipes\validation.pipe.js:78:30)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\pipes\pipes-consumer.js:15:25
+    at resolveParamValue (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:159:23)
+    at async Promise.all (index 1)
+    at pipesFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:162:13)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:38:30
+[31m[Nest] 45228  - [39m2026/11/28 14:16:48 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/notes - 400: category must be one of the following values: work, personal, idea, archive[39m
+BadRequestException: Bad Request Exception
+    at ValidationPipe.exceptionFactory (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\common\pipes\validation.pipe.js:111:20)
+    at ValidationPipe.transform (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\common\pipes\validation.pipe.js:78:30)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\pipes\pipes-consumer.js:15:25
+    at resolveParamValue (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:159:23)
+    at async Promise.all (index 1)
+    at pipesFn (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:162:13)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\core\router\router-execution-context.js:38:30
+PASS test/generated-modules.e2e-spec.ts
+PASS test/generated-module-governance.e2e-spec.ts
+[31m[Nest] 45228  - [39m2026/11/28 14:16:52 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/mcp - 401: Unauthorized[39m
+UnauthorizedException: Unauthorized
+    at JwtAuthGuard.handleRequest (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:60:30)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:44:124
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:83:24
+    at allFailed (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:110:18)
+    at attempt (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:183:28)
+    at JwtStrategy.strategy.fail (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:314:9)
+    at JwtStrategy.Object.<anonymous>.JwtStrategy.authenticate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport-jwt\lib\strategy.js:96:21)
+    at attempt (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:378:16)
+    at authenticate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:379:7)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:88:3
+    at new Promise (<anonymous>)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:80:83
+    at JwtAuthGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:44:32)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+PASS test/mcp-export.e2e-spec.ts
+PASS test/target-status-history-sweep.e2e-spec.ts
+[31m[Nest] 45228  - [39m2026/11/28 14:16:56 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/events/1 - 403: 无权访问此事件[39m
+ForbiddenException: 无权访问此事件
+    at EventsService.findOne (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\events\events.service.ts:306:13)
+PASS test/data-scope.e2e-spec.ts
+[31m[Nest] 45228  - [39m2026/11/28 14:16:58 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/approval/requests/1/review - 404: 审批请求不存在或无权访问[39m
+NotFoundException: 审批请求不存在或无权访问
+    at ApprovalService.reviewRequest (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\approval\approval.service.ts:100:21)
+[31m[Nest] 45228  - [39m2026/11/28 14:16:58 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/approval/requests/1/decide - 404: 审批请求不存在或无权访问[39m
+NotFoundException: 审批请求不存在或无权访问
+    at ApprovalService.decideRequest (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\approval\approval.service.ts:131:21)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[Nest] 45228  - [39m2026/11/28 14:16:58 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/approval/requests/6/review - 400: 仅待处理的请求可预审[39m
+BadRequestException: 仅待处理的请求可预审
+    at ApprovalService.reviewRequest (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\approval\approval.service.ts:101:41)
+[31m[Nest] 45228  - [39m2026/11/28 14:16:58 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/approval/requests/6/decide - 400: 仅待复核的请求可决定[39m
+BadRequestException: 仅待复核的请求可决定
+    at ApprovalService.decideRequest (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\approval\approval.service.ts:132:46)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[Nest] 45228  - [39m2026/11/28 14:16:58 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/approval/requests/7/decide - 400: 仅待复核的请求可决定[39m
+BadRequestException: 仅待复核的请求可决定
+    at ApprovalService.decideRequest (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\approval\approval.service.ts:132:46)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[Nest] 45228  - [39m2026/11/28 14:16:58 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/approval/requests/8/review - 404: 审批请求不存在或无权访问[39m
+NotFoundException: 审批请求不存在或无权访问
+    at ApprovalService.reviewRequest (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\approval\approval.service.ts:100:21)
+PASS test/approval-trust-failure-path.e2e-spec.ts
+PASS test/admin-sanitize.e2e-spec.ts
+[31m[Nest] 45228  - [39m2026/11/28 14:17:02 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/ai/my/confirmations/36a66163-0b43-4934-9d84-3746b76faf99/decide - 404: Confirmation request not found, already decided, or not decidable offline[39m
+NotFoundException: Confirmation request not found, already decided, or not decidable offline
+    at AiController.decideMyConfirmation (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\ai\ai.controller.ts:983:13)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[Nest] 45228  - [39m2026/11/28 14:17:02 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mPOST /api/v1/ai/my/confirmations/5e3b8436-b459-4af2-a8b9-0e093c43f142/decide - 404: Confirmation request not found, already decided, or not decidable offline[39m
+NotFoundException: Confirmation request not found, already decided, or not decidable offline
+    at AiController.decideMyConfirmation (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\ai\ai.controller.ts:983:13)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+PASS test/my-confirmations.e2e-spec.ts
+[31m[Nest] 45228  - [39m2026/11/28 14:17:04 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/approval/requests - 401: Unauthorized[39m
+UnauthorizedException: Unauthorized
+    at JwtAuthGuard.handleRequest (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:60:30)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:44:124
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:83:24
+    at allFailed (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:110:18)
+    at attempt (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:183:28)
+    at JwtStrategy.strategy.fail (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:314:9)
+    at JwtStrategy.Object.<anonymous>.JwtStrategy.authenticate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport-jwt\lib\strategy.js:96:21)
+    at attempt (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:378:16)
+    at authenticate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:379:7)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:88:3
+    at new Promise (<anonymous>)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:80:83
+    at JwtAuthGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:44:32)
+[31m[Nest] 45228  - [39m2026/11/28 14:17:04 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/approval/requests/4 - 403: 无权访问此审批请求[39m
+ForbiddenException: 无权访问此审批请求
+    at ApprovalService.getRequest (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\approval\approval.service.ts:75:13)
+PASS test/approval.e2e-spec.ts
+[31m[Nest] 45228  - [39m2026/11/28 14:17:05 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/pm/projects - 401: Unauthorized[39m
+UnauthorizedException: Unauthorized
+    at JwtAuthGuard.handleRequest (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:60:30)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:44:124
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:83:24
+    at allFailed (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:110:18)
+    at attempt (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:183:28)
+    at JwtStrategy.strategy.fail (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:314:9)
+    at JwtStrategy.Object.<anonymous>.JwtStrategy.authenticate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport-jwt\lib\strategy.js:96:21)
+    at attempt (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:378:16)
+    at authenticate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\passport\lib\middleware\authenticate.js:379:7)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:88:3
+    at new Promise (<anonymous>)
+    at D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:80:83
+    at JwtAuthGuard.canActivate (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\node_modules\@nestjs\passport\dist\auth.guard.js:44:32)
+[31m[Nest] 45228  - [39m2026/11/28 14:17:05 [31m  ERROR[39m [38;5;3m[AllExceptionsFilter] [39m[31mGET /api/v1/pm/projects/3 - 403: 无权访问此项目[39m
+ForbiddenException: 无权访问此项目
+    at PmService.getProject (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\pm\pm.service.ts:138:13)
+    at PmService.getProjectDetail (D:\Rain6fish\KeelBase\.claude\worktrees\q5-delivery-baseline-1128\Server-NestJS\src\pm\pm.service.ts:165:21)
+PASS test/pm.e2e-spec.ts
+PASS test/ws-realtime.e2e-spec.ts
+
+Test Suites: 12 passed, 12 total
+Tests:       63 passed, 63 total
+Snapshots:   0 total
+Time:        25.397 s, estimated 31 s
+Ran all test suites.
+Force exiting Jest: Have you considered using `--detectOpenHandles` to detect async operations that kept running after all tests finished?
+
+✓ e2e 全部通过（4 片）
